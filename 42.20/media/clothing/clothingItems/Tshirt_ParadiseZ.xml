@@ -1,0 +1,43 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<clothingItem>
+	<m_MaleModel></m_MaleModel>
+	<m_FemaleModel></m_FemaleModel>
+	<m_GUID>8c16a036-e650-485f-8ac0-3efdf95004bf</m_GUID>
+	<m_Static>false</m_Static>
+	<m_AllowRandomHue>false</m_AllowRandomHue>
+	<m_AllowRandomTint>false</m_AllowRandomTint>
+	<m_AttachBone></m_AttachBone>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_2Fa</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Blaze</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Bomb</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Client</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Explode</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Frost</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_HQ</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Hunt</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_jaynie</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Jim</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_JimSteam</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_JimSteam2</m_BaseTextures>
+
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Light</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Lvl</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_MineField</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Modder</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_NoCamp</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Party</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_PvE</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_PvP</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Rad</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Rally</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Reset</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_RIP</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Safe</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Server</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Sprint</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Sync</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Trade</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Traits</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Trash</m_BaseTextures>
+	<m_BaseTextures>Clothes\Shirt_Tshirt_Textures\Tshirt_ParadiseZ_Wash</m_BaseTextures>
+</clothingItem>

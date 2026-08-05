@@ -1,0 +1,50 @@
+module ParadiseZ
+{
+    model MedkitPvP_Ground
+    {
+        mesh = WorldItems/Clothing/DuffelBag_Ground,
+        texture = WorldItems/MedkitPvP,
+        scale = 0.3,
+    }
+
+    model TheRangeCard
+    {
+        mesh = WorldItems/CreditCard,
+        texture = WorldItems/TheRangeCard,
+        scale = 0.6,
+    }
+
+    model PiggyBank
+    {
+        mesh = WorldItems/Aluminum,
+        texture = WorldItems/PiggyBank,
+        scale = 1.0,
+    }
+
+    item MedkitPvP
+    {
+        DisplayCategory = Material,
+        ItemType = base:normal,
+        Weight = 0.3,
+        Icon = MedkitPvP,
+        WorldStaticModel = MedkitPvP_Ground,
+    }
+
+    item PiggyBank
+    {
+        DisplayCategory = Material,
+        ItemType = base:normal,
+        Weight = 1.0,
+        Icon = PiggyBank,
+        WorldStaticModel = PiggyBank,
+    }
+
+    item TheRangeCard
+    {
+        DisplayCategory = Junk,
+        ItemType = base:normal,
+        Weight = 0.1,
+        Icon = TheRangeCard,
+        WorldStaticModel = TheRangeCard,
+    }
+}

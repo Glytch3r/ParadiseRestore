@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<clothingItem>
+	<m_MaleModel>Skinned\Backpacks\TurtBag_LHand</m_MaleModel>
+	<m_FemaleModel>Skinned\Backpacks\TurtBag_LHand</m_FemaleModel>
+	<m_GUID>4b60df44-db1c-4aa8-933d-4848035bd73d</m_GUID>
+	<m_Static>false</m_Static>
+	<m_AllowRandomHue>false</m_AllowRandomHue>
+	<m_AllowRandomTint>false</m_AllowRandomTint>
+	<m_AttachBone></m_AttachBone>
+	<textureChoices>Clothes\Backpacks\TurtBag1</textureChoices>
+	<textureChoices>Clothes\Backpacks\TurtBag2</textureChoices>
+	<textureChoices>Clothes\Backpacks\TurtBag3</textureChoices>
+	<textureChoices>Clothes\Backpacks\TurtBag4</textureChoices>
+	<textureChoices>Clothes\Backpacks\TurtBag5</textureChoices>
+</clothingItem>
+

@@ -1,0 +1,51 @@
+module ParadiseDev
+{
+    character_trait_definition ParadiseDev:TheRangeStaff
+    {
+        CharacterTrait = ParadiseDev:TheRangeStaff,
+        IsProfessionTrait = false,
+        DisabledInMultiplayer = false,
+        Cost = 1,
+        UIName = UI_trait_TheRangeStaff,
+        UIDescription = UI_trait_TheRangeStaffDesc,
+        Texture = media/ui/Traits/trait_TheRangeStaff.png,
+    }
+    character_trait_definition ParadiseDev:Caged
+    {
+        CharacterTrait = ParadiseDev:Caged,
+        IsProfessionTrait = false,
+        DisabledInMultiplayer = false,
+        Cost = 2,
+        UIName = UI_trait_Caged,
+        UIDescription = UI_trait_CagedDesc,
+        Texture = media/ui/Traits/trait_Caged.png,
+    }
+
+
+
+    character_trait_definition ParadiseDev:InjuredPvP
+    {
+        CharacterTrait = ParadiseDev:InjuredPvP,
+        IsProfessionTrait = false,
+        DisabledInMultiplayer = false,
+        Cost = 1,
+        UIName = UI_trait_InjuredPvP,
+        UIDescription = UI_trait_InjuredPvPDesc,
+        Texture = media/ui/Traits/trait_InjuredPvP.png,
+    }
+    character_trait_definition ParadiseDev:PvE
+    {
+        CharacterTrait = ParadiseDev:PvE,
+        IsProfessionTrait = false,
+        DisabledInMultiplayer = false,
+        Cost = 2,
+        UIName = UI_trait_PvE,
+        UIDescription = UI_trait_PvEDesc,
+        Texture = media/ui/Traits/trait_PvE.png,
+    }
+
+
+}
+
+
+

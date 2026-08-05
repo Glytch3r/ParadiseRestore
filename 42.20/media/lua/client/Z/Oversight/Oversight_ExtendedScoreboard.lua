@@ -1,0 +1,789 @@
+--ParadiseZ = ParadiseZ or {}
+--ExtendedScoreboard = ExtendedScoreboard or {}
+--function ExtendedScoreboard.getGender(pl)
+--    if pl:isFemale() then
+--        return "Female"
+--    else
+--        return "Male"
+--    end
+--end
+--
+--function ExtendedScoreboard.safeGet(func)
+--    local ok, result = pcall(func)
+--    return ok and result or nil
+--end
+--
+--ExtendedScoreboard.filters = {"Identity", "Health", "Combat", "Information", "Movement"}
+--ExtendedScoreboard.fieldOrder = {
+--    Identity = {"Profession", "Access Level", "Display Name","Forename","Surname","Gender","Weight","Steam ID","NonPvP"},
+--    Health = {"Overall Health","Bleeding","Infection Level","Dead","Infected","Hunger","Thirst","Stress","Unhappy","Boredom"},
+--    Combat = {"Weapon Type","PvP Mode","Aiming","Attacking","On The Ground","Attack From Behind","Attacked By","Zombie Kills","Targeted By Zombie"},
+--    Information = {"Faction","Hours Survived","Ping","Night Vision","Speaking","Voice Muted","No Clip","Vehicle Use Duration","On Fire"},
+--    Movement = {"Coordinates","Zone","Caged","Safehouse","Sneaking","Moving","Performing Action","Running Time","Just Moved","Can't Sprint","Looking In Vehicle"},
+--}
+--
+--ExtendedScoreboard.fieldMapping = {
+--    Identity = {"profession","accessLevel", "displayName","Forname","Surname","Gender","Weight","steamID","NonPvP"},
+--    Health = {"OverallHealth","bleedingLevel","InfectionLevel","IsDead","IsInfected","Hunger","Thirst","Stress","Happy","Boredom"},
+--    Combat = {"weapon","PvPSafetyEnabled","IsAiming","IsAttacking","isOnFloor","attackFromBehind","AttackedBy","ZombieKills","targetedByZombie"},
+--    Information = {"Faction", "HoursSurvived","ping","isWearingNightVisionGoggles","isSpeek","isVoiceMute","noClip","useVehicleDuration","fire"},
+--    Movement = {"Coordinates","Zone","Caged","isInSafehouse","IsSneaking","m_isPlayerMoving","m_isPerformingAnAction","runningTime","JustMoved","MoodleCantSprint","bLookingWhileInVehicle"},
+--}
+--
+--ExtendedScoreboard.otherSpecials = {    
+--    ["IsDead"]=true,
+--    ["IsInfected"]=true,
+--    ["PvPSafetyEnabled"]=true,
+--    ["IsAiming"]=true,
+--    ["isOnFloor"]=true,
+--    ["attackFromBehind"]=true,
+--    ["noClip"]=true,
+--    ["fire"]=true,
+--    ["IsAttacking"]=true,
+--    ["isWearingNightVisionGoggles"]=true,
+--    ["isSpeek"]=true,
+--    ["isVoiceMute"]=true,
+--    ["IsSneaking"]=true,
+--    ["m_isPlayerMoving"]=true,
+--    ["m_isPerformingAnAction"]=true,
+--    ["JustMoved"]=true,
+--    ["MoodleCantSprint"]=true,
+--    ["bLookingWhileInVehicle"]=true,
+--}
+--
+--ExtendedScoreboard.hasAltIco = {    
+--    ["MoodleCantSprint"]=true,
+--    ["isSpeek"]=true,
+--    ["IsAiming"]=true,
+--    ["IsSneaking"]=true,
+--    ["fire"]=true,
+--
+--}
+--
+--
+--function ExtendedScoreboard.isInSafehouse(sh, x, y)
+--    if sh == nil then 
+--        return "None"
+--    end
+--    if not sh:containsLocation(x, y) then
+--        return sh:getTitle() 
+--    end
+--    return "In Safehouse"
+--end
+--
+--function ExtendedScoreboard.buildRemotePlayerData(user)
+--    local obj = getPlayerFromUsername(user)
+--    if not obj then return nil end
+--   
+--    local body = obj:getBodyDamage()
+--    if not obj:isLocalPlayer() then
+--        body = obj:getBodyDamageRemote()
+--    end
+--    
+--    local mood = obj:getMoodles()
+--    local stats = obj:getStats()
+--    local desc = obj:getDescriptor()
+--    local faction = "None"
+--    local sh = SafeHouse.hasSafehouse(user) 
+--    local wpn =  WeaponType.getWeaponType(obj) or ExtendedScoreboard.getFieldValue(obj, "WeaponT") or "Unarmed"
+--    local x, y = math.floor(obj:getX()), math.floor(obj:getY())
+--    local playerFaction = ExtendedScoreboard.safeGet(function() return Faction.getPlayerFaction(obj) end)
+--    if playerFaction then
+--        faction = ExtendedScoreboard.safeGet(function() return playerFaction:getTag() end) or "None"
+--    end
+--
+--    local panelData = {
+--        Identity = {
+--            username = ExtendedScoreboard.getFieldValue(obj, "username") or user,
+--            profession = desc:getProfession() or "",
+--            
+--            accessLevel = ExtendedScoreboard.getFieldValue(obj, "accessLevel") or  obj:getAccessLevel() or "",
+--
+--            displayName = ExtendedScoreboard.getFieldValue(obj, "displayName") or "",
+--            Forname = ExtendedScoreboard.getFieldValue(obj, "Forname") or "",
+--            Surname = ExtendedScoreboard.getFieldValue(obj, "Surname") or "",
+--            Gender = ExtendedScoreboard.getGender(obj),
+--            Weight =  obj:getNutrition():getWeight(),
+--
+--            steamID = ExtendedScoreboard.getFieldValue(obj, "steamID") or "",
+--            NonPvP = ParadiseZ.isPvE(obj) or "",
+--        },
+--
+--        Health = {
+--            OverallHealth = math.floor(body:getOverallBodyHealth()),
+--            bleedingLevel = ExtendedScoreboard.getFieldValue(obj, "bleedingLevel") or 0,
+--            InfectionLevel = math.floor(body:getInfectionLevel()),
+--            IsDead = obj:isDead() == true,
+--            IsInfected = body:isInfected() == true,
+--            Hunger = math.floor(stats:getHunger() * 100) or mood:getMoodleLevel(MoodleType.Hunger),
+--            Thirst = math.floor(stats:getThirst() * 100),
+--            Stress = math.floor(stats:getStress() * 100),
+--            Happy = math.floor(body:getUnhappynessLevel()),
+--            Boredom = math.floor(body:getBoredomLevel()),
+--        },
+--        Combat = {
+--            weapon = string.upper(tostring(wpn)),
+--            IsAiming = obj:isAiming() == true,
+--            IsAttacking = obj:isAttacking() == true,
+--            isOnFloor = obj:isOnFloor() == true,
+--            attackFromBehind = ExtendedScoreboard.getFieldValue(obj, "attackFromBehind") == true,
+--            AttackedBy = obj:getAttackedBy() or "None",
+--            ZombieKills = obj:getZombieKills() or 0,
+--            targetedByZombie = stats:getNumChasingZombies() or ExtendedScoreboard.getFieldValue(obj, "targetedByZombie") == true,            
+--            spottedByPlayer = ExtendedScoreboard.getFieldValue(obj, "spottedByPlayer") == true,
+--            PvPSafetyEnabled = obj:getSafety():isEnabled() ~= true,
+--            
+--        },
+--        Information = {  
+--            Faction = faction,
+--            HoursSurvived = ExtendedScoreboard.getFieldValue(obj, "HoursSurvived") or 0,
+--            ping = ExtendedScoreboard.getFieldValue(obj, "ping") or 0,
+--            isWearingNightVisionGoggles = ExtendedScoreboard.getFieldValue(obj, "isWearingNightVisionGoggles") == true,
+--            isSpeek = ExtendedScoreboard.getFieldValue(obj, "isSpeek") == true,
+--            isVoiceMute = ExtendedScoreboard.getFieldValue(obj, "isVoiceMute") == true,
+--            noClip = ExtendedScoreboard.getFieldValue(obj, "noClip") == true,
+--            useVehicleDuration = ExtendedScoreboard.getFieldValue(obj, "useVehicleDuration") or 0,
+--            fire =  obj:isOnFire() 
+--        },
+--        Movement = {
+--            Coordinates = tostring(x) ..', '.. tostring(y) ..', '.. tostring(obj:getZ()),
+--            Zone = ParadiseZ.getZoneName(x, y),    
+--            Caged = ParadiseZ.isCagedPl(obj),
+--            isInSafehouse = ExtendedScoreboard.isInSafehouse(sh, x, y),
+--            IsSneaking = obj:isSneaking() == true,
+--            m_isPlayerMoving = ExtendedScoreboard.getFieldValue(obj, "m_isPlayerMoving") == true,
+--            m_isPerformingAnAction = ExtendedScoreboard.getFieldValue(obj, "m_isPerformingAnAction") == true,
+--            runningTime = ExtendedScoreboard.getFieldValue(obj, "runningTime") or 0,
+--            JustMoved = ExtendedScoreboard.getFieldValue(obj, "JustMoved") == true,
+--            MoodleCantSprint = ExtendedScoreboard.getFieldValue(obj, "MoodleCantSprint") == true,
+--            bLookingWhileInVehicle = ExtendedScoreboard.getFieldValue(obj, "bLookingWhileInVehicle") == true,
+--        },
+--    }
+--
+--    return panelData
+--end
+--
+--
+--function ExtendedScoreboard.getCategoryData(user, category)
+--    local panelData = ExtendedScoreboard.buildRemotePlayerData(user)
+--    if not panelData or not panelData[category] then return {} end
+--    
+--    local rows = {}
+--    for key, value in pairs(panelData[category]) do
+--        table.insert(rows, { field = key, value = tostring(value) })
+--    end
+--    return rows
+--end
+--function ExtendedScoreboard.getAllCategories(user)
+--    local panelData = ExtendedScoreboard.buildRemotePlayerData(user)
+--    if not panelData then return {} end
+--    
+--    local categories = {}
+--    for categoryName, _ in pairs(panelData) do
+--        table.insert(categories, categoryName)
+--    end
+--    return categories
+--end
+--function ExtendedScoreboard.getPlayerList()
+--    local players = {}
+--    local user = getPlayer():getUsername() 
+--    
+--    if ExtendedScoreboard.playerData and ExtendedScoreboard.playerData.usernames then
+--        local usernames = ExtendedScoreboard.playerData.usernames
+--        local size = 0
+--        local ok, s = pcall(function() return usernames:size() end)
+--        if ok and s then size = s end
+--        for i = 0, size - 1 do
+--            local ok2, name = pcall(function() return usernames:get(i) end)
+--            if ok2 and name and tostring(name) ~= "" then
+--                table.insert(players, tostring(name))
+--            end
+--        end
+--    else
+--        for i=0, getOnlinePlayers():size()-1 do
+--            local player = getOnlinePlayers():get(i)
+--            if player then
+--                local username = player:getUsername()
+--                if user and username and username ~= user then
+--                    table.insert(players, tostring(username))
+--                end
+--            end
+--        end
+--    end
+--    
+--    return players
+--end
+--
+--function ExtendedScoreboard.getFieldValue(obj, fieldName)
+--    local numClassFields = getNumClassFields(obj)
+--    for i = 0, numClassFields - 1 do
+--        local javaField = getClassField(obj, i)
+--        if javaField and javaField:getName() == fieldName then
+--            local ok, value = pcall(function() return javaField:get(obj) end)
+--            if not ok then return nil end
+--            if value == nil then return nil end
+--
+--            if type(value) == "boolean" then
+--                return value  
+--            elseif type(value) == "string" then
+--                if string.find(value, "true") then
+--                    return true
+--                elseif string.find(value, "false") then
+--                    return false
+--                else
+--                    return value
+--                end
+--            end
+--        end
+--    end
+--    return nil
+--end
+--
+--
+-------------------------            ----------------------
+--ExtendedScoreboardPanel = ISCollapsableWindow:derive("ExtendedScoreboardPanel")
+--local FONT_HGT_SMALL = getTextManager():getFontHeight(UIFont.Small)
+--function ExtendedScoreboardPanel:initialise()
+--    ISCollapsableWindow.initialise(self)
+--end
+--function ExtendedScoreboardPanel:prerender()
+--    ISCollapsableWindow.prerender(self)
+--end
+--function ExtendedScoreboardPanel:onActivateView()
+--    if self.tabPanel and self.tabPanel.activeView and self.tabPanel.activeView.view then
+--        self.tabPanel.activeView.view:updateDataList()
+--    end
+--end
+--
+--function ExtendedScoreboardPanel:createChildren()
+--    ISCollapsableWindow.createChildren(self)
+--    local btnWid = 130
+--    local btnHgt = math.max(25, FONT_HGT_SMALL + 6)
+--    local padBottom = 10
+--    self.tabPanel = ISTabPanel:new(0, self:titleBarHeight() * 2 , self.width - 5, self.height - self:titleBarHeight() * 4 - 5 - btnHgt - padBottom)
+--    self.tabPanel:initialise()
+--    self.tabPanel.borderColor = {r=0.9, g=0, b=0, a=0.1}
+--    self.tabPanel.onActivateView = ExtendedScoreboardPanel.onActivateView
+--    self.tabPanel.target = self
+--    self:addChild(self.tabPanel)
+--    self.tabPanel:setVisible(true);
+--    self.tabPanel:setEqualTabWidth(false);
+--    local categories = ExtendedScoreboard.filters
+--    for _, cat in ipairs(categories) do
+--        local tabView = ExtendedScoreboardTab:new(0, 0, self.tabPanel.width, self.tabPanel.height - self.tabPanel.tabHeight, cat)
+--        tabView:initialise()
+--        self.tabPanel:addView(cat, tabView)
+--    end
+--    self.closeBtn = ISButton:new(self.width - btnWid - 10, self.height - btnHgt - padBottom, btnWid, btnHgt, "Close", self, ExtendedScoreboardPanel.onClick)
+--    self.closeBtn.internal = "CLOSE"
+--    self.closeBtn.anchorTop = false
+--    self.closeBtn.anchorBottom = true
+--    self.closeBtn:initialise()
+--    self.closeBtn:instantiate()
+--    self:addChild(self.closeBtn)
+--end
+--function ExtendedScoreboardPanel:onClick(button)
+--    if button.internal == "CLOSE" then
+--        self:close()
+--    end
+--end
+--
+--ExtendedScoreboard.ticks = 0
+--function ExtendedScoreboard.liveUpdateTick()
+--    ExtendedScoreboard.ticks = (ExtendedScoreboard.ticks or 0) + 1
+--    local isFast = not SandboxVars.ParadiseZ.ScoreboardSlowerRefresh
+--    if ExtendedScoreboard.instance then
+--        local pauseVar = 7
+--        if isFast then
+--            pauseVar = 3
+--        end
+--        if ExtendedScoreboard.ticks % pauseVar == 0 then
+--            ExtendedScoreboard.instance:refreshAllTabs()
+--        end
+--    end
+--end
+--Events.OnPlayerUpdate.Remove(ExtendedScoreboard.liveUpdateTick)
+--Events.OnPlayerUpdate.Add(ExtendedScoreboard.liveUpdateTick)
+--
+--function ExtendedScoreboardPanel:refreshAllTabs()
+--    local views = self.tabPanel.viewList
+--    if not views then return end
+--    for i = 1, #views do
+--        local v = views[i]
+--        if v and v.view then
+--            v.view:updateDataList()
+--        end
+--    end
+--end
+--
+--function ExtendedScoreboard.onScoreboardUpdate(usernames, displayNames, steamIDs)
+--    ExtendedScoreboard.playerData = {
+--        usernames = usernames,
+--        displayNames = displayNames,
+--        steamIDs = steamIDs
+--    }
+--    if ExtendedScoreboard.instance then
+--        ExtendedScoreboard.instance:refreshAllTabs()
+--    end
+--end
+--Events.OnScoreboardUpdate.Add(ExtendedScoreboard.onScoreboardUpdate)
+--function ExtendedScoreboardPanel:close()
+--    self:setVisible(false)
+--    self:removeFromUIManager()
+--    ExtendedScoreboard.instance = nil
+--end
+--function ExtendedScoreboardPanel:new(x, y, width, height)
+--    local o = ISCollapsableWindow:new(x, y, width, height)
+--    setmetatable(o, self)
+--    self.__index = self
+--    o.title = "Extended Scoreboard"
+--    o.resizable = true
+--    o.drawFrame = true
+--    o.backgroundColor = {r=0, g=0, b=0, a=0.8}
+--    o.showBackground = true
+--    o.showBorder = true
+--    o.showTitle = true
+--    o.moveWithMouse = true
+--    return o
+--end
+-------------------------            ---------------------------
+--ExtendedScoreboardTab = ISPanel:derive("ExtendedScoreboardTab")
+--function ExtendedScoreboardTab:initialise()
+--    ISPanel.initialise(self)
+--end
+--function ExtendedScoreboardTab:createChildren()
+--    ISPanel.createChildren(self)
+--end
+--function ExtendedScoreboardTab:prerender()
+--    if not self.dataList then
+--        self.dataList = ISScrollingListBox:new(0, 0, self.width, self.height)
+--        self.dataList:initialise()
+--        self.dataList:instantiate()
+--        self.dataList.itemheight = FONT_HGT_SMALL + 8
+--        self.dataList.font = UIFont.Small
+--        self.dataList.selected = 0
+--        self.dataList.doDrawItem = self.drawDataItem
+--        self.dataList.drawBorder = true
+--        self:addChild(self.dataList)
+--        self:updateDataList()
+--    end
+--end
+--
+--function ExtendedScoreboardTab:getActiveFields()
+--
+--    local fields = {}
+--    for i, displayName in ipairs(ExtendedScoreboard.fieldOrder[self.categoryName]) do
+--        local actualField = ExtendedScoreboard.fieldMapping[self.categoryName][i]
+--        table.insert(fields, {category=self.categoryName, field=actualField, displayName=displayName})
+--    end
+--    return fields
+--end
+--function ExtendedScoreboardTab:updateDataList()
+--    if not self.dataList then return end
+--    
+--    self.dataList:clear()
+--    local activeFields = self:getActiveFields()
+--    local columnWidth = 150
+--    
+--    local headerText = "Username | "
+--    for i, fieldInfo in ipairs(activeFields) do
+--        headerText = headerText .. fieldInfo.displayName
+--        if i < #activeFields then
+--            headerText = headerText .. " | "
+--        end
+--    end
+--    
+--    local headerFields = {{category="Identity", field="username", displayName="Username"}}
+--    for _, f in ipairs(activeFields) do
+--        table.insert(headerFields, f)
+--    end
+--    self.dataList:addItem(headerText, {isHeader = true, fields = headerFields})
+--    
+--    local localPlayer = getPlayer()
+--    if localPlayer then
+--        local username = localPlayer:getUsername()
+--        local panelData = ExtendedScoreboard.buildRemotePlayerData(username)
+--        if panelData then
+--            local rowValues = {username}
+--            for i, fieldInfo in ipairs(activeFields) do
+--                local val = panelData[fieldInfo.category] and panelData[fieldInfo.category][fieldInfo.field] or ""
+--                table.insert(rowValues, val)
+--            end
+--            self.dataList:addItem(username, {values = rowValues, fields = headerFields})
+--        end
+--    end
+--    
+--    local players = ExtendedScoreboard.getPlayerList()
+--    for _, username in ipairs(players) do
+--        local panelData = ExtendedScoreboard.buildRemotePlayerData(username)
+--        if panelData then
+--            local rowValues = {username}
+--            for i, fieldInfo in ipairs(activeFields) do
+--                local val = panelData[fieldInfo.category] and panelData[fieldInfo.category][fieldInfo.field] or ""
+--                table.insert(rowValues, val)
+--            end
+--            self.dataList:addItem(username, {values = rowValues, fields = headerFields})
+--        end
+--    end
+--end
+--
+----draw*
+--function ExtendedScoreboardTab:drawDataItem(y, item, alt)
+--    local rowH = self.itemheight or FONT_HGT_SMALL + 8
+--    if alt then
+--        self:drawRect(0, y, self:getWidth(), rowH, 0.2, 0.3, 0.3, 0.3)
+--    end
+--    self:drawRectBorder(0, y, self:getWidth(), rowH, 0.9, self.borderColor.r, self.borderColor.g, self.borderColor.b)
+--    local itemPadY = (rowH - FONT_HGT_SMALL) / 2
+--    local columnWidth = 150
+--    if item.item.isHeader then
+--        local xPos = 10
+--        for i, fieldInfo in ipairs(item.item.fields) do
+--            self:drawText(fieldInfo.displayName or fieldInfo.field, xPos, y + itemPadY, 0.9, 0.9, 0.9, 0.9, UIFont.Medium)
+--            xPos = xPos + columnWidth
+--            if i < #item.item.fields then
+--                self:drawRect(xPos - 5, y, 1, rowH, 0.9, 0.5, 0.5, 0.5)
+--            end
+--        end
+--    elseif item.item.values then
+--        local xPos = 10
+--        for i, val in ipairs(item.item.values) do
+--            local extraShift = 0
+--            if i == 1 then
+--                local targPl = getPlayerFromUsername(val)
+--                if targPl and string.lower(targPl:getAccessLevel()) == "admin" then
+--                    self:drawTexture(getTexture("media/ui/ExtendedScoreboard/adm.png"), xPos, y + itemPadY, 1, 1, 1, 1)
+--                    extraShift = 27
+--                end
+--            end
+--            local fieldName = item.item.fields[i] and item.item.fields[i].field or ""
+--                
+--            if string.find(string.lower(fieldName), "health") then
+--                local hp = 0
+--                if type(val) == "number" then
+--                    hp = val
+--                elseif type(val) == "string" then
+--                    local n = tonumber(val:match("%d+"))
+--                    if n then hp = n end
+--                end
+--                if hp < 0 then hp = 0 end
+--                if hp > 100 then hp = 100 end
+--                local rgb = ExtendedScoreboard.healthToRGB(hp)
+--                local innerW = math.max(4, columnWidth - 20)
+--                local barW = math.floor((hp / 100) * innerW)
+--                local barH = math.max(6, math.min(rowH - 6, FONT_HGT_SMALL))
+--                local barX = xPos + (extraShift)
+--                local barY = y + math.floor((rowH - barH) / 2)
+--                self:drawRect(barX, barY, innerW, barH, 1, 0, 0, 0)
+--                if barW > 0 then
+--                    self:drawRect(barX, barY, barW, barH, 1, rgb.r, rgb.g, rgb.b)
+--                end
+--                self:drawRectBorder(barX, barY, innerW, barH, 1, 1, 1, 1)
+--            else
+--                local isSpecialFlag = ExtendedScoreboard.otherSpecials[tostring(fieldName)]
+--                local isHasIco =  ExtendedScoreboard.hasAltIco[tostring(fieldName)] 
+--                local textX = xPos + extraShift
+----[[ 
+--                if isSpecialFlag then
+--                    if tostring(val) == "" then
+--                        print(val)
+--                    else
+--                        print(tostring(fieldName).."   "..tostring(type(val)).."   "..tostring(val))
+--                    end
+--                end
+-- ]]
+--                if type(val) ~= "boolean" and not isSpecialFlag then
+--                    self:drawText(tostring(val), textX, y + itemPadY, 0.9, 0.9, 0.9, 0.9, self.font)
+--                elseif isSpecialFlag then
+--           
+--                    
+--                    local ico = getTexture("media/ui/ExtendedScoreboard/yes.png")
+--
+--                    if isHasIco then
+--                        ico = getTexture("media/ui/ExtendedScoreboard/"..tostring(fieldName)..".png")            
+--                    end
+--
+--                    if val == nil or type(val) == "string" then
+--                        ico = getTexture("media/ui/ExtendedScoreboard/no.png")
+--                    end
+--                    self:drawTexture(ico, textX, y + itemPadY, 1, 1, 1, 1)
+--                    
+--                end
+--            end
+--            xPos = xPos + columnWidth
+--            if i < #item.item.values then
+--                self:drawRect(xPos - 5, y, 1, rowH, 0.9, 0.5, 0.5, 0.5)
+--            end
+--        end
+--    else
+--        self:drawText(item.text, 10, y + itemPadY, 0.9, 0.9, 0.9, 0.9, self.font)
+--    end
+--    return y + rowH
+--end
+--function ExtendedScoreboard.parseHealthString(str)
+--    if not str then return 0 end
+--    local n = tonumber(str:match("%d+"))
+--    if not n then return 0 end
+--    if n > 100 then n = 100 end
+--    if n < 0 then n = 0 end
+--    return n
+--end
+--
+--function ExtendedScoreboard.healthToRGB(val)
+--    local t = val / 100
+--    return {r = 1 - t, g = 0, b = t}
+--end
+--
+--function ExtendedScoreboard.fixBool(bool)
+--    if type(bool)=="boolean" then return bool end
+--    if type(bool)=="string" then 
+--        
+--    end
+--    return "?"
+--end
+-------------------------            ---------------------------
+--ExtendedScoreboard.ClickHandlers = ExtendedScoreboard.ClickHandlers or {}
+--
+--function ExtendedScoreboard.ClickHandlers.register(category, field, clickType, callback)
+--    if not ExtendedScoreboard.ClickHandlers[category] then
+--        ExtendedScoreboard.ClickHandlers[category] = {}
+--    end
+--    if not ExtendedScoreboard.ClickHandlers[category][field] then
+--        ExtendedScoreboard.ClickHandlers[category][field] = {}
+--    end
+--    ExtendedScoreboard.ClickHandlers[category][field][clickType] = callback
+--end
+--
+--function ExtendedScoreboard.ClickHandlers.execute(category, field, clickType, rowData, fieldIndex)
+--    if ExtendedScoreboard.ClickHandlers[category] and 
+--       ExtendedScoreboard.ClickHandlers[category][field] and
+--       ExtendedScoreboard.ClickHandlers[category][field][clickType] then
+--        ExtendedScoreboard.ClickHandlers[category][field][clickType](rowData, fieldIndex)
+--        return true
+--    end
+--    return false
+--end
+--
+--function ExtendedScoreboard.ClickHandlers.clear(category, field, clickType)
+--    if category and field and clickType then
+--        if ExtendedScoreboard.ClickHandlers[category] and 
+--           ExtendedScoreboard.ClickHandlers[category][field] then
+--            ExtendedScoreboard.ClickHandlers[category][field][clickType] = nil
+--        end
+--    elseif category and field then
+--        if ExtendedScoreboard.ClickHandlers[category] then
+--            ExtendedScoreboard.ClickHandlers[category][field] = nil
+--        end
+--    elseif category then
+--        ExtendedScoreboard.ClickHandlers[category] = nil
+--    end
+--end
+--
+--function ExtendedScoreboardTab:getCellAtPosition(x, y)
+--    if not self.dataList then return nil end
+--    
+--    local items = self.dataList.items
+--    local scrollY = self.dataList:getYScroll()
+--    local rowH = self.dataList.itemheight or FONT_HGT_SMALL + 8
+--    local columnWidth = 150
+--    
+--    local adjustedY = y + scrollY
+--    local rowIndex = math.floor(adjustedY / rowH) + 1
+--    
+--    if rowIndex < 1 or rowIndex > #items then return nil end
+--    
+--    local item = items[rowIndex]
+--    if not item or not item.item or not item.item.fields then return nil end
+--    
+--    local colIndex = math.floor(x / columnWidth) + 1
+--    if colIndex < 1 or colIndex > #item.item.fields then return nil end
+--    
+--    local fieldInfo = item.item.fields[colIndex]
+--    local value = item.item.values and item.item.values[colIndex] or nil
+--    
+--    return {
+--        rowIndex = rowIndex,
+--        colIndex = colIndex,
+--        category = fieldInfo.category,
+--        field = fieldInfo.field,
+--        displayName = fieldInfo.displayName,
+--        value = value,
+--        rowData = item.item,
+--        isHeader = item.item.isHeader or false
+--    }
+--end
+--
+--function ExtendedScoreboardTab:onMouseDown(x, y)
+--    local cell = self:getCellAtPosition(x, y)
+--    if cell and not cell.isHeader then
+--        self.clickStartCell = cell
+--        self.clickStartTime = getTimestampMs()
+--    end
+--    return ISPanel.onMouseDown(self, x, y)
+--end
+--
+--function ExtendedScoreboardTab:onMouseUp(x, y)
+--    local cell = self:getCellAtPosition(x, y)
+--    
+--    if self.clickStartCell and cell and 
+--       self.clickStartCell.rowIndex == cell.rowIndex and 
+--       self.clickStartCell.colIndex == cell.colIndex and
+--       not cell.isHeader then
+--        
+--        local timeDiff = getTimestampMs() - self.clickStartTime
+--        local clickType = "click"
+--        
+--        if timeDiff < 300 and self.lastClickTime and 
+--           (getTimestampMs() - self.lastClickTime) < 300 and
+--           self.lastClickCell and 
+--           self.lastClickCell.rowIndex == cell.rowIndex and
+--           self.lastClickCell.colIndex == cell.colIndex then
+--            clickType = "doubleclick"
+--            self.lastClickTime = nil
+--            self.lastClickCell = nil
+--        else
+--            self.lastClickTime = getTimestampMs()
+--            self.lastClickCell = cell
+--        end
+--        
+--        ExtendedScoreboard.ClickHandlers.execute(
+--            cell.category, 
+--            cell.field, 
+--            clickType, 
+--            cell.rowData, 
+--            cell.colIndex
+--        )
+--    end
+--    
+--    self.clickStartCell = nil
+--    return ISPanel.onMouseUp(self, x, y)
+--end
+--
+--function ExtendedScoreboardTab:onRightMouseDown(x, y)
+--    local cell = self:getCellAtPosition(x, y)
+--    if cell and not cell.isHeader then
+--        ExtendedScoreboard.ClickHandlers.execute(
+--            cell.category, 
+--            cell.field, 
+--            "rightclick", 
+--            cell.rowData, 
+--            cell.colIndex
+--        )
+--    end
+--    return ISPanel.onRightMouseDown(self, x, y)
+--end
+-------------------------            ---------------------------
+--function ExtendedScoreboardTab:new(x, y, width, height, categoryName)
+--    local o = ISPanel:new(x, y, width, height)
+--    setmetatable(o, self)
+--    self.__index = self
+--    o.categoryName = categoryName
+--    o.moveWithMouse = true
+--    o.resizable = false
+--    o.anchorLeft = true;
+--    o.anchorRight = false;
+--    o.anchorTop = true;
+--    o.anchorBottom = false;
+--    o.allowDraggingTabs = false
+--    o.allowTornOffTabs = false
+--    o.equalTabWidth = true
+--    o.centerTabs = true
+--    o.backgroundColor = {r=0.7, g=0, b=0, a=0.8}
+--    o.showBackground = true
+--    return o
+--end
+--
+-------------------------   click*         ---------------------------
+--function ExtendedScoreboard.registerCellCallback(cell, callback)
+--    if not cell or not cell.category or not cell.field then return end
+--    if not ExtendedScoreboard.ClickHandlers[cell.category] then
+--        ExtendedScoreboard.ClickHandlers[cell.category] = {}
+--    end
+--    if not ExtendedScoreboard.ClickHandlers[cell.category][cell.field] then
+--        ExtendedScoreboard.ClickHandlers[cell.category][cell.field] = {}
+--    end
+--    ExtendedScoreboard.ClickHandlers[cell.category][cell.field]["click"] = function(rowData, fieldIndex)
+--        callback(cell)
+--    end
+--end
+--function ExtendedScoreboard.registerTeleportOnCoordinates()
+--    if not ExtendedScoreboard.ClickHandlers["Movement"] then
+--        ExtendedScoreboard.ClickHandlers["Movement"] = {}
+--    end
+--    ExtendedScoreboard.ClickHandlers["Movement"]["Coordinates"] = {}
+--    ExtendedScoreboard.ClickHandlers["Movement"]["Coordinates"]["click"] = function(rowData, fieldIndex)
+--        local username = rowData.values[1]
+--        local coordStr = rowData.values[fieldIndex]
+--        local x, y, z = coordStr:match("(%d+),%s*(%d+),%s*(%d+)")
+--        if not x or not y or not z then return end
+--        ExtendedScoreboard.tp(getPlayer(), x, y, z)
+--    end
+--end
+--
+--
+--function ExtendedScoreboard.tp(pl, x, y, z)
+--    if getCore():getDebug() then print("teleporting") end
+--
+--    pl = pl or getPlayer()
+--    if not pl then return end
+--    z = z or 0
+--    if not (x and y and z) then return end
+--
+--    local sq = getCell():getOrCreateGridSquare(x, y, z) 
+--    ExtendedScoreboard.forceExitCar()
+--    if luautils.stringStarts(getCore():getVersion(), "42") then
+--        pl:teleportTo(tonumber(x), tonumber(y), tonumber(z))
+--    else
+--        pl:setX(x)
+--        pl:setY(y)
+--        pl:setZ(z)
+--        if isClient() then
+--            pl:setLx(x)
+--            pl:setLy(y)
+--            pl:setLz(z)
+--        end
+--
+--    end 
+--end
+--
+--function ExtendedScoreboard.forceExitCar(pl)
+--    pl = pl or getPlayer()
+--    if not pl then return end
+--    local car = pl:getVehicle()
+--    if not car then return end
+--    local seat = car:getSeat(pl)
+--    car:exit(pl)
+--    if seat then
+--        car:setCharacterPosition(pl, seat, "outside")
+--    end
+--    pl:PlayAnim("Idle")
+--    triggerEvent("OnExitVehicle", pl)
+--    car:updateHasExtendOffsetForExitEnd(pl)
+--end
+--
+-------------------------            ---------------------------
+--
+--function ExtendedScoreboard.openPanel()
+--    if ExtendedScoreboard.instance then
+--        ExtendedScoreboard.instance:setVisible(true)
+--        ExtendedScoreboard.instance:addToUIManager()
+--        return
+--    end
+--    local w, h = 1620, 600
+--    local x = getCore():getScreenWidth()/2 - w/2
+--    local y = getCore():getScreenHeight()/2 - h/2
+--    local panel = ExtendedScoreboardPanel:new(x, y, w, h)
+--    panel:initialise()
+--    panel:addToUIManager()
+--    ExtendedScoreboard.instance = panel
+--end
+--function ExtendedScoreboard.closePanel()
+--    if ExtendedScoreboard.instance then
+--        ExtendedScoreboard.instance:close()
+--    end
+--end
+--
+----[[ 
+--ExtendedScoreboard.openPanel()
+--ExtendedScoreboard.closePanel()
+-- ]]

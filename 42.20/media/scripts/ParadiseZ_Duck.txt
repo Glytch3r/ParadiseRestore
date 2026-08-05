@@ -1,0 +1,34 @@
+module ParadiseZ
+{
+    model duck_jim { mesh = WorldItems/duck_jim, texture = Ducks/duck_jim, scale = 0.8, }
+    model duck_goro { mesh = WorldItems/duck_goro, texture = Ducks/duck_goro, scale = 0.9, }
+    model duck_tenorphans { mesh = WorldItems/duck_tenorphans, texture = Ducks/duck_tenorphans, scale = 0.8, }
+    model duck_glytch3r { mesh = WorldItems/duck_glytch3r, texture = Ducks/duck_glytch3r, scale = 0.8, }
+    model duck_kit { mesh = WorldItems/duck_kit, texture = Ducks/duck_kit, scale = 0.8, }
+    model duck_fooze { mesh = WorldItems/duck_fooze, texture = Ducks/duck_fooze, scale = 0.8, }
+    model duck_sierra { mesh = WorldItems/duck_sierra, texture = Ducks/duck_sierra, scale = 0.8, }
+    model duck_gameaholic { mesh = WorldItems/duck_gameaholic, texture = Ducks/duck_gameaholic, scale = 0.8, }
+    model duck_duke { mesh = WorldItems/duck_duke, texture = Ducks/duck_duke, scale = 0.8, }
+    model duck_waterbottle { mesh = WorldItems/duck_waterbottle, texture = Ducks/duck_waterbottle, scale = 0.8, }
+    model duck_jaynie { mesh = WorldItems/duck_jaynie, texture = Ducks/duck_jaynie, scale = 0.8, }
+    model duck_odin { mesh = WorldItems/duck_odin, texture = Ducks/duck_odin, scale = 0.8, }
+    model duck_kashi { mesh = WorldItems/duck_kashi, texture = Ducks/duck_kashi, scale = 0.8, }
+    model duck_nate { mesh = WorldItems/duck_nate, texture = Ducks/duck_nate, scale = 0.8, }
+    model duck_shyguy { mesh = WorldItems/duck_shyguy, texture = Ducks/duck_shyguy, scale = 0.8, }
+
+    item Duckhunt_jim { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_jim, WorldStaticModel = duck_jim, }
+    item Duckhunt_goro { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_goro, WorldStaticModel = duck_goro, }
+    item Duckhunt_tenorphans { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_tenorphans, WorldStaticModel = duck_tenorphans, }
+    item Duckhunt_glytch3r { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_glytch3r, WorldStaticModel = duck_glytch3r, }
+    item Duckhunt_kit { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_kit, WorldStaticModel = duck_kit, }
+    item Duckhunt_fooze { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_fooze, WorldStaticModel = duck_fooze, }
+    item Duckhunt_sierra { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_sierra, WorldStaticModel = duck_sierra, }
+    item Duckhunt_gameaholic { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_gameaholic, WorldStaticModel = duck_gameaholic, }
+    item Duckhunt_duke { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_duke, WorldStaticModel = duck_duke, }
+    item Duckhunt_waterbottle { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_waterbottle, WorldStaticModel = duck_waterbottle, }
+    item Duckhunt_jaynie { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_jaynie, WorldStaticModel = duck_jaynie, }
+    item Duckhunt_odin { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_odin, WorldStaticModel = duck_odin, }
+    item Duckhunt_kashi { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_kashi, WorldStaticModel = duck_kashi, }
+    item Duckhunt_nate { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_nate, WorldStaticModel = duck_nate, }
+    item Duckhunt_shyguy { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_shyguy, WorldStaticModel = duck_shyguy, }
+}

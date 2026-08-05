@@ -1,0 +1,208 @@
+module ParadiseZ
+{
+    item Shirt_ParadiseZ
+    { 
+        DisplayCategory = Clothing,
+        ItemType = base:clothing,
+        ClothingItem = Tshirt_ParadiseZ,
+        BodyLocation = base:shortsleeveshirt,
+        BloodLocation = Shirt,
+        Icon = ParadiseZ,
+        Insulation = 0.2,
+        WindResistance = 0.05,
+        FabricType = Cotton,
+        WorldStaticModel = TShirt_Ground,
+    }
+
+    item Jacket_TheRange
+    {
+        DisplayCategory = Clothing,
+        ItemType = base:clothing,
+        ClothingItem = Jacket_TheRange,
+        BodyLocation = base:jacketsuit,
+        BloodLocation = Jacket,
+        Icon = TheRange,
+        RunSpeedModifier = 0.95,
+        CombatSpeedModifier = 0.95,
+        ScratchDefense = 20,
+        NeckProtectionModifier = 0.5,
+        Insulation = 0.25,
+        WindResistance = 0.15,
+        FabricType = Cotton,
+        Weight = 2.0,
+        WorldStaticModel = SuitJacket_Ground,
+    }
+
+    item Jacket_JimAdmin
+    {
+        DisplayCategory = Clothing,
+        ItemType = base:clothing,
+        ClothingItem = Jacket_JimAdmin,
+        BodyLocation = base:jacketsuit,
+        BloodLocation = Jacket,
+        Icon = JimAdmin,
+        RunSpeedModifier = 0.95,
+        CombatSpeedModifier = 0.95,
+        ScratchDefense = 20,
+        NeckProtectionModifier = 0.5,
+        Insulation = 0.55,
+        WindResistance = 0.45,
+        FabricType = Cotton,
+        Weight = 2.0,
+        WorldStaticModel = SuitJacket_Ground,
+    }
+
+    item HoodieDOWN_ParadiseZ
+    {
+        DisplayCategory = Clothing,
+        ItemType = base:clothing,
+        ClothingItem = HoodieDOWN_ParadiseZ,
+        ClothingItemExtra = ParadiseZ.HoodieUP_ParadiseZ,
+        ClothingItemExtraOption = UpHoodie,
+        ClothingExtraSubmenu = DownHoodie,
+        BodyLocation = base:sweater,
+        BloodLocation = Jumper,
+        Icon = HoodieWhite,
+        ScratchDefense = 10,
+        NeckProtectionModifier = 0.5,
+        Insulation = 0.6,
+        WindResistance = 0.25,
+        FabricType = Cotton,
+        WorldStaticModel = Hoodie_Ground,
+    }
+
+    item HoodieUP_ParadiseZ
+    {
+        DisplayCategory = Clothing,
+        ItemType = base:clothing,
+        ClothingItem = HoodieUP_ParadiseZ,
+        ClothingItemExtra = ParadiseZ.HoodieDOWN_ParadiseZ,
+        ClothingItemExtraOption = DownHoodie,
+        ClothingExtraSubmenu = UpHoodie,
+        BodyLocation = base:sweaterhat,
+        BloodLocation = Jumper;Neck;FullHelmet,
+        Icon = HoodieWhite,
+        ScratchDefense = 10,
+        Insulation = 0.55,
+        WindResistance = 0.2,
+        FabricType = Cotton,
+        WorldStaticModel = Hoodie_Ground,
+    }
+
+    item HoodieDOWN_Punisher
+    {
+        DisplayCategory = Clothing,
+        ItemType = base:clothing,
+        ClothingItem = HoodieDOWN_Punisher,
+        ClothingItemExtra = ParadiseZ.HoodieUP_Punisher,
+        ClothingItemExtraOption = UpHoodie,
+        ClothingExtraSubmenu = DownHoodie,
+        BodyLocation = base:sweater,
+        BloodLocation = Jumper,
+        Icon = Hoodie_Punisher,
+        ScratchDefense = 10,
+        NeckProtectionModifier = 0.5,
+        Insulation = 0.6,
+        WindResistance = 0.25,
+        FabricType = Cotton,
+        WorldStaticModel = Hoodie_Ground,
+    }
+
+    item HoodieUP_Punisher
+    {
+        DisplayCategory = Clothing,
+        ItemType = base:clothing,
+        ClothingItem = HoodieUP_Punisher,
+        ClothingItemExtra = ParadiseZ.HoodieDOWN_Punisher,
+        ClothingItemExtraOption = DownHoodie,
+        ClothingExtraSubmenu = UpHoodie,
+        BodyLocation = base:sweaterhat,
+        BloodLocation = Jumper;Neck;FullHelmet,
+        Icon = Hoodie_Punisher,
+        ScratchDefense = 10,
+        Insulation = 0.55,
+        WindResistance = 0.2,
+        FabricType = Cotton,
+        WorldStaticModel = Hoodie_Ground,
+    }
+
+    item HoodieDOWN_NF
+    {
+        DisplayCategory = Clothing,
+        ItemType = base:clothing,
+        ClothingItem = HoodieDOWN_NF,
+        ClothingItemExtra = ParadiseZ.HoodieUP_NF,
+        ClothingItemExtraOption = UpHoodie,
+        ClothingExtraSubmenu = DownHoodie,
+        BodyLocation = base:sweater,
+        BloodLocation = Jumper,
+        Icon = Hoodie_NF,
+        ScratchDefense = 10,
+        NeckProtectionModifier = 0.5,
+        Insulation = 0.6,
+        WindResistance = 0.25,
+        FabricType = Cotton,
+        WorldStaticModel = Hoodie_Ground,
+    }
+
+    item HoodieUP_NF
+    {
+        DisplayCategory = Clothing,
+        ItemType = base:clothing,
+        ClothingItem = HoodieUP_NF,
+        ClothingItemExtra = ParadiseZ.HoodieDOWN_NF,
+        ClothingItemExtraOption = DownHoodie,
+        ClothingExtraSubmenu = UpHoodie,
+        BodyLocation = base:sweaterhat,
+        BloodLocation = Jumper;Neck;FullHelmet,
+        Icon = Hoodie_NF,
+        ScratchDefense = 10,
+        Insulation = 0.55,
+        WindResistance = 0.2,
+        FabricType = Cotton,
+        WorldStaticModel = Hoodie_Ground,
+    }
+
+    item Hat_BalaclavaGhost
+    {
+        DisplayCategory = Accessory,
+        ItemType = base:clothing,
+        ClothingItem = Hat_BalaclavaGhost,
+        BodyLocation = base:mask,
+        BloodLocation = Head,
+        Icon = BalaclavaGhost,
+        CanHaveHoles = false,
+        Insulation = 1.0,
+        WindResistance = 1.0,
+        WaterResistance = 0.5,
+        WorldStaticModel = BalaclavaFull_Ground,
+    }
+
+    model TurtBag_WorldStatic
+    {
+        mesh = WorldItems/TurtBag_WorldStatic,
+        scale = 0.75,
+    }
+
+    item TurtBag
+    {
+        DisplayCategory = Bag,
+        ItemType = base:container,
+        ClothingItem = TurtBag,
+        AttachmentReplacement = Bag,
+        BloodLocation = Bag,
+        CanBeEquipped = base:back,
+        CanHaveHoles = false,
+        Capacity = 36,
+        CloseSound = CloseBag,
+        Icon = TurtBag,
+        OpenSound = OpenBag,
+        PutInSound = PutItemInBag,
+        ReplaceInSecondHand = TurtBag_LHand holdingbagleft,
+        ReplaceInPrimaryHand = TurtBag_RHand holdingbagright,
+        RunSpeedModifier = 0.94,
+        Weight = 2.0,
+        WeightReduction = 90,
+        WorldStaticModel = TurtBag_WorldStatic,
+    }
+}

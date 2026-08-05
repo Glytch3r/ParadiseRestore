@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<clothingItem>
+	<m_MaleModel>skinned\clothes\bob_hoodieup</m_MaleModel>
+	<m_FemaleModel>skinned\clothes\kate_hoodieup</m_FemaleModel>
+	<m_GUID>e6ebe606-d446-4c7a-b045-c3f34cb8b21a</m_GUID>
+	<m_Static>false</m_Static>
+	<m_AllowRandomHue>false</m_AllowRandomHue>
+	<m_AllowRandomTint>true</m_AllowRandomTint>
+	<m_AttachBone></m_AttachBone>
+	<m_HatCategory>nohair</m_HatCategory>
+	<m_Masks>12</m_Masks>
+	<m_Masks>13</m_Masks>
+	<m_Masks>14</m_Masks>
+	<m_Masks>3</m_Masks>
+	<m_Masks>5</m_Masks>
+	<m_MasksFolder>media/textures/Clothes/Hoodie/Masks_Down</m_MasksFolder>
+	<m_UnderlayMasksFolder>media/textures/Clothes/Hoodie/Masks_Down</m_UnderlayMasksFolder>
+	<textureChoices>Clothes\Hoodie\HoodieUP_NF</textureChoices>
+</clothingItem>

@@ -1,0 +1,722 @@
+VERSION = 1,
+
+option ParadiseZ.mp5SkinChanger
+{
+	type = string, default = Glytch3r;Oldman Turtle;JimValentine,
+	page = ParadiseZ, translation = ParadiseZ_mp5SkinChanger,
+}
+
+
+
+
+option ParadiseZnotes.EveryoneCanWriteNotes
+{
+	type = boolean, default = false,
+	page = ParadiseZnotes, translation = ParadiseZnotes_EveryoneCanWriteNotes,
+}
+
+option ParadiseZnotes.NotesVisibilityDistance
+{
+	type = integer, min = 0, max = 500, default = 5,
+	page = ParadiseZnotes, translation = ParadiseZnotes_NotesVisibilityDistance,
+}
+
+option ParadiseZnotes.NotesMaxLineWidth
+{
+	type = integer, min = 1, max = 1000, default = 70,
+	page = ParadiseZnotes, translation = ParadiseZnotes_NotesMaxLineWidth,
+}
+
+option ParadiseZnotes.NotesUpdateTicks
+{
+	type = integer, min = 1, max = 25, default = 5,
+	page = ParadiseZnotes, translation = ParadiseZnotes_NotesUpdateTicks,
+}
+
+
+
+
+
+option ParadiseZ.ClonerDisplayName
+{
+	type = boolean, default = true,
+	page = ParadiseZ, translation = ParadiseZ_ClonerDisplayName,
+}
+
+option ParadiseZ.ClearRadius
+{
+	type = integer, min = 0, max = 100, default = 15,
+	page = ParadiseZ, translation = ParadiseZ_ClearRadius,
+}
+
+option ParadiseZ.NoFireZoneInterval
+{
+	type = integer, min = 0, max = 99999, default = 50,
+	page = ParadiseZ, translation = ParadiseZ_NoFireZoneInterval,
+}
+
+option ParadiseZ.ClearFireRadius
+{
+	type = integer, min = 0, max = 100, default = 50,
+	page = ParadiseZ, translation = ParadiseZ_ClearFireRadius,
+}
+
+option ParadiseZ.OutsideStr  
+{
+	type = string, default =  Outside,
+	page = ParadiseZ, translation = ParadiseZ_OutsideStr,
+}
+
+
+option ParadiseZ.ContextRemoveList  
+{
+	type = string, default =  	ContextMenu_Destroy;ContextMenu_DestroyFloor;ContextMenu_Add_sheet_rope;ContextMenu_Remove_sheet_rope;ContextMenu_Add_escape_rope;ContextMenu_Remove_escape_rope;ContextMenu_Add_escape_rope_sheet;ContextMenu_Remove_escape_rope_sheet;ContextMenu_Barricade;ContextMenu_MetalBarricade;ContextMenu_Unbarricade;ContextMenu_Smash_window;ContextMenu_Door;ContextMenu_Stairs;ContextMenu_Floor;ContextMenu_Bar;ContextMenu_Furniture;ContextMenu_Fence;ContextMenu_Wooden_Stake;ContextMenu_Barbed_Fence;ContextMenu_Wooden_Fence;ContextMenu_Sang_Bag_Wall;ContextMenu_Wall;ContextMenu_Gravel_Bag_Wall;ContextMenu_Wooden_Wall;ContextMenu_Log_Wall;ContextMenu_Wooden_Pillar;ContextMenu_Windows_Frame;ContextMenu_Wooden_Floor;ContextMenu_Wooden_Crate;ContextMenu_Table;ContextMenu_Small_Table;ContextMenu_Large_Table;ContextMenu_Table_with_Drawer;ContextMenu_Wooden_Chair;ContextMenu_Rain_Collector_Barrel;ContextMenu_Water_Dispenser;ContextMenu_Dark_Wooden_Stairs;ContextMenu_Brown_Wooden_Stairs;ContextMenu_Light_Brown_Wooden_Stairs;ContextMenu_Wooden_Door;ContextMenu_Sign;ContextMenu_Door_Frame;ContextMenu_Dismantle;ContextMenu_Build;ContextMenu_Bar_Element;ContextMenu_Bar_Corner;ContextMenu_Plaster;ContextMenu_Paint;ContextMenu_PaintSign;ContextMenu_Blue;ContextMenu_Brown;ContextMenu_Cyan;ContextMenu_Green;ContextMenu_Grey;ContextMenu_Light_Blue;ContextMenu_Light_Brown;ContextMenu_Orange;ContextMenu_Pink;ContextMenu_Purple;ContextMenu_Turquoise;ContextMenu_White;ContextMenu_Yellow;ContextMenu_SignSkull;ContextMenu_SignRightArrow;ContextMenu_SignLeftArrow;ContextMenu_SignDownArrow;ContextMenu_SignUpArrow;ContextMenu_Equip_Two_Hands;ContextMenu_Build_a_fire;ContextMenu_Put_up_tent;ContextMenu_Take_down_tent;ContextMenu_Remove_fire;ContextMenu_Spill_Gravel;ContextMenu_Spill_Sand;ContextMenu_Spill_Dirt;ContextMenu_Take_some_sands;ContextMenu_Take_some_gravel;ContextMenu_Take_some_dirt;ContextMenu_Lamp_on_Pillar;ContextMenu_Bookcase;ContextMenu_SmallBookcase;ContextMenu_Shelves;ContextMenu_DoubleShelves;ContextMenu_Bed;ContextMenu_Climb_Sheet_Rope;ContextMenu_GeneratorUnplug;ContextMenu_GeneratorTake;ContextMenu_SafehouseClaim;ContextMenu_RemoveLightbulb;ContextMenu_WallFencing;ContextMenu_MetalShelves;ContextMenu_MetalCounter;ContextMenu_MetalCounterCorner;ContextMenu_SmallLocker;ContextMenu_BigLocker;ContextMenu_Wooden_Wall_Frame;ContextMenu_MetalWallFrame;ContextMenu_MetalFence;ContextMenu_MetalPoleFence;ContextMenu_MetalFenceGate;ContextMenu_WiredFence;ContextMenu_BigWiredFence;ContextMenu_BigMetalFence;ContextMenu_MetalWelding;ContextMenu_Container;ContextMenu_BigMetalFenceGate;ContextMenu_MetalCrate;ContextMenu_Disassemble;ContextMenu_MetalRoof;ContextMenu_MetalBarBarricade;ContextMenu_Compost;ContextMenu_DigGraves;ContextMenu_Misc;ContextMenu_Wooden_Cross;ContextMenu_Stone_Pile;ContextMenu_Wooden_Picket;ContextMenu_Double_Wooden_Door;ContextMenu_Double_Metal_Door;ContextMenu_BigMetalDoubleDoor;ContextMenu_VehicleSiphonGas;ContextMenu_RemoveBrokenGlass;ContextMenu_Remove_curtains,
+	page = ParadiseZ, translation = ParadiseZ_ContextRemoveList,
+}
+
+option ParadiseZ.isSafeAllowActions 
+{
+	type = boolean, default = false,
+	page = ParadiseZ, translation = ParadiseZ_isSafeAllowActions,
+}
+
+option ParadiseZ.Glytch3rGift  
+{
+	type = string, default =  	Base.Lighter;Base.Bleach;Base.BeerBottle;Base.Worm;Base.ChessWhite,
+	page = ParadiseZ, translation = ParadiseZ_Glytch3rGift,
+}
+
+option ParadiseZ.HideAvatar 
+{
+	type = boolean, default = true,
+	page = ParadiseZ, translation = ParadiseZ_HideAvatar,
+}
+
+option ParadiseZ.AutoInvisible  
+{
+	type = boolean, default = false,
+	page = ParadiseZ, translation = ParadiseZ_AutoInvisible,
+}
+
+option ParadiseZ.ReboundSystem  
+{
+	type = boolean, default = true,
+	page = ParadiseZ, translation = ParadiseZ_ReboundSystem,
+}
+
+
+option ParadiseZ.reboundMsg  
+{
+	type = string, default =  NOT ALLOWED IN THIS ZONE,
+	page = ParadiseZ, translation = ParadiseZ_reboundMsg,
+}
+option ParadiseZ.showTrailingMarkers
+{
+	type = boolean, default = false,
+	page = ParadiseZ, translation = ParadiseZ_showTrailingMarkers,
+}
+
+option ParadiseZ.AdminOnlyZoneInfo
+{
+	type = boolean, default = true,
+	page = ParadiseZ, translation = ParadiseZ_AdminOnlyZoneInfo,
+}
+
+
+option ParadiseZ.Coords 
+{
+	type = string, default = 11641;8324;0, 
+	page = ParadiseZ, translation = ParadiseZ_Coords,
+}
+
+option ParadiseZ.DefaultCageCoords 
+{
+	type = string, default = 5583;12447;0, 
+	page = ParadiseZ, translation = ParadiseZ_DefaultCageCoords,
+}
+
+option ParadiseZ.DefaultCageReturnCoords 
+{
+	type = string, default = 6694;11209;0, 
+	page = ParadiseZ, translation = ParadiseZ_DefaultCageReturnCoords,
+}
+
+option ParadiseZ.ShowPvETag
+{
+	type = boolean, default = true,
+	page = ParadiseZ, translation = ParadiseZ_ShowPvETag,
+}
+
+
+option ParadiseZ.HiderList 
+{
+	type = string, default = Base.Hat_BalaclavaFull;Base.Hat_BalaclavaFace;Base.WeldingMask,
+	page = ParadiseZ, translation = ParadiseZ_HiderList,
+}
+
+
+option ParadiseZ.RadSuitList 
+{
+	type = string, default = TheyKnew.MysteriousHazm;Base.HazmatSuit;Base.Hat_NBCmask,
+	page = ParadiseZ, translation = ParadiseZ_RadSuitList,
+}
+
+option ParadiseZ.RadiationBorderSize
+{
+	type = double,	 min = 0.00,  max = 100,  default = 15,
+	page = ParadiseZ, translation = ParadiseZ_RadiationBorderSize,
+}
+
+
+option ParadiseZ.RadZoneDmg
+{
+	type = double,	 min = 0.00,  max = 100,  default = 0.02,
+	page = ParadiseZ, translation = ParadiseZ_RadZoneDmg,
+}
+
+option ParadiseZ.DuckDropChance
+{
+	type = double,	 min = 0.00,  max = 100,  default = 2,
+	page = ParadiseZ, translation = ParadiseZ_DuckDropChance,
+}
+
+
+
+
+
+option ParadiseZ.ThunderFlashDecay
+{
+	type = double,	 min = 0.000,  max = 5,  default = 0.04,
+	page = ParadiseZ, translation = ParadiseZ_ThunderFlashDecay,
+}
+
+
+option ParadiseZ.BlazeTemp
+{
+	type = double, min = 0.000, max = 6000, default = 40,
+	page = ParadiseZ, translation = ParadiseZ_BlazeTemp,
+}
+
+option ParadiseZ.FrostTemp
+{
+	type = double, min = -273.15, max = 0, default = -30,
+	page = ParadiseZ, translation = ParadiseZ_FrostTemp,
+}
+
+option ParadiseZ.TempRad
+{
+	type = double, min = 0, max = 1000, default = 5,
+	page = ParadiseZ, translation = ParadiseZ_TempRad,
+}
+
+
+option ParadiseZ.TempColors
+{
+	type = boolean, default = false,
+	page = ParadiseZ, translation = ParadiseZ_TempColors,
+}
+option ParadiseZ.TempActive
+{
+	type = boolean, default = true,
+	page = ParadiseZ, translation = ParadiseZ_TempActive,
+}
+
+
+
+option ParadiseZ.BombZoneDelay
+{
+	type = double, min = 0, max = 99999999, default = 3600,
+	page = ParadiseZ, translation = ParadiseZ_BombZoneDelay,
+}
+
+option ParadiseZ.BombZoneChance
+{
+	type = double, min = 0, max = 100, default = 15,
+	page = ParadiseZ, translation = ParadiseZ_BombZoneChance,
+}
+option ParadiseZ.BombZoneRad
+{
+	type = double, min = 0, max = 1000, default = 50,
+	page = ParadiseZ, translation = ParadiseZ_BombZoneRad,
+}
+
+option ParadiseZ.ScoreboardSlowerRefresh
+{
+	type = boolean, default = false,
+	page = ParadiseZ, translation = ParadiseZ_ScoreboardSlowerRefresh,
+}
+
+
+
+
+
+
+option ParadiseZpvp.PvPInjuryChance
+{
+	type = double,	 min = 0,  max = 100,  default = 10,
+	page = ParadiseZpvp, translation = ParadiseZpvp_PvPInjuryChance,
+}
+
+option ParadiseZpvp.VanillaNonPvpZone
+{
+	type = boolean, default = false,
+	page = ParadiseZpvp, translation = ParadiseZpvp_VanillaNonPvpZone,
+}
+
+option ParadiseZpvp.ExileCoords 
+{
+	type = string, default = 11641;8324;0, 
+	page = ParadiseZpvp, translation = ParadiseZpvp_ExileCoords,
+}
+
+option ParadiseZpvp.HitFlashDecay
+{
+	type = double,	 min = 0.000,  max = 5,  default = 1.8,
+	page = ParadiseZpvp, translation = ParadiseZpvp_HitFlashDecay,
+}
+
+option ParadiseZpvp.LifeBarRecovery
+{
+	type = string, default =  0.005,
+	page = ParadiseZpvp, translation = ParadiseZpvp_LifeBarRecovery,
+}
+
+option ParadiseZpvp.InjuryDrain
+{
+	type = string, default =  0.001,
+	page = ParadiseZpvp, translation = ParadiseZpvp_InjuryDrain,
+}
+
+option ParadiseZpvp.MedkitHeal
+{
+	type = double,	 min = 0.00,  max = 100,  default = 50,
+	page = ParadiseZpvp, translation = ParadiseZpvp_MedkitHeal,
+}
+
+
+option ParadiseZpvp.teleportPvpDeath
+{
+	type = boolean, default = true,
+	page = ParadiseZpvp, translation = ParadiseZpvp_teleportPvpDeath,
+}
+
+option ParadiseZpvp.pvpDmgMult
+{
+	type = double,	 min = 0.00,  max = 100,  default = 5,
+	page = ParadiseZpvp, translation = ParadiseZpvp_pvpDmgMult,
+}
+
+option ParadiseZpvp.pvpStaggerChance
+{
+	type = double,	 min = 0.00,  max = 100,  default = 40,
+	page = ParadiseZpvp, translation = ParadiseZpvp_pvpStaggerChance,
+}
+
+
+option ParadiseZpvp.AngleFalloff
+{
+	type = boolean, default = true,
+	page = ParadiseZpvp, translation = ParadiseZpvp_AngleFalloff,
+}
+
+option ParadiseZpvp.GunUpdater
+{
+	type = boolean, default = true,
+	page = ParadiseZpvp, translation = ParadiseZpvp_GunUpdater,
+}
+
+option ParadiseZpvp.GunVersionKey
+{
+	type = string, default = adfawfq3,
+	page = ParadiseZpvp, translation = ParadiseZpvp_GunVersionKey,
+}
+option ParadiseZpvp.GunTooltip
+{
+	type = string, default = Updated Paradise Server Gun,
+	page = ParadiseZpvp, translation = ParadiseZpvp_GunTooltip,
+}
+
+option ParadiseZpvp.ShotgunList 
+{
+	type = string, default = Base.Shotgun;Base.Spas12;Base.Spas12Folded;Base.ShotgunSemi;Base.Shotgun2;Base.ShotgunSawnoff;Base.ShotgunSawnoffNoStock;Base.DoubleBarrelShotgun;Base.DoubleBarrelShotgunSawnoff;Base.DoubleBarrelShotgunSawnoffNoStock;SpoonEngineerStuff.ScrappyBlunderbuss;Base.AssaultRifleMasterkeyShotgun;Base.M2400_Shotgun,
+	page = ParadiseZpvp, translation = ParadiseZpvp_ShotgunList,
+}
+
+option ParadiseZpvp.PerkModifierShotgun
+{
+	type = string, default = 0.002,
+	page = ParadiseZpvp, translation = ParadiseZpvp_PerkModifierShotgun,
+}
+option ParadiseZpvp.PerkModifierRifle
+{
+	type = string,  default = 0.001,
+	page = ParadiseZpvp, translation = ParadiseZpvp_PerkModifierRifle,
+}
+
+option ParadiseZpvp.PerkModifierPistol
+{
+	type = string,  default = 0.001,
+	page = ParadiseZpvp, translation = ParadiseZpvp_PerkModifierPistol,
+}
+
+
+option ParadiseZpvp.MinAngleShotgun
+{
+	type = double,	 min = 0.00,  max = 100,  default = 0.99,
+	page = ParadiseZpvp, translation = ParadiseZpvp_MinAngleShotgun,
+}
+
+option ParadiseZpvp.MinAngleRifle
+{
+	type = double,	 min = 0.00,  max = 100,  default = 0.999,
+	page = ParadiseZpvp, translation = ParadiseZpvp_MinAngleRifle,
+}
+
+option ParadiseZpvp.MinAnglePistol
+{
+	type = double,	 min = 0.00,  max = 100,  default = 0.999,
+	page = ParadiseZpvp, translation = ParadiseZpvp_MinAnglePistol,
+}
+
+
+
+option ParadiseZpvp.ShotgunPvpDmg
+{
+	type = double,	 min = 0.00,  max = 100,  default = 25,
+	page = ParadiseZpvp, translation = ParadiseZpvp_ShotgunPvpDmg,
+}
+
+option ParadiseZpvp.RiflePvpDmg
+{
+	type = double,	 min = 0.00,  max = 100,  default = 20,
+	page = ParadiseZpvp, translation = ParadiseZpvp_RiflePvpDmg,
+}
+
+option ParadiseZpvp.PistolPvpDmg
+{
+	type = double,	 min = 0.00,  max = 100,  default = 15,
+	page = ParadiseZpvp, translation = ParadiseZpvp_PistolPvpDmg,
+}
+
+option ParadiseZpvp.MeleePvpDmg
+{
+	type = double,	 min = 0.00,  max = 100,  default = 10,
+	page = ParadiseZpvp, translation = ParadiseZpvp_UnarmedPvpDmg,
+}
+
+
+
+
+option BurstAnim.ExplosionRadius
+{
+	type = double,	 min = 0.00,  max = 6,  default = 2,
+	page = BurstAnim, translation = BurstAnim_ExplosionRadius,
+}
+option BurstAnim.ZedCrawlerPercent
+{
+	type = double,	 min = 0.00,  max = 100,  default = 15,
+	page = BurstAnim, translation = BurstAnim_ZedCrawlerPercent,
+}
+option BurstAnim.BurstDmg
+{
+	type = double,	 min = 0.00,  max = 100,  default = 15,
+	page = BurstAnim, translation = BurstAnim_BurstDmg,
+}
+
+option BurstAnim.EffectsRange
+{
+	type = double,	 min = 0.00,  max = 100,  default = 12,
+	page = BurstAnim, translation = BurstAnim_EffectsRange,
+}
+
+
+option BurstAnim.zedKnockDown	
+{
+	type = boolean, default = true,
+	page = BurstAnim, translation = BurstAnim_zedKnockDown,
+}
+
+
+
+option TheRange.Staff 
+{
+	type = string, default = zeconyhd;Dajulu;Lark;Glytch3r,
+	page = TheRange, translation = TheRange_Staff,
+}
+option TheRange.CreditPrice 
+{
+	type = double, min = 0, max = 1000000, default = 5,
+	page = TheRange, translation = TheRange_CreditPrice,
+}
+
+option TheRange.PointsPerKill 
+{
+	type = double,	 min = 0.00,  max = 999999999,  default = 3,
+	page = TheRange, translation = TheRange_PointsPerKill,
+}
+option TheRange.ExchangePercent
+{
+	type = double,	 min = 0.00,  max = 100,  default = 0.02,
+	page = TheRange, translation = TheRange_ExchangePercent,
+}
+
+
+
+
+
+
+option ParadiseZcolor.Outside
+{
+    type = enum, numValues = 11, default = 9,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_Outside,
+    valueTranslation = ParadiseZcolor_Outside,
+}
+
+option ParadiseZcolor.NonPvp
+{
+    type = enum, numValues = 11, default = 5,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_NonPvp,
+    valueTranslation = ParadiseZcolor_NonPvp,
+}
+
+option ParadiseZcolor.PvP
+{
+    type = enum, numValues = 11, default = 2,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_PvP,
+    valueTranslation = ParadiseZcolor_PvP,
+}
+
+option ParadiseZcolor.Blocked
+{
+    type = enum, numValues = 11, default = 8,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_Blocked,
+    valueTranslation = ParadiseZcolor_Blocked,
+}
+
+option ParadiseZcolor.Protected
+{
+    type = enum, numValues = 11, default = 1,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_Protected,
+    valueTranslation = ParadiseZcolor_Protected,
+}
+
+option ParadiseZcolor.Radiation
+{
+    type = enum, numValues = 11, default = 2,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_Radiation,
+    valueTranslation = ParadiseZcolor_Radiation,
+}
+
+option ParadiseZcolor.Hunt
+{
+    type = enum, numValues = 11, default = 3,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_Hunt,
+    valueTranslation = ParadiseZcolor_Hunt,
+}
+
+option ParadiseZcolor.Blaze
+{
+    type = enum, numValues = 11, default = 2,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_Blaze,
+    valueTranslation = ParadiseZcolor_Blaze,
+}
+
+option ParadiseZcolor.Frost
+{
+    type = enum, numValues = 11, default = 6,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_Frost,
+    valueTranslation = ParadiseZcolor_Frost,
+}
+
+option ParadiseZcolor.Bomb
+{
+    type = enum, numValues = 11, default = 7,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_Bomb,
+    valueTranslation = ParadiseZcolor_Bomb,
+}
+
+option ParadiseZcolor.MineField
+{
+    type = enum, numValues = 11, default = 2,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_MineField,
+    valueTranslation = ParadiseZcolor_MineField,
+}
+
+option ParadiseZcolor.NoCamp
+{
+    type = enum, numValues = 11, default = 1,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_NoCamp,
+    valueTranslation = ParadiseZcolor_NoCamp,
+}
+
+option ParadiseZcolor.NoFire
+{
+    type = enum, numValues = 11, default = 3,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_NoFire,
+    valueTranslation = ParadiseZcolor_NoFire,
+}
+
+option ParadiseZcolor.Cage
+{
+    type = enum, numValues = 11, default = 7,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_Cage,
+    valueTranslation = ParadiseZcolor_Cage,
+}
+
+option ParadiseZcolor.Party
+{
+    type = enum, numValues = 11, default = 4,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_Party,
+    valueTranslation = ParadiseZcolor_Party,
+}
+
+option ParadiseZcolor.Rally
+{
+    type = enum, numValues = 11, default = 5,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_Rally,
+    valueTranslation = ParadiseZcolor_Rally,
+}
+
+option ParadiseZcolor.Special
+{
+    type = enum, numValues = 11, default = 10,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_Special,
+    valueTranslation = ParadiseZcolor_Special,
+}
+
+option ParadiseZcolor.Trade
+{
+    type = enum, numValues = 11, default = 6,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_Trade,
+    valueTranslation = ParadiseZcolor_Trade,
+}
+
+option ParadiseZcolor.Sprint
+{
+    type = enum, numValues = 11, default = 9,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_Sprint,
+    valueTranslation = ParadiseZcolor_Sprint,
+}
+
+option ParadiseZcolor.Typeless
+{
+    type = enum, numValues = 11, default = 6,
+    page = ParadiseZcolor,
+    translation = ParadiseZcolor_Typeless,
+    valueTranslation = ParadiseZcolor_Typeless,
+}
+
+
+option ParadiseZmapVisual.offsetX
+{
+	type = double,	 min = 0,  max = 999999,  default = 32,
+	page = ParadiseZmapVisual, translation = ParadiseZmapVisual_offsetX,
+}
+option ParadiseZmapVisual.offsetY
+{
+	type = double,	 min = 0,  max = 999999,  default = 42,
+	page = ParadiseZmapVisual, translation = ParadiseZmapVisual_offsetY,
+}
+option ParadiseZmapVisual.colR
+{
+	type = double,	 min = 0.00,  max = 1,  default = 0.4,
+	page = ParadiseZmapVisual, translation = ParadiseZmapVisual_colR,
+}
+option ParadiseZmapVisual.colG
+{
+	type = double,	 min = 0.00,  max = 1,  default = 0,
+	page = ParadiseZmapVisual, translation = ParadiseZmapVisual_colG,
+}
+option ParadiseZmapVisual.colB
+{	
+	type = double,	 min = 0.00,  max = 1,  default = 0,
+	page = ParadiseZmapVisual, translation = ParadiseZmapVisual_colB,
+
+}
+option ParadiseZmapVisual.isInvertedX
+{	
+	type = boolean, default = true,
+	page = ParadiseZmapVisual, translation = ParadiseZmapVisual_isInvertedX,
+
+}
+option ParadiseZmapVisual.isInvertedY
+{	
+	type = boolean, default = true,
+	page = ParadiseZmapVisual, translation = ParadiseZmapVisual_isInvertedY,
+
+}
+
+
+option ParadiseZ.AutoFarmEnabled
+{
+    type = boolean, default = true,
+    page = ParadiseZ_AutoFarm, translation = ParadiseZ_AutoFarmEnabled,
+}
+
+option ParadiseZ.AutoFarmCropRadius
+{
+    type = enum, numValues = 3, default = 2,
+    page = ParadiseZ_AutoFarm, translation = ParadiseZ_AutoFarmCropRadius,
+    valueTranslation = ParadiseZ_AutoFarmCropRadius,
+}
+
+option ParadiseZ.AutoFarmWaterSourceRadius
+{
+    type = integer, min = 5, max = 25, default = 15,
+    page = ParadiseZ_AutoFarm, translation = ParadiseZ_AutoFarmWaterSourceRadius,
+}
+
+option ParadiseZ.AutoFarmWaterTileFallback
+{
+    type = boolean, default = true,
+    page = ParadiseZ_AutoFarm, translation = ParadiseZ_AutoFarmWaterTileFallback,
+}
+
+option ParadiseZ.AutoFarmDisableAutoReplant
+{
+    type = boolean, default = false,
+    page = ParadiseZ_AutoFarm, translation = ParadiseZ_AutoFarmDisableAutoReplant,
+}
+
+option ParadiseZ.AutoFarmDisableAutoDig
+{
+    type = boolean, default = false,
+    page = ParadiseZ_AutoFarm, translation = ParadiseZ_AutoFarmDisableAutoDig,
+}
+
+option ParadiseZ.AutoFarmDisableAutoTreat
+{
+    type = boolean, default = false,
+    page = ParadiseZ_AutoFarm, translation = ParadiseZ_AutoFarmDisableAutoTreat,
+}
+
+option ParadiseZ.AutoFarmDisableAutoHarvest
+{
+    type = boolean, default = false,
+    page = ParadiseZ_AutoFarm, translation = ParadiseZ_AutoFarmDisableAutoHarvest,
+}
+
+option ParadiseZ.AutoFarmDisableAutoClearReceding
+{
+    type = boolean, default = false,
+    page = ParadiseZ_AutoFarm, translation = ParadiseZ_AutoFarmDisableAutoClearReceding,
+}
