@@ -1,2 +1,6 @@
 # Local editor settings
 .vscode/
+
+# Local planning and validation support
+/docs/
+/tests/
