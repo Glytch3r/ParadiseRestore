@@ -1,6 +1,10 @@
+ParadiseDev = ParadiseDev or {}
+ParadiseDev.Zones = ParadiseDev.Zones or {}
+ParadiseDev.Zones.Probe = ParadiseDev.Zones.Probe or {}
+local H = ParadiseDev.Zones.Probe
 local MODULE = "PZZoneHarness"
 
-local function reply(player, text)
+function H.reply(player, text)
     sendServerCommand(player, MODULE, "result", { text = text })
 end
 
@@ -8,9 +12,9 @@ Events.OnClientCommand.Add(function(module, command, player, args)
     if module ~= MODULE or command ~= "probe" then return end
     if not player or player:getAccessLevel() ~= "admin" then return end
 
-    local E = rawget(_G, "PZZoneEngine")
+    local E = ParadiseDev.Zones.Engine
     if not E then
-        reply(player, "PROBE: engine missing")
+        H.reply(player, "PROBE: engine missing")
         return
     end
 
@@ -21,7 +25,7 @@ Events.OnClientCommand.Add(function(module, command, player, args)
     local movement = E.moveProbe and E.moveProbe[username]
     local tags = profile.tags or {}
 
-    reply(player,
+    H.reply(player,
         "PROBE serverPos=" .. math.floor(x) .. "," .. math.floor(y) .. "," .. tostring(z) ..
         " authority=" .. tostring(zone and zone.id or "none") ..
         " pve=" .. tostring(tags.pve == true) ..

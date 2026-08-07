@@ -1,6 +1,8 @@
--- Test instrumentation only.  It proves whether the server receives the B42
--- OnPlayerMove callback and records the last position supplied by that event.
-local E = PZZoneEngine
+ParadiseDev = ParadiseDev or {}
+ParadiseDev.Zones = ParadiseDev.Zones or {}
+ParadiseDev.Zones.MovementProbe = ParadiseDev.Zones.MovementProbe or {}
+local P = ParadiseDev.Zones.MovementProbe
+local E = ParadiseDev.Zones.Engine
 E.moveProbe = E.moveProbe or {}
 
 Events.OnPlayerMove.Add(function(player)
@@ -13,3 +15,4 @@ Events.OnPlayerMove.Add(function(player)
         z = player:getZ(),
     }
 end)
+

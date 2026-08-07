@@ -1,3 +1,5 @@
+ParadiseDev = ParadiseDev or {}
+ParadiseDev.Zones = ParadiseDev.Zones or {}
 require "ISUI/ISCollapsableWindow"
 require "ISUI/ISButton"
 require "ISUI/ISLabel"
@@ -7,8 +9,7 @@ require "ISUI/ISTickBox"
 require "ISUI/ISComboBox"
 require "ISUI/ISModalDialog"
 
-PZZoneHarness = PZZoneHarness or {}
-local H = PZZoneHarness
+local H = ParadiseDev.Zones
 H.MODULE = H.MODULE or "PZZoneHarness"
 H.adminZones = H.adminZones or {}
 H.window = H.window or nil
@@ -65,16 +66,16 @@ local PANEL_TEXTURES = {
     background = getTexture(UI_PATH .. "bg.png"),
 }
 
-local function send(command, args)
+function H.send(command, args)
     sendClientCommand(H.MODULE, command, args or {})
 end
 
-local function isAdmin()
+function H.isAdmin()
     local player = getPlayer()
     return player and string.lower(tostring(player:getAccessLevel())) == "admin"
 end
 
-local function addLabel(parent, text, x, y, color, font)
+function H.addLabel(parent, text, x, y, color, font)
     color = color or { r = 0.85, g = 0.85, b = 0.85 }
     local label = ISLabel:new(x, y, ENTRY_HGT, text, color.r, color.g, color.b, 1, font or UIFont.Small, true)
     label:initialise()
@@ -83,7 +84,7 @@ local function addLabel(parent, text, x, y, color, font)
     return label
 end
 
-local function addEntry(parent, text, x, y, width)
+function H.addEntry(parent, text, x, y, width)
     local entry = ISTextEntryBox:new(tostring(text or ""), x, y, width, ENTRY_HGT)
     entry:initialise()
     entry:instantiate()
@@ -91,7 +92,7 @@ local function addEntry(parent, text, x, y, width)
     return entry
 end
 
-local function addButton(parent, text, x, y, width, target, callback)
+function H.addButton(parent, text, x, y, width, target, callback)
     local button = ISButton:new(x, y, width, ENTRY_HGT, text, target, callback)
     button:initialise()
     button:instantiate()
@@ -99,7 +100,7 @@ local function addButton(parent, text, x, y, width, target, callback)
     return button
 end
 
-local function addImageButton(parent, x, y, width, height, image, internal, tooltip, callback)
+function H.addImageButton(parent, x, y, width, height, image, internal, tooltip, callback)
     local button = ISButton:new(x, y, width, height, "", parent, callback)
     button.internal = internal
     button.tooltip = tooltip
@@ -111,7 +112,7 @@ local function addImageButton(parent, x, y, width, height, image, internal, tool
     return button
 end
 
-local function layoutWindowChrome(window)
+function H.layoutWindowChrome(window)
     local buttonHeight = window:titleBarHeight() - 2
     local rightX = window.width - 1 - buttonHeight
     if window.pinButton then window.pinButton:setX(rightX) end
@@ -127,24 +128,24 @@ local function layoutWindowChrome(window)
     end
 end
 
-local function resizeWindow(target, newWidth, newHeight)
+function H.resizeWindow(target, newWidth, newHeight)
     target:setWidth(math.max(newWidth, target.minimumWidth or 0))
     target:setHeight(math.max(newHeight, target.minimumHeight or 0))
-    layoutWindowChrome(target)
+    H.layoutWindowChrome(target)
     if target.layoutChildren then target:layoutChildren() end
 end
 
-local function enableWindowResize(window)
+function H.enableWindowResize(window)
     window:setResizable(true)
     if window.resizeWidget then window.resizeWidget.resizeFunction = resizeWindow end
     if window.resizeWidget2 then window.resizeWidget2.resizeFunction = resizeWindow end
-    layoutWindowChrome(window)
+    H.layoutWindowChrome(window)
 end
-local function primarySegment(zone)
+function H.primarySegment(zone)
     return zone and zone.segments and zone.segments[1] or nil
 end
 
-local function activeFlags(zone)
+function H.activeFlags(zone)
     local names = {}
     local features = zone and zone.features or {}
     for _, def in ipairs(FEATURE_DEFS) do
@@ -153,24 +154,24 @@ local function activeFlags(zone)
     return table.concat(names, ", ")
 end
 
-local function zoneById(id)
+function H.zoneById(id)
     for _, zone in ipairs(H.adminZones) do
         if zone.id == id then return zone end
     end
     return nil
 end
 
-PZZonePanel = ISCollapsableWindow:derive("PZZonePanel")
-local M = PZZonePanel
+ParadiseDev.Zones.Panel = ISCollapsableWindow:derive("ParadiseDev.Zones.Panel")
+local M = ParadiseDev.Zones.Panel
 
 function M:createChildren()
     ISCollapsableWindow.createChildren(self)
-    enableWindowResize(self)
+    H.enableWindowResize(self)
 
     local contentX = 13
     local top = self:titleBarHeight() + 8
-    self.totalLabel = addLabel(self, "Total Zones: 0", contentX + 8, top, nil, UIFont.Medium)
-    self.infoLabel = addLabel(self, "Double-click a zone for segments, priority, Z levels, and advanced access",
+    self.totalLabel = H.addLabel(self, "Total Zones: 0", contentX + 8, top, nil, UIFont.Medium)
+    self.infoLabel = H.addLabel(self, "Double-click a zone for segments, priority, Z levels, and advanced access",
         contentX + 185, top, { r = 0.75, g = 0.88, b = 1.0 }, UIFont.Medium)
 
     self.zoneList = ISScrollingListBox:new(contentX, top + FONT_MEDIUM + 12 + ENTRY_HGT, self.width - 26, 220)
@@ -193,69 +194,70 @@ function M:createChildren()
     self:addChild(self.zoneList)
 
     local bigW, halfW, iconW, buttonH, spacing = 160, 78, 32, 32, 4
-    self.point1Button = addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.point1,
+    self.point1Button = H.addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.point1,
         "POINT1", "Set point 1 of the primary segment to your server position", M.onPanelButton)
-    self.deleteButton = addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.deleteOff,
+    self.deleteButton = H.addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.deleteOff,
         "DELETE", "Delete the selected zone", M.onPanelButton)
-    self.restoreButton = addImageButton(self, 0, 0, halfW, buttonH, PANEL_TEXTURES.reset,
+    self.restoreButton = H.addImageButton(self, 0, 0, halfW, buttonH, PANEL_TEXTURES.reset,
+
         "RESTORE", "Restore the last in-memory server backup", M.onPanelButton)
-    self.backupButton = addImageButton(self, 0, 0, halfW, buttonH, PANEL_TEXTURES.backup,
+    self.backupButton = H.addImageButton(self, 0, 0, halfW, buttonH, PANEL_TEXTURES.backup,
         "BACKUP", "Capture an in-memory server backup of all zones", M.onPanelButton)
 
     self.featureButtons = {}
     for index = 1, 9 do
         local def = FEATURE_DEFS[index]
-        self.featureButtons[def.key] = addImageButton(self, 0, 0, iconW, buttonH, def.offTexture,
+        self.featureButtons[def.key] = H.addImageButton(self, 0, 0, iconW, buttonH, def.offTexture,
             "FEATURE:" .. def.key, def.tooltip, M.onPanelButton)
     end
 
-    self.point2Button = addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.point2,
+    self.point2Button = H.addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.point2,
         "POINT2", "Set point 2 of the primary segment to your server position", M.onPanelButton)
-    self.teleportButton = addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.teleportOff,
+    self.teleportButton = H.addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.teleportOff,
         "TELEPORT", "Teleport to the center of the selected zone's primary segment", M.onPanelButton)
-    self.syncButton = addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.sync,
+    self.syncButton = H.addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.sync,
         "SYNC", "Gold means zone state changed since the last explicit server re-broadcast", M.onPanelButton)
 
     for index = 10, 18 do
         local def = FEATURE_DEFS[index]
-        self.featureButtons[def.key] = addImageButton(self, 0, 0, iconW, buttonH, def.offTexture,
+        self.featureButtons[def.key] = H.addImageButton(self, 0, 0, iconW, buttonH, def.offTexture,
             "FEATURE:" .. def.key, def.tooltip, M.onPanelButton)
     end
 
-    self.filtersLabel = addLabel(self, "Filters:", contentX, 0, nil, UIFont.Medium)
-    self.nameFilter = addEntry(self, "", contentX, 0, 226)
-    self.point1Filter = addEntry(self, "", contentX + 231, 0, 150)
-    self.point2Filter = addEntry(self, "", contentX + 386, 0, 160)
-    self.flagsFilter = addEntry(self, "", contentX + 551, 0, self.width - 577)
+    self.filtersLabel = H.addLabel(self, "Filters:", contentX, 0, nil, UIFont.Medium)
+    self.nameFilter = H.addEntry(self, "", contentX, 0, 226)
+    self.point1Filter = H.addEntry(self, "", contentX + 231, 0, 150)
+    self.point2Filter = H.addEntry(self, "", contentX + 386, 0, 160)
+    self.flagsFilter = H.addEntry(self, "", contentX + 551, 0, self.width - 577)
     self.nameFilter.tooltip = "Filter by zone name"
     self.point1Filter.tooltip = "Filter by point 1"
     self.point2Filter.tooltip = "Filter by point 2 or segment count"
     self.flagsFilter.tooltip = "Filter by feature flags"
-    local function changed() self:populateZones(self:selectedZoneId()) end
+    function H.changed() self:populateZones(self:selectedZoneId()) end
     self.nameFilter.onTextChange = changed
     self.point1Filter.onTextChange = changed
     self.point2Filter.onTextChange = changed
     self.flagsFilter.onTextChange = changed
 
-    self.newZoneLabel = addLabel(self, "New Zone:", contentX, 0, nil, UIFont.Medium)
-    self.newZoneName = addEntry(self, "", contentX, 0, 220)
+    self.newZoneLabel = H.addLabel(self, "New Zone:", contentX, 0, nil, UIFont.Medium)
+    self.newZoneName = H.addEntry(self, "", contentX, 0, 220)
     self.newZoneName.tooltip = "Zone name (server creates a stable ID)"
-    self.newX1 = addEntry(self, "", contentX + 226, 0, 105)
+    self.newX1 = H.addEntry(self, "", contentX + 226, 0, 105)
     self.newX1.tooltip = "X1 (blank uses player X - 5)"
-    self.newY1 = addEntry(self, "", contentX + 337, 0, 105)
+    self.newY1 = H.addEntry(self, "", contentX + 337, 0, 105)
     self.newY1.tooltip = "Y1 (blank uses player Y - 5)"
-    self.newX2 = addEntry(self, "", contentX + 448, 0, 105)
+    self.newX2 = H.addEntry(self, "", contentX + 448, 0, 105)
     self.newX2.tooltip = "X2 (blank uses player X + 5)"
-    self.newY2 = addEntry(self, "", contentX + 559, 0, 105)
+    self.newY2 = H.addEntry(self, "", contentX + 559, 0, 105)
     self.newY2.tooltip = "Y2 (blank uses player Y + 5)"
-    self.addButton = addImageButton(self, contentX + 670, 0, 125, ENTRY_HGT,
+    self.addButton = H.addImageButton(self, contentX + 670, 0, 125, ENTRY_HGT,
         PANEL_TEXTURES.add, "ADD", "Create the zone on the server", M.onPanelButton)
-    self.statusLabel = addLabel(self, "Requesting authoritative zone state...", contentX + 810, 0,
+    self.statusLabel = H.addLabel(self, "Requesting authoritative zone state...", contentX + 810, 0,
         { r = 0.70, g = 0.90, b = 0.70 })
 
     self:layoutChildren()
     self:populateZones(nil)
-    send("requestAdminState")
+    H.send("requestAdminState")
 end
 
 function M:layoutChildren()
@@ -298,6 +300,7 @@ function M:layoutChildren()
     local entryY = filterY + FONT_MEDIUM + 3
     self.filtersLabel:setX(contentX); self.filtersLabel:setY(filterY)
     local col2 = math.floor(contentW * 0.20)
+
     local col3 = math.floor(contentW * 0.33)
     local flagsX = math.floor(contentW * 0.47)
     self.nameFilter:setX(contentX); self.nameFilter:setY(entryY); self.nameFilter:setWidth(col2 - 5)
@@ -324,21 +327,21 @@ function M:selectedZoneId()
     return zone and zone.id or nil
 end
 
-local function containsPlain(value, filter)
+function H.containsPlain(value, filter)
     filter = string.lower(tostring(filter or ""))
     if filter == "" then return true end
     return string.find(string.lower(tostring(value or "")), filter, 1, true) ~= nil
 end
 
 function M:zoneMatchesFilters(zone)
-    local segment = primarySegment(zone)
+    local segment = H.primarySegment(zone)
     local point1 = segment and (tostring(segment.x1) .. "," .. tostring(segment.y1)) or ""
     local point2 = segment and (tostring(segment.x2) .. "," .. tostring(segment.y2)) or ""
     point2 = point2 .. " " .. tostring(#(zone.segments or {}))
-    return containsPlain(zone.name, self.nameFilter and self.nameFilter:getText()) and
-        containsPlain(point1, self.point1Filter and self.point1Filter:getText()) and
-        containsPlain(point2, self.point2Filter and self.point2Filter:getText()) and
-        containsPlain(activeFlags(zone), self.flagsFilter and self.flagsFilter:getText())
+    return H.containsPlain(zone.name, self.nameFilter and self.nameFilter:getText()) and
+        H.containsPlain(point1, self.point1Filter and self.point1Filter:getText()) and
+        H.containsPlain(point2, self.point2Filter and self.point2Filter:getText()) and
+        H.containsPlain(H.activeFlags(zone), self.flagsFilter and self.flagsFilter:getText())
 end
 
 function M:populateZones(preferredId)
@@ -368,7 +371,7 @@ function M.drawZoneItem(list, y, item, alt)
         list:drawRect(0, y, list:getWidth(), list.itemheight, 0.13, 0.30, 0.32, 0.32)
     end
     list:drawRectBorder(0, y, list:getWidth(), list.itemheight, 0.45, 0.30, 0.35, 0.45)
-    local segment = primarySegment(zone)
+    local segment = H.primarySegment(zone)
     local p1 = segment and (segment.x1 .. "," .. segment.y1) or "-"
     local p2 = segment and (segment.x2 .. "," .. segment.y2) or "-"
     local count = #(zone.segments or {})
@@ -377,7 +380,7 @@ function M.drawZoneItem(list, y, item, alt)
     list:drawText(p1, list.columns[2].size + 10, y + 4, 0.82, 0.82, 0.82, 0.95, list.font)
     list:drawText(p2, list.columns[3].size + 10, y + 4, 0.82, 0.82, 0.82, 0.95, list.font)
     list:drawText(tostring(zone.priority or 0), list.columns[4].size + 10, y + 4, 0.95, 0.85, 0.45, 0.95, list.font)
-    list:drawText(activeFlags(zone), list.columns[5].size + 10, y + 4, 0.70, 0.90, 1.0, 0.95, list.font)
+    list:drawText(H.activeFlags(zone), list.columns[5].size + 10, y + 4, 0.70, 0.90, 1.0, 0.95, list.font)
     return y + list.itemheight
 end
 function M:updateSelection()
@@ -398,8 +401,9 @@ function M:updateSelection()
 end
 
 function M:prerender()
+
     if self._lastLayoutW ~= self.width or self._lastLayoutH ~= self.height then self:layoutChildren() end
-    layoutWindowChrome(self)
+    H.layoutWindowChrome(self)
     ISCollapsableWindow.prerender(self)
     if PANEL_TEXTURES.background then
         local bgX = (self.width - PANEL_TEXTURES.background:getWidth()) / 2
@@ -417,7 +421,7 @@ function M:onEditZone(zone)
     local width, height = 950, 520
     local x = math.max(0, (getCore():getScreenWidth() - width) / 2 + 220)
     local y = math.max(0, (getCore():getScreenHeight() - height) / 2)
-    H.editorWindow = PZZoneAdvancedEditor:new(x, y, width, height, zone.id, self)
+    H.editorWindow = ParadiseDev.Zones.Editor:new(x, y, width, height, zone.id, self)
     H.editorWindow:initialise()
     H.editorWindow:addToUIManager()
 end
@@ -428,7 +432,7 @@ function M:onPanelButton(button)
 
     if internal == "ADD" then
         self:markDirty()
-        send("quickCreateZone", {
+        H.send("quickCreateZone", {
             name = self.newZoneName:getText(),
             x1 = self.newX1:getText(), y1 = self.newY1:getText(),
             x2 = self.newX2:getText(), y2 = self.newY2:getText(),
@@ -440,7 +444,7 @@ function M:onPanelButton(button)
         self.newY2:setText("")
         return
     elseif internal == "BACKUP" then
-        send("backupZones")
+        H.send("backupZones")
         return
     elseif internal == "RESTORE" then
         local modal = ISModalDialog:new(
@@ -453,7 +457,7 @@ function M:onPanelButton(button)
         return
     elseif internal == "SYNC" then
         self.syncRequested = true
-        send("syncZones")
+        H.send("syncZones")
         return
     end
 
@@ -461,19 +465,19 @@ function M:onPanelButton(button)
     if string.sub(internal, 1, 8) == "FEATURE:" then
         local key = string.sub(internal, 9)
         self:markDirty()
-        send("toggleFeature", {
+        H.send("toggleFeature", {
             id = zone.id,
             feature = key,
             enabled = not (zone.features and zone.features[key] == true),
         })
     elseif internal == "POINT1" then
         self:markDirty()
-        send("setPrimaryPoint", { id = zone.id, corner = 1 })
+        H.send("setPrimaryPoint", { id = zone.id, corner = 1 })
     elseif internal == "POINT2" then
         self:markDirty()
-        send("setPrimaryPoint", { id = zone.id, corner = 2 })
+        H.send("setPrimaryPoint", { id = zone.id, corner = 2 })
     elseif internal == "TELEPORT" then
-        send("teleportToZone", { id = zone.id })
+        H.send("teleportToZone", { id = zone.id })
     elseif internal == "DELETE" then
         local modal = ISModalDialog:new(
             getCore():getScreenWidth() / 2 - 175, getCore():getScreenHeight() / 2 - 75,
@@ -487,14 +491,14 @@ end
 function M:onDeleteConfirmed(button, id)
     if button.internal == "YES" then
         self:markDirty()
-        send("deleteZone", { id = id })
+        H.send("deleteZone", { id = id })
     end
 end
 
 function M:onRestoreConfirmed(button)
     if button.internal == "YES" then
         self:markDirty()
-        send("restoreZones")
+        H.send("restoreZones")
     end
 end
 
@@ -551,19 +555,19 @@ function M:titleBarHeight()
     return 24
 end
 
-PZZoneAdvancedEditor = ISCollapsableWindow:derive("PZZoneAdvancedEditor")
-local P = PZZoneAdvancedEditor
+ParadiseDev.Zones.Editor = ISCollapsableWindow:derive("ParadiseDev.Zones.Editor")
+local P = ParadiseDev.Zones.Editor
 
 function P:createChildren()
     ISCollapsableWindow.createChildren(self)
-    enableWindowResize(self)
+    H.enableWindowResize(self)
     local top = self:titleBarHeight() + GAP
     local leftX, leftW = GAP, 330
     local rightX = leftX + leftW + GAP
     local fieldX = rightX + 108
     local fieldW = self.width - fieldX - GAP
 
-    self.segmentTitle = addLabel(self, "Segments (rectangles sharing this zone ID)", leftX, top)
+    self.segmentTitle = H.addLabel(self, "Segments (rectangles sharing this zone ID)", leftX, top)
     self.segmentList = ISScrollingListBox:new(leftX, top + ENTRY_HGT, leftW, 180)
     self.segmentList:initialise()
     self.segmentList:instantiate()
@@ -573,43 +577,44 @@ function P:createChildren()
     self.segmentList.doDrawItem = P.drawSegmentItem
     self:addChild(self.segmentList)
 
-    self.addSegmentButton = addButton(self, "Add Segment", leftX, 0, 105, self, P.onAddSegment)
-    self.saveSegmentButton = addButton(self, "Save Segment", leftX + 109, 0, 105, self, P.onSaveSegment)
-    self.removeSegmentButton = addButton(self, "Remove", leftX + 218, 0, 104, self, P.onRemoveSegment)
-    self.activeFeaturesTitle = addLabel(self, "Active features", leftX, 0, { r = 1, g = 0.85, b = 0.35 })
-    self.featureLine1 = addLabel(self, "", leftX, 0, { r = 0.70, g = 0.90, b = 1.0 })
-    self.featureLine2 = addLabel(self, "", leftX, 0, { r = 0.70, g = 0.90, b = 1.0 })
+    self.addSegmentButton = H.addButton(self, "Add Segment", leftX, 0, 105, self, P.onAddSegment)
+    self.saveSegmentButton = H.addButton(self, "Save Segment", leftX + 109, 0, 105, self, P.onSaveSegment)
+    self.removeSegmentButton = H.addButton(self, "Remove", leftX + 218, 0, 104, self, P.onRemoveSegment)
+    self.activeFeaturesTitle = H.addLabel(self, "Active features", leftX, 0, { r = 1, g = 0.85, b = 0.35 })
+    self.featureLine1 = H.addLabel(self, "", leftX, 0, { r = 0.70, g = 0.90, b = 1.0 })
+    self.featureLine2 = H.addLabel(self, "", leftX, 0, { r = 0.70, g = 0.90, b = 1.0 })
 
     local y = top
-    addLabel(self, "Zone ID", rightX, y)
-    self.idEntry = addEntry(self, "", fieldX, y, fieldW)
+    H.addLabel(self, "Zone ID", rightX, y)
+    self.idEntry = H.addEntry(self, "", fieldX, y, fieldW)
     self.idEntry:setEditable(false)
     y = y + ENTRY_HGT + GAP
-    addLabel(self, "Display name", rightX, y)
-    self.nameEntry = addEntry(self, "", fieldX, y, fieldW)
+    H.addLabel(self, "Display name", rightX, y)
+    self.nameEntry = H.addEntry(self, "", fieldX, y, fieldW)
     y = y + ENTRY_HGT + GAP
-    addLabel(self, "Priority", rightX, y)
-    self.priorityEntry = addEntry(self, "0", fieldX, y, 100)
+    H.addLabel(self, "Priority", rightX, y)
+    self.priorityEntry = H.addEntry(self, "0", fieldX, y, 100)
 
     y = y + ENTRY_HGT + GAP
-    addLabel(self, "Z levels", rightX, y)
+    H.addLabel(self, "Z levels", rightX, y)
     self.zModeCombo = ISComboBox:new(fieldX, y, 155, ENTRY_HGT, self, nil)
     self.zModeCombo:initialise()
     self.zModeCombo:instantiate()
     self.zModeCombo:addOptionWithData("All Z levels", "all")
     self.zModeCombo:addOptionWithData("Floor range", "floor")
+
     self:addChild(self.zModeCombo)
-    addLabel(self, "Min", fieldX + 166, y)
-    self.zMinEntry = addEntry(self, "0", fieldX + 198, y, 55)
-    addLabel(self, "Max excl.", fieldX + 263, y)
-    self.zMaxEntry = addEntry(self, "1", fieldX + 323, y, 55)
+    H.addLabel(self, "Min", fieldX + 166, y)
+    self.zMinEntry = H.addEntry(self, "0", fieldX + 198, y, 55)
+    H.addLabel(self, "Max excl.", fieldX + 263, y)
+    self.zMaxEntry = H.addEntry(self, "1", fieldX + 323, y, 55)
 
     y = y + ENTRY_HGT + GAP
-    addLabel(self, "Deny tags", rightX, y)
-    self.denyEntry = addEntry(self, "", fieldX, y, fieldW)
+    H.addLabel(self, "Deny tags", rightX, y)
+    self.denyEntry = H.addEntry(self, "", fieldX, y, fieldW)
     y = y + ENTRY_HGT + GAP
-    addLabel(self, "Require any", rightX, y)
-    self.requireEntry = addEntry(self, "", fieldX, y, fieldW)
+    H.addLabel(self, "Require any", rightX, y)
+    self.requireEntry = H.addEntry(self, "", fieldX, y, fieldW)
 
     y = y + ENTRY_HGT + GAP
     self.adminBypass = ISTickBox:new(fieldX, y, 190, ENTRY_HGT, "", self, nil)
@@ -619,30 +624,30 @@ function P:createChildren()
     self:addChild(self.adminBypass)
 
     y = y + ENTRY_HGT + GAP * 2
-    self.cornersTitle = addLabel(self, "Selected segment corners", rightX, y, { r = 1, g = 0.85, b = 0.35 })
+    self.cornersTitle = H.addLabel(self, "Selected segment corners", rightX, y, { r = 1, g = 0.85, b = 0.35 })
     y = y + ENTRY_HGT
-    addLabel(self, "Point 1", rightX, y)
-    self.x1Entry = addEntry(self, "", fieldX, y, 85)
-    self.y1Entry = addEntry(self, "", fieldX + 90, y, 85)
-    self.point1Button = addButton(self, "Use Player", fieldX + 180, y, 95, self, P.onPoint1)
+    H.addLabel(self, "Point 1", rightX, y)
+    self.x1Entry = H.addEntry(self, "", fieldX, y, 85)
+    self.y1Entry = H.addEntry(self, "", fieldX + 90, y, 85)
+    self.point1Button = H.addButton(self, "Use Player", fieldX + 180, y, 95, self, P.onPoint1)
     y = y + ENTRY_HGT + GAP
-    addLabel(self, "Point 2", rightX, y)
-    self.x2Entry = addEntry(self, "", fieldX, y, 85)
-    self.y2Entry = addEntry(self, "", fieldX + 90, y, 85)
-    self.point2Button = addButton(self, "Use Player", fieldX + 180, y, 95, self, P.onPoint2)
+    H.addLabel(self, "Point 2", rightX, y)
+    self.x2Entry = H.addEntry(self, "", fieldX, y, 85)
+    self.y2Entry = H.addEntry(self, "", fieldX + 90, y, 85)
+    self.point2Button = H.addButton(self, "Use Player", fieldX + 180, y, 95, self, P.onPoint2)
 
     y = y + ENTRY_HGT + GAP * 2
-    self.saveButton = addButton(self, "Save Zone Settings", rightX, y, 160, self, P.onSave)
-    self.closeEditorButton = addButton(self, "Close", rightX + 168, y, 90, self, P.onCloseButton)
+    self.saveButton = H.addButton(self, "Save Zone Settings", rightX, y, 160, self, P.onSave)
+    self.closeEditorButton = H.addButton(self, "Close", rightX + 168, y, 90, self, P.onCloseButton)
     y = y + ENTRY_HGT + GAP * 2
-    self.advancedHelp = addLabel(self,
+    self.advancedHelp = H.addLabel(self,
         "Advanced policy tags are comma-separated. Z maximum is exclusive.", rightX, y,
         { r = 0.65, g = 0.72, b = 0.78 })
 
-    self.statusLabel = addLabel(self, "", GAP, self.height - ENTRY_HGT - GAP - self:resizeWidgetHeight(),
+    self.statusLabel = H.addLabel(self, "", GAP, self.height - ENTRY_HGT - GAP - self:resizeWidgetHeight(),
         { r = 0.75, g = 0.9, b = 0.75 })
     self:layoutChildren()
-    self:loadZone(zoneById(self.zoneId))
+    self:loadZone(H.zoneById(self.zoneId))
 end
 
 function P.drawSegmentItem(list, y, item, alt)
@@ -698,6 +703,7 @@ function P:loadZone(zone)
     self.idEntry:setText(zone.id)
     self.nameEntry:setText(zone.name or zone.id)
     self.priorityEntry:setText(tostring(zone.priority or 0))
+
     self.zModeCombo:setSelectedData(zone.zMode or "all")
     self.zMinEntry:setText(tostring(zone.zMin or 0))
     self.zMaxEntry:setText(tostring(zone.zMaxExclusive or 1))
@@ -733,7 +739,7 @@ function P:loadZone(zone)
 end
 
 function P:refreshFromState()
-    local zone = zoneById(self.zoneId)
+    local zone = H.zoneById(self.zoneId)
     if not zone then
         self:close()
         return
@@ -743,7 +749,7 @@ end
 
 function P:prerender()
     if self._lastLayoutW ~= self.width or self._lastLayoutH ~= self.height then self:layoutChildren() end
-    layoutWindowChrome(self)
+    H.layoutWindowChrome(self)
     ISCollapsableWindow.prerender(self)
     if self.segmentList.selected ~= self._lastSegmentSelection then
         self._lastSegmentSelection = self.segmentList.selected
@@ -780,12 +786,12 @@ end
 
 function P:onSave()
     H.markZoneDirty()
-    send("updateZone", self:zoneArgs(false))
+    H.send("updateZone", self:zoneArgs(false))
 end
 
 function P:onAddSegment()
     H.markZoneDirty()
-    send("addSegment", self:zoneArgs(true))
+    H.send("addSegment", self:zoneArgs(true))
 end
 
 function P:onSaveSegment()
@@ -794,26 +800,27 @@ function P:onSaveSegment()
     H.markZoneDirty()
     local args = self:zoneArgs(true)
     args.regionIndex = segment.index
-    send("updateSegment", args)
+    H.send("updateSegment", args)
 end
 
 function P:onRemoveSegment()
+
     local segment = self:selectedSegment()
     if segment then
         H.markZoneDirty()
-        send("removeSegment", { id = self.zoneId, regionIndex = segment.index })
+        H.send("removeSegment", { id = self.zoneId, regionIndex = segment.index })
     end
 end
 
-local function setPoint(xEntry, yEntry)
+function H.setPoint(xEntry, yEntry)
     local player = getPlayer()
     if not player then return end
     xEntry:setText(tostring(math.floor(player:getX())))
     yEntry:setText(tostring(math.floor(player:getY())))
 end
 
-function P:onPoint1() setPoint(self.x1Entry, self.y1Entry) end
-function P:onPoint2() setPoint(self.x2Entry, self.y2Entry) end
+function P:onPoint1() H.setPoint(self.x1Entry, self.y1Entry) end
+function P:onPoint2() H.setPoint(self.x2Entry, self.y2Entry) end
 
 function P:onCloseButton()
     self:close()
@@ -846,24 +853,24 @@ function P:new(x, y, width, height, zoneId, parent)
     return o
 end
 
-PZZoneTestRemote = ISCollapsableWindow:derive("PZZoneTestRemote")
-local R = PZZoneTestRemote
+ParadiseDev.Zones.TestRemote = ISCollapsableWindow:derive("ParadiseDev.Zones.TestRemote")
+local R = ParadiseDev.Zones.TestRemote
 
 function R:createChildren()
     ISCollapsableWindow.createChildren(self)
-    enableWindowResize(self)
+    H.enableWindowResize(self)
     local x, y = GAP, self:titleBarHeight() + GAP
     self.showBorders = ISTickBox:new(x, y, 180, ENTRY_HGT, "", self, R.onShowBorders)
     self.showBorders:initialise()
     self.showBorders:instantiate()
     self.showBorders:addOption("Show zone borders")
-    self.showBorders:setSelected(1, PZZoneHarnessVisualization == nil or PZZoneHarnessVisualization.enabled)
+    self.showBorders:setSelected(1, ParadiseDev.Zones.Visualization == nil or ParadiseDev.Zones.Visualization.enabled)
     self:addChild(self.showBorders)
-    self.borderLegend = addLabel(self, "Blue: 2 outside    Orange: 2 inside", x + 190, y + 2,
+    self.borderLegend = H.addLabel(self, "Blue: 2 outside    Orange: 2 inside", x + 190, y + 2,
         { r = 0.55, g = 0.78, b = 1.0 })
 
     y = y + ENTRY_HGT + GAP
-    self.vehicleLabel = addLabel(self, "Vehicle", x, y + 2)
+    self.vehicleLabel = H.addLabel(self, "Vehicle", x, y + 2)
     self.vehicleCombo = ISComboBox:new(x + 70, y, 180, ENTRY_HGT, self, nil)
     self.vehicleCombo:initialise()
     self.vehicleCombo:instantiate()
@@ -871,13 +878,13 @@ function R:createChildren()
     self.vehicleCombo:addOptionWithData("Rebound", "rebound")
     self.vehicleCombo:setSelectedData(H.serverVehicleMode)
     self:addChild(self.vehicleCombo)
-    self.applyVehicleButton = addButton(self, "Apply Vehicle Mode", x + 258, y, 155, self, R.onApplyVehicle)
+    self.applyVehicleButton = H.addButton(self, "Apply Vehicle Mode", x + 258, y, 155, self, R.onApplyVehicle)
 
     y = y + ENTRY_HGT + GAP
-    self.targetLabel = addLabel(self, "Target", x, y + 2)
-    self.targetUser = addEntry(self, getPlayer() and getPlayer():getUsername() or "Jim", x + 70, y, 180)
+    self.targetLabel = H.addLabel(self, "Target", x, y + 2)
+    self.targetUser = H.addEntry(self, getPlayer() and getPlayer():getUsername() or "Jim", x + 70, y, 180)
     y = y + ENTRY_HGT + GAP
-    self.profileLabel = addLabel(self, "Profile", x, y + 2)
+    self.profileLabel = H.addLabel(self, "Profile", x, y + 2)
     self.profileCombo = ISComboBox:new(x + 70, y, 180, ENTRY_HGT, self, nil)
     self.profileCombo:initialise()
     self.profileCombo:instantiate()
@@ -886,10 +893,10 @@ function R:createChildren()
     self.profileCombo:addOptionWithData("Range staff", "range_staff")
     self.profileCombo:addOptionWithData("PvE + range", "both")
     self:addChild(self.profileCombo)
-    self.applyProfileButton = addButton(self, "Apply Test Profile", x + 258, y, 155, self, R.onApplyProfile)
+    self.applyProfileButton = H.addButton(self, "Apply Test Profile", x + 258, y, 155, self, R.onApplyProfile)
 
     y = y + ENTRY_HGT + GAP * 2
-    self.featureLabel = addLabel(self, "Feature-zone tester (all ParadiseZ zone flags)", x, y,
+    self.featureLabel = H.addLabel(self, "Feature-zone tester (all ParadiseZ zone flags)", x, y,
         { r = 1, g = 0.85, b = 0.35 })
     y = y + ENTRY_HGT
     self.featureCombo = ISComboBox:new(x, y, self.width - GAP * 2, ENTRY_HGT, self, nil)
@@ -898,22 +905,23 @@ function R:createChildren()
     for _, def in ipairs(FEATURE_DEFS) do
         self.featureCombo:addOptionWithData(def.label .. "  (" .. def.key .. ")", def.key)
     end
+
     self:addChild(self.featureCombo)
     y = y + ENTRY_HGT + GAP
-    self.testFeatureButton = addButton(self, "Move Target to Nearest Feature Zone", x, y, 270, self, R.onTestFeature)
-    self.probeButton = addButton(self, "Probe Target's Current Authority", x + 278, y, 240, self, R.onProbe)
+    self.testFeatureButton = H.addButton(self, "Move Target to Nearest Feature Zone", x, y, 270, self, R.onTestFeature)
+    self.probeButton = H.addButton(self, "Probe Target's Current Authority", x + 278, y, 240, self, R.onProbe)
     y = y + ENTRY_HGT + GAP
-    self.cageButton = addButton(self, "Cage Target", x, y, 160, self, R.onCage)
-    self.releaseButton = addButton(self, "Release Target", x + 168, y, 160, self, R.onRelease)
+    self.cageButton = H.addButton(self, "Cage Target", x, y, 160, self, R.onCage)
+    self.releaseButton = H.addButton(self, "Release Target", x + 168, y, 160, self, R.onRelease)
     y = y + ENTRY_HGT + GAP * 2
-    self.testHelp1 = addLabel(self, "Feature tester locates and teleports; it does not fake gameplay effects that are not ported yet.",
+    self.testHelp1 = H.addLabel(self, "Feature tester locates and teleports; it does not fake gameplay effects that are not ported yet.",
         x, y, { r = 0.65, g = 0.72, b = 0.78 })
-    self.testHelp2 = addLabel(self, "Cage is server-authoritative and confines the target to the nearest Cage zone.",
+    self.testHelp2 = H.addLabel(self, "Cage is server-authoritative and confines the target to the nearest Cage zone.",
         x, y + FONT_SMALL, { r = 0.65, g = 0.72, b = 0.78 })
-    self.statusLabel = addLabel(self, "Requesting authoritative test state...", x,
+    self.statusLabel = H.addLabel(self, "Requesting authoritative test state...", x,
         self.height - ENTRY_HGT - GAP - self:resizeWidgetHeight(), { r = 0.75, g = 0.9, b = 0.75 })
     self:layoutChildren()
-    send("requestAdminState")
+    H.send("requestAdminState")
 end
 
 function R:layoutChildren()
@@ -928,42 +936,42 @@ end
 
 function R:prerender()
     if self._lastLayoutW ~= self.width or self._lastLayoutH ~= self.height then self:layoutChildren() end
-    layoutWindowChrome(self)
+    H.layoutWindowChrome(self)
     ISCollapsableWindow.prerender(self)
 end
 
 function R:onShowBorders(index, selected)
-    if PZZoneHarnessVisualization then PZZoneHarnessVisualization.setEnabled(selected) end
+    if ParadiseDev.Zones.Visualization then ParadiseDev.Zones.Visualization.setEnabled(selected) end
 end
 
 function R:onApplyVehicle()
-    send("vehicleMode", { mode = self.vehicleCombo:getOptionData(self.vehicleCombo.selected) })
+    H.send("vehicleMode", { mode = self.vehicleCombo:getOptionData(self.vehicleCombo.selected) })
 end
 
 function R:onApplyProfile()
-    send("profile", {
+    H.send("profile", {
         username = self.targetUser:getText(),
         profile = self.profileCombo:getOptionData(self.profileCombo.selected),
     })
 end
 
 function R:onTestFeature()
-    send("testFeature", {
+    H.send("testFeature", {
         username = self.targetUser:getText(),
         feature = self.featureCombo:getOptionData(self.featureCombo.selected),
     })
 end
 
 function R:onProbe()
-    send("probeFeature", { username = self.targetUser:getText() })
+    H.send("probeFeature", { username = self.targetUser:getText() })
 end
 
 function R:onCage()
-    send("cagePlayer", { username = self.targetUser:getText() })
+    H.send("cagePlayer", { username = self.targetUser:getText() })
 end
 
 function R:onRelease()
-    send("uncagePlayer", { username = self.targetUser:getText() })
+    H.send("uncagePlayer", { username = self.targetUser:getText() })
 end
 
 function R:setServerState(args)
@@ -994,14 +1002,15 @@ function R:new(x, y, width, height)
 end
 
 function H.openTestRemote()
-    if not isAdmin() then
+    if not H.isAdmin() then
         print("[PZZoneHarness] Admin access is required for the test remote.")
         return
     end
+
     if H.testWindow then
         H.testWindow:setVisible(true)
         H.testWindow:addToUIManager()
-        send("requestAdminState")
+        H.send("requestAdminState")
         return
     end
     local width, height = 560, 410
@@ -1012,14 +1021,14 @@ function H.openTestRemote()
     H.testWindow:addToUIManager()
 end
 function H.openUI()
-    if not isAdmin() then
+    if not H.isAdmin() then
         print("[PZZoneHarness] Admin access is required for the zone editor.")
         return
     end
     if H.window then
         H.window:setVisible(true)
         H.window:addToUIManager()
-        send("requestAdminState")
+        H.send("requestAdminState")
         return
     end
     local width, height = 1200, 568
@@ -1046,4 +1055,3 @@ Events.OnServerCommand.Add(function(module, command, args)
     end
 end)
 
--- The ParadiseZ admin context menu exposes these controls in its Zone submenu.

@@ -1,10 +1,10 @@
--- Runs after PZZoneEngine_Server.lua.  A driver movement event is the reliable
--- opportunity to inspect only the occupied seats of that vehicle.  This keeps
--- the passenger rule event-driven and avoids depending on passenger movement
--- callbacks or scanning online players.
-local E = PZZoneEngine
+ParadiseDev = ParadiseDev or {}
+ParadiseDev.Zones = ParadiseDev.Zones or {}
+ParadiseDev.Zones.PassengerScan = ParadiseDev.Zones.PassengerScan or {}
+local P = ParadiseDev.Zones.PassengerScan
+local E = ParadiseDev.Zones.Engine
 
-local function ejectDeniedPassengersOnDriverMove(player)
+function P.ejectDeniedPassengersOnDriverMove(player)
     if not E or not player then return end
     local vehicle = player:getVehicle()
     if not vehicle or vehicle:getCharacter(0) ~= player then return end
@@ -24,4 +24,5 @@ local function ejectDeniedPassengersOnDriverMove(player)
     end
 end
 
-Events.OnPlayerMove.Add(ejectDeniedPassengersOnDriverMove)
+Events.OnPlayerMove.Add(P.ejectDeniedPassengersOnDriverMove)
+

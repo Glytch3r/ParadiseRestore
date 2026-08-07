@@ -57,11 +57,14 @@ function ParadiseZ.context(playerNum, context)
     local menu = ISContextMenu:getNew(context)
     context:addSubMenu(main, menu)
 
-    if PZZoneHarness and PZZoneHarness.openUI then
-        addOption(menu, "Zone Editor Panel", PZZoneHarness.openUI, "media/ui/Paradise/ZoneContextIcon.png")
+    if ParadiseDev and ParadiseDev.Zones and ParadiseDev.Zones.openUI then
+        addOption(menu, "Zone Editor Panel", ParadiseDev.Zones.openUI, "media/ui/Paradise/ZoneContextIcon.png")
     end
-    if PZZoneHarness and PZZoneHarness.openTestRemote then
-        addOption(menu, "Zone Test Control Remote", PZZoneHarness.openTestRemote, "media/ui/Paradise/ZoneContextIcon.png")
+    if ParadiseDev and ParadiseDev.Zones and ParadiseDev.Zones.openTestRemote then
+        addOption(menu, "Zone Test Control Remote", ParadiseDev.Zones.openTestRemote, "media/ui/Paradise/ZoneContextIcon.png")
+    end
+    if ParadiseDev and ParadiseDev.Cage and ParadiseDev.Cage.openPanel then
+        addOption(menu, "Cage Administration", ParadiseDev.Cage.openPanel, "media/ui/Paradise/ContextIcon.png")
     end
 
     addOption(menu, "Audio Direction: " .. onOrOff(ParadiseZ.soundDbg), function()

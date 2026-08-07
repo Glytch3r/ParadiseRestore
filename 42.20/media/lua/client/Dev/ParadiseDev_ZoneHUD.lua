@@ -23,7 +23,7 @@ local function featureText(zone)
 end
 
 function HUD.getCurrentZone(player)
-    local border = rawget(_G, "PZZoneEngineClientBorder")
+    local border = ParadiseDev and ParadiseDev.Zones and ParadiseDev.Zones.Border
     return border and border.getZoneFor and border.getZoneFor(player) or nil
 end
 

@@ -1,9 +1,7 @@
--- Standalone B42 zone-engine test. Gameplay effects remain separate, while
--- the engine owns and publishes each zone's feature flags. A companion
--- harness owns the test profiles, sample zones, and administration UI.
-
-PZZoneEngine = PZZoneEngine or {}
-local E = PZZoneEngine
+ParadiseDev = ParadiseDev or {}
+ParadiseDev.Zones = ParadiseDev.Zones or {}
+ParadiseDev.Zones.Engine = ParadiseDev.Zones.Engine or {}
+local E = ParadiseDev.Zones.Engine
 
 E.CELL_SIZE = 100
 E.zones = E.zones or {}
@@ -12,13 +10,9 @@ E.profiles = E.profiles or {}
 E.lastValid = E.lastValid or {}
 E.eventLog = E.eventLog or {}
 E.cageAssignments = E.cageAssignments or {}
--- Client-side prediction is limited to this narrow border; policy and final
--- enforcement remain server-authoritative.
+
 E.BORDER_WIDTH = 2
 
--- Legacy ParadiseZ feature names are retained as a compact, server-owned
--- capability record. Most features are consumed by separate gameplay
--- modules; KoS, Blocked, and Hunt also participate in entry authorization.
 E.FEATURE_KEYS = {
     "isKos", "isPvE", "isSafe", "isBlocked", "isRad", "isHunt",
     "isBlaze", "isFrost", "isBomb", "isMine", "isNoCamp", "isNoFire",
@@ -28,23 +22,28 @@ E.FEATURE_KEYS = {
 local FEATURE_KEY_SET = {}
 for _, key in ipairs(E.FEATURE_KEYS) do FEATURE_KEY_SET[key] = true end
 
--- "observe" logs denied driver entries without changing a vehicle.  The B42
--- server vehicle-rebound path is deliberately opt-in during this test phase.
 E.vehicleMode = E.vehicleMode or "observe"
 
-local function userName(player)
+function E.userName(player)
     return player and player:getUsername() or nil
 end
 
-local function cellCoord(value)
+function E.playerSteamId(player)
+    if ParadiseDev and ParadiseDev.Cage and ParadiseDev.Cage.getSteamId then
+        return ParadiseDev.Cage.getSteamId(player)
+    end
+    return nil
+end
+
+function E.cellCoord(value)
     return math.floor(value / E.CELL_SIZE)
 end
 
-local function cellKey(cx, cy)
+function E.cellKey(cx, cy)
     return tostring(cx) .. ":" .. tostring(cy)
 end
 
-local function copyTags(tags)
+function E.copyTags(tags)
     local result = {}
     for tag, value in pairs(tags or {}) do
         if value == true then result[tag] = true end
@@ -67,21 +66,21 @@ function E.setZoneFeature(id, key, enabled)
     zone.features = zone.features or E.copyFeatures(nil)
     zone.features[key] = enabled == true
     if key == "isCage" and enabled ~= true then
-        for username, cageId in pairs(E.cageAssignments) do
-            if cageId == id then E.cageAssignments[username] = nil end
+        for steamId, cageId in pairs(E.cageAssignments) do
+            if cageId == id then E.cageAssignments[steamId] = nil end
         end
     end
     return true
 end
 
-local function area(region)
+function E.area(region)
     return (region.xMax - region.xMin) * (region.yMax - region.yMin)
 end
 
 function E.log(kind, player, zone, detail)
     local entry = {
         kind = kind,
-        user = userName(player),
+        user = E.userName(player),
         zone = zone and zone.id or nil,
         detail = detail,
     }
@@ -103,11 +102,11 @@ function E.rebuildIndex()
     E.cellIndex = {}
     for id, zone in pairs(E.zones) do
         for _, region in ipairs(zone.regions) do
-            local minCX, maxCX = cellCoord(region.xMin), cellCoord(region.xMax - 0.001)
-            local minCY, maxCY = cellCoord(region.yMin), cellCoord(region.yMax - 0.001)
+            local minCX, maxCX = E.cellCoord(region.xMin), E.cellCoord(region.xMax - 0.001)
+            local minCY, maxCY = E.cellCoord(region.yMin), E.cellCoord(region.yMax - 0.001)
             for cx = minCX, maxCX do
                 for cy = minCY, maxCY do
-                    local key = cellKey(cx, cy)
+                    local key = E.cellKey(cx, cy)
                     local bucket = E.cellIndex[key]
                     if not bucket then
                         bucket = {}
@@ -120,8 +119,6 @@ function E.rebuildIndex()
     end
 end
 
--- Same id/name deliberately adds a rectangle to one logical zone.  This is
--- how an L shape (or disconnected areas under one policy) is represented.
 function E.addRegion(id, x1, y1, x2, y2, options)
     options = options or {}
     local xMin, xMax = math.min(x1, x2), math.max(x1, x2)
@@ -147,7 +144,7 @@ function E.addRegion(id, x1, y1, x2, y2, options)
     zone.regions[#zone.regions + 1] = {
         xMin = xMin,
         yMin = yMin,
-        xMax = xMax + 1, -- Test commands use inclusive tile coordinates.
+        xMax = xMax + 1,
         yMax = yMax + 1,
     }
     E.rebuildIndex()
@@ -194,8 +191,8 @@ function E.removeRegion(id, regionIndex)
     table.remove(zone.regions, regionIndex)
     if #zone.regions == 0 then
         E.zones[id] = nil
-        for username, cageId in pairs(E.cageAssignments) do
-            if cageId == id then E.cageAssignments[username] = nil end
+        for steamId, cageId in pairs(E.cageAssignments) do
+            if cageId == id then E.cageAssignments[steamId] = nil end
         end
     end
     E.rebuildIndex()
@@ -205,20 +202,20 @@ end
 function E.removeZone(id)
     if not E.zones[id] then return false, "zone not found" end
     E.zones[id] = nil
-    for username, cageId in pairs(E.cageAssignments) do
-        if cageId == id then E.cageAssignments[username] = nil end
+    for steamId, cageId in pairs(E.cageAssignments) do
+        if cageId == id then E.cageAssignments[steamId] = nil end
     end
     E.rebuildIndex()
     return true
 end
 function E.setProfile(username, tags)
     if not username or username == "" then return false end
-    E.profiles[username] = { tags = copyTags(tags) }
+    E.profiles[username] = { tags = E.copyTags(tags) }
     return true
 end
 
 function E.getProfile(player)
-    local profile = E.profiles[userName(player)]
+    local profile = E.profiles[E.userName(player)]
     return profile or { tags = {} }
 end
 
@@ -247,11 +244,11 @@ end
 function E.getCandidateZones(x, y, padding)
     padding = padding or 0
     local result, seen = {}, {}
-    local minCX, maxCX = cellCoord(x - padding), cellCoord(x + padding)
-    local minCY, maxCY = cellCoord(y - padding), cellCoord(y + padding)
+    local minCX, maxCX = E.cellCoord(x - padding), E.cellCoord(x + padding)
+    local minCY, maxCY = E.cellCoord(y - padding), E.cellCoord(y + padding)
     for cx = minCX, maxCX do
         for cy = minCY, maxCY do
-            local bucket = E.cellIndex[cellKey(cx, cy)]
+            local bucket = E.cellIndex[E.cellKey(cx, cy)]
             if bucket then
                 for id in pairs(bucket) do
                     if not seen[id] then
@@ -287,9 +284,7 @@ function E.isAllowed(zone, player)
     if hasRequirement then return false end
     return true
 end
--- The server resolves access before publishing a compact boundary cache. The
--- client never evaluates profiles, roles, or admin bypass; it only uses this
--- state to make the already-authorized boundary feel immediate.
+
 function E.syncBoundaryState(player)
     if not player then return end
     local zones = {}
@@ -316,7 +311,7 @@ function E.syncBoundaryState(player)
     sendServerCommand(player, "PZZoneEngine", "boundaryState", {
         borderWidth = E.BORDER_WIDTH,
         vehicleMode = E.vehicleMode,
-        cagedZoneId = E.cageAssignments[userName(player)],
+        cagedZoneId = E.cageAssignments[E.playerSteamId(player)],
         zones = zones,
     })
 end
@@ -327,16 +322,15 @@ function E.syncAllBoundaryStates()
         E.syncBoundaryState(players:get(index))
     end
 end
--- Highest priority wins.  Ties choose the smaller containing rectangle, then
--- the stable id ordering, so overlap authority is deterministic.
+
 function E.getAuthority(x, y, z, padding)
     local winner, winnerRegion
     for _, zone in ipairs(E.getCandidateZones(x, y, padding)) do
         local inside, region = E.zoneContains(zone, x, y, z, padding)
         if inside then
             if not winner or zone.priority > winner.priority or
-                (zone.priority == winner.priority and area(region) < area(winnerRegion)) or
-                (zone.priority == winner.priority and area(region) == area(winnerRegion) and zone.id < winner.id) then
+                (zone.priority == winner.priority and E.area(region) < E.area(winnerRegion)) or
+                (zone.priority == winner.priority and E.area(region) == E.area(winnerRegion) and zone.id < winner.id) then
                 winner, winnerRegion = zone, region
             end
         end
@@ -374,12 +368,26 @@ function E.nearestRegion(zone, x, y)
     return winner, winnerDistance
 end
 
+function E.nearestCageZone(player)
+    if not player then return nil end
+    local winner, winnerDistance
+    for _, zone in pairs(E.zones) do
+        if zone.features and zone.features.isCage then
+            local _, distance = E.nearestRegion(zone, player:getX(), player:getY())
+            if distance and (not winner or distance < winnerDistance) then
+                winner, winnerDistance = zone, distance
+            end
+        end
+    end
+    return winner
+end
+
 function E.teleportPlayer(player, x, y, z)
     return ParadiseDev and ParadiseDev.TP and ParadiseDev.TP.teleportPlayer(player, x, y, z) or false
 end
 
 function E.reboundPlayer(player, zone, region, x, y, z)
-    local last = E.lastValid[userName(player)]
+    local last = E.lastValid[E.userName(player)]
     if last and not E.zoneContains(zone, last.x, last.y, last.z) then
         E.teleportPlayer(player, last.x, last.y, last.z)
         E.log("rebound-last-valid", player, zone)
@@ -402,18 +410,38 @@ function E.forceVehicleExit(player, x, y, z)
     return ParadiseDev and ParadiseDev.TP and ParadiseDev.TP.exitVehicleAndTeleport(player, x, y, z, false) or false
 end
 
+function E.captureCageReturn(player)
+    if not player then return end
+    local modData = player:getModData()
+    if modData.ParadiseDevCageReturn then return end
+    modData.ParadiseDevCageReturn = {
+        x = player:getX(),
+        y = player:getY(),
+        z = player:getZ(),
+    }
+end
+
+function E.restoreCageReturn(player)
+    if not player then return false end
+    local modData = player:getModData()
+    local returnPoint = modData.ParadiseDevCageReturn
+    modData.ParadiseDevCageReturn = nil
+    if not returnPoint then return false end
+    return E.teleportPlayer(player, returnPoint.x, returnPoint.y, returnPoint.z)
+end
+
 function E.assignCage(player, zone)
     if not player or not zone or not zone.features or not zone.features.isCage then
         return false, "A valid Cage zone is required."
     end
-    local username = userName(player)
-    if not username then return false, "The target player has no username." end
+    local steamId = E.playerSteamId(player)
+    if not steamId then return false, "The target player has no Steam ID." end
     local region = E.nearestRegion(zone, player:getX(), player:getY())
     if not region then return false, "The Cage zone has no segments." end
     local x, y = E.regionCenter(region)
     local z = zone.zMode == "floor" and zone.zMin or player:getZ()
-    E.cageAssignments[username] = zone.id
-    E.lastValid[username] = nil
+    E.cageAssignments[steamId] = zone.id
+    E.lastValid[E.userName(player)] = nil
     E.forceVehicleExit(player, x, y, z)
     E.syncBoundaryState(player)
     E.log("caged", player, zone)
@@ -421,11 +449,11 @@ function E.assignCage(player, zone)
 end
 
 function E.releaseCage(player)
-    local username = userName(player)
-    if not username or not E.cageAssignments[username] then return false end
-    local zone = E.zones[E.cageAssignments[username]]
-    E.cageAssignments[username] = nil
-    E.lastValid[username] = nil
+    local steamId = E.playerSteamId(player)
+    if not steamId or not E.cageAssignments[steamId] then return false end
+    local zone = E.zones[E.cageAssignments[steamId]]
+    E.cageAssignments[steamId] = nil
+    E.lastValid[E.userName(player)] = nil
     E.syncBoundaryState(player)
     E.log("uncaged", player, zone)
     return true
@@ -434,7 +462,7 @@ end
 function E.enforceCage(player, zone, x, y, z)
     local inside = E.zoneContains(zone, x, y, z, 0)
     if inside then
-        E.lastValid[userName(player)] = { x = x, y = y, z = z }
+        E.lastValid[E.userName(player)] = { x = x, y = y, z = z }
         return true
     end
     local region = E.nearestRegion(zone, x, y)
@@ -448,26 +476,36 @@ end
 
 function E.onPlayerMove(player)
     if not player or not player:isAlive() then return end
+    if ParadiseDev and ParadiseDev.Cage then ParadiseDev.Cage.syncPlayer(player) end
     local vehicle = player:getVehicle()
     local x, y = player:getX(), player:getY()
     if vehicle then x, y = vehicle:getX(), vehicle:getY() end
     local z = player:getZ()
 
-    local username = userName(player)
-    local cageId = E.cageAssignments[username]
-    if cageId then
+    local steamId = E.playerSteamId(player)
+    local cageId = steamId and E.cageAssignments[steamId] or nil
+    local isCaged = ParadiseDev and ParadiseDev.Cage and ParadiseDev.Cage.isCaged(player)
+    if isCaged and not cageId then
+        local nearestCage = E.nearestCageZone(player)
+        if nearestCage then
+            E.captureCageReturn(player)
+            E.assignCage(player, nearestCage)
+            return
+        end
+    end
+    if cageId and ParadiseDev.Cage.isCaged(player) then
         local cageZone = E.zones[cageId]
         if cageZone and cageZone.features and cageZone.features.isCage then
             E.enforceCage(player, cageZone, x, y, z)
             return
         end
-        E.cageAssignments[username] = nil
+        E.cageAssignments[steamId] = nil
         E.syncBoundaryState(player)
     end
 
     local zone, region = E.getAuthority(x, y, z, vehicle and 2.0 or 0)
     if not zone or E.isAllowed(zone, player) then
-        E.lastValid[userName(player)] = { x = x, y = y, z = z }
+        E.lastValid[E.userName(player)] = { x = x, y = y, z = z }
         return
     end
 
@@ -496,9 +534,6 @@ end
 
 Events.OnPlayerMove.Add(E.onPlayerMove)
 
--- Read-only client cache used by the border feedback and ParadiseDev zone HUD.
--- Policy remains fully server-owned; this only publishes the result for the
--- requesting player.
 Events.OnClientCommand.Add(function(module, command, player)
     if module == "PZZoneEngine" and command == "requestBoundaryState" then
         E.syncBoundaryState(player)
