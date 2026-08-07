@@ -3,6 +3,8 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.hook = ParadiseDev.hook or {}
 ParadiseDev.hook.ISChat_addLineInChat = ISChat.addLineInChat
 
+require "Dev/ParadiseDev_Players"
+
 ISChat.BlinkEnabled = true
 
 function ISChat.setAllTabBlinking(enabled)
@@ -33,10 +35,7 @@ function ISChat.addLineInChat(message, tabID)
     end
 end
 
-function ParadiseDev.isAdm()
-    local pl = getPlayer()
-    return pl and ( string.lower(pl:getAccessLevel()) == "admin" or (isClient() and isAdmin())) and pl:isBuildCheat()
-end
+
 
 function ParadiseDev.autoRemoveBlink()
     if not ParadiseDev.isAdm() then return end

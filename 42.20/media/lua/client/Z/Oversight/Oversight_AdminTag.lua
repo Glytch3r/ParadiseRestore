@@ -1,7 +1,11 @@
+require "Dev/ParadiseDev_Players"
+
 ParadiseZ = ParadiseZ or {} 
 
 function ParadiseZ.hideAdminTag(pl)
-    if ParadiseZ.isHideAdminTag() then
+    pl = pl or getPlayer()
+    if not pl or pl ~= getPlayer() then return end
+    if ParadiseZ.isHideAdminTag(pl) then
         if pl:isShowAdminTag() then
             pl:setShowAdminTag(false);
             sendPlayerExtraInfo(pl)
@@ -27,7 +31,7 @@ end
 function ParadiseZ.setHideAdminTag(activate, pl)
     pl = pl or getPlayer()
     if not pl or not pl:isAlive() then return end
-    if string.lower(pl:getAccessLevel()) == "admin" then
+    if ParadiseDev.isAdm() then
         if activate ~= nil then
             pl:getModData().isHideAdminTag = activate
         end
@@ -37,7 +41,7 @@ end
 function ParadiseZ.toggleHideAdminTag(pl, activate)
     pl = pl or getPlayer()
     if not pl or not pl:isAlive() then return end
-    if string.lower(pl:getAccessLevel()) ~= "admin" then return end
+    if not ParadiseDev.isAdm() then return end
     local md = pl:getModData()
     if activate ~= nil then
         md.isHideAdminTag = activate

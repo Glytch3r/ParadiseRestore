@@ -1,9 +1,10 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
-local H = ParadiseDev.Zones
-if H then
-    function H.enableAdminTesting()
-        sendClientCommand(H.MODULE, "disableDemoAdminBypass", {})
-    end
+ParadiseDev.Zones.AdminTesting = ParadiseDev.Zones.AdminTesting or {}
+ParadiseDev.Zones.AdminTesting.module = "PZZoneHarness"
+
+function ParadiseDev.Zones.AdminTesting.enable()
+    sendClientCommand(ParadiseDev.Zones.AdminTesting.module, "disableDemoAdminBypass", {})
 end
 
+ParadiseDev.Zones.enableAdminTesting = ParadiseDev.Zones.AdminTesting.enable

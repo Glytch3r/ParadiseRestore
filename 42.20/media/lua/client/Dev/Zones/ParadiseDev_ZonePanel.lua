@@ -1,5 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
+require "Dev/ParadiseDev_Players"
 require "ISUI/ISCollapsableWindow"
 require "ISUI/ISButton"
 require "ISUI/ISLabel"
@@ -9,13 +10,12 @@ require "ISUI/ISTickBox"
 require "ISUI/ISComboBox"
 require "ISUI/ISModalDialog"
 
-local H = ParadiseDev.Zones
-H.MODULE = H.MODULE or "PZZoneHarness"
-H.adminZones = H.adminZones or {}
-H.window = H.window or nil
-H.editorWindow = H.editorWindow or nil
-H.testWindow = H.testWindow or nil
-H.serverVehicleMode = H.serverVehicleMode or "observe"
+ParadiseDev.Zones.MODULE = ParadiseDev.Zones.MODULE or "PZZoneHarness"
+ParadiseDev.Zones.adminZones = ParadiseDev.Zones.adminZones or {}
+ParadiseDev.Zones.window = ParadiseDev.Zones.window or nil
+ParadiseDev.Zones.editorWindow = ParadiseDev.Zones.editorWindow or nil
+ParadiseDev.Zones.testWindow = ParadiseDev.Zones.testWindow or nil
+ParadiseDev.Zones.serverVehicleMode = ParadiseDev.Zones.serverVehicleMode or "observe"
 
 local FONT_SMALL = getTextManager():getFontHeight(UIFont.Small)
 local FONT_MEDIUM = getTextManager():getFontHeight(UIFont.Medium)
@@ -66,16 +66,11 @@ local PANEL_TEXTURES = {
     background = getTexture(UI_PATH .. "bg.png"),
 }
 
-function H.send(command, args)
-    sendClientCommand(H.MODULE, command, args or {})
+function ParadiseDev.Zones.send(command, args)
+    sendClientCommand(ParadiseDev.Zones.MODULE, command, args or {})
 end
 
-function H.isAdmin()
-    local player = getPlayer()
-    return player and string.lower(tostring(player:getAccessLevel())) == "admin"
-end
-
-function H.addLabel(parent, text, x, y, color, font)
+function ParadiseDev.Zones.addLabel(parent, text, x, y, color, font)
     color = color or { r = 0.85, g = 0.85, b = 0.85 }
     local label = ISLabel:new(x, y, ENTRY_HGT, text, color.r, color.g, color.b, 1, font or UIFont.Small, true)
     label:initialise()
@@ -84,7 +79,7 @@ function H.addLabel(parent, text, x, y, color, font)
     return label
 end
 
-function H.addEntry(parent, text, x, y, width)
+function ParadiseDev.Zones.addEntry(parent, text, x, y, width)
     local entry = ISTextEntryBox:new(tostring(text or ""), x, y, width, ENTRY_HGT)
     entry:initialise()
     entry:instantiate()
@@ -92,7 +87,7 @@ function H.addEntry(parent, text, x, y, width)
     return entry
 end
 
-function H.addButton(parent, text, x, y, width, target, callback)
+function ParadiseDev.Zones.addButton(parent, text, x, y, width, target, callback)
     local button = ISButton:new(x, y, width, ENTRY_HGT, text, target, callback)
     button:initialise()
     button:instantiate()
@@ -100,7 +95,7 @@ function H.addButton(parent, text, x, y, width, target, callback)
     return button
 end
 
-function H.addImageButton(parent, x, y, width, height, image, internal, tooltip, callback)
+function ParadiseDev.Zones.addImageButton(parent, x, y, width, height, image, internal, tooltip, callback)
     local button = ISButton:new(x, y, width, height, "", parent, callback)
     button.internal = internal
     button.tooltip = tooltip
@@ -112,7 +107,7 @@ function H.addImageButton(parent, x, y, width, height, image, internal, tooltip,
     return button
 end
 
-function H.layoutWindowChrome(window)
+function ParadiseDev.Zones.layoutWindowChrome(window)
     local buttonHeight = window:titleBarHeight() - 2
     local rightX = window.width - 1 - buttonHeight
     if window.pinButton then window.pinButton:setX(rightX) end
@@ -128,24 +123,24 @@ function H.layoutWindowChrome(window)
     end
 end
 
-function H.resizeWindow(target, newWidth, newHeight)
+function ParadiseDev.Zones.resizeWindow(target, newWidth, newHeight)
     target:setWidth(math.max(newWidth, target.minimumWidth or 0))
     target:setHeight(math.max(newHeight, target.minimumHeight or 0))
-    H.layoutWindowChrome(target)
+    ParadiseDev.Zones.layoutWindowChrome(target)
     if target.layoutChildren then target:layoutChildren() end
 end
 
-function H.enableWindowResize(window)
+function ParadiseDev.Zones.enableWindowResize(window)
     window:setResizable(true)
-    if window.resizeWidget then window.resizeWidget.resizeFunction = resizeWindow end
-    if window.resizeWidget2 then window.resizeWidget2.resizeFunction = resizeWindow end
-    H.layoutWindowChrome(window)
+    if window.resizeWidget then window.resizeWidget.resizeFunction = ParadiseDev.Zones.resizeWindow end
+    if window.resizeWidget2 then window.resizeWidget2.resizeFunction = ParadiseDev.Zones.resizeWindow end
+    ParadiseDev.Zones.layoutWindowChrome(window)
 end
-function H.primarySegment(zone)
+function ParadiseDev.Zones.primarySegment(zone)
     return zone and zone.segments and zone.segments[1] or nil
 end
 
-function H.activeFlags(zone)
+function ParadiseDev.Zones.activeFlags(zone)
     local names = {}
     local features = zone and zone.features or {}
     for _, def in ipairs(FEATURE_DEFS) do
@@ -154,24 +149,28 @@ function H.activeFlags(zone)
     return table.concat(names, ", ")
 end
 
-function H.zoneById(id)
-    for _, zone in ipairs(H.adminZones) do
+function ParadiseDev.Zones.zoneById(id)
+    for _, zone in ipairs(ParadiseDev.Zones.adminZones) do
         if zone.id == id then return zone end
     end
     return nil
 end
 
 ParadiseDev.Zones.Panel = ISCollapsableWindow:derive("ParadiseDev.Zones.Panel")
-local M = ParadiseDev.Zones.Panel
 
-function M:createChildren()
+function ParadiseDev.Zones.Panel.onFilterChanged(entry)
+    local panel = entry and entry.parent or nil
+    if panel and panel.populateZones then panel:populateZones(panel:selectedZoneId()) end
+end
+
+function ParadiseDev.Zones.Panel:createChildren()
     ISCollapsableWindow.createChildren(self)
-    H.enableWindowResize(self)
+    ParadiseDev.Zones.enableWindowResize(self)
 
     local contentX = 13
     local top = self:titleBarHeight() + 8
-    self.totalLabel = H.addLabel(self, "Total Zones: 0", contentX + 8, top, nil, UIFont.Medium)
-    self.infoLabel = H.addLabel(self, "Double-click a zone for segments, priority, Z levels, and advanced access",
+    self.totalLabel = ParadiseDev.Zones.addLabel(self, "Total Zones: 0", contentX + 8, top, nil, UIFont.Medium)
+    self.infoLabel = ParadiseDev.Zones.addLabel(self, "Double-click a zone for segments, priority, Z levels, and advanced access",
         contentX + 185, top, { r = 0.75, g = 0.88, b = 1.0 }, UIFont.Medium)
 
     self.zoneList = ISScrollingListBox:new(contentX, top + FONT_MEDIUM + 12 + ENTRY_HGT, self.width - 26, 220)
@@ -180,7 +179,7 @@ function M:createChildren()
     self.zoneList.itemheight = 24
     self.zoneList.selected = 0
     self.zoneList.font = UIFont.Small
-    self.zoneList.doDrawItem = M.drawZoneItem
+    self.zoneList.doDrawItem = ParadiseDev.Zones.Panel.drawZoneItem
     self.zoneList.drawBorder = true
     self.zoneList.borderColor = { r = 0.2, g = 0.2, b = 0.5, a = 0.1 }
     self.zoneList.altBgColor = { r = 0.1, g = 0.1, b = 0.7, a = 0.3 }
@@ -190,77 +189,76 @@ function M:createChildren()
     self.zoneList:addColumn("Point 2 / Segments", 390)
     self.zoneList:addColumn("Pri", 555)
     self.zoneList:addColumn("Flags", 620)
-    self.zoneList:setOnMouseDoubleClick(self, M.onEditZone)
+    self.zoneList:setOnMouseDoubleClick(self, ParadiseDev.Zones.Panel.onEditZone)
     self:addChild(self.zoneList)
 
     local bigW, halfW, iconW, buttonH, spacing = 160, 78, 32, 32, 4
-    self.point1Button = H.addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.point1,
-        "POINT1", "Set point 1 of the primary segment to your server position", M.onPanelButton)
-    self.deleteButton = H.addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.deleteOff,
-        "DELETE", "Delete the selected zone", M.onPanelButton)
-    self.restoreButton = H.addImageButton(self, 0, 0, halfW, buttonH, PANEL_TEXTURES.reset,
+    self.point1Button = ParadiseDev.Zones.addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.point1,
+        "POINT1", "Set point 1 of the primary segment to your server position", ParadiseDev.Zones.Panel.onPanelButton)
+    self.deleteButton = ParadiseDev.Zones.addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.deleteOff,
+        "DELETE", "Delete the selected zone", ParadiseDev.Zones.Panel.onPanelButton)
+    self.restoreButton = ParadiseDev.Zones.addImageButton(self, 0, 0, halfW, buttonH, PANEL_TEXTURES.reset,
 
-        "RESTORE", "Restore the last in-memory server backup", M.onPanelButton)
-    self.backupButton = H.addImageButton(self, 0, 0, halfW, buttonH, PANEL_TEXTURES.backup,
-        "BACKUP", "Capture an in-memory server backup of all zones", M.onPanelButton)
+        "RESTORE", "Restore the last in-memory server backup", ParadiseDev.Zones.Panel.onPanelButton)
+    self.backupButton = ParadiseDev.Zones.addImageButton(self, 0, 0, halfW, buttonH, PANEL_TEXTURES.backup,
+        "BACKUP", "Capture an in-memory server backup of all zones", ParadiseDev.Zones.Panel.onPanelButton)
 
     self.featureButtons = {}
     for index = 1, 9 do
         local def = FEATURE_DEFS[index]
-        self.featureButtons[def.key] = H.addImageButton(self, 0, 0, iconW, buttonH, def.offTexture,
-            "FEATURE:" .. def.key, def.tooltip, M.onPanelButton)
+        self.featureButtons[def.key] = ParadiseDev.Zones.addImageButton(self, 0, 0, iconW, buttonH, def.offTexture,
+            "FEATURE:" .. def.key, def.tooltip, ParadiseDev.Zones.Panel.onPanelButton)
     end
 
-    self.point2Button = H.addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.point2,
-        "POINT2", "Set point 2 of the primary segment to your server position", M.onPanelButton)
-    self.teleportButton = H.addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.teleportOff,
-        "TELEPORT", "Teleport to the center of the selected zone's primary segment", M.onPanelButton)
-    self.syncButton = H.addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.sync,
-        "SYNC", "Gold means zone state changed since the last explicit server re-broadcast", M.onPanelButton)
+    self.point2Button = ParadiseDev.Zones.addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.point2,
+        "POINT2", "Set point 2 of the primary segment to your server position", ParadiseDev.Zones.Panel.onPanelButton)
+    self.teleportButton = ParadiseDev.Zones.addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.teleportOff,
+        "TELEPORT", "Teleport to the center of the selected zone's primary segment", ParadiseDev.Zones.Panel.onPanelButton)
+    self.syncButton = ParadiseDev.Zones.addImageButton(self, 0, 0, bigW, buttonH, PANEL_TEXTURES.sync,
+        "SYNC", "Gold means zone state changed since the last explicit server re-broadcast", ParadiseDev.Zones.Panel.onPanelButton)
 
     for index = 10, 18 do
         local def = FEATURE_DEFS[index]
-        self.featureButtons[def.key] = H.addImageButton(self, 0, 0, iconW, buttonH, def.offTexture,
-            "FEATURE:" .. def.key, def.tooltip, M.onPanelButton)
+        self.featureButtons[def.key] = ParadiseDev.Zones.addImageButton(self, 0, 0, iconW, buttonH, def.offTexture,
+            "FEATURE:" .. def.key, def.tooltip, ParadiseDev.Zones.Panel.onPanelButton)
     end
 
-    self.filtersLabel = H.addLabel(self, "Filters:", contentX, 0, nil, UIFont.Medium)
-    self.nameFilter = H.addEntry(self, "", contentX, 0, 226)
-    self.point1Filter = H.addEntry(self, "", contentX + 231, 0, 150)
-    self.point2Filter = H.addEntry(self, "", contentX + 386, 0, 160)
-    self.flagsFilter = H.addEntry(self, "", contentX + 551, 0, self.width - 577)
+    self.filtersLabel = ParadiseDev.Zones.addLabel(self, "Filters:", contentX, 0, nil, UIFont.Medium)
+    self.nameFilter = ParadiseDev.Zones.addEntry(self, "", contentX, 0, 226)
+    self.point1Filter = ParadiseDev.Zones.addEntry(self, "", contentX + 231, 0, 150)
+    self.point2Filter = ParadiseDev.Zones.addEntry(self, "", contentX + 386, 0, 160)
+    self.flagsFilter = ParadiseDev.Zones.addEntry(self, "", contentX + 551, 0, self.width - 577)
     self.nameFilter.tooltip = "Filter by zone name"
     self.point1Filter.tooltip = "Filter by point 1"
     self.point2Filter.tooltip = "Filter by point 2 or segment count"
     self.flagsFilter.tooltip = "Filter by feature flags"
-    function H.changed() self:populateZones(self:selectedZoneId()) end
-    self.nameFilter.onTextChange = changed
-    self.point1Filter.onTextChange = changed
-    self.point2Filter.onTextChange = changed
-    self.flagsFilter.onTextChange = changed
+    self.nameFilter.onTextChange = ParadiseDev.Zones.Panel.onFilterChanged
+    self.point1Filter.onTextChange = ParadiseDev.Zones.Panel.onFilterChanged
+    self.point2Filter.onTextChange = ParadiseDev.Zones.Panel.onFilterChanged
+    self.flagsFilter.onTextChange = ParadiseDev.Zones.Panel.onFilterChanged
 
-    self.newZoneLabel = H.addLabel(self, "New Zone:", contentX, 0, nil, UIFont.Medium)
-    self.newZoneName = H.addEntry(self, "", contentX, 0, 220)
+    self.newZoneLabel = ParadiseDev.Zones.addLabel(self, "New Zone:", contentX, 0, nil, UIFont.Medium)
+    self.newZoneName = ParadiseDev.Zones.addEntry(self, "", contentX, 0, 220)
     self.newZoneName.tooltip = "Zone name (server creates a stable ID)"
-    self.newX1 = H.addEntry(self, "", contentX + 226, 0, 105)
+    self.newX1 = ParadiseDev.Zones.addEntry(self, "", contentX + 226, 0, 105)
     self.newX1.tooltip = "X1 (blank uses player X - 5)"
-    self.newY1 = H.addEntry(self, "", contentX + 337, 0, 105)
+    self.newY1 = ParadiseDev.Zones.addEntry(self, "", contentX + 337, 0, 105)
     self.newY1.tooltip = "Y1 (blank uses player Y - 5)"
-    self.newX2 = H.addEntry(self, "", contentX + 448, 0, 105)
+    self.newX2 = ParadiseDev.Zones.addEntry(self, "", contentX + 448, 0, 105)
     self.newX2.tooltip = "X2 (blank uses player X + 5)"
-    self.newY2 = H.addEntry(self, "", contentX + 559, 0, 105)
+    self.newY2 = ParadiseDev.Zones.addEntry(self, "", contentX + 559, 0, 105)
     self.newY2.tooltip = "Y2 (blank uses player Y + 5)"
-    self.addButton = H.addImageButton(self, contentX + 670, 0, 125, ENTRY_HGT,
-        PANEL_TEXTURES.add, "ADD", "Create the zone on the server", M.onPanelButton)
-    self.statusLabel = H.addLabel(self, "Requesting authoritative zone state...", contentX + 810, 0,
+    self.addButton = ParadiseDev.Zones.addImageButton(self, contentX + 670, 0, 125, ENTRY_HGT,
+        PANEL_TEXTURES.add, "ADD", "Create the zone on the server", ParadiseDev.Zones.Panel.onPanelButton)
+    self.statusLabel = ParadiseDev.Zones.addLabel(self, "Requesting authoritative zone state...", contentX + 810, 0,
         { r = 0.70, g = 0.90, b = 0.70 })
 
     self:layoutChildren()
     self:populateZones(nil)
-    H.send("requestAdminState")
+    ParadiseDev.Zones.send("requestAdminState")
 end
 
-function M:layoutChildren()
+function ParadiseDev.Zones.Panel:layoutChildren()
     local contentX, contentW = 13, self.width - 26
     local top = self:titleBarHeight() + 8
     local listY = top + FONT_MEDIUM + 12 + ENTRY_HGT
@@ -317,37 +315,37 @@ function M:layoutChildren()
     self.statusLabel:setX(contentX + 810); self.statusLabel:setY(newY + 2)
     self._lastLayoutW, self._lastLayoutH = self.width, self.height
 end
-function M:selectedZone()
+function ParadiseDev.Zones.Panel:selectedZone()
     local item = self.zoneList.items[self.zoneList.selected]
     return item and item.item or nil
 end
 
-function M:selectedZoneId()
+function ParadiseDev.Zones.Panel:selectedZoneId()
     local zone = self:selectedZone()
     return zone and zone.id or nil
 end
 
-function H.containsPlain(value, filter)
+function ParadiseDev.Zones.containsPlain(value, filter)
     filter = string.lower(tostring(filter or ""))
     if filter == "" then return true end
     return string.find(string.lower(tostring(value or "")), filter, 1, true) ~= nil
 end
 
-function M:zoneMatchesFilters(zone)
-    local segment = H.primarySegment(zone)
+function ParadiseDev.Zones.Panel:zoneMatchesFilters(zone)
+    local segment = ParadiseDev.Zones.primarySegment(zone)
     local point1 = segment and (tostring(segment.x1) .. "," .. tostring(segment.y1)) or ""
     local point2 = segment and (tostring(segment.x2) .. "," .. tostring(segment.y2)) or ""
     point2 = point2 .. " " .. tostring(#(zone.segments or {}))
-    return H.containsPlain(zone.name, self.nameFilter and self.nameFilter:getText()) and
-        H.containsPlain(point1, self.point1Filter and self.point1Filter:getText()) and
-        H.containsPlain(point2, self.point2Filter and self.point2Filter:getText()) and
-        H.containsPlain(H.activeFlags(zone), self.flagsFilter and self.flagsFilter:getText())
+    return ParadiseDev.Zones.containsPlain(zone.name, self.nameFilter and self.nameFilter:getText()) and
+        ParadiseDev.Zones.containsPlain(point1, self.point1Filter and self.point1Filter:getText()) and
+        ParadiseDev.Zones.containsPlain(point2, self.point2Filter and self.point2Filter:getText()) and
+        ParadiseDev.Zones.containsPlain(ParadiseDev.Zones.activeFlags(zone), self.flagsFilter and self.flagsFilter:getText())
 end
 
-function M:populateZones(preferredId)
+function ParadiseDev.Zones.Panel:populateZones(preferredId)
     self.zoneList:clear()
     local selected, visible = 0, 0
-    for _, zone in ipairs(H.adminZones) do
+    for _, zone in ipairs(ParadiseDev.Zones.adminZones) do
         if self:zoneMatchesFilters(zone) then
             visible = visible + 1
             self.zoneList:addItem(zone.name or zone.id, zone)
@@ -356,11 +354,11 @@ function M:populateZones(preferredId)
     end
     self.zoneList.selected = selected
     self._lastSelection = -1
-    self.totalLabel:setName("Total Zones: " .. tostring(#H.adminZones) ..
-        (visible ~= #H.adminZones and " (" .. tostring(visible) .. " shown)" or ""))
+    self.totalLabel:setName("Total Zones: " .. tostring(#ParadiseDev.Zones.adminZones) ..
+        (visible ~= #ParadiseDev.Zones.adminZones and " (" .. tostring(visible) .. " shown)" or ""))
 end
 
-function M.drawZoneItem(list, y, item, alt)
+function ParadiseDev.Zones.Panel.drawZoneItem(list, y, item, alt)
     if y + list:getYScroll() + list.itemheight < 0 or y + list:getYScroll() >= list.height then
         return y + list.itemheight
     end
@@ -371,7 +369,7 @@ function M.drawZoneItem(list, y, item, alt)
         list:drawRect(0, y, list:getWidth(), list.itemheight, 0.13, 0.30, 0.32, 0.32)
     end
     list:drawRectBorder(0, y, list:getWidth(), list.itemheight, 0.45, 0.30, 0.35, 0.45)
-    local segment = H.primarySegment(zone)
+    local segment = ParadiseDev.Zones.primarySegment(zone)
     local p1 = segment and (segment.x1 .. "," .. segment.y1) or "-"
     local p2 = segment and (segment.x2 .. "," .. segment.y2) or "-"
     local count = #(zone.segments or {})
@@ -380,10 +378,10 @@ function M.drawZoneItem(list, y, item, alt)
     list:drawText(p1, list.columns[2].size + 10, y + 4, 0.82, 0.82, 0.82, 0.95, list.font)
     list:drawText(p2, list.columns[3].size + 10, y + 4, 0.82, 0.82, 0.82, 0.95, list.font)
     list:drawText(tostring(zone.priority or 0), list.columns[4].size + 10, y + 4, 0.95, 0.85, 0.45, 0.95, list.font)
-    list:drawText(H.activeFlags(zone), list.columns[5].size + 10, y + 4, 0.70, 0.90, 1.0, 0.95, list.font)
+    list:drawText(ParadiseDev.Zones.activeFlags(zone), list.columns[5].size + 10, y + 4, 0.70, 0.90, 1.0, 0.95, list.font)
     return y + list.itemheight
 end
-function M:updateSelection()
+function ParadiseDev.Zones.Panel:updateSelection()
     local zone = self:selectedZone()
     local hasZone = zone ~= nil
     self.point1Button.enable = hasZone
@@ -400,10 +398,10 @@ function M:updateSelection()
     end
 end
 
-function M:prerender()
+function ParadiseDev.Zones.Panel:prerender()
 
     if self._lastLayoutW ~= self.width or self._lastLayoutH ~= self.height then self:layoutChildren() end
-    H.layoutWindowChrome(self)
+    ParadiseDev.Zones.layoutWindowChrome(self)
     ISCollapsableWindow.prerender(self)
     if PANEL_TEXTURES.background then
         local bgX = (self.width - PANEL_TEXTURES.background:getWidth()) / 2
@@ -415,24 +413,24 @@ function M:prerender()
         self:updateSelection()
     end
 end
-function M:onEditZone(zone)
+function ParadiseDev.Zones.Panel:onEditZone(zone)
     if not zone then return end
-    if H.editorWindow then H.editorWindow:close() end
+    if ParadiseDev.Zones.editorWindow then ParadiseDev.Zones.editorWindow:close() end
     local width, height = 950, 520
     local x = math.max(0, (getCore():getScreenWidth() - width) / 2 + 220)
     local y = math.max(0, (getCore():getScreenHeight() - height) / 2)
-    H.editorWindow = ParadiseDev.Zones.Editor:new(x, y, width, height, zone.id, self)
-    H.editorWindow:initialise()
-    H.editorWindow:addToUIManager()
+    ParadiseDev.Zones.editorWindow = ParadiseDev.Zones.Editor:new(x, y, width, height, zone.id, self)
+    ParadiseDev.Zones.editorWindow:initialise()
+    ParadiseDev.Zones.editorWindow:addToUIManager()
 end
 
-function M:onPanelButton(button)
+function ParadiseDev.Zones.Panel:onPanelButton(button)
     local internal = button.internal
     local zone = self:selectedZone()
 
     if internal == "ADD" then
         self:markDirty()
-        H.send("quickCreateZone", {
+        ParadiseDev.Zones.send("quickCreateZone", {
             name = self.newZoneName:getText(),
             x1 = self.newX1:getText(), y1 = self.newY1:getText(),
             x2 = self.newX2:getText(), y2 = self.newY2:getText(),
@@ -444,20 +442,20 @@ function M:onPanelButton(button)
         self.newY2:setText("")
         return
     elseif internal == "BACKUP" then
-        H.send("backupZones")
+        ParadiseDev.Zones.send("backupZones")
         return
     elseif internal == "RESTORE" then
         local modal = ISModalDialog:new(
             getCore():getScreenWidth() / 2 - 175, getCore():getScreenHeight() / 2 - 75,
             350, 150, "Restore the last in-memory server zone backup?",
-            true, self, M.onRestoreConfirmed, nil
+            true, self, ParadiseDev.Zones.Panel.onRestoreConfirmed, nil
         )
         modal:initialise()
         modal:addToUIManager()
         return
     elseif internal == "SYNC" then
         self.syncRequested = true
-        H.send("syncZones")
+        ParadiseDev.Zones.send("syncZones")
         return
     end
 
@@ -465,77 +463,77 @@ function M:onPanelButton(button)
     if string.sub(internal, 1, 8) == "FEATURE:" then
         local key = string.sub(internal, 9)
         self:markDirty()
-        H.send("toggleFeature", {
+        ParadiseDev.Zones.send("toggleFeature", {
             id = zone.id,
             feature = key,
             enabled = not (zone.features and zone.features[key] == true),
         })
     elseif internal == "POINT1" then
         self:markDirty()
-        H.send("setPrimaryPoint", { id = zone.id, corner = 1 })
+        ParadiseDev.Zones.send("setPrimaryPoint", { id = zone.id, corner = 1 })
     elseif internal == "POINT2" then
         self:markDirty()
-        H.send("setPrimaryPoint", { id = zone.id, corner = 2 })
+        ParadiseDev.Zones.send("setPrimaryPoint", { id = zone.id, corner = 2 })
     elseif internal == "TELEPORT" then
-        H.send("teleportToZone", { id = zone.id })
+        ParadiseDev.Zones.send("teleportToZone", { id = zone.id })
     elseif internal == "DELETE" then
         local modal = ISModalDialog:new(
             getCore():getScreenWidth() / 2 - 175, getCore():getScreenHeight() / 2 - 75,
             350, 150, "Delete zone '" .. tostring(zone.name) .. "' and all of its segments?",
-            true, self, M.onDeleteConfirmed, nil, zone.id
+            true, self, ParadiseDev.Zones.Panel.onDeleteConfirmed, nil, zone.id
         )
         modal:initialise()
         modal:addToUIManager()
     end
 end
-function M:onDeleteConfirmed(button, id)
+function ParadiseDev.Zones.Panel:onDeleteConfirmed(button, id)
     if button.internal == "YES" then
         self:markDirty()
-        H.send("deleteZone", { id = id })
+        ParadiseDev.Zones.send("deleteZone", { id = id })
     end
 end
 
-function M:onRestoreConfirmed(button)
+function ParadiseDev.Zones.Panel:onRestoreConfirmed(button)
     if button.internal == "YES" then
         self:markDirty()
-        H.send("restoreZones")
+        ParadiseDev.Zones.send("restoreZones")
     end
 end
 
-function M:setServerState(args)
+function ParadiseDev.Zones.Panel:setServerState(args)
     local selectedId = self:selectedZoneId()
-    H.adminZones = args.zones or {}
-    H.serverVehicleMode = args.vehicleMode or "observe"
+    ParadiseDev.Zones.adminZones = args.zones or {}
+    ParadiseDev.Zones.serverVehicleMode = args.vehicleMode or "observe"
     self:populateZones(selectedId)
-    self.statusLabel:setName("Server: " .. tostring(#H.adminZones) .. " zones; border " ..
+    self.statusLabel:setName("Server: " .. tostring(#ParadiseDev.Zones.adminZones) .. " zones; border " ..
         tostring(args.borderWidth or 2) .. " tiles.")
     if self.syncRequested then
         self.syncRequested = false
         self.shouldSync = false
     end
-    if H.editorWindow then H.editorWindow:refreshFromState() end
+    if ParadiseDev.Zones.editorWindow then ParadiseDev.Zones.editorWindow:refreshFromState() end
 end
 
-function M:markDirty()
+function ParadiseDev.Zones.Panel:markDirty()
     self.shouldSync = true
     if self.syncButton then self.syncButton:setImage(PANEL_TEXTURES.syncOn) end
 end
 
-function H.markZoneDirty()
-    if H.window then H.window:markDirty() end
+function ParadiseDev.Zones.markZoneDirty()
+    if ParadiseDev.Zones.window then ParadiseDev.Zones.window:markDirty() end
 end
-function M:setStatus(text)
+function ParadiseDev.Zones.Panel:setStatus(text)
     if self.statusLabel then self.statusLabel:setName(tostring(text or "")) end
 end
 
-function M:close()
-    if H.editorWindow then H.editorWindow:close() end
+function ParadiseDev.Zones.Panel:close()
+    if ParadiseDev.Zones.editorWindow then ParadiseDev.Zones.editorWindow:close() end
     self:setVisible(false)
     self:removeFromUIManager()
-    if H.window == self then H.window = nil end
+    if ParadiseDev.Zones.window == self then ParadiseDev.Zones.window = nil end
 end
 
-function M:new(x, y, width, height)
+function ParadiseDev.Zones.Panel:new(x, y, width, height)
     local o = ISCollapsableWindow:new(x, y, width, height)
     setmetatable(o, self)
     self.__index = self
@@ -551,52 +549,51 @@ function M:new(x, y, width, height)
     return o
 end
 
-function M:titleBarHeight()
+function ParadiseDev.Zones.Panel:titleBarHeight()
     return 24
 end
 
 ParadiseDev.Zones.Editor = ISCollapsableWindow:derive("ParadiseDev.Zones.Editor")
-local P = ParadiseDev.Zones.Editor
 
-function P:createChildren()
+function ParadiseDev.Zones.Editor:createChildren()
     ISCollapsableWindow.createChildren(self)
-    H.enableWindowResize(self)
+    ParadiseDev.Zones.enableWindowResize(self)
     local top = self:titleBarHeight() + GAP
     local leftX, leftW = GAP, 330
     local rightX = leftX + leftW + GAP
     local fieldX = rightX + 108
     local fieldW = self.width - fieldX - GAP
 
-    self.segmentTitle = H.addLabel(self, "Segments (rectangles sharing this zone ID)", leftX, top)
+    self.segmentTitle = ParadiseDev.Zones.addLabel(self, "Segments (rectangles sharing this zone ID)", leftX, top)
     self.segmentList = ISScrollingListBox:new(leftX, top + ENTRY_HGT, leftW, 180)
     self.segmentList:initialise()
     self.segmentList:instantiate()
     self.segmentList.itemheight = 24
     self.segmentList.selected = 0
     self.segmentList.font = UIFont.Small
-    self.segmentList.doDrawItem = P.drawSegmentItem
+    self.segmentList.doDrawItem = ParadiseDev.Zones.Editor.drawSegmentItem
     self:addChild(self.segmentList)
 
-    self.addSegmentButton = H.addButton(self, "Add Segment", leftX, 0, 105, self, P.onAddSegment)
-    self.saveSegmentButton = H.addButton(self, "Save Segment", leftX + 109, 0, 105, self, P.onSaveSegment)
-    self.removeSegmentButton = H.addButton(self, "Remove", leftX + 218, 0, 104, self, P.onRemoveSegment)
-    self.activeFeaturesTitle = H.addLabel(self, "Active features", leftX, 0, { r = 1, g = 0.85, b = 0.35 })
-    self.featureLine1 = H.addLabel(self, "", leftX, 0, { r = 0.70, g = 0.90, b = 1.0 })
-    self.featureLine2 = H.addLabel(self, "", leftX, 0, { r = 0.70, g = 0.90, b = 1.0 })
+    self.addSegmentButton = ParadiseDev.Zones.addButton(self, "Add Segment", leftX, 0, 105, self, ParadiseDev.Zones.Editor.onAddSegment)
+    self.saveSegmentButton = ParadiseDev.Zones.addButton(self, "Save Segment", leftX + 109, 0, 105, self, ParadiseDev.Zones.Editor.onSaveSegment)
+    self.removeSegmentButton = ParadiseDev.Zones.addButton(self, "Remove", leftX + 218, 0, 104, self, ParadiseDev.Zones.Editor.onRemoveSegment)
+    self.activeFeaturesTitle = ParadiseDev.Zones.addLabel(self, "Active features", leftX, 0, { r = 1, g = 0.85, b = 0.35 })
+    self.featureLine1 = ParadiseDev.Zones.addLabel(self, "", leftX, 0, { r = 0.70, g = 0.90, b = 1.0 })
+    self.featureLine2 = ParadiseDev.Zones.addLabel(self, "", leftX, 0, { r = 0.70, g = 0.90, b = 1.0 })
 
     local y = top
-    H.addLabel(self, "Zone ID", rightX, y)
-    self.idEntry = H.addEntry(self, "", fieldX, y, fieldW)
+    ParadiseDev.Zones.addLabel(self, "Zone ID", rightX, y)
+    self.idEntry = ParadiseDev.Zones.addEntry(self, "", fieldX, y, fieldW)
     self.idEntry:setEditable(false)
     y = y + ENTRY_HGT + GAP
-    H.addLabel(self, "Display name", rightX, y)
-    self.nameEntry = H.addEntry(self, "", fieldX, y, fieldW)
+    ParadiseDev.Zones.addLabel(self, "Display name", rightX, y)
+    self.nameEntry = ParadiseDev.Zones.addEntry(self, "", fieldX, y, fieldW)
     y = y + ENTRY_HGT + GAP
-    H.addLabel(self, "Priority", rightX, y)
-    self.priorityEntry = H.addEntry(self, "0", fieldX, y, 100)
+    ParadiseDev.Zones.addLabel(self, "Priority", rightX, y)
+    self.priorityEntry = ParadiseDev.Zones.addEntry(self, "0", fieldX, y, 100)
 
     y = y + ENTRY_HGT + GAP
-    H.addLabel(self, "Z levels", rightX, y)
+    ParadiseDev.Zones.addLabel(self, "Z levels", rightX, y)
     self.zModeCombo = ISComboBox:new(fieldX, y, 155, ENTRY_HGT, self, nil)
     self.zModeCombo:initialise()
     self.zModeCombo:instantiate()
@@ -604,17 +601,17 @@ function P:createChildren()
     self.zModeCombo:addOptionWithData("Floor range", "floor")
 
     self:addChild(self.zModeCombo)
-    H.addLabel(self, "Min", fieldX + 166, y)
-    self.zMinEntry = H.addEntry(self, "0", fieldX + 198, y, 55)
-    H.addLabel(self, "Max excl.", fieldX + 263, y)
-    self.zMaxEntry = H.addEntry(self, "1", fieldX + 323, y, 55)
+    ParadiseDev.Zones.addLabel(self, "Min", fieldX + 166, y)
+    self.zMinEntry = ParadiseDev.Zones.addEntry(self, "0", fieldX + 198, y, 55)
+    ParadiseDev.Zones.addLabel(self, "Max excl.", fieldX + 263, y)
+    self.zMaxEntry = ParadiseDev.Zones.addEntry(self, "1", fieldX + 323, y, 55)
 
     y = y + ENTRY_HGT + GAP
-    H.addLabel(self, "Deny tags", rightX, y)
-    self.denyEntry = H.addEntry(self, "", fieldX, y, fieldW)
+    ParadiseDev.Zones.addLabel(self, "Deny tags", rightX, y)
+    self.denyEntry = ParadiseDev.Zones.addEntry(self, "", fieldX, y, fieldW)
     y = y + ENTRY_HGT + GAP
-    H.addLabel(self, "Require any", rightX, y)
-    self.requireEntry = H.addEntry(self, "", fieldX, y, fieldW)
+    ParadiseDev.Zones.addLabel(self, "Require any", rightX, y)
+    self.requireEntry = ParadiseDev.Zones.addEntry(self, "", fieldX, y, fieldW)
 
     y = y + ENTRY_HGT + GAP
     self.adminBypass = ISTickBox:new(fieldX, y, 190, ENTRY_HGT, "", self, nil)
@@ -624,33 +621,33 @@ function P:createChildren()
     self:addChild(self.adminBypass)
 
     y = y + ENTRY_HGT + GAP * 2
-    self.cornersTitle = H.addLabel(self, "Selected segment corners", rightX, y, { r = 1, g = 0.85, b = 0.35 })
+    self.cornersTitle = ParadiseDev.Zones.addLabel(self, "Selected segment corners", rightX, y, { r = 1, g = 0.85, b = 0.35 })
     y = y + ENTRY_HGT
-    H.addLabel(self, "Point 1", rightX, y)
-    self.x1Entry = H.addEntry(self, "", fieldX, y, 85)
-    self.y1Entry = H.addEntry(self, "", fieldX + 90, y, 85)
-    self.point1Button = H.addButton(self, "Use Player", fieldX + 180, y, 95, self, P.onPoint1)
+    ParadiseDev.Zones.addLabel(self, "Point 1", rightX, y)
+    self.x1Entry = ParadiseDev.Zones.addEntry(self, "", fieldX, y, 85)
+    self.y1Entry = ParadiseDev.Zones.addEntry(self, "", fieldX + 90, y, 85)
+    self.point1Button = ParadiseDev.Zones.addButton(self, "Use Player", fieldX + 180, y, 95, self, ParadiseDev.Zones.Editor.onPoint1)
     y = y + ENTRY_HGT + GAP
-    H.addLabel(self, "Point 2", rightX, y)
-    self.x2Entry = H.addEntry(self, "", fieldX, y, 85)
-    self.y2Entry = H.addEntry(self, "", fieldX + 90, y, 85)
-    self.point2Button = H.addButton(self, "Use Player", fieldX + 180, y, 95, self, P.onPoint2)
+    ParadiseDev.Zones.addLabel(self, "Point 2", rightX, y)
+    self.x2Entry = ParadiseDev.Zones.addEntry(self, "", fieldX, y, 85)
+    self.y2Entry = ParadiseDev.Zones.addEntry(self, "", fieldX + 90, y, 85)
+    self.point2Button = ParadiseDev.Zones.addButton(self, "Use Player", fieldX + 180, y, 95, self, ParadiseDev.Zones.Editor.onPoint2)
 
     y = y + ENTRY_HGT + GAP * 2
-    self.saveButton = H.addButton(self, "Save Zone Settings", rightX, y, 160, self, P.onSave)
-    self.closeEditorButton = H.addButton(self, "Close", rightX + 168, y, 90, self, P.onCloseButton)
+    self.saveButton = ParadiseDev.Zones.addButton(self, "Save Zone Settings", rightX, y, 160, self, ParadiseDev.Zones.Editor.onSave)
+    self.closeEditorButton = ParadiseDev.Zones.addButton(self, "Close", rightX + 168, y, 90, self, ParadiseDev.Zones.Editor.onCloseButton)
     y = y + ENTRY_HGT + GAP * 2
-    self.advancedHelp = H.addLabel(self,
+    self.advancedHelp = ParadiseDev.Zones.addLabel(self,
         "Advanced policy tags are comma-separated. Z maximum is exclusive.", rightX, y,
         { r = 0.65, g = 0.72, b = 0.78 })
 
-    self.statusLabel = H.addLabel(self, "", GAP, self.height - ENTRY_HGT - GAP - self:resizeWidgetHeight(),
+    self.statusLabel = ParadiseDev.Zones.addLabel(self, "", GAP, self.height - ENTRY_HGT - GAP - self:resizeWidgetHeight(),
         { r = 0.75, g = 0.9, b = 0.75 })
     self:layoutChildren()
-    self:loadZone(H.zoneById(self.zoneId))
+    self:loadZone(ParadiseDev.Zones.zoneById(self.zoneId))
 end
 
-function P.drawSegmentItem(list, y, item, alt)
+function ParadiseDev.Zones.Editor.drawSegmentItem(list, y, item, alt)
     if y + list:getYScroll() + list.itemheight < 0 or y + list:getYScroll() >= list.height then
         return y + list.itemheight
     end
@@ -664,7 +661,7 @@ function P.drawSegmentItem(list, y, item, alt)
     return y + list.itemheight
 end
 
-function P:layoutChildren()
+function ParadiseDev.Zones.Editor:layoutChildren()
     local top = self:titleBarHeight() + GAP
     local listHeight = math.max(120, self.height - top - 170)
     self.segmentList:setY(top + ENTRY_HGT)
@@ -687,12 +684,12 @@ function P:layoutChildren()
     self.statusLabel:setY(self.height - ENTRY_HGT - GAP - self:resizeWidgetHeight())
     self._lastLayoutW, self._lastLayoutH = self.width, self.height
 end
-function P:selectedSegment()
+function ParadiseDev.Zones.Editor:selectedSegment()
     local item = self.segmentList.items[self.segmentList.selected]
     return item and item.item or nil
 end
 
-function P:loadZone(zone)
+function ParadiseDev.Zones.Editor:loadZone(zone)
     if not zone then
         self.statusLabel:setName("Zone no longer exists.")
         self.saveButton.enable = false
@@ -738,8 +735,8 @@ function P:loadZone(zone)
     self.saveButton.enable = true
 end
 
-function P:refreshFromState()
-    local zone = H.zoneById(self.zoneId)
+function ParadiseDev.Zones.Editor:refreshFromState()
+    local zone = ParadiseDev.Zones.zoneById(self.zoneId)
     if not zone then
         self:close()
         return
@@ -747,9 +744,9 @@ function P:refreshFromState()
     self:loadZone(zone)
 end
 
-function P:prerender()
+function ParadiseDev.Zones.Editor:prerender()
     if self._lastLayoutW ~= self.width or self._lastLayoutH ~= self.height then self:layoutChildren() end
-    H.layoutWindowChrome(self)
+    ParadiseDev.Zones.layoutWindowChrome(self)
     ISCollapsableWindow.prerender(self)
     if self.segmentList.selected ~= self._lastSegmentSelection then
         self._lastSegmentSelection = self.segmentList.selected
@@ -765,7 +762,7 @@ function P:prerender()
     self.saveSegmentButton.enable = hasSegment
     self.removeSegmentButton.enable = hasSegment
 end
-function P:zoneArgs(includeRegion)
+function ParadiseDev.Zones.Editor:zoneArgs(includeRegion)
     local args = {
         id = self.zoneId,
         name = self.nameEntry:getText(),
@@ -784,62 +781,62 @@ function P:zoneArgs(includeRegion)
     return args
 end
 
-function P:onSave()
-    H.markZoneDirty()
-    H.send("updateZone", self:zoneArgs(false))
+function ParadiseDev.Zones.Editor:onSave()
+    ParadiseDev.Zones.markZoneDirty()
+    ParadiseDev.Zones.send("updateZone", self:zoneArgs(false))
 end
 
-function P:onAddSegment()
-    H.markZoneDirty()
-    H.send("addSegment", self:zoneArgs(true))
+function ParadiseDev.Zones.Editor:onAddSegment()
+    ParadiseDev.Zones.markZoneDirty()
+    ParadiseDev.Zones.send("addSegment", self:zoneArgs(true))
 end
 
-function P:onSaveSegment()
+function ParadiseDev.Zones.Editor:onSaveSegment()
     local segment = self:selectedSegment()
     if not segment then return end
-    H.markZoneDirty()
+    ParadiseDev.Zones.markZoneDirty()
     local args = self:zoneArgs(true)
     args.regionIndex = segment.index
-    H.send("updateSegment", args)
+    ParadiseDev.Zones.send("updateSegment", args)
 end
 
-function P:onRemoveSegment()
+function ParadiseDev.Zones.Editor:onRemoveSegment()
 
     local segment = self:selectedSegment()
     if segment then
-        H.markZoneDirty()
-        H.send("removeSegment", { id = self.zoneId, regionIndex = segment.index })
+        ParadiseDev.Zones.markZoneDirty()
+        ParadiseDev.Zones.send("removeSegment", { id = self.zoneId, regionIndex = segment.index })
     end
 end
 
-function H.setPoint(xEntry, yEntry)
-    local player = getPlayer()
-    if not player then return end
-    xEntry:setText(tostring(math.floor(player:getX())))
-    yEntry:setText(tostring(math.floor(player:getY())))
+function ParadiseDev.Zones.setPoint(xEntry, yEntry)
+    local pl = getPlayer()
+    if not pl then return end
+    xEntry:setText(tostring(math.floor(pl:getX())))
+    yEntry:setText(tostring(math.floor(pl:getY())))
 end
 
-function P:onPoint1() H.setPoint(self.x1Entry, self.y1Entry) end
-function P:onPoint2() H.setPoint(self.x2Entry, self.y2Entry) end
+function ParadiseDev.Zones.Editor:onPoint1() ParadiseDev.Zones.setPoint(self.x1Entry, self.y1Entry) end
+function ParadiseDev.Zones.Editor:onPoint2() ParadiseDev.Zones.setPoint(self.x2Entry, self.y2Entry) end
 
-function P:onCloseButton()
+function ParadiseDev.Zones.Editor:onCloseButton()
     self:close()
 end
 
-function P:setStatus(text)
+function ParadiseDev.Zones.Editor:setStatus(text)
     if self.statusLabel then self.statusLabel:setName(tostring(text or "")) end
 end
 
-function P:close()
+function ParadiseDev.Zones.Editor:close()
     self:setVisible(false)
     self:removeFromUIManager()
     if self.parentWindow and self.parentWindow.childEditor == self then
         self.parentWindow.childEditor = nil
     end
-    if H.editorWindow == self then H.editorWindow = nil end
+    if ParadiseDev.Zones.editorWindow == self then ParadiseDev.Zones.editorWindow = nil end
 end
 
-function P:new(x, y, width, height, zoneId, parent)
+function ParadiseDev.Zones.Editor:new(x, y, width, height, zoneId, parent)
     local o = ISCollapsableWindow:new(x, y, width, height)
     setmetatable(o, self)
     self.__index = self
@@ -854,37 +851,36 @@ function P:new(x, y, width, height, zoneId, parent)
 end
 
 ParadiseDev.Zones.TestRemote = ISCollapsableWindow:derive("ParadiseDev.Zones.TestRemote")
-local R = ParadiseDev.Zones.TestRemote
 
-function R:createChildren()
+function ParadiseDev.Zones.TestRemote:createChildren()
     ISCollapsableWindow.createChildren(self)
-    H.enableWindowResize(self)
+    ParadiseDev.Zones.enableWindowResize(self)
     local x, y = GAP, self:titleBarHeight() + GAP
-    self.showBorders = ISTickBox:new(x, y, 180, ENTRY_HGT, "", self, R.onShowBorders)
+    self.showBorders = ISTickBox:new(x, y, 180, ENTRY_HGT, "", self, ParadiseDev.Zones.TestRemote.onShowBorders)
     self.showBorders:initialise()
     self.showBorders:instantiate()
     self.showBorders:addOption("Show zone borders")
     self.showBorders:setSelected(1, ParadiseDev.Zones.Visualization == nil or ParadiseDev.Zones.Visualization.enabled)
     self:addChild(self.showBorders)
-    self.borderLegend = H.addLabel(self, "Blue: 2 outside    Orange: 2 inside", x + 190, y + 2,
+    self.borderLegend = ParadiseDev.Zones.addLabel(self, "Blue: 2 outside    Orange: 2 inside", x + 190, y + 2,
         { r = 0.55, g = 0.78, b = 1.0 })
 
     y = y + ENTRY_HGT + GAP
-    self.vehicleLabel = H.addLabel(self, "Vehicle", x, y + 2)
+    self.vehicleLabel = ParadiseDev.Zones.addLabel(self, "Vehicle", x, y + 2)
     self.vehicleCombo = ISComboBox:new(x + 70, y, 180, ENTRY_HGT, self, nil)
     self.vehicleCombo:initialise()
     self.vehicleCombo:instantiate()
     self.vehicleCombo:addOptionWithData("Observe only", "observe")
     self.vehicleCombo:addOptionWithData("Rebound", "rebound")
-    self.vehicleCombo:setSelectedData(H.serverVehicleMode)
+    self.vehicleCombo:setSelectedData(ParadiseDev.Zones.serverVehicleMode)
     self:addChild(self.vehicleCombo)
-    self.applyVehicleButton = H.addButton(self, "Apply Vehicle Mode", x + 258, y, 155, self, R.onApplyVehicle)
+    self.applyVehicleButton = ParadiseDev.Zones.addButton(self, "Apply Vehicle Mode", x + 258, y, 155, self, ParadiseDev.Zones.TestRemote.onApplyVehicle)
 
     y = y + ENTRY_HGT + GAP
-    self.targetLabel = H.addLabel(self, "Target", x, y + 2)
-    self.targetUser = H.addEntry(self, getPlayer() and getPlayer():getUsername() or "Jim", x + 70, y, 180)
+    self.targetLabel = ParadiseDev.Zones.addLabel(self, "Target", x, y + 2)
+    self.targetUser = ParadiseDev.Zones.addEntry(self, getPlayer() and getPlayer():getUsername() or "Jim", x + 70, y, 180)
     y = y + ENTRY_HGT + GAP
-    self.profileLabel = H.addLabel(self, "Profile", x, y + 2)
+    self.profileLabel = ParadiseDev.Zones.addLabel(self, "Profile", x, y + 2)
     self.profileCombo = ISComboBox:new(x + 70, y, 180, ENTRY_HGT, self, nil)
     self.profileCombo:initialise()
     self.profileCombo:instantiate()
@@ -893,10 +889,10 @@ function R:createChildren()
     self.profileCombo:addOptionWithData("Range staff", "range_staff")
     self.profileCombo:addOptionWithData("PvE + range", "both")
     self:addChild(self.profileCombo)
-    self.applyProfileButton = H.addButton(self, "Apply Test Profile", x + 258, y, 155, self, R.onApplyProfile)
+    self.applyProfileButton = ParadiseDev.Zones.addButton(self, "Apply Test Profile", x + 258, y, 155, self, ParadiseDev.Zones.TestRemote.onApplyProfile)
 
     y = y + ENTRY_HGT + GAP * 2
-    self.featureLabel = H.addLabel(self, "Feature-zone tester (all ParadiseZ zone flags)", x, y,
+    self.featureLabel = ParadiseDev.Zones.addLabel(self, "Feature-zone tester (all ParadiseZ zone flags)", x, y,
         { r = 1, g = 0.85, b = 0.35 })
     y = y + ENTRY_HGT
     self.featureCombo = ISComboBox:new(x, y, self.width - GAP * 2, ENTRY_HGT, self, nil)
@@ -908,23 +904,23 @@ function R:createChildren()
 
     self:addChild(self.featureCombo)
     y = y + ENTRY_HGT + GAP
-    self.testFeatureButton = H.addButton(self, "Move Target to Nearest Feature Zone", x, y, 270, self, R.onTestFeature)
-    self.probeButton = H.addButton(self, "Probe Target's Current Authority", x + 278, y, 240, self, R.onProbe)
+    self.testFeatureButton = ParadiseDev.Zones.addButton(self, "Move Target to Nearest Feature Zone", x, y, 270, self, ParadiseDev.Zones.TestRemote.onTestFeature)
+    self.probeButton = ParadiseDev.Zones.addButton(self, "Probe Target's Current Authority", x + 278, y, 240, self, ParadiseDev.Zones.TestRemote.onProbe)
     y = y + ENTRY_HGT + GAP
-    self.cageButton = H.addButton(self, "Cage Target", x, y, 160, self, R.onCage)
-    self.releaseButton = H.addButton(self, "Release Target", x + 168, y, 160, self, R.onRelease)
+    self.cageButton = ParadiseDev.Zones.addButton(self, "Cage Target", x, y, 160, self, ParadiseDev.Zones.TestRemote.onCage)
+    self.releaseButton = ParadiseDev.Zones.addButton(self, "Release Target", x + 168, y, 160, self, ParadiseDev.Zones.TestRemote.onRelease)
     y = y + ENTRY_HGT + GAP * 2
-    self.testHelp1 = H.addLabel(self, "Feature tester locates and teleports; it does not fake gameplay effects that are not ported yet.",
+    self.testHelp1 = ParadiseDev.Zones.addLabel(self, "Feature tester locates and teleports; it does not fake gameplay effects that are not ported yet.",
         x, y, { r = 0.65, g = 0.72, b = 0.78 })
-    self.testHelp2 = H.addLabel(self, "Cage is server-authoritative and confines the target to the nearest Cage zone.",
+    self.testHelp2 = ParadiseDev.Zones.addLabel(self, "Cage is server-authoritative and confines the target to the nearest Cage zone.",
         x, y + FONT_SMALL, { r = 0.65, g = 0.72, b = 0.78 })
-    self.statusLabel = H.addLabel(self, "Requesting authoritative test state...", x,
+    self.statusLabel = ParadiseDev.Zones.addLabel(self, "Requesting authoritative test state...", x,
         self.height - ENTRY_HGT - GAP - self:resizeWidgetHeight(), { r = 0.75, g = 0.9, b = 0.75 })
     self:layoutChildren()
-    H.send("requestAdminState")
+    ParadiseDev.Zones.send("requestAdminState")
 end
 
-function R:layoutChildren()
+function ParadiseDev.Zones.TestRemote:layoutChildren()
     local contentW = self.width - GAP * 2
     self.featureCombo:setWidth(contentW)
     self.probeButton:setX(GAP + math.floor(contentW / 2) + 4)
@@ -934,62 +930,62 @@ function R:layoutChildren()
     self._lastLayoutW, self._lastLayoutH = self.width, self.height
 end
 
-function R:prerender()
+function ParadiseDev.Zones.TestRemote:prerender()
     if self._lastLayoutW ~= self.width or self._lastLayoutH ~= self.height then self:layoutChildren() end
-    H.layoutWindowChrome(self)
+    ParadiseDev.Zones.layoutWindowChrome(self)
     ISCollapsableWindow.prerender(self)
 end
 
-function R:onShowBorders(index, selected)
+function ParadiseDev.Zones.TestRemote:onShowBorders(index, selected)
     if ParadiseDev.Zones.Visualization then ParadiseDev.Zones.Visualization.setEnabled(selected) end
 end
 
-function R:onApplyVehicle()
-    H.send("vehicleMode", { mode = self.vehicleCombo:getOptionData(self.vehicleCombo.selected) })
+function ParadiseDev.Zones.TestRemote:onApplyVehicle()
+    ParadiseDev.Zones.send("vehicleMode", { mode = self.vehicleCombo:getOptionData(self.vehicleCombo.selected) })
 end
 
-function R:onApplyProfile()
-    H.send("profile", {
+function ParadiseDev.Zones.TestRemote:onApplyProfile()
+    ParadiseDev.Zones.send("profile", {
         username = self.targetUser:getText(),
         profile = self.profileCombo:getOptionData(self.profileCombo.selected),
     })
 end
 
-function R:onTestFeature()
-    H.send("testFeature", {
+function ParadiseDev.Zones.TestRemote:onTestFeature()
+    ParadiseDev.Zones.send("testFeature", {
         username = self.targetUser:getText(),
         feature = self.featureCombo:getOptionData(self.featureCombo.selected),
     })
 end
 
-function R:onProbe()
-    H.send("probeFeature", { username = self.targetUser:getText() })
+function ParadiseDev.Zones.TestRemote:onProbe()
+    ParadiseDev.Zones.send("probeFeature", { username = self.targetUser:getText() })
 end
 
-function R:onCage()
-    H.send("cagePlayer", { username = self.targetUser:getText() })
+function ParadiseDev.Zones.TestRemote:onCage()
+    ParadiseDev.Zones.send("cagePlayer", { username = self.targetUser:getText() })
 end
 
-function R:onRelease()
-    H.send("uncagePlayer", { username = self.targetUser:getText() })
+function ParadiseDev.Zones.TestRemote:onRelease()
+    ParadiseDev.Zones.send("uncagePlayer", { username = self.targetUser:getText() })
 end
 
-function R:setServerState(args)
-    H.serverVehicleMode = args.vehicleMode or "observe"
-    if self.vehicleCombo then self.vehicleCombo:setSelectedData(H.serverVehicleMode) end
+function ParadiseDev.Zones.TestRemote:setServerState(args)
+    ParadiseDev.Zones.serverVehicleMode = args.vehicleMode or "observe"
+    if self.vehicleCombo then self.vehicleCombo:setSelectedData(ParadiseDev.Zones.serverVehicleMode) end
 end
 
-function R:setStatus(text)
+function ParadiseDev.Zones.TestRemote:setStatus(text)
     if self.statusLabel then self.statusLabel:setName(tostring(text or "")) end
 end
 
-function R:close()
+function ParadiseDev.Zones.TestRemote:close()
     self:setVisible(false)
     self:removeFromUIManager()
-    if H.testWindow == self then H.testWindow = nil end
+    if ParadiseDev.Zones.testWindow == self then ParadiseDev.Zones.testWindow = nil end
 end
 
-function R:new(x, y, width, height)
+function ParadiseDev.Zones.TestRemote:new(x, y, width, height)
     local o = ISCollapsableWindow:new(x, y, width, height)
     setmetatable(o, self)
     self.__index = self
@@ -1001,57 +997,59 @@ function R:new(x, y, width, height)
     return o
 end
 
-function H.openTestRemote()
-    if not H.isAdmin() then
+function ParadiseDev.Zones.openTestRemote()
+    if not ParadiseDev.isAdm() then
         print("[PZZoneHarness] Admin access is required for the test remote.")
         return
     end
 
-    if H.testWindow then
-        H.testWindow:setVisible(true)
-        H.testWindow:addToUIManager()
-        H.send("requestAdminState")
+    if ParadiseDev.Zones.testWindow then
+        ParadiseDev.Zones.testWindow:setVisible(true)
+        ParadiseDev.Zones.testWindow:addToUIManager()
+        ParadiseDev.Zones.send("requestAdminState")
         return
     end
     local width, height = 560, 410
     local x = math.max(0, (getCore():getScreenWidth() - width) / 2 + 260)
     local y = math.max(0, (getCore():getScreenHeight() - height) / 2)
-    H.testWindow = R:new(x, y, width, height)
-    H.testWindow:initialise()
-    H.testWindow:addToUIManager()
+    ParadiseDev.Zones.testWindow = ParadiseDev.Zones.TestRemote:new(x, y, width, height)
+    ParadiseDev.Zones.testWindow:initialise()
+    ParadiseDev.Zones.testWindow:addToUIManager()
 end
-function H.openUI()
-    if not H.isAdmin() then
+function ParadiseDev.Zones.openUI()
+    if not ParadiseDev.isAdm() then
         print("[PZZoneHarness] Admin access is required for the zone editor.")
         return
     end
-    if H.window then
-        H.window:setVisible(true)
-        H.window:addToUIManager()
-        H.send("requestAdminState")
+    if ParadiseDev.Zones.window then
+        ParadiseDev.Zones.window:setVisible(true)
+        ParadiseDev.Zones.window:addToUIManager()
+        ParadiseDev.Zones.send("requestAdminState")
         return
     end
     local width, height = 1200, 568
     local x = math.max(0, (getCore():getScreenWidth() - width) / 2 - 180)
     local y = math.max(0, (getCore():getScreenHeight() - height) / 2)
-    H.window = M:new(x, y, width, height)
-    H.window:initialise()
-    H.window:addToUIManager()
+    ParadiseDev.Zones.window = ParadiseDev.Zones.Panel:new(x, y, width, height)
+    ParadiseDev.Zones.window:initialise()
+    ParadiseDev.Zones.window:addToUIManager()
 end
 
-Events.OnServerCommand.Add(function(module, command, args)
-    if module ~= H.MODULE then return end
+function ParadiseDev.Zones.Panel.onServerCommand(module, command, args)
+    if module ~= ParadiseDev.Zones.MODULE then return end
     if command == "adminState" then
-        H.adminZones = args and args.zones or {}
-        H.serverVehicleMode = args and args.vehicleMode or "observe"
-        if H.window then H.window:setServerState(args or {}) end
-        if H.editorWindow and not H.window then H.editorWindow:refreshFromState() end
-        if H.testWindow then H.testWindow:setServerState(args or {}) end
+        ParadiseDev.Zones.adminZones = args and args.zones or {}
+        ParadiseDev.Zones.serverVehicleMode = args and args.vehicleMode or "observe"
+        if ParadiseDev.Zones.window then ParadiseDev.Zones.window:setServerState(args or {}) end
+        if ParadiseDev.Zones.editorWindow and not ParadiseDev.Zones.window then ParadiseDev.Zones.editorWindow:refreshFromState() end
+        if ParadiseDev.Zones.testWindow then ParadiseDev.Zones.testWindow:setServerState(args or {}) end
     elseif command == "result" then
         local message = tostring(args and args.text or "")
-        if H.window then H.window:setStatus(message) end
-        if H.editorWindow then H.editorWindow:setStatus(message) end
-        if H.testWindow then H.testWindow:setStatus(message) end
+        if ParadiseDev.Zones.window then ParadiseDev.Zones.window:setStatus(message) end
+        if ParadiseDev.Zones.editorWindow then ParadiseDev.Zones.editorWindow:setStatus(message) end
+        if ParadiseDev.Zones.testWindow then ParadiseDev.Zones.testWindow:setStatus(message) end
     end
-end)
+end
 
+Events.OnServerCommand.Remove(ParadiseDev.Zones.Panel.onServerCommand)
+Events.OnServerCommand.Add(ParadiseDev.Zones.Panel.onServerCommand)

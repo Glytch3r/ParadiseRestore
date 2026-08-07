@@ -1,35 +1,31 @@
--- B42.20 debug key tools transferred from the legacy ParadiseZ_Keys.lua.
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Keys = ParadiseDev.Keys or {}
 
-local Keys = ParadiseDev.Keys
+require "Dev/ParadiseDev_Players"
 
-function Keys.flashlightTeleport(key)
-    if not getCore():getDebug() then return key end
-    if key ~= getCore():getKey("Equip/Turn On/Off Light Source") then return key end
+function ParadiseDev.Keys.flashlightTeleport(key)
+    if not ParadiseDev.isAdm() then return key end
+    if not getCore():isKey("Equip/Turn On/Off Light Source", key) then return key end
 
-    local player = getPlayer()
-    local square = ParadiseZ and ParadiseZ.getPointer and ParadiseZ.getPointer() or nil
-    if not player or not square or not square:getFloor() then return key end
+    local pl = getPlayer()
+    local sq = ParadiseZ and ParadiseZ.getPointer and ParadiseZ.getPointer() or nil
+    if not pl or not sq or not sq:getFloor() then return key end
 
-    square:getFloor():setHighlighted(true)
-    player:faceLocation(square:getX(), square:getY())
+    sq:getFloor():setHighlighted(true)
+    pl:faceLocation(sq:getX(), sq:getY())
 
     if ParadiseDev.TP then
-        ParadiseDev.TP.requestTeleport(square:getX(), square:getY(), square:getZ())
+        ParadiseDev.TP.requestTeleport(sq:getX(), sq:getY(), sq:getZ())
     end
 
-    -- Keep the old debug visual, but anchor it at the chosen square. In
-    -- multiplayer the actual player move is completed by the server response.
-    player:getCell():addLamppost(IsoLightSource.new(
-        square:getX(), square:getY(), square:getZ(), 255, 255, 255, 255
+    pl:getCell():addLamppost(IsoLightSource.new(
+        sq:getX(), sq:getY(), sq:getZ(), 255, 255, 255, 255
     ))
     return key
 end
 
--- Preserve the B41 public name for any scripts that call the handler directly.
 ParadiseZ = ParadiseZ or {}
-ParadiseZ.dbgKeys = Keys.flashlightTeleport
+ParadiseZ.dbgKeys = ParadiseDev.Keys.flashlightTeleport
 
-Events.OnKeyPressed.Remove(Keys.flashlightTeleport)
-Events.OnKeyPressed.Add(Keys.flashlightTeleport)
+Events.OnKeyPressed.Remove(ParadiseDev.Keys.flashlightTeleport)
+Events.OnKeyPressed.Add(ParadiseDev.Keys.flashlightTeleport)

@@ -347,7 +347,7 @@ function ParadiseZ.addTempMarker(sq)
 	end
 	if sq then	
 		if not ParadiseZ.tempPointer then
-			ParadiseZ.tempPointer = getWorldMarkers():addPlayerHomingPoint(getPlayer(), sq:getX(), sq:getY(), "arrow_triangle", 1, 1, 1, 1, true, 20);
+			ParadiseZ.tempPointer = getWorldMarkers():addPlayerHomingPoint(pl, sq:getX(), sq:getY(), "arrow_triangle", 1, 1, 1, 1, true, 20);
 			timer:Simple(5, function()
 				ParadiseZ.tempPointer:remove()
 				ParadiseZ.tempPointer = nil

@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<animNode x_extends="PreyZed_default.xml">
+	<m_Name>PreyZed_WhileSitting</m_Name>
+	<m_AnimName>Zombie_IdleAgainstWall_ToFloor</m_AnimName>
+
+	<m_Conditions>
+		<m_Name>isPrey</m_Name>
+		<m_Type>BOOL</m_Type>
+		<m_BoolValue>true</m_BoolValue>
+	</m_Conditions>
+
+	<m_Conditions />
+	<m_Conditions>
+		<m_Name>issitting</m_Name>
+		<m_BoolValue>true</m_BoolValue>
+	</m_Conditions>
+	<m_Events>
+		<m_EventName>FallOnFront</m_EventName>
+		<m_Time>Start</m_Time>
+		<m_ParameterValue>false</m_ParameterValue>
+	</m_Events>
+</animNode>

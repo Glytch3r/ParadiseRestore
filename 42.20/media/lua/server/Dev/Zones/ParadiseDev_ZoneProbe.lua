@@ -1,31 +1,32 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
 ParadiseDev.Zones.Probe = ParadiseDev.Zones.Probe or {}
-local H = ParadiseDev.Zones.Probe
-local MODULE = "PZZoneHarness"
 
-function H.reply(player, text)
-    sendServerCommand(player, MODULE, "result", { text = text })
+require "Dev/ParadiseDev_Players"
+
+ParadiseDev.Zones.Probe.module = "PZZoneHarness"
+
+function ParadiseDev.Zones.Probe.reply(pl, text)
+    sendServerCommand(pl, ParadiseDev.Zones.Probe.module, "result", { text = text })
 end
 
-Events.OnClientCommand.Add(function(module, command, player, args)
-    if module ~= MODULE or command ~= "probe" then return end
-    if not player or player:getAccessLevel() ~= "admin" then return end
+function ParadiseDev.Zones.Probe.onClientCommand(module, command, pl, args)
+    if module ~= ParadiseDev.Zones.Probe.module or command ~= "probe" then return end
+    if not pl or not ParadiseDev.isAdm(pl) then return end
 
-    local E = ParadiseDev.Zones.Engine
-    if not E then
-        H.reply(player, "PROBE: engine missing")
+    if not ParadiseDev.Zones.Engine then
+        ParadiseDev.Zones.Probe.reply(pl, "PROBE: engine missing")
         return
     end
 
-    local username = player:getUsername()
-    local x, y, z = player:getX(), player:getY(), player:getZ()
-    local zone = E.getAuthority(x, y, z)
-    local profile = E.getProfile(player)
-    local movement = E.moveProbe and E.moveProbe[username]
+    local username = pl:getUsername()
+    local x, y, z = pl:getX(), pl:getY(), pl:getZ()
+    local zone = ParadiseDev.Zones.Engine.getAuthority(x, y, z)
+    local profile = ParadiseDev.Zones.Engine.getProfile(pl)
+    local movement = ParadiseDev.Zones.Engine.moveProbe and ParadiseDev.Zones.Engine.moveProbe[username]
     local tags = profile.tags or {}
 
-    H.reply(player,
+    ParadiseDev.Zones.Probe.reply(pl,
         "PROBE serverPos=" .. math.floor(x) .. "," .. math.floor(y) .. "," .. tostring(z) ..
         " authority=" .. tostring(zone and zone.id or "none") ..
         " pve=" .. tostring(tags.pve == true) ..
@@ -34,4 +35,7 @@ Events.OnClientCommand.Add(function(module, command, player, args)
         " moveEvents=" .. tostring(movement and movement.count or 0) ..
         " lastMove=" .. tostring(movement and (math.floor(movement.x) .. "," .. math.floor(movement.y)) or "none")
     )
-end)
+end
+
+Events.OnClientCommand.Remove(ParadiseDev.Zones.Probe.onClientCommand)
+Events.OnClientCommand.Add(ParadiseDev.Zones.Probe.onClientCommand)

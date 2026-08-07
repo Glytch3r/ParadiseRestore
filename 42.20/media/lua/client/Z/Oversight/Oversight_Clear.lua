@@ -8,7 +8,7 @@
 --   Project Zomboid Modding Commissions                      --
 --   https://steamcommunity.com/id/glytch3r/myworkshopfiles   --
 --                                                            --
---   ▫ Discord  ꞉   glytch3r                                  --
+
 --   ▫ Support  ꞉   https://ko-fi.com/glytch3r                --
 --   ▫ Youtube  ꞉   https://www.youtube.com/@glytch3r         --
 --   ▫ Github   ꞉   https://github.com/Glytch3r               --
@@ -309,21 +309,19 @@ function ParadiseZ.DespawnPlants(pl, rad)
                     local obj = targetSq:getObjects():get(i)
                     if obj then
                         local spr = obj:getSprite()
-                        local props = spr and spr:getProperties()
-                        if (props and (props:Is(IsoFlagType.canBeCut) or props:Is(IsoFlagType.canBeRemoved))) then
-                            sledgeDestroy(obj)
-                            local objSq = obj:getSquare()
-                            if objSq then objSq:transmitRemoveItemFromSquare(obj) end
+                        local props = obj:getProperties() or (spr and spr:getProperties())
+                        if props and (props:has(IsoFlagType.canBeCut) or props:has(IsoFlagType.canBeRemoved)) then
+                            targetSq:transmitRemoveItemFromSquare(obj)
                             count = count + 1
                         else
                             local attached = obj:getAttachedAnimSprite()
                             if attached then
-                                for n = 0, attached:size()-1 do
+                                for n = attached:size()-1, 0, -1 do
                                     local sprite = attached:get(n)
                                     if sprite and sprite:getParentSprite() and sprite:getParentSprite():getName() and
                                        luautils.stringStarts(sprite:getParentSprite():getName(), "f_wallvines_") then
-                                        obj:RemoveAttachedAnims()
-                                        if isClient() then obj:transmitUpdatedSpriteToServer() end
+                                        obj:RemoveAttachedAnim(n)
+                                        obj:transmitUpdatedSprite()
                                         count = count + 1
                                     end
                                 end

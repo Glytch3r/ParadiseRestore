@@ -1,28 +1,32 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
 ParadiseDev.Zones.AdminTesting = ParadiseDev.Zones.AdminTesting or {}
-local H = ParadiseDev.Zones.AdminTesting
-local MODULE = "PZZoneHarness"
 
-function H.reply(player, text)
-    sendServerCommand(player, MODULE, "result", { text = text })
+require "Dev/ParadiseDev_Players"
+
+ParadiseDev.Zones.AdminTesting.module = "PZZoneHarness"
+
+function ParadiseDev.Zones.AdminTesting.reply(pl, text)
+    sendServerCommand(pl, ParadiseDev.Zones.AdminTesting.module, "result", { text = text })
 end
 
-Events.OnClientCommand.Add(function(module, command, player, args)
-    if module ~= MODULE or command ~= "disableDemoAdminBypass" then return end
-    if not player or player:getAccessLevel() ~= "admin" then return end
+function ParadiseDev.Zones.AdminTesting.onClientCommand(module, command, pl, args)
+    if module ~= ParadiseDev.Zones.AdminTesting.module or command ~= "disableDemoAdminBypass" then return end
+    if not pl or not ParadiseDev.isAdm(pl) then return end
 
-    local E = ParadiseDev.Zones.Engine
-    if not E then
-        H.reply(player, "PZZoneEngine_Test is not loaded.")
+    if not ParadiseDev.Zones.Engine then
+        ParadiseDev.Zones.AdminTesting.reply(pl, "PZZoneEngine_Test is not loaded.")
         return
     end
 
     local count = 0
-    for _, zone in pairs(E.zones) do
+    for _, zone in pairs(ParadiseDev.Zones.Engine.zones) do
         zone.policy.adminBypass = false
         count = count + 1
     end
-    E.syncAllBoundaryStates()
-    H.reply(player, "Admin bypass disabled for " .. tostring(count) .. " current test zones.")
-end)
+    ParadiseDev.Zones.Engine.syncAllBoundaryStates()
+    ParadiseDev.Zones.AdminTesting.reply(pl, "Admin bypass disabled for " .. tostring(count) .. " current test zones.")
+end
+
+Events.OnClientCommand.Remove(ParadiseDev.Zones.AdminTesting.onClientCommand)
+Events.OnClientCommand.Add(ParadiseDev.Zones.AdminTesting.onClientCommand)

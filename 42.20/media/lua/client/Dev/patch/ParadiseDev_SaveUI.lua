@@ -6,11 +6,3 @@ if ISServerSavingMessage then
         Events.OnServerFinishSaving.Remove(ISServerSavingMessage.showSavingFinishMessage);
     end
 end
---[[ 
-function OnServerStartSaving()
-    -- your code here
-end
-
-Events.OnServerStartSaving.Add(OnServerStartSaving)
-
- ]]

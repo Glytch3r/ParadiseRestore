@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<animNode x_extends="PreyZed_default.xml">
+	<m_Name>PreyZed_OnKnees</m_Name>
+	<m_AnimName>Bob_ScrambleFloorBackIdle</m_AnimName>
+
+	<m_Conditions>
+		<m_Name>isPrey</m_Name>
+		<m_Type>BOOL</m_Type>
+		<m_BoolValue>true</m_BoolValue>
+	</m_Conditions>
+
+	<m_Conditions>
+		<m_Type>STRING</m_Type>
+	</m_Conditions>
+	<m_Conditions>
+		<m_Name>OnKnees</m_Name>
+		<m_BoolValue>true</m_BoolValue>
+	</m_Conditions>
+	<m_Events>
+		<m_TimePc>0.05</m_TimePc>
+	</m_Events>
+	<m_Events>
+		<m_EventName>FallOnFront</m_EventName>
+		<m_Time>Start</m_Time>
+		<m_ParameterValue>true</m_ParameterValue>
+	</m_Events>
+</animNode>

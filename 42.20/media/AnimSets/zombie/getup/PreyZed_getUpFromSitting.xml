@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<animNode x_extends="PreyZed_onback.xml">
+	<m_Name>PreyZed_getUpFromSitting</m_Name>
+	<m_AnimName>Bob_ScrambleFloorToIdle</m_AnimName>
+
+	<m_Conditions>
+		<m_Name>isPrey</m_Name>
+		<m_Type>BOOL</m_Type>
+		<m_BoolValue>true</m_BoolValue>
+	</m_Conditions>
+
+	<m_SpeedScale>0.82</m_SpeedScale>
+	<m_Conditions>
+		<m_BoolValue>true</m_BoolValue>
+	</m_Conditions>
+</animNode>

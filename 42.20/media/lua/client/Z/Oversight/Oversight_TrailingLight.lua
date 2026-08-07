@@ -1,3 +1,4 @@
+require "Dev/ParadiseDev_Players"
 ----------------------------------------------------------------
 -----  ▄▄▄   ▄    ▄   ▄  ▄▄▄▄▄   ▄▄▄   ▄   ▄   ▄▄▄    ▄▄▄  -----
 ----- █   ▀  █    █▄▄▓█    █    █   ▀  █▄▄▓█  ▀  ▄█  █ ▄▄▀ -----
@@ -8,7 +9,7 @@
 --   Project Zomboid Modding Commissions                      --
 --   https://steamcommunity.com/id/glytch3r/myworkshopfiles   --
 --                                                            --
---   ▫ Discord  ꞉   glytch3r                                  --
+
 --   ▫ Support  ꞉   https://ko-fi.com/glytch3r                --
 --   ▫ Youtube  ꞉   https://www.youtube.com/@glytch3r         --
 --   ▫ Github   ꞉   https://github.com/Glytch3r               --
@@ -28,7 +29,7 @@ end
 function ParadiseZ.setTrailingLightMode(activate, pl)
     pl = pl or getPlayer()
     if not pl or not pl:isAlive() then return end
-    if string.lower(pl:getAccessLevel()) == "admin" then
+    if ParadiseDev.isAdm() then
         if activate ~= nil then
             pl:getModData().isTrailLight = activate
         end
@@ -38,7 +39,7 @@ end
 function ParadiseZ.toggleTrailingLightMode(pl)
     pl = pl or getPlayer()
     if not pl or not pl:isAlive() then return end
-    if string.lower(pl:getAccessLevel()) ~= "admin" then return end
+    if not ParadiseDev.isAdm() then return end
     local md = pl:getModData()
     local active = not (md.isTrailLight or false)
     md.isTrailLight = active
@@ -63,7 +64,7 @@ function ParadiseZ.TrailingLight(pl)
     ParadiseZ.trailTicks = ParadiseZ.trailTicks + 1
     if ParadiseZ.trailTicks % 3 ~= 0 then 
         if not ParadiseZ.isTrailingLightMode(pl) then return end
-        if string.lower(pl:getAccessLevel()) == "admin" then 
+        if ParadiseDev.isAdm() then
             ParadiseZ.addLamp()
             local csq = pl:getCurrentSquare()
             if not csq then return end                

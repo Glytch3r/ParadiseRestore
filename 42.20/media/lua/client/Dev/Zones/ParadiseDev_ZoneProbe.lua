@@ -1,9 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
-local H = ParadiseDev.Zones
-if H then
-    function H.probe()
-        sendClientCommand(H.MODULE, "probe", {})
-    end
-end
 
+function ParadiseDev.Zones.probe()
+    sendClientCommand(ParadiseDev.Zones.MODULE, "probe", {})
+end

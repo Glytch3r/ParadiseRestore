@@ -1,11 +1,7 @@
--- B42 zone HUD.  It reads PZZoneEngine's server-published cache and never
--- attempts to decide zone policy itself.
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.ZoneHUD = ParadiseDev.ZoneHUD or {}
 
-local HUD = ParadiseDev.ZoneHUD
-
-local FEATURE_LABELS = {
+ParadiseDev.ZoneHUD.featureLabels = {
     isKos = "PvP", isPvE = "PvE", isSafe = "Safe", isBlocked = "Blocked",
     isRad = "Radiation", isHunt = "Hunt", isBlaze = "Blaze", isFrost = "Frost",
     isBomb = "Bomb", isMine = "Minefield", isNoCamp = "No Camping",
@@ -13,29 +9,29 @@ local FEATURE_LABELS = {
     isSpecial = "Special", isTrade = "Trade", isSprint = "Sprint",
 }
 
-local function featureText(zone)
+function ParadiseDev.ZoneHUD.featureText(zone)
     local labels = {}
-    for key, label in pairs(FEATURE_LABELS) do
+    for key, label in pairs(ParadiseDev.ZoneHUD.featureLabels) do
         if zone.features and zone.features[key] then labels[#labels + 1] = label end
     end
     table.sort(labels)
     return table.concat(labels, "  |  ")
 end
 
-function HUD.getCurrentZone(player)
+function ParadiseDev.ZoneHUD.getCurrentZone(pl)
     local border = ParadiseDev and ParadiseDev.Zones and ParadiseDev.Zones.Border
-    return border and border.getZoneFor and border.getZoneFor(player) or nil
+    return border and border.getZoneFor and border.getZoneFor(pl) or nil
 end
 
-function HUD.draw()
+function ParadiseDev.ZoneHUD.draw()
     if not isIngameState() then return end
-    local player = getPlayer()
-    if not player or not player:isAlive() then return end
+    local pl = getPlayer()
+    if not pl or not pl:isAlive() then return end
 
-    local zone = HUD.getCurrentZone(player)
+    local zone = ParadiseDev.ZoneHUD.getCurrentZone(pl)
     if not zone then return end
 
-    local modData = player:getModData()
+    local modData = pl:getModData()
     modData.ParadiseZHUDSettings = modData.ParadiseZHUDSettings or { x = 68, y = 73 }
     local settings = modData.ParadiseZHUDSettings
     local x, y = tonumber(settings.x) or 68, tonumber(settings.y) or 73
@@ -44,7 +40,7 @@ function HUD.draw()
 
     getTextManager():DrawString(UIFont.Large, x, y, "ZONE: " .. tostring(zone.name or zone.id), r, g, b, 0.9)
 
-    local flags = featureText(zone)
+    local flags = ParadiseDev.ZoneHUD.featureText(zone)
     if flags ~= "" then
         getTextManager():DrawString(UIFont.Small, x, y + 28, flags, 1, 1, 1, 0.8)
     end
@@ -53,11 +49,11 @@ function HUD.draw()
     end
 end
 
-Events.OnPostUIDraw.Remove(HUD.draw)
-Events.OnPostUIDraw.Add(HUD.draw)
-
--- A regular player needs the same read-only zone cache as an administrator;
--- otherwise the HUD would remain empty until someone edited a zone.
-Events.OnGameStart.Add(function()
+function ParadiseDev.ZoneHUD.onGameStart()
     if isClient() then sendClientCommand("PZZoneEngine", "requestBoundaryState", {}) end
-end)
+end
+
+Events.OnPostUIDraw.Remove(ParadiseDev.ZoneHUD.draw)
+Events.OnPostUIDraw.Add(ParadiseDev.ZoneHUD.draw)
+Events.OnGameStart.Remove(ParadiseDev.ZoneHUD.onGameStart)
+Events.OnGameStart.Add(ParadiseDev.ZoneHUD.onGameStart)

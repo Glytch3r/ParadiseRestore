@@ -1,17 +1,19 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Cage = ParadiseDev.Cage or {}
 
+require "Dev/ParadiseDev_Players"
+
 require "ISUI/ISCollapsableWindow"
 require "ISUI/ISButton"
 require "ISUI/ISLabel"
 require "ISUI/ISScrollingListBox"
+require "ISUI/ISTextEntryBox"
 
 ParadiseDev.Cage.entries = ParadiseDev.Cage.entries or {}
 ParadiseDev.Cage.window = ParadiseDev.Cage.window or nil
 
-function ParadiseDev.Cage.isAdmin()
-    local player = getPlayer()
-    return player and string.lower(tostring(player:getAccessLevel())) == "admin"
+function ParadiseDev.Cage.isSteamMode()
+    return getSteamModeActive and getSteamModeActive() or false
 end
 
 function ParadiseDev.Cage.requestState()
@@ -24,12 +26,16 @@ function ParadiseDev.Cage.requestSet(username, isCaged)
 end
 
 function ParadiseDev.Cage.requestSteamIdSet(steamId, isCaged)
-    if not steamId or steamId == "" or not isClient() then return end
-    sendClientCommand("ParadiseDevCage", "set", { steamId = steamId, isCaged = isCaged == true })
+    ParadiseDev.Cage.requestKeySet(steamId, nil, isCaged)
+end
+
+function ParadiseDev.Cage.requestKeySet(key, username, isCaged)
+    if not key or key == "" or not isClient() then return end
+    sendClientCommand("ParadiseDevCage", "set", { key = key, username = username, isCaged = isCaged == true })
 end
 
 function ParadiseDev.Cage.addTargetOptions(context, target)
-    if not ParadiseDev.Cage.isAdmin() or not context or not target then return end
+    if not ParadiseDev.isAdm() or not context or not target then return end
     local username = target.username or (target.getUsername and target:getUsername())
     if not username or username == "" then return end
     context:addOption("isCaged: [TRUE]", nil, ParadiseDev.Cage.requestSet, username, true)
@@ -45,13 +51,13 @@ function ParadiseDev.Cage.getWorldTarget(context)
     return nil
 end
 
-function ParadiseDev.Cage.addWorldContext(playerNum, context, worldobjects, test)
-    if test or not ParadiseDev.Cage.isAdmin() then return end
+function ParadiseDev.Cage.addWorldContext(plNum, context, worldobjects, test)
+    if test or not ParadiseDev.isAdm() then return end
     ParadiseDev.Cage.addTargetOptions(context, ParadiseDev.Cage.getWorldTarget(context))
 end
 
 function ParadiseDev.Cage.addScoreboardOptions(scoreboard, target, x, y)
-    if not scoreboard or not ParadiseDev.Cage.isAdmin() then return end
+    if not scoreboard or not ParadiseDev.isAdm() then return end
     local context = ISContextMenu.get(scoreboard.admin:getPlayerNum(), x + scoreboard:getAbsoluteX(), y + scoreboard:getAbsoluteY())
     ParadiseDev.Cage.addTargetOptions(context, target)
 end
@@ -72,11 +78,24 @@ ParadiseDev.Cage.Panel = ISCollapsableWindow:derive("ParadiseDev.Cage.Panel")
 function ParadiseDev.Cage.Panel:createChildren()
     ISCollapsableWindow.createChildren(self)
     local top = self:titleBarHeight() + 10
-    self.info = ISLabel:new(12, top, 18, "Steam-ID cage assignments", 0.85, 0.9, 1, 1, UIFont.Small, true)
+    self.info = ISLabel:new(12, top, 18, "Cage assignments", 0.85, 0.9, 1, 1, UIFont.Small, true)
     self.info:initialise()
     self.info:instantiate()
     self:addChild(self.info)
-    self.list = ISScrollingListBox:new(12, top + 24, self.width - 24, self.height - top - 78)
+    self.usernameLabel = ISLabel:new(12, top + 27, 18, "Username", 0.85, 0.9, 1, 1, UIFont.Small, true)
+    self.usernameLabel:initialise()
+    self.usernameLabel:instantiate()
+    self:addChild(self.usernameLabel)
+    self.usernameEntry = ISTextEntryBox:new("", 84, top + 24, self.width - 222, 24)
+    self.usernameEntry:initialise()
+    self.usernameEntry:instantiate()
+    self:addChild(self.usernameEntry)
+    self.addButton = ISButton:new(self.width - 128, top + 24, 116, 24, "Add", self, ParadiseDev.Cage.Panel.onClick)
+    self.addButton.internal = "ADD"
+    self.addButton:initialise()
+    self.addButton:instantiate()
+    self:addChild(self.addButton)
+    self.list = ISScrollingListBox:new(12, top + 54, self.width - 24, self.height - top - 108)
     self.list:initialise()
     self.list:instantiate()
     self.list.itemheight = 22
@@ -106,6 +125,12 @@ function ParadiseDev.Cage.Panel:onClick(button)
         ParadiseDev.Cage.requestState()
         return
     end
+    if button.internal == "ADD" then
+        local username = self.usernameEntry and self.usernameEntry:getText() or ""
+        if username ~= "" then ParadiseDev.Cage.requestSet(username, true) end
+        if self.usernameEntry then self.usernameEntry:setText("") end
+        return
+    end
     local item = self.list.items[self.list.selected]
     local entry = item and item.item or nil
     if not entry then return end
@@ -113,7 +138,7 @@ function ParadiseDev.Cage.Panel:onClick(button)
     if entry.online and entry.username ~= "" then
         ParadiseDev.Cage.requestSet(entry.username, isCaged)
     else
-        ParadiseDev.Cage.requestSteamIdSet(entry.steamId, isCaged)
+        ParadiseDev.Cage.requestKeySet(entry.key or entry.steamId, entry.username, isCaged)
     end
 end
 
@@ -131,16 +156,25 @@ function ParadiseDev.Cage.refreshPanel()
     if not panel or not panel.list then return end
     panel.list:clear()
     for _, entry in ipairs(ParadiseDev.Cage.entries) do
-        local name = entry.displayName ~= "" and entry.displayName or entry.username
-        if name == "" then name = "Steam ID " .. tostring(entry.steamId) end
-        local status = entry.isCaged and "TRUE" or "FALSE"
-        local online = entry.online and "online" or "offline"
-        panel.list:addItem(name .. " | isCaged: " .. status .. " | " .. online .. " | " .. tostring(entry.steamId), entry)
+        panel.list:addItem(ParadiseDev.Cage.getEntryText(entry), entry)
     end
 end
 
+function ParadiseDev.Cage.getEntryText(entry)
+    entry = entry or {}
+    local username = tostring(entry.username or "")
+    if username == "" then username = tostring(entry.displayName or "") end
+    if username == "" then username = tostring(entry.key or entry.steamId or "Unknown") end
+    local status = entry.isCaged and "TRUE" or "FALSE"
+    local online = entry.online and "online" or "offline"
+    if ParadiseDev.Cage.isSteamMode() then return username .. " | isCaged: " .. status .. " | " .. online end
+    local steamId = tostring(entry.steamId or entry.key or "")
+    if steamId ~= "" then return username .. " | Steam ID " .. steamId .. " | isCaged: " .. status .. " | " .. online end
+    return username .. " | isCaged: " .. status .. " | " .. online
+end
+
 function ParadiseDev.Cage.openPanel()
-    if not ParadiseDev.Cage.isAdmin() then return end
+    if not ParadiseDev.isAdm() then return end
     if ParadiseDev.Cage.window then
         ParadiseDev.Cage.window:setVisible(true)
         ParadiseDev.Cage.window:bringToTop()
