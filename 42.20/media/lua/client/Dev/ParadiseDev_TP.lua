@@ -10,6 +10,10 @@ end
 function ParadiseDev.TP.applyTeleport(pl, x, y, z)
     if not pl or not ParadiseDev.TP.validCoordinates(x, y, z) then return false end
     x, y, z = tonumber(x), tonumber(y), tonumber(z)
+    if pl.teleportTo then
+        pl:teleportTo(x, y, z)
+        return true
+    end
     pl:setX(x)
     pl:setY(y)
     pl:setZ(z)

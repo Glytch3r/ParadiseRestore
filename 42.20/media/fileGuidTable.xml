@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <fileGuidTable>
     <files>
+        <path>media/clothing/clothingItems/ScareCrow.xml</path>
+        <guid>a2046c0a-8c70-4d04-adfb-2ab87c19d702</guid>
+    </files>
+    <files>
         <path>media/clothing/clothingItems/Jacket_TheRange.xml</path>
         <guid>f5852b6b-5df9-4009-b628-29ea3e0ab5d3</guid>
     </files>

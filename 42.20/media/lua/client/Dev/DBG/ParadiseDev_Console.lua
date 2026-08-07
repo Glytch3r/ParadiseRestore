@@ -10,8 +10,6 @@ function OpenCommandConsole()
 		if not UIManager.getUI():contains(dbg) then
 			UIManager.getUI():add(dbg)
 		end
-		UIManager.getUI():add(dbg)
-
 
 		dbg:setVisible(true)
 		dbg:bringToTop()

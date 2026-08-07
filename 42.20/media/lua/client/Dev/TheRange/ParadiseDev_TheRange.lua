@@ -73,7 +73,7 @@ function ParadiseDev.TheRange.isStaff(pl)
     pl = pl or getPlayer()
     if not pl then return false end
     if ParadiseDev.isAdm(pl) then return true end
-    if pl:hasTrait(ParadiseDev.TheRange.staffTrait) or pl:hasTrait("TheRangeStaff") then return true end
+    if ParadiseDev.hasTrait(pl, ParadiseDev.TheRange.staffTrait) or ParadiseDev.hasTrait(pl, "TheRangeStaff") then return true end
     local staff = SandboxVars.TheRange and SandboxVars.TheRange.Staff or ""
     for username in string.gmatch(tostring(staff), "[^;]+") do
         if username == pl:getUsername() then return true end

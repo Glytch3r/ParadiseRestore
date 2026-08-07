@@ -2,8 +2,10 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.Cage = ParadiseDev.Cage or {}
 
 require "Dev/ParadiseDev_Players"
+require "Dev/ParadiseDev_TraitUtils"
 
 ParadiseDev.Cage.StoreName = "ParadiseDev_IsCaged"
+ParadiseDev.Cage.trait = "ParadiseDev:Caged"
 
 function ParadiseDev.Cage.getStore()
     local store = ModData.getOrCreate("ParadiseDev_IsCaged")
@@ -69,10 +71,12 @@ end
 
 function ParadiseDev.Cage.setTrait(pl, isCaged)
     if not pl then return end
+    local trait = ParadiseDev.getTrait(ParadiseDev.Cage.trait)
+    if not trait then return end
     if isCaged then
-        if not pl:hasTrait("Caged") then pl:getCharacterTraits():add("Caged") end
-    elseif pl:hasTrait("Caged") then
-        pl:getCharacterTraits():remove("Caged")
+        if not ParadiseDev.hasTrait(pl, trait) then pl:getCharacterTraits():add(trait) end
+    elseif ParadiseDev.hasTrait(pl, trait) then
+        pl:getCharacterTraits():remove(trait)
     end
     if sendSyncPlayerFields then sendSyncPlayerFields(pl, 2) end
 end

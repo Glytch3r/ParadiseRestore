@@ -46,7 +46,7 @@ function ParadiseDev.Context.resetMapVisited()
 end
 
 function ParadiseDev.Context.toggleTrailingLight(pl)
-    if ParadiseZ.toggleTrailingLight then ParadiseZ.toggleTrailingLight(pl) end
+    if ParadiseZ.toggleTrailingLightMode then ParadiseZ.toggleTrailingLightMode(pl) end
 end
 
 function ParadiseDev.Context.toggleHideAdminTag(pl)
@@ -129,7 +129,7 @@ function ParadiseDev.Context.context(plNum, context)
     if ParadiseDev.Cage and ParadiseDev.Cage.openPanel then ParadiseDev.Context.addOption(menu, "Cage Administration", ParadiseDev.Cage.openPanel, "media/ui/Paradise/ContextIcon.png") end
 
     ParadiseDev.Context.addOption(menu, "Audio Direction: " .. ParadiseDev.Context.onOrOff(ParadiseZ.soundDbg), ParadiseDev.Context.toggleSound, "media/ui/Paradise/LightContextIcon.png")
-    if ParadiseZ.isTrailingLightMode and ParadiseZ.toggleTrailingLight then ParadiseDev.Context.addOption(menu, "Trailing Light: " .. ParadiseDev.Context.onOrOff(ParadiseZ.isTrailingLightMode(pl)), ParadiseDev.Context.toggleTrailingLight, "media/ui/Paradise/LightContextIcon.png", pl) end
+    if ParadiseZ.isTrailingLightMode and ParadiseZ.toggleTrailingLightMode then ParadiseDev.Context.addOption(menu, "Trailing Light: " .. ParadiseDev.Context.onOrOff(ParadiseZ.isTrailingLightMode(pl)), ParadiseDev.Context.toggleTrailingLight, "media/ui/Paradise/LightContextIcon.png", pl) end
     if ParadiseZ.isHideAdminTag and ParadiseZ.toggleHideAdminTag then ParadiseDev.Context.addOption(menu, "Hide Admin Tag: " .. ParadiseDev.Context.onOrOff(ParadiseZ.isHideAdminTag(pl)), ParadiseDev.Context.toggleHideAdminTag, "media/ui/Paradise/AdmTagContextIcon.png", pl) end
 
     if ParadiseDev.TP then

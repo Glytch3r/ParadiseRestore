@@ -117,11 +117,9 @@ end
 
 function ParadiseZ.isSprintZoneFromSquare(sq)
     if not sq then return false end
-    local zoneName = ParadiseZ.getZoneName(sq)
-    if zoneName == tostring(SandboxVars.ParadiseZ.OutsideStr) then return false end
-    local zone = ParadiseZ.ZoneData[zoneName]
-    if not zone then return false end
-    return zone.isSprint == true
+    if not ParadiseDev or not ParadiseDev.Zones or not ParadiseDev.Zones.Border or not ParadiseDev.Zones.Border.getAuthorityAt then return false end
+    local zone = ParadiseDev.Zones.Border.getAuthorityAt(sq:getX(), sq:getY(), sq:getZ(), 0)
+    return zone and zone.features and zone.features.isSprint == true or false
 end
 
 local ticks = 0
@@ -139,4 +137,3 @@ function ParadiseZ.sprinterHandler(zed)
 end
 Events.OnZombieUpdate.Remove(ParadiseZ.sprinterHandler)
 Events.OnZombieUpdate.Add(ParadiseZ.sprinterHandler)
-

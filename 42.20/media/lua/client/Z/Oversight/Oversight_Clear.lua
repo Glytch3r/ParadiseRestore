@@ -541,14 +541,21 @@ function ParadiseZ.lvlUp()
             end
         end
     end
-    for i = TraitFactory.getTraits():size()-1, 0, -1 do
-        local trait = TraitFactory.getTraits():get(i)
-        if trait:getCost() >= 1 then
-            if not pl:HasTrait(trait:getType()) then pl:getTraits():add(trait:getType()) end
-        else
-            if pl:HasTrait(trait:getType()) then pl:getTraits():remove(trait:getType()) end
+    local traits = CharacterTraitDefinition.getTraits()
+    for i = 0, traits:size() - 1 do
+        local trait = traits:get(i)
+        local tType = trait and trait:getType() or nil
+        if tType and trait:getCost() >= 1 then
+            if not pl:hasTrait(tType) then
+                pl:getCharacterTraits():add(tType)
+                pl:modifyTraitXPBoost(tType, false)
+            end
+        elseif tType and pl:hasTrait(tType) then
+            pl:getCharacterTraits():remove(tType)
+            pl:modifyTraitXPBoost(tType, true)
         end
     end
+    SyncXp(pl)
     pl:addLineChatElement("Level Up!")    
     getSoundManager():playUISound("GainExperienceLevel")
 end

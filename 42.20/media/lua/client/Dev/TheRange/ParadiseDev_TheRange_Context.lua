@@ -2,7 +2,7 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.TheRange = ParadiseDev.TheRange or {}
 ParadiseDev.TheRange.Context = ParadiseDev.TheRange.Context or {}
 
-require "ISUI/ISQuantityModal"
+require "ISUI/ISTextBox"
 
 ParadiseDev.TheRange.Context.vendorSprites = {
     ParadiseTiles_12 = true,
@@ -55,16 +55,16 @@ function ParadiseDev.TheRange.Context.close(context)
     if context and context.hideAndChildren then context:hideAndChildren() end
 end
 
-function ParadiseDev.TheRange.Context.onWithdrawAmount(target, button, value, vendor)
-    if not button or button.internal ~= "OK" or not vendor then return end
-    value = math.floor(tonumber(value) or 0)
+function ParadiseDev.TheRange.Context.onWithdrawAmount(target, button, vendor)
+    if not button or button.internal ~= "OK" or not button.parent or not button.parent.entry or not vendor then return end
+    local value = math.floor(tonumber(button.parent.entry:getText()) or 0)
     if value <= 0 then return end
     ParadiseDev.TheRange.request("withdraw", { x = vendor.x, y = vendor.y, z = vendor.z, amount = value })
 end
 
-function ParadiseDev.TheRange.Context.onExchangeAmount(target, button, value, args)
-    if not button or button.internal ~= "OK" or not args then return end
-    value = math.floor(tonumber(value) or 0)
+function ParadiseDev.TheRange.Context.onExchangeAmount(target, button, args)
+    if not button or button.internal ~= "OK" or not button.parent or not button.parent.entry or not args then return end
+    local value = math.floor(tonumber(button.parent.entry:getText()) or 0)
     if value <= 0 then return end
     ParadiseDev.TheRange.request("exchange", {
         cardId = args.cardId,
@@ -79,9 +79,9 @@ function ParadiseDev.TheRange.Context.withdrawPrompt(pl, obj)
     local vendor = ParadiseDev.TheRange.Context.getVendorArgs(obj)
     local earnings = ParadiseDev.TheRange.Context.getEarnings(obj)
     if not pl or not vendor or earnings <= 0 then return end
-    local modal = ISQuantityModal:new(0, 0, 300, 150, "Withdraw Amount", earnings, ParadiseDev.TheRange.Context, ParadiseDev.TheRange.Context.onWithdrawAmount, pl:getPlayerNum(), 0, vendor)
+    local modal = ISTextBox:new(0, 0, 300, 150, "Withdraw Amount", tostring(earnings), ParadiseDev.TheRange.Context, ParadiseDev.TheRange.Context.onWithdrawAmount, pl:getPlayerNum(), vendor)
     modal:initialise()
-    modal:instantiate()
+    modal:setOnlyNumbers(true)
     modal:addToUIManager()
 end
 
@@ -91,9 +91,9 @@ function ParadiseDev.TheRange.Context.exchangePrompt(pl, obj)
     local points = ParadiseDev.TheRange.getPoints(card)
     if not pl or not card or not vendor or points <= 0 then return end
     local args = { cardId = ParadiseDev.TheRange.getCardId(card), x = vendor.x, y = vendor.y, z = vendor.z }
-    local modal = ISQuantityModal:new(0, 0, 300, 150, "Points Exchange", points, ParadiseDev.TheRange.Context, ParadiseDev.TheRange.Context.onExchangeAmount, pl:getPlayerNum(), 0, args)
+    local modal = ISTextBox:new(0, 0, 300, 150, "Points Exchange", tostring(points), ParadiseDev.TheRange.Context, ParadiseDev.TheRange.Context.onExchangeAmount, pl:getPlayerNum(), args)
     modal:initialise()
-    modal:instantiate()
+    modal:setOnlyNumbers(true)
     modal:addToUIManager()
 end
 

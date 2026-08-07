@@ -86,7 +86,7 @@ function ParadiseDev.TheRange.isStaff(pl)
     for username in string.gmatch(tostring(staff), "[^;]+") do
         if username == pl:getUsername() then return true end
     end
-    return pl:hasTrait("ParadiseDev:TheRangeStaff") or pl:hasTrait("TheRangeStaff")
+    return ParadiseDev.hasTrait(pl, "ParadiseDev:TheRangeStaff") or ParadiseDev.hasTrait(pl, "TheRangeStaff")
 end
 
 function ParadiseDev.TheRange.canHunt(pl)
