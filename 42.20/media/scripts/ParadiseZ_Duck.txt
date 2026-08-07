@@ -16,19 +16,33 @@ module ParadiseZ
     model duck_nate { mesh = WorldItems/duck_nate, texture = Ducks/duck_nate, scale = 0.8, }
     model duck_shyguy { mesh = WorldItems/duck_shyguy, texture = Ducks/duck_shyguy, scale = 0.8, }
 
-    item Duckhunt_jim { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_jim, WorldStaticModel = duck_jim, }
-    item Duckhunt_goro { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_goro, WorldStaticModel = duck_goro, }
-    item Duckhunt_tenorphans { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_tenorphans, WorldStaticModel = duck_tenorphans, }
-    item Duckhunt_glytch3r { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_glytch3r, WorldStaticModel = duck_glytch3r, }
-    item Duckhunt_kit { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_kit, WorldStaticModel = duck_kit, }
-    item Duckhunt_fooze { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_fooze, WorldStaticModel = duck_fooze, }
-    item Duckhunt_sierra { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_sierra, WorldStaticModel = duck_sierra, }
-    item Duckhunt_gameaholic { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_gameaholic, WorldStaticModel = duck_gameaholic, }
-    item Duckhunt_duke { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_duke, WorldStaticModel = duck_duke, }
-    item Duckhunt_waterbottle { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_waterbottle, WorldStaticModel = duck_waterbottle, }
-    item Duckhunt_jaynie { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_jaynie, WorldStaticModel = duck_jaynie, }
-    item Duckhunt_odin { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_odin, WorldStaticModel = duck_odin, }
-    item Duckhunt_kashi { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_kashi, WorldStaticModel = duck_kashi, }
-    item Duckhunt_nate { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_nate, WorldStaticModel = duck_nate, }
-    item Duckhunt_shyguy { DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_shyguy, WorldStaticModel = duck_shyguy, }
+    item Duckhunt_jim { DisplayName = "Jim Duck", DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_jim, WorldStaticModel = duck_jim, }
+
+    item Duckhunt_goro { DisplayName = "Goro Duck", DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_goro, WorldStaticModel = duck_goro, }
+
+    item Duckhunt_tenorphans { DisplayName = "Tenorphans Duck", DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_tenorphans, WorldStaticModel = duck_tenorphans, }
+
+    item Duckhunt_glytch3r { DisplayName = "Glytch3r Duck", DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_glytch3r, WorldStaticModel = duck_glytch3r, }
+
+    item Duckhunt_kit { DisplayName = "Kit Duck", DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_kit, WorldStaticModel = duck_kit, }
+
+    item Duckhunt_fooze { DisplayName = "Fooze Duck", DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_fooze, WorldStaticModel = duck_fooze, }
+
+    item Duckhunt_sierra { DisplayName = "Sierra Duck", DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_sierra, WorldStaticModel = duck_sierra, }
+
+    item Duckhunt_gameaholic { DisplayName = "Gameaholic Duck", DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_gameaholic, WorldStaticModel = duck_gameaholic, }
+
+    item Duckhunt_duke { DisplayName = "Duke Duck", DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_duke, WorldStaticModel = duck_duke, }
+
+    item Duckhunt_waterbottle { DisplayName = "Waterbottle Duck", DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_waterbottle, WorldStaticModel = duck_waterbottle, }
+
+    item Duckhunt_jaynie { DisplayName = "Jaynie Duck", DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_jaynie, WorldStaticModel = duck_jaynie, }
+
+    item Duckhunt_odin { DisplayName = "Odin Duck", DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_odin, WorldStaticModel = duck_odin, }
+
+    item Duckhunt_kashi { DisplayName = "Kashi Duck", DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_kashi, WorldStaticModel = duck_kashi, }
+
+    item Duckhunt_nate { DisplayName = "Nate Duck", DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_nate, WorldStaticModel = duck_nate, }
+
+    item Duckhunt_shyguy { DisplayName = "Shyguy Duck", DisplayCategory = Junk, ItemType = base:normal, Weight = 0.1, Icon = duck_shyguy, WorldStaticModel = duck_shyguy, }
 }
