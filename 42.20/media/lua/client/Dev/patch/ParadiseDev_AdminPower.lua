@@ -2,9 +2,6 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.AdminPower = ParadiseDev.AdminPower or {}
 ParadiseZ = ParadiseZ or {}
 
-require "ISUI/AdminPanel/ISAdminPowerUI"
-require "Dev/ParadiseDev_Players"
-require "Z/Oversight/Oversight_AdminTag"
 
 function ParadiseDev.AdminPower.getHideAdminTags(self)
     if not self or not self.player then return false end

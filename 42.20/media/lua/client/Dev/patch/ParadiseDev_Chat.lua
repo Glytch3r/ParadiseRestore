@@ -3,7 +3,6 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.hook = ParadiseDev.hook or {}
 ParadiseDev.hook.ISChat_addLineInChat = ISChat.addLineInChat
 
-require "Dev/ParadiseDev_Players"
 
 ISChat.BlinkEnabled = true
 

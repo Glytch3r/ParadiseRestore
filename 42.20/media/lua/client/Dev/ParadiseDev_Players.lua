@@ -1,7 +1,6 @@
 
 ParadiseDev = ParadiseDev or {}
 
-require "Dev/ParadiseDev_TraitUtils"
 
 function ParadiseDev.getTarg(targ)
     if not targ then

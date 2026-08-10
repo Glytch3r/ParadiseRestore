@@ -2,7 +2,6 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.PlayerMapMaxZoom = ParadiseDev.PlayerMapMaxZoom or 18
 ParadiseDev.Map = ParadiseDev.Map or {}
 
-require "Dev/ParadiseDev_Players"
 
 ParadiseDev.Map.vanillaInstantiate = ParadiseDev.Map.vanillaInstantiate or ISWorldMap.instantiate
 

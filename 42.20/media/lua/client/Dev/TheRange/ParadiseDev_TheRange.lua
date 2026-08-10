@@ -1,7 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.TheRange = ParadiseDev.TheRange or {}
 
-require "Dev/ParadiseDev_Players"
 
 ParadiseDev.TheRange.module = "ParadiseDevTheRange"
 ParadiseDev.TheRange.cardType = "ParadiseZ.TheRangeCard"

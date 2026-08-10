@@ -1,14 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Cage = ParadiseDev.Cage or {}
 
-require "Dev/ParadiseDev_Players"
-
-require "ISUI/ISCollapsableWindow"
-require "ISUI/ISButton"
-require "ISUI/ISLabel"
-require "ISUI/ISScrollingListBox"
-require "ISUI/ISTextEntryBox"
-
 ParadiseDev.Cage.entries = ParadiseDev.Cage.entries or {}
 ParadiseDev.Cage.window = ParadiseDev.Cage.window or nil
 

@@ -1,7 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Keys = ParadiseDev.Keys or {}
 
-require "Dev/ParadiseDev_Players"
 
 function ParadiseDev.Keys.flashlightTeleport(key)
     if not ParadiseDev.isAdm() then return key end

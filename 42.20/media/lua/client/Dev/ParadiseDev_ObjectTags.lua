@@ -1,8 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.ObjectTags = ParadiseDev.ObjectTags or {}
 
-require "Dev/ParadiseDev_Players"
-require "ISUI/ISTextBox"
 
 ParadiseDev.ObjectTags.module = "ParadiseDevObjectTags"
 ParadiseDev.ObjectTags.key = "ParadiseDevObjectTag"
