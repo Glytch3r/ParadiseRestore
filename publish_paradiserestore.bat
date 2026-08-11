@@ -10,6 +10,7 @@ set "STEAM_USER=YOUR_STEAM_USERNAME"
 set "STEAMCMD=%ProgramFiles(x86)%\Steam\steamcmd.exe"
 set "APP_ID=108600"
 set "CONTENT_FOLDER=%ROOT%42.20"
+set "PREVIEW_FILE=%CONTENT_FOLDER%\poster.png"
 set "VDF=%ROOT%workshop_item.vdf"
 set "PUBLISH_VDF=%TEMP%\ParadiseRestore_workshop_item_%RANDOM%.vdf"
 set "BRANCH=codex/b42-audit"
@@ -34,7 +35,7 @@ if not exist "%CONTENT_FOLDER%\mod.info" (
 
 echo === Uploading Workshop item %WORKSHOP_ID% ===
 rem Fill the ID into a temporary VDF so the checked-in template stays reusable.
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$v = Get-Content -Raw -LiteralPath $env:VDF; $v = $v.Replace('REPLACE_WITH_PARADISERESTORE_WORKSHOP_ID', $env:WORKSHOP_ID); Set-Content -LiteralPath $env:PUBLISH_VDF -Value $v -Encoding UTF8"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$v = Get-Content -Raw -LiteralPath $env:VDF; $v = $v.Replace('REPLACE_WITH_PARADISERESTORE_WORKSHOP_ID', $env:WORKSHOP_ID).Replace('__CONTENT_FOLDER__', $env:CONTENT_FOLDER).Replace('__PREVIEW_FILE__', $env:PREVIEW_FILE); Set-Content -LiteralPath $env:PUBLISH_VDF -Value $v -Encoding UTF8"
 if errorlevel 1 (
     echo ERROR: Could not prepare the Workshop VDF.
     exit /b 1

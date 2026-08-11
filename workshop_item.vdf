@@ -2,7 +2,7 @@
 {
     "appid"              "108600"
     "publishedfileid"    "REPLACE_WITH_PARADISERESTORE_WORKSHOP_ID"
-    "contentfolder"      "C:\\Users\\cmd\\Zomboid\\mods\\ParadiseRestore\\42.20"
-    "previewfile"        "C:\\Users\\cmd\\Zomboid\\mods\\ParadiseRestore\\42.20\\poster.png"
+    "contentfolder"      "__CONTENT_FOLDER__"
+    "previewfile"        "__PREVIEW_FILE__"
     "changenote"         "ParadiseRestore B42 update"
 }
