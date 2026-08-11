@@ -3,7 +3,6 @@ ParadiseDev.Context = ParadiseDev.Context or {}
 ParadiseZ = ParadiseZ or {}
 ParadiseZ.soundDbg = ParadiseZ.soundDbg or false
 
-require "Dev/ParadiseDev_Players"
 
 function ParadiseDev.Context.onOrOff(value)
     return value and "On" or "Off"

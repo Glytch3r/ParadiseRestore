@@ -2,7 +2,6 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
 ParadiseDev.Zones.Engine = ParadiseDev.Zones.Engine or {}
 
-require "Dev/ParadiseDev_Players"
 
 ParadiseDev.Zones.Engine.CELL_SIZE = 100
 ParadiseDev.Zones.Engine.zones = ParadiseDev.Zones.Engine.zones or {}

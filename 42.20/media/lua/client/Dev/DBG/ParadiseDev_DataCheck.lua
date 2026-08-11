@@ -1,13 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.DataCheck = ParadiseDev.DataCheck or {}
 
-require "Dev/ParadiseDev_Players"
-require "Dev/ParadiseDev_TP"
-
-require "ISUI/ISCollapsableWindow"
-require "ISUI/ISButton"
-require "ISUI/ISLabel"
-require "ISUI/ISScrollingListBox"
 
 ParadiseDev.DataCheck.entries = ParadiseDev.DataCheck.entries or {}
 ParadiseDev.DataCheck.window = ParadiseDev.DataCheck.window or nil

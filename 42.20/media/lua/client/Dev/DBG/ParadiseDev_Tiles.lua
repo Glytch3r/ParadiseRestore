@@ -1,7 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Tiles = ParadiseDev.Tiles or {}
 
-require "Dev/ParadiseDev_Players"
 
 function ParadiseDev.Tiles.getSpriteName(spr)
     if not spr or not spr.getName then return nil end

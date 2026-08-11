@@ -87,22 +87,36 @@ function ParadiseZ.setSprinter(zed)
     zed:makeInactive(false)      ]]   
 end
 
-
-
 --[[ 
-function ParadiseZ.setSprinter(zed, num)
-	local sandOpt = getSandboxOptions()
-	local zSpeed = sandOpt:getOptionByName("ZombieLore.Speed"):getValue()
-    num = num or 1
-    
-	zed:setWalkType("sprint"..tostring(num))
-	sandOpt:set("ZombieLore.Speed", 1)
-	zed:makeInactive(true)
-	zed:makeInactive(false)
-	zed:DoZombieStats()
-	sandOpt:set("ZombieLore.Speed", zSpeed)
-end
+    setImmortalTutorialZombie Link icon
+    dressInRandomOutfit Link icon
+    setUseless Link icon
+    ddRandomBloodDirtHolesEtc()
+    setKnifeDeath Link icon
+    setTurnAlertedValues
+    setNoTeeth 
+    getPlayer():kill
+    cantBite 
+    setTurnAlertedValues(int soundX,
+    int soundY)
+    setJawStabAttach 
+    addAggro(IsoMovingObject other,
+    float damage)
+    setOnlyJawStab 
+    spottedNew Link icon
+    setForceEatingAnimation 
+    setAlwaysKnockedDown 
+    setWalkType Link icon
+    setCanWalk 
+    setCanCrawlUnderVehicle 
+    setSitAgainstWall 
+    setSkeleton 
+    makeInactive 
+    setTurnDelta
+    setBecomeCrawler(boolean)
  ]]
+
+
 
 function ParadiseZ.isSprinter(zed)
 	if not zed then return end

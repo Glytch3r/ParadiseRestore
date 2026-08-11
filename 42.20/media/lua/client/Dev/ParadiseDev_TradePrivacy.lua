@@ -1,7 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.TradePrivacy = ParadiseDev.TradePrivacy or {}
 
-require "Dev/ParadiseDev_Players"
 
 function ParadiseDev.TradePrivacy.isProtectedTarget(targ)
     if not targ then return false end

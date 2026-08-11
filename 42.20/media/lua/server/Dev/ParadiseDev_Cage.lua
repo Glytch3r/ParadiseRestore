@@ -1,8 +1,7 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Cage = ParadiseDev.Cage or {}
 
-require "Dev/ParadiseDev_Players"
-require "Dev/ParadiseDev_TraitUtils"
+
 
 ParadiseDev.Cage.StoreName = "ParadiseDev_IsCaged"
 ParadiseDev.Cage.trait = "ParadiseDev:Caged"

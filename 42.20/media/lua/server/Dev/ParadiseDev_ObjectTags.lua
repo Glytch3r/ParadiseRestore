@@ -1,7 +1,7 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.ObjectTags = ParadiseDev.ObjectTags or {}
 
-require "Dev/ParadiseDev_Players"
+
 
 ParadiseDev.ObjectTags.module = "ParadiseDevObjectTags"
 ParadiseDev.ObjectTags.key = "ParadiseDevObjectTag"

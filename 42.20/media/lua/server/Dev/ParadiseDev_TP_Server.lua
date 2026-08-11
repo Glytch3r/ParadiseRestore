@@ -1,7 +1,7 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.TP = ParadiseDev.TP or {}
 
-require "Dev/ParadiseDev_Players"
+
 
 ParadiseDev.TP.module = "ParadiseDevTP"
 

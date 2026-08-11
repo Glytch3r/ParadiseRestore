@@ -1,7 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Inventory = ParadiseDev.Inventory or {}
 
-require "Dev/ParadiseDev_Players"
 
 ParadiseDev.Inventory.genericProperties = {
     { "getCondition", "setCondition" },

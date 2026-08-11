@@ -1,4 +1,3 @@
-require "Dev/ParadiseDev_Players"
 
 ParadiseZ = ParadiseZ or {} 
 

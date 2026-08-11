@@ -1,0 +1,79 @@
+Sandbox_EN = {
+
+
+    Sandbox_WaveCaster = "Admin Radiation Zone",
+
+	Sandbox_WaveCaster_VisibleIndicator = "Visible Indicator",
+	Sandbox_WaveCaster_VisibleIndicator_tooltip = "Toggle the upper-right screen indicator. Allows regular players to see if the zone is shrinking.",
+
+	Sandbox_WaveCaster_MapMarker = "Map Marker",
+	Sandbox_WaveCaster_MapMarker_tooltip = "Toggle visibility of the circle on the player's map.",
+
+
+    Sandbox_WaveCaster_DamageDelay = "Damage Delay",
+    Sandbox_WaveCaster_DamageDelay_tooltip = "Determines the amount of pause before doing next radiation damage",
+    
+
+
+    Sandbox_WaveCaster_MarkerColor = "Radiation Zone Color",
+	Sandbox_WaveCaster_MarkerColor_option1 = "Gray",
+	Sandbox_WaveCaster_MarkerColor_option2 = "Red",
+	Sandbox_WaveCaster_MarkerColor_option3 = "Orange",
+	Sandbox_WaveCaster_MarkerColor_option4 = "Yellow",
+	Sandbox_WaveCaster_MarkerColor_option5 = "Green",
+	Sandbox_WaveCaster_MarkerColor_option6 = "Blue",
+	Sandbox_WaveCaster_MarkerColor_option7 = "Purple",
+	Sandbox_WaveCaster_MarkerColor_option8 = "Black",
+	Sandbox_WaveCaster_MarkerColor_option9 = "White",
+	Sandbox_WaveCaster_MarkerColor_option10 = "Pink",
+	Sandbox_WaveCaster_MarkerColor_option11 = "Disabled",
+
+
+    Sandbox_WaveCaster_RadColor = "Out of bound Indicator Color",
+	Sandbox_WaveCaster_RadColor_option1 = "Gray",
+	Sandbox_WaveCaster_RadColor_option2 = "Red",
+	Sandbox_WaveCaster_RadColor_option3 = "Orange",
+	Sandbox_WaveCaster_RadColor_option4 = "Yellow",
+	Sandbox_WaveCaster_RadColor_option5 = "Green",
+	Sandbox_WaveCaster_RadColor_option6 = "Blue",
+	Sandbox_WaveCaster_RadColor_option7 = "Purple",
+	Sandbox_WaveCaster_RadColor_option8 = "Black",
+	Sandbox_WaveCaster_RadColor_option9 = "White",
+	Sandbox_WaveCaster_RadColor_option10 = "Pink",
+	Sandbox_WaveCaster_RadColor_option11 = "Disabled",
+
+    Sandbox_WaveCaster_MapDots = "Map Dots Spacing",    
+    Sandbox_WaveCaster_MapDots_tooltip = "Less spacing renders more dots. May affect memory usage",    
+
+    Sandbox_WaveCaster_DeactivateRadZero = "Deactivate Zone When Radius 0",    
+    Sandbox_WaveCaster_DeactivateRadZero_tooltip = "False will only pause after radius hits 0",    
+
+
+    Sandbox_WaveCaster_DefaultRadius = "Default Radius",    
+    Sandbox_WaveCaster_DefaultRounds = "Default Rounds",
+
+    Sandbox_WaveCaster_RadDamage = "Radiation Damage",
+
+    Sandbox_WaveCaster_Cooldown = "Cooldown Time",
+
+    Sandbox_WaveCaster_RoundDuration = "Round Duration",
+    Sandbox_WaveCaster_RoundDuration_tooltip = "Duration of each round",
+
+    Sandbox_WaveCaster_FloorVisualChance = "Out of bound visuals 1",
+    Sandbox_WaveCaster_FloorVisualChance_tooltip  = "Chance to do sprite radiation visual effect. set to 0 to disable",
+
+    Sandbox_WaveCaster_NVGChance = "Out of bound visuals 2",
+    Sandbox_WaveCaster_NVGChance_tooltip  = "Chance to do NVG visual effect. set to 0 to disable",
+
+    Sandbox_WaveCaster_playSFX = "Out of bound sound effects",
+
+    Sandbox_WaveCaster_ShrinkAlertAudio = "Radiation Warning Alert Sound Effects",
+    Sandbox_WaveCaster_ShrinkAlertMessage = "Radiation Warning Alert Message",
+
+    Sandbox_WaveCaster_MapSymbols = "Map Symbols",
+
+
+	Sandbox_WaveCaster_zoneBorderThickness = "Border Thickness",
+	Sandbox_WaveCaster_zoneBorderThickness_tooltip = "sets the thickness of the zone display border",
+
+}

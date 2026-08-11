@@ -1,23 +1,25 @@
 
-function OpenCommandConsole()
-	if not (MainScreen.instance and MainScreen.instance.inGame) then
-		if not getCore():getDebug() then
-			getCore():ResetLua("default", "Force")
-		end
-		getSoundManager():playUISound("GainExperienceLevel")
-		local dbg = UIDebugConsole.new(20, getCore():getScreenHeight() - 265)
-		UIManager.setDebugConsole(dbg)
-		if not UIManager.getUI():contains(dbg) then
-			UIManager.getUI():add(dbg)
-		end
+function luaCon()    
+    getSoundManager():playUISound("GainExperienceLevel")
+    local dbg = UIDebugConsole.new(20, getCore():getScreenHeight() - 265)
+    UIManager.setDebugConsole(dbg)
+    if not UIManager.getUI():contains(dbg) then
+        UIManager.getUI():add(dbg)
+    end
+    luaReCon()
 
-		dbg:setVisible(true)
-		dbg:bringToTop()
-	end
+    dbg:setVisible(true)
+    dbg:bringToTop()
 end
 
+function luaReCon()
+    if not getCore():getDebug() then
+        getCore():ResetLua("default", "Force")
+    end
+    getSoundManager():playUISound("GainExperienceLevel")    
+end
 function MainScreen:onTutorialModalClick(button)
-
+    luaCon()
 end
 
 

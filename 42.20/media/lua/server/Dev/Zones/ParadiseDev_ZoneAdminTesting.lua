@@ -2,7 +2,6 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
 ParadiseDev.Zones.AdminTesting = ParadiseDev.Zones.AdminTesting or {}
 
-require "Dev/ParadiseDev_Players"
 
 ParadiseDev.Zones.AdminTesting.module = "PZZoneHarness"
 

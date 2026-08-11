@@ -1,6 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
-require "Dev/ParadiseDev_Players"
+
 require "ISUI/ISCollapsableWindow"
 require "ISUI/ISButton"
 require "ISUI/ISLabel"
