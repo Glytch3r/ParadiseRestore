@@ -145,7 +145,8 @@ end
 
 function ParadiseDev.Cage.refreshPanel()
     local panel = ParadiseDev.Cage.window
-    if not panel or not panel.list then return end
+    if not panel or not panel.list or not panel.list.clear or not panel.list.addItem then return end
+    if type(ParadiseDev.Cage.entries) ~= "table" then ParadiseDev.Cage.entries = {} end
     panel.list:clear()
     for _, entry in ipairs(ParadiseDev.Cage.entries) do
         panel.list:addItem(ParadiseDev.Cage.getEntryText(entry), entry)
@@ -183,7 +184,7 @@ end
 
 function ParadiseDev.Cage.onServerCommand(module, command, args)
     if module ~= "ParadiseDevCage" or command ~= "state" then return end
-    ParadiseDev.Cage.entries = args and args.entries or {}
+    ParadiseDev.Cage.entries = args and type(args.entries) == "table" and args.entries or {}
     ParadiseDev.Cage.refreshPanel()
 end
 

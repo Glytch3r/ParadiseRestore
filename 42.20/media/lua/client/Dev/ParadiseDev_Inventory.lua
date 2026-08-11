@@ -109,9 +109,21 @@ function ParadiseDev.Inventory.copyClothing(source, target)
     end
 end
 
+function ParadiseDev.Inventory.syncAddedItem(container, item)
+    if not container or not item then return false end
+    if item.SynchSpawn then item:SynchSpawn() end
+    sendAddItemToContainer(container, item)
+    triggerEvent("OnContainerUpdate")
+    return true
+end
+
 function ParadiseDev.Inventory.clone(item, destination)
     if not item or not destination then return nil end
-    if type(item) == "string" then return destination:AddItem(item) end
+    if type(item) == "string" then
+        local added = destination:AddItem(item)
+        ParadiseDev.Inventory.syncAddedItem(destination, added)
+        return added
+    end
     if not instanceof(item, "InventoryItem") then return nil end
     local clone = destination:AddItem(item:getFullType())
     if not clone then return nil end
@@ -128,6 +140,7 @@ function ParadiseDev.Inventory.clone(item, destination)
             ParadiseDev.Inventory.clone(sourceItems:get(index), targetInventory)
         end
     end
+    ParadiseDev.Inventory.syncAddedItem(destination, clone)
     return clone
 end
 

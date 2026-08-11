@@ -1,7 +1,25 @@
 ParadiseDev = ParadiseDev or {}
+ParadiseZ = ParadiseZ or {}
+
 ParadiseDev.TP = ParadiseDev.TP or {}
 
 ParadiseDev.TP.module = "ParadiseDevTP"
+
+
+
+function ParadiseDev.TP.parseCoords()
+    if ParadiseZ.coords then
+        return ParadiseZ.coords[1], ParadiseZ.coords[2], ParadiseZ.coords[3]
+    end
+
+    local strList = SandboxVars.ParadiseZ.Coords
+    local tx, ty, tz = strList:match("^(-?%d+)[;:](-?%d+)[;:](-?%d+)")
+    tx, ty, tz = tonumber(tx), tonumber(ty), tonumber(tz)
+
+    ParadiseZ.coords = { tx, ty, tz }
+    return tx, ty, tz
+end
+
 
 function ParadiseDev.TP.validCoordinates(x, y, z)
     return tonumber(x) ~= nil and tonumber(y) ~= nil and tonumber(z) ~= nil
@@ -62,14 +80,35 @@ function ParadiseDev.TP.rebound(pl)
     return point and ParadiseDev.TP.requestTeleport(point.x, point.y, point.z) or false
 end
 
+function ParadiseDev.TP.reboundCountdown(isChat)
+    local pl = getPlayer()
+    if not pl then return false end
+
+    isChat = isChat or false
+    if timer:Exists("countdown") then
+        return ParadiseDev.TP.rebound(pl)
+    end
+
+    timer:Create("countdown", 1, 10, function()
+        local remaining = timer:RepsLeft("countdown")
+        if remaining and remaining > 0 then
+            pl:setHaloNote("Rebound " .. tostring(remaining), 150, 250, 150, 180)
+        else
+            ParadiseDev.TP.rebound(pl, isChat)
+        end
+    end)
+    return true
+end
+
 function ParadiseDev.TP.onServerCommand(module, command, args)
     if module == ParadiseDev.TP.module and command == "teleport" and args then ParadiseDev.TP.applyTeleport(getPlayer(), args.x, args.y, args.z) end
 end
 
-ParadiseZ = ParadiseZ or {}
 ParadiseZ.saveRebound = ParadiseDev.TP.saveRebound
 ParadiseZ.getReboundXYZ = ParadiseDev.TP.getReboundXYZ
 ParadiseZ.doRebound = ParadiseDev.TP.rebound
+ParadiseDev.reboundCountdown = ParadiseDev.TP.reboundCountdown
+ParadiseZ.reboundCountdown = ParadiseDev.TP.reboundCountdown
 
 function ParadiseDev.TP.doRegularTp(pl, x, y, z)
     if pl and pl ~= getPlayer() then return false end

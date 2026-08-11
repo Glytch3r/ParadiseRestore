@@ -103,7 +103,11 @@ option ParadiseZ.ReboundSystem
 	type = boolean, default = true,
 	page = ParadiseZ, translation = ParadiseZ_ReboundSystem,
 }
-
+option ParadiseZ.canChatRebound  
+{
+	type = boolean, default =  true,
+	page = ParadiseZ, translation = ParadiseZ_canChatRebound,
+}
 
 option ParadiseZ.reboundMsg  
 {

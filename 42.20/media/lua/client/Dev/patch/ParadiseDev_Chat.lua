@@ -46,19 +46,6 @@ end
 Events.EveryTenMinutes.Remove(ParadiseDev.autoRemoveBlink)
 Events.EveryTenMinutes.Add(ParadiseDev.autoRemoveBlink)
 
-function ParadiseZ.parseCoords()
-    if ParadiseZ.coords then
-        return ParadiseZ.coords[1], ParadiseZ.coords[2], ParadiseZ.coords[3]
-    end
-
-    local strList = SandboxVars.ParadiseZ.Coords
-    local tx, ty, tz = strList:match("^(-?%d+)[;:](-?%d+)[;:](-?%d+)")
-    tx, ty, tz = tonumber(tx), tonumber(ty), tonumber(tz)
-
-    ParadiseZ.coords = { tx, ty, tz }
-    return tx, ty, tz
-end
-
 function ParadiseDev.chatCmd(cmd)
     local pl = getPlayer()
     if not pl or type(cmd) ~= "string" then return end
@@ -72,10 +59,11 @@ function ParadiseDev.chatCmd(cmd)
         end
     elseif command == "/die" then
         pl:Kill(nil)
+--[[ 
     elseif command == "/checktemp" then
         if ParadiseDev.getCliStr then
             ParadiseDev.getCliStr(pl:getSquare())
-        end
+        end ]]
     elseif command == "/glytch3r" or command == "/glytch" then
         local settings = SandboxVars and SandboxVars.ParadiseZ
         local item = settings and settings.Glytch3rGift
@@ -104,7 +92,10 @@ function ParadiseDev.chatCmd(cmd)
 
             pl:playEmote("thankyou")
             recordGifted(user)
-            inventory:AddItem(item)
+            local gift = inventory:AddItem(item)
+            if ParadiseDev.Inventory and ParadiseDev.Inventory.syncAddedItem then
+                ParadiseDev.Inventory.syncAddedItem(inventory, gift)
+            end
             getSoundManager():playUISound("ParadiseZ_Intro_2")
         else
             modData.GiftAttempt = true

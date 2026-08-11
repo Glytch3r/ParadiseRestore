@@ -397,7 +397,11 @@ function ParadiseZ.cleanChar()
     local soapList = {}
     local soapCount = 3
     for i = 1, soapCount do
-        local soapItem = pl:getInventory():AddItem("Base.Soap2")
+        local inventory = pl:getInventory()
+        local soapItem = inventory and inventory:AddItem("Base.Soap2")
+        if inventory and ParadiseDev.Inventory and ParadiseDev.Inventory.syncAddedItem then
+            ParadiseDev.Inventory.syncAddedItem(inventory, soapItem)
+        end
         table.insert(soapList, soapItem)
     end
     local sink = IsoThumpable.new(getCell(), pl:getSquare(), nil, "fixtures_sinks_01_0", false, {})
@@ -408,6 +412,7 @@ function ParadiseZ.cleanChar()
     pl:resetModel()
     sendClothing(pl)
 end
+
 
 function ParadiseZ.washChar()
     local pl = getPlayer() 

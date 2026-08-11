@@ -61,7 +61,10 @@ function ParadiseDev.Context.forceRebound(pl)
 end
 
 function ParadiseDev.Context.spawnRangeCard(pl)
-    if pl then pl:getInventory():AddItem("ParadiseZ.TheRangeCard") end
+    if not pl or not ParadiseDev.Inventory or not ParadiseDev.Inventory.syncAddedItem then return end
+    local inventory = pl:getInventory()
+    local item = inventory and inventory:AddItem("ParadiseZ.TheRangeCard")
+    ParadiseDev.Inventory.syncAddedItem(inventory, item)
 end
 
 function ParadiseDev.Context.toggleNightVision(pl)
@@ -117,7 +120,7 @@ end
 
 function ParadiseDev.Context.context(plNum, context)
     local pl = getSpecificPlayer(plNum)
-    if not pl or not pl:isAlive() or not ParadiseDev.isAdm() then return end
+    if not pl or not pl:isAlive() or not ParadiseDev.isAdm(pl) then return end
     local main = context:addOptionOnTop("ParadiseZ")
     main.iconTexture = getTexture("media/ui/Paradise/ContextIcon.png")
     local menu = ISContextMenu:getNew(context)

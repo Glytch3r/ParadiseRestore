@@ -1,48 +1,82 @@
+ParadiseDev = ParadiseDev or {}
+ParadiseDev.Console = ParadiseDev.Console or {}
 
-function luaCon()    
-    getSoundManager():playUISound("GainExperienceLevel")
-    local dbg = UIDebugConsole.new(20, getCore():getScreenHeight() - 265)
-    UIManager.setDebugConsole(dbg)
-    if not UIManager.getUI():contains(dbg) then
-        UIManager.getUI():add(dbg)
-    end
-    luaReCon()
+local Console = ParadiseDev.Console
 
+local function keepConsoleOnTop()
+    local dbg = Console.instance
+    if not dbg then return end
     dbg:setVisible(true)
-    dbg:bringToTop()
+    if dbg.setAlwaysOnTop then dbg:setAlwaysOnTop(true) end
+    if dbg.bringToTop then dbg:bringToTop() end
+end
+
+local function deferConsoleToTop()
+    if Console.topQueued then return end
+    Console.topQueued = true
+    local function onTick()
+        Events.OnTick.Remove(onTick)
+        Console.topQueued = false
+        keepConsoleOnTop()
+    end
+    Events.OnTick.Add(onTick)
 end
 
 function luaReCon()
     if not getCore():getDebug() then
         getCore():ResetLua("default", "Force")
     end
-    getSoundManager():playUISound("GainExperienceLevel")    
-end
-function MainScreen:onTutorialModalClick(button)
-    luaCon()
 end
 
+function luaCon()
 
+    if not getCore():getDebug() then return end
 
-
-function MainScreen:onClickTermsOfService(button)
-    local width = 600
-    local height = 200
-    local plNum = 0
-    local modal = ISTermsOfServiceUI:new(self.width / 2 - width / 2, self.height / 2 - height / 2, width, height)
-    modal:initialise()
-    modal:addToUIManager()
-    modal:setAlwaysOnTop(true)
-    if plNum and JoypadState.players[plNum+1] then
-        modal.prevFocus = JoypadState.players[plNum+1].focus
-        setJoypadFocus(plNum, modal)
-    else
-        local joypadData = JoypadState.getMainMenuJoypad()
-        if joypadData then
-            modal.prevFocus = joypadData.focus
-            joypadData.focus = modal
-            updateJoypadFocus(joypadData)
-        end
+    if Console.instance and UIManager.getUI():contains(Console.instance) then
+        keepConsoleOnTop()
+        deferConsoleToTop()
+        return Console.instance
     end
-    self.termsOfServiceDialog = modal
+    ISDebugMenu.OnOpenPanel()
+    local dbg = UIDebugConsole.new(30, getCore():getScreenHeight() - 265)
+    UIManager.setDebugConsole(dbg)
+    UIManager.getUI():add(dbg)
+    dbg:setVisible(true)
+
+    getSoundManager():playUISound("GainExperienceLevel")
+    Console.instance = dbg
+    keepConsoleOnTop()
+    deferConsoleToTop()
+    return dbg
 end
+
+local function openFromMainMenu(item, x, y)
+    if item and item.internal == "TUTORIAL" then
+        luaCon()
+        return
+    end
+    return Console.originalMainMenuClick(item, x, y)
+end
+
+if MainScreen then
+    Console.originalMainMenuClick = Console.originalMainMenuClick or MainScreen.onMenuItemMouseDownMainMenu
+    MainScreen.onMenuItemMouseDownMainMenu = openFromMainMenu
+
+    function MainScreen:onTutorialModalClick(button)
+        luaCon()
+    end
+
+    function MainScreen:onClickTermsOfService(button)
+        luaCon()
+    end
+end
+
+function Console.onKeyPressed(key)
+    if not getCore():getDebug() then return end
+    if getCore():getKey("ToggleLuaConsole") == key then
+        luaCon()
+    end
+end
+
+Events.OnKeyPressed.Remove(Console.onKeyPressed)
+Events.OnKeyPressed.Add(Console.onKeyPressed)
