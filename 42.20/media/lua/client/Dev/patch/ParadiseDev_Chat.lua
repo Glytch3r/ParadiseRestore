@@ -3,8 +3,8 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.hook = ParadiseDev.hook or {}
 ParadiseDev.hook.ISChat_addLineInChat = ISChat.addLineInChat
 ParadiseZ = ParadiseZ or {}
+ParadiseDev.hook.ISChat_logChatCommand = ISChat.logChatCommand
 
-require "Dev/ParadiseDev_Players"
 
 ISChat.BlinkEnabled = true
 
@@ -59,60 +59,71 @@ function ParadiseZ.parseCoords()
     return tx, ty, tz
 end
 
-LuaEventManager.AddEvent("OnChatCmd")
-local hook = ISChat.logChatCommand
-function ISChat:logChatCommand(command)
-    self.chatText.logIndex = 0
-    print(command)
-    triggerEvent("OnChatCmd", command)
-    hook(self, command)
-end
-
-function ParadiseZ.chatCmd(cmd)
+function ParadiseDev.chatCmd(cmd)
     local pl = getPlayer()
-    if not pl then return end
+    if not pl or type(cmd) ~= "string" then return end
 
-    local dbg = getCore():getDebug()
+    local command = string.lower(cmd)
+    local debug = getCore():getDebug()
 
-    if cmd == "/stuck" then
-        ParadiseZ.reboundCountdown(true)
-    elseif cmd == "/die" then
+    if command == "/stuck" then
+        if ParadiseDev.reboundCountdown then
+            ParadiseDev.reboundCountdown(true)
+        end
+    elseif command == "/die" then
         pl:Kill(nil)
-    elseif cmd == "/checktemp" then
-        local sq = pl:getSquare()
-        ParadiseZ.getCliStr(sq)
-    elseif string.lower(cmd) == "/glytch3r" or string.lower(cmd) == "/glytch" then
-        local item = SandboxVars.ParadiseZ.Glytch3rGift
-        if not item or item == '' then return end
+    elseif command == "/checktemp" then
+        if ParadiseDev.getCliStr then
+            ParadiseDev.getCliStr(pl:getSquare())
+        end
+    elseif command == "/glytch3r" or command == "/glytch" then
+        local settings = SandboxVars and SandboxVars.ParadiseZ
+        local item = settings and settings.Glytch3rGift
+        if not item or item == "" or not pl:isAlive() then return end
 
-        if not pl:isAlive() then return end
-        if pl:getModData()['GiftAttempt'] ~= nil then return end
+        local modData = pl:getModData()
+        if modData.GiftAttempt ~= nil then return end
+
         local user = pl:getUsername()
         if not user then return end
 
-        local msg = 'Glytch3r: Thanks for your support '..tostring(user)..'! Take this '..tostring(item)..' as a gift! Enjoy Paradise! '
-        ParadiseZ.setTempTag(pl)
+        if ParadiseDev.setTempTag then
+            ParadiseDev.setTempTag(pl)
+        end
 
-        if not ParadiseZ.isGiftRecieved(user) then
-            pl:playEmote('thankyou')
-            ParadiseZ.recordGifted(user)
-            local inv = pl:getInventory()
-            if not inv then return end
-            inv:AddItem(item)
+        local isGiftReceived = ParadiseDev.isGiftReceived or ParadiseDev.isGiftRecieved
+        local recordGifted = ParadiseDev.recordGifted
+        if not (isGiftReceived and recordGifted) then return end
+
+        local received = isGiftReceived(user)
+        local msg = "Glytch3r: Thanks for your support " .. tostring(user) .. "! Take this " .. tostring(item) .. " as a gift! Enjoy Paradise! "
+
+        if not received then
+            local inventory = pl:getInventory()
+            if not inventory then return end
+
+            pl:playEmote("thankyou")
+            recordGifted(user)
+            inventory:AddItem(item)
             getSoundManager():playUISound("ParadiseZ_Intro_2")
         else
-            pl:getModData()['GiftAttempt'] = true
-            pl:playEmote('shrug')
-            msg = 'Glytch3r: Can only recieve once per account.'
+            modData.GiftAttempt = true
+            pl:playEmote("shrug")
+            msg = "Glytch3r: Can only recieve once per account."
             getSoundManager():playUISound("ZombieSurprisedPlayer")
         end
 
-        pl:addLineChatElement(tostring(msg))
-    elseif cmd == "/scare" then
-        if not dbg then return end
+        pl:addLineChatElement(msg)
+    elseif command == "/scare" and debug then
         getSoundManager():PlayWorldSound("ZombieSurprisedPlayer", pl:getSquare(), 0, 5, 5, false)
     end
 end
 
-Events.OnChatCmd.Remove(ParadiseZ.chatCmd)
-Events.OnChatCmd.Add(ParadiseZ.chatCmd)
+function ISChat:logChatCommand(command)
+    if self.chatText then
+        self.chatText.logIndex = 0
+    end
+
+    ParadiseDev.chatCmd(command)
+    ParadiseDev.hook.ISChat_logChatCommand(self, command)
+end
