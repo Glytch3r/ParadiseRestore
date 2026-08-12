@@ -17,6 +17,21 @@ function ParadiseDev.AdminPower.setHideAdminTags(self, selected)
     ParadiseZ.hideAdminTag(self.player)
 end
 
+function ParadiseDev.AdminPower.syncPanel(panel)
+    if not panel then return end
+
+    local function syncTickBox(tickBox, options)
+        if not tickBox or not options then return end
+        for index, option in pairs(options) do
+            option.player = panel.player
+            tickBox:setSelected(index, option:getValue() == true)
+        end
+    end
+
+    syncTickBox(panel.tickBoxLeft, panel.optionsLeft)
+    syncTickBox(panel.tickBoxRight, panel.optionsRight)
+end
+
 function ParadiseDev.AdminPower.addOption()
     if ISAdminPowerUI.OptionById.HideAdminTags then return end
     local option = ISAdminPowerUI.AddOption("HideAdminTags", "right", Capability.ToggleWriteRoleNameAbove,
@@ -26,3 +41,12 @@ function ParadiseDev.AdminPower.addOption()
 end
 
 ParadiseDev.AdminPower.addOption()
+
+if not ParadiseDev.AdminPower.originalOnOpenPanel then
+    ParadiseDev.AdminPower.originalOnOpenPanel = ISAdminPowerUI.OnOpenPanel
+    ISAdminPowerUI.OnOpenPanel = function()
+        local panel = ParadiseDev.AdminPower.originalOnOpenPanel()
+        ParadiseDev.AdminPower.syncPanel(panel)
+        return panel
+    end
+end

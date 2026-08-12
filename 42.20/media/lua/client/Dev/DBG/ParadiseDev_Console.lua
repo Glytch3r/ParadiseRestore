@@ -37,7 +37,6 @@ function luaCon()
         deferConsoleToTop()
         return Console.instance
     end
-    ISDebugMenu.OnOpenPanel()
     local dbg = UIDebugConsole.new(30, getCore():getScreenHeight() - 265)
     UIManager.setDebugConsole(dbg)
     UIManager.getUI():add(dbg)
