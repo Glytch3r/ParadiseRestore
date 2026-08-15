@@ -14,7 +14,7 @@ ParadiseDev.TheRange.vendorSprites = {
 ParadiseDev.TheRange.lastHourly = ParadiseDev.TheRange.lastHourly or {}
 
 function ParadiseDev.TheRange.isCard(card)
-    return card and card:getFullType() == ParadiseDev.TheRange.cardType
+    return card and instanceof(card, "InventoryItem") and card:getFullType() == ParadiseDev.TheRange.cardType
 end
 
 function ParadiseDev.TheRange.getOwner(card)

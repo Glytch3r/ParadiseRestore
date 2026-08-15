@@ -1,4 +1,3 @@
-
 -- client/WaveCaster_Location.lua
 WaveCaster = WaveCaster or {}
 

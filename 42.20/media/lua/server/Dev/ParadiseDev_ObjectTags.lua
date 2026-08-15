@@ -1,48 +1,45 @@
 ParadiseDev = ParadiseDev or {}
-ParadiseDev.ObjectTags = ParadiseDev.ObjectTags or {}
+ParadiseDev.Notes = ParadiseDev.Notes or {}
 
 
 
-ParadiseDev.ObjectTags.module = "ParadiseDevObjectTags"
-ParadiseDev.ObjectTags.key = "ParadiseDevObjectTag"
-ParadiseDev.ObjectTags.maxLength = 96
+ParadiseDev.Notes.module = "ParadiseDevNotes"
+ParadiseDev.Notes.key = "ParadiseDevNote"
+ParadiseDev.Notes.maxLength = 160
 
-function ParadiseDev.ObjectTags.normalizeTag(tag)
-    if tag == nil then return nil end
-    tag = tostring(tag):gsub("[\r\n]+", " ")
-    tag = tag:match("^%s*(.-)%s*$")
-    if tag == "" then return nil end
-    return string.sub(tag, 1, ParadiseDev.ObjectTags.maxLength)
+function ParadiseDev.Notes.normalizeNote(note)
+    if note == nil then return nil end
+    note = tostring(note):gsub("[\r\n]+", " ")
+    note = note:match("^%s*(.-)%s*$")
+    if note == "" then return nil end
+    return string.sub(note, 1, ParadiseDev.Notes.maxLength)
 end
 
-function ParadiseDev.ObjectTags.getObject(args)
+function ParadiseDev.Notes.getFloor(args)
     if type(args) ~= "table" then return nil end
     local x = tonumber(args.x)
     local y = tonumber(args.y)
     local z = tonumber(args.z)
-    local index = tonumber(args.index)
-    if not x or not y or not z or not index then return nil end
-    if x ~= math.floor(x) or y ~= math.floor(y) or z ~= math.floor(z) or index ~= math.floor(index) then return nil end
+    if not x or not y or not z then return nil end
+    if x ~= math.floor(x) or y ~= math.floor(y) or z ~= math.floor(z) then return nil end
     local cell = getCell and getCell() or nil
     local sq = cell and cell:getGridSquare(x, y, z) or nil
-    local objects = sq and sq:getObjects() or nil
-    if not objects or index < 0 or index >= objects:size() then return nil end
-    return objects:get(index)
+    return sq and sq:getFloor() or nil
 end
 
-function ParadiseDev.ObjectTags.setTag(obj, tag)
-    if not obj or not obj.getModData then return false end
-    obj:getModData()[ParadiseDev.ObjectTags.key] = ParadiseDev.ObjectTags.normalizeTag(tag)
-    if obj.transmitModData then obj:transmitModData() end
+function ParadiseDev.Notes.setNote(floor, note)
+    if not floor or not floor.getModData then return false end
+    floor:getModData()[ParadiseDev.Notes.key] = ParadiseDev.Notes.normalizeNote(note)
+    if floor.transmitModData then floor:transmitModData() end
     return true
 end
 
-function ParadiseDev.ObjectTags.onClientCommand(module, command, pl, args)
-    if module ~= ParadiseDev.ObjectTags.module or command ~= "set" or not ParadiseDev.isAdm(pl) then return end
-    local obj = ParadiseDev.ObjectTags.getObject(args)
-    if not obj then return end
-    ParadiseDev.ObjectTags.setTag(obj, args.tag)
+function ParadiseDev.Notes.onClientCommand(module, command, pl, args)
+    if module ~= ParadiseDev.Notes.module or command ~= "set" then return end
+    local floor = ParadiseDev.Notes.getFloor(args)
+    if not floor then return end
+    ParadiseDev.Notes.setNote(floor, args.note)
 end
 
-Events.OnClientCommand.Remove(ParadiseDev.ObjectTags.onClientCommand)
-Events.OnClientCommand.Add(ParadiseDev.ObjectTags.onClientCommand)
+Events.OnClientCommand.Remove(ParadiseDev.Notes.onClientCommand)
+Events.OnClientCommand.Add(ParadiseDev.Notes.onClientCommand)

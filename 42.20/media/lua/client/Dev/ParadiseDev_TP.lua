@@ -46,8 +46,7 @@ function ParadiseDev.TP.requestTeleport(x, y, z)
     local pl = getPlayer()
     if not pl or not ParadiseDev.TP.validCoordinates(x, y, z) then return false end
     if isClient() then
-        sendClientCommand(ParadiseDev.TP.module, "teleport", { x = x, y = y, z = z })
-        return true
+        return ParadiseDev.TP.applyTeleport(pl, x, y, z)
     end
     return ParadiseDev.TP.applyTeleport(pl, x, y, z)
 end
@@ -77,7 +76,16 @@ end
 
 function ParadiseDev.TP.rebound(pl)
     local point = ParadiseDev.TP.getRebound(pl)
-    return point and ParadiseDev.TP.requestTeleport(point.x, point.y, point.z) or false
+    if not point then return false end
+    ParadiseDev.TP.forceExitCar(pl)
+    return ParadiseDev.TP.requestTeleport(point.x, point.y, point.z)
+end
+
+function ParadiseDev.TP.spawnRebound(_, pl)
+    pl = pl or getPlayer()
+    local options = SandboxVars and SandboxVars.ParadiseZ or nil
+    if not pl or not options or options.ReboundSystem == false or ParadiseDev.TP.getRebound(pl) then return end
+    ParadiseDev.TP.saveRebound(pl, "Spawn")
 end
 
 function ParadiseDev.TP.reboundCountdown(isChat)
@@ -112,12 +120,27 @@ ParadiseZ.reboundCountdown = ParadiseDev.TP.reboundCountdown
 
 function ParadiseDev.TP.doRegularTp(pl, x, y, z)
     if pl and pl ~= getPlayer() then return false end
+    ParadiseDev.TP.forceExitCar(pl)
     return ParadiseDev.TP.requestTeleport(x, y, z)
 end
 
-function ParadiseDev.TP.forceExitCar()
-    local pl = getPlayer()
-    return pl and ParadiseDev.TP.requestTeleport(pl:getX(), pl:getY(), pl:getZ()) or false
+function ParadiseDev.TP.forceExitCar(pl)
+    pl = pl or getPlayer()
+    if not pl then return false end
+    if not pl:getVehicle() then return true end
+    if ISVehicleMenu and ISVehicleMenu.onExit then ISVehicleMenu.onExit(pl) end
+    local vehicle = pl:getVehicle()
+    if not vehicle then return true end
+    local seat = vehicle:getSeat(pl)
+    vehicle:exit(pl)
+    if seat and seat >= 0 then
+        vehicle:setCharacterPosition(pl, seat, "outside")
+        vehicle:transmitCharacterPosition(seat, "outside")
+    end
+    pl:PlayAnim("Idle")
+    triggerEvent("OnExitVehicle", pl)
+    vehicle:updateHasExtendOffsetForExitEnd(pl)
+    return true
 end
 
 ParadiseZ.doRegularTp = ParadiseDev.TP.doRegularTp
@@ -125,3 +148,5 @@ ParadiseZ.forceExitCar = ParadiseDev.TP.forceExitCar
 
 Events.OnServerCommand.Remove(ParadiseDev.TP.onServerCommand)
 Events.OnServerCommand.Add(ParadiseDev.TP.onServerCommand)
+Events.OnCreatePlayer.Remove(ParadiseDev.TP.spawnRebound)
+Events.OnCreatePlayer.Add(ParadiseDev.TP.spawnRebound)

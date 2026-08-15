@@ -196,8 +196,10 @@ function ParadiseDev.DataCheck.openSelected(obj, name)
 end
 
 function ParadiseDev.DataCheck.addWorldContext(plNum, context, worldobjects, test)
-    if test or not ParadiseDev.isAdm() then return end
-    local root = context:addOptionOnTop("Data Inspector")
+    if test then return end
+    if not getCore():getDebug() then return end
+
+    local root = context:addOptionOnTop("Data")
     local submenu = ISContextMenu:getNew(context)
     context:addSubMenu(root, submenu)
     local pl = getSpecificPlayer(plNum)
