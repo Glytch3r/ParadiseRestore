@@ -103,6 +103,16 @@ option ParadiseZ.ReboundSystem
 	type = boolean, default = true,
 	page = ParadiseZ, translation = ParadiseZ_ReboundSystem,
 }
+option ParadiseZ.BlockSafehouseVehicles
+{
+	type = boolean, default = false,
+	page = ParadiseZ, translation = ParadiseZ_BlockSafehouseVehicles,
+}
+option ParadiseZ.AdminBypassZoneRestrictions
+{
+	type = boolean, default = true,
+	page = ParadiseZ, translation = ParadiseZ_AdminBypassZoneRestrictions,
+}
 option ParadiseZ.canChatRebound  
 {
 	type = boolean, default =  true,
@@ -124,6 +134,11 @@ option ParadiseZ.AdminOnlyZoneInfo
 {
 	type = boolean, default = true,
 	page = ParadiseZ, translation = ParadiseZ_AdminOnlyZoneInfo,
+}
+option ParadiseZ.ShowZoneDrawToNonAdmins
+{
+	type = boolean, default = true,
+	page = ParadiseZ, translation = ParadiseZ_ShowZoneDrawToNonAdmins,
 }
 
 

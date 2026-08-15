@@ -35,6 +35,7 @@ function ParadiseZ.setHideAdminTag(activate, pl)
             pl:getModData().isHideAdminTag = activate
         end
     end
+    ParadiseZ.hideAdminTag(pl)
 end
 
 function ParadiseZ.toggleHideAdminTag(pl, activate)
@@ -47,4 +48,5 @@ function ParadiseZ.toggleHideAdminTag(pl, activate)
     else
         md.isHideAdminTag = not (md.isHideAdminTag or false)
     end
+    ParadiseZ.hideAdminTag(pl)
 end

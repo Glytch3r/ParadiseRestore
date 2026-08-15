@@ -166,33 +166,16 @@ Events.OnServerCommand.Add(function(module, command, args)
     end
 end)
 
--- Keep the B42 scoreboard's UI and permission-gated vanilla actions.
-ParadiseZ.Oversight.vanillaScoreboardContext = ParadiseZ.Oversight.vanillaScoreboardContext or ISMiniScoreboardUI.doPlayerListContextMenu
-function ISMiniScoreboardUI:doPlayerListContextMenu(player, x, y)
-    local playerNum = self.admin:getPlayerNum()
-    local context = ISContextMenu.get(playerNum, x + self:getAbsoluteX(), y + self:getAbsoluteY())
-    local admin = self.admin
-    local role = admin:getRole()
-
-    if role:hasCapability(Capability.TeleportToPlayer) then
-        context:addOption(getText("UI_Scoreboard_Teleport"), self, ISMiniScoreboardUI.onCommand, player, "TELEPORT")
+function ParadiseZ.Oversight.addScoreboardOptions(scoreboard, player, x, y)
+    if not scoreboard or not player or not canSpectate(scoreboard.admin) then return end
+    if player.username == scoreboard.admin:getUsername() then return end
+    local context = ISContextMenu.get(scoreboard.admin:getPlayerNum(), x + scoreboard:getAbsoluteX(), y + scoreboard:getAbsoluteY())
+    if context then
         context:addOption("Spectate: " .. player.username, nil, function()
             ParadiseZ.setSpectate(player.username)
         end)
-        if ParadiseZ.isSpectating(admin) then
+        if ParadiseZ.isSpectating(scoreboard.admin) then
             context:addOption("Stop Spectating", nil, ParadiseZ.stopSpectate)
         end
-    end
-    if role:hasCapability(Capability.TeleportPlayerToAnotherPlayer) then
-        context:addOption(getText("UI_Scoreboard_TeleportToYou"), self, ISMiniScoreboardUI.onCommand, player, "TELEPORTTOYOU")
-    end
-    if role:hasCapability(Capability.ToggleInvisibleEveryone) then
-        context:addOption(getText("UI_Scoreboard_Invisible"), self, ISMiniScoreboardUI.onCommand, player, "INVISIBLE")
-    end
-    if role:hasCapability(Capability.ToggleGodModEveryone) then
-        context:addOption(getText("UI_Scoreboard_GodMod"), self, ISMiniScoreboardUI.onCommand, player, "GODMOD")
-    end
-    if role:hasCapability(Capability.CanSeePlayersStats) then
-        context:addOption("Check Stats", self, ISMiniScoreboardUI.onCommand, player, "STATS")
     end
 end
