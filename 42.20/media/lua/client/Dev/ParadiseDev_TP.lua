@@ -70,15 +70,15 @@ end
 
 function ParadiseDev.TP.getReboundXYZ(pl)
     local point = ParadiseDev.TP.getRebound(pl)
-    if not point then return nil end
+    if not point then return ParadiseDev.TP.parseCoords() end
     return point.x, point.y, point.z
 end
 
 function ParadiseDev.TP.rebound(pl)
-    local point = ParadiseDev.TP.getRebound(pl)
-    if not point then return false end
+    local x, y, z = ParadiseDev.TP.getReboundXYZ(pl)
+    if not ParadiseDev.TP.validCoordinates(x, y, z) then return false end
     ParadiseDev.TP.forceExitCar(pl)
-    return ParadiseDev.TP.requestTeleport(point.x, point.y, point.z)
+    return ParadiseDev.TP.requestTeleport(x, y, z)
 end
 
 function ParadiseDev.TP.spawnRebound(_, pl)
@@ -94,7 +94,7 @@ function ParadiseDev.TP.reboundCountdown(isChat)
 
     isChat = isChat or false
     if timer:Exists("countdown") then
-        return ParadiseDev.TP.rebound(pl)
+        return false
     end
 
     timer:Create("countdown", 1, 10, function()
@@ -102,14 +102,20 @@ function ParadiseDev.TP.reboundCountdown(isChat)
         if remaining and remaining > 0 then
             pl:setHaloNote("Rebound " .. tostring(remaining), 150, 250, 150, 180)
         else
-            ParadiseDev.TP.rebound(pl, isChat)
+            ParadiseDev.TP.rebound(pl)
         end
     end)
     return true
 end
 
 function ParadiseDev.TP.onServerCommand(module, command, args)
-    if module == ParadiseDev.TP.module and command == "teleport" and args then ParadiseDev.TP.applyTeleport(getPlayer(), args.x, args.y, args.z) end
+    if module ~= ParadiseDev.TP.module then return end
+    if command == "teleport" and args then
+        ParadiseDev.TP.applyTeleport(getPlayer(), args.x, args.y, args.z)
+    elseif command == "message" and args and args.text then
+        local pl = getPlayer()
+        if pl then pl:setHaloNote(args.text, 250, 0, 0, 180) end
+    end
 end
 
 ParadiseZ.saveRebound = ParadiseDev.TP.saveRebound

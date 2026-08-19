@@ -4,6 +4,7 @@ ParadiseDev.hook = ParadiseDev.hook or {}
 ParadiseDev.hook.ISChat_addLineInChat = ISChat.addLineInChat
 ParadiseZ = ParadiseZ or {}
 ParadiseDev.hook.ISChat_logChatCommand = ISChat.logChatCommand
+ParadiseDev.hook.ISChat_onCommandEntered = ISChat.onCommandEntered
 
 
 ISChat.BlinkEnabled = true
@@ -36,7 +37,7 @@ function ISChat.addLineInChat(message, tabID)
     end
 end
 
-
+-----------------------            ---------------------------
 
 function ParadiseDev.autoRemoveBlink()
     if not ParadiseDev.isAdm() then return end
@@ -46,19 +47,73 @@ end
 Events.EveryTenMinutes.Remove(ParadiseDev.autoRemoveBlink)
 Events.EveryTenMinutes.Add(ParadiseDev.autoRemoveBlink)
 
+function ParadiseDev.isInKosZone(pl)
+    local border = ParadiseDev.Zones and ParadiseDev.Zones.Border
+    local zone = border and border.getAuthorityAt and border.getAuthorityAt(pl:getX(), pl:getY(), pl:getZ())
+    return zone and zone.features and zone.features.isKos == true
+end
+
+function ParadiseDev.serverMsgCmd(cmd)
+    local pl = getPlayer()
+    if not pl or type(cmd) ~= "string" then return false end
+
+    local keyword, args = cmd:match("^%s*(/%S+)%s*(.-)%s*$")
+    if not keyword or string.lower(keyword) ~= "/servermsg" then return false end
+
+    local functionName, functionArgs = args:match("^(%S+)%s*(.-)%s*$")
+    if not functionName or functionName:sub(1, 5) ~= "rcon_" then return false end
+    if not ParadiseDev.isAdm(pl) then return true end
+
+    local handler = _G[functionName:sub(6)]
+    if type(handler) == "function" then
+        handler(functionArgs)
+    end
+    return true
+end
+
 function ParadiseDev.chatCmd(cmd)
     local pl = getPlayer()
     if not pl or type(cmd) ~= "string" then return end
-
-    local command = string.lower(cmd)
-    local debug = getCore():getDebug()
-
-    if command == "/stuck" then
+    local user = pl:getUsername()
+    local keyword, args = cmd:match("^%s*(/%S+)%s*(.-)%s*$")
+    local command = keyword and string.lower(keyword) or ""
+    local isDbg = getCore():getDebug()
+    local isAdm = ParadiseDev.isAdm(pl)  
+    if command == "/stuck" or command == "/unstuck" then
+        if ParadiseDev.isInKosZone(pl) then
+            pl:setHaloNote("Cannot use unstuck command inside a KoS zone.", 250, 0, 0, 180)
+            return
+        end
         if ParadiseDev.reboundCountdown then
             ParadiseDev.reboundCountdown(true)
         end
+    elseif command == "/rebound" then
+        if isAdm then
+            if isClient() then
+                sendClientCommand("ParadiseDevTP", "adminRebound", { username = args ~= "" and args:gsub('^"(.*)"$', '%1') or nil })
+            elseif (args == "" or args == user) then
+                ParadiseDev.TP.rebound(pl)
+            end
+        end
+    elseif command == "/cage" then
+        local username, value = args:match('^"(.-)"%s+(%S+)$')
+        if not username then username, value = args:match('^(.-)%s+(%S+)$') end
+        if value and string.lower(value) ~= "true" and string.lower(value) ~= "false" then username, value = args, nil end
+        username = (username or args):gsub('^"(.*)"$', '%1')
+        local isCaged = value and string.lower(value) == "true" or nil
+        if isClient() then
+            sendClientCommand("ParadiseDevCage", "chatSet", { username = username ~= "" and username or nil, isCaged = isCaged })
+        elseif ParadiseDev.isAdm(pl) and ParadiseDev.Cage and ParadiseDev.Cage.requestSet then
+            username = username ~= "" and username or user
+            if isCaged == nil then isCaged = not ParadiseDev.Cage.isTargetCaged(pl) end
+            ParadiseDev.Cage.requestSet(username, isCaged)
+        end
     elseif command == "/die" then
-        pl:Kill(nil)
+        if isClient() then
+            sendClientCommand("ParadiseDevTP", "die", {})
+        else
+            pl:getBodyDamage():ReduceGeneralHealth(110)
+        end
 --[[ 
     elseif command == "/checktemp" then
         if ParadiseDev.getCliStr then
@@ -105,7 +160,7 @@ function ParadiseDev.chatCmd(cmd)
         end
 
         pl:addLineChatElement(msg)
-    elseif command == "/scare" and debug then
+    elseif command == "/scare" and isDbg then
         getSoundManager():PlayWorldSound("ZombieSurprisedPlayer", pl:getSquare(), 0, 5, 5, false)
     end
 end
@@ -117,4 +172,16 @@ function ISChat:logChatCommand(command)
 
     ParadiseDev.chatCmd(command)
     ParadiseDev.hook.ISChat_logChatCommand(self, command)
+end
+
+function ISChat:onCommandEntered()
+    local command = self.textEntry and self.textEntry:getText()
+    if ParadiseDev.serverMsgCmd(command) then
+        self:unfocus()
+        self:logChatCommand(command)
+        doKeyPress(false)
+        self.timerTextEntry = 20
+        return
+    end
+    return ParadiseDev.hook.ISChat_onCommandEntered(self)
 end

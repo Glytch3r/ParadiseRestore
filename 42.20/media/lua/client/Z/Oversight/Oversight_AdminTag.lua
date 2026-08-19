@@ -4,17 +4,10 @@ ParadiseZ = ParadiseZ or {}
 function ParadiseZ.hideAdminTag(pl)
     pl = pl or getPlayer()
     if not pl or pl ~= getPlayer() then return end
-    if ParadiseZ.isHideAdminTag(pl) then
-        if pl:isShowAdminTag() then
-            pl:setShowAdminTag(false);
-            sendPlayerExtraInfo(pl)
-        end
-    else
-        if not pl:isShowAdminTag() then
-            pl:setShowAdminTag(true);
-            sendPlayerExtraInfo(pl)
-        end
-    end
+    local showAdminTag = not ParadiseZ.isHideAdminTag(pl)
+    if pl:isShowAdminTag() == showAdminTag then return end
+    pl:setShowAdminTag(showAdminTag)
+    if isClient() then sendPlayerExtraInfo(pl) end
 end
 Events.OnPlayerUpdate.Remove(ParadiseZ.hideAdminTag)
 Events.OnPlayerUpdate.Add(ParadiseZ.hideAdminTag)
@@ -33,9 +26,9 @@ function ParadiseZ.setHideAdminTag(activate, pl)
     if ParadiseDev.isAdm() then
         if activate ~= nil then
             pl:getModData().isHideAdminTag = activate
+            ParadiseZ.hideAdminTag(pl)
         end
     end
-    ParadiseZ.hideAdminTag(pl)
 end
 
 function ParadiseZ.toggleHideAdminTag(pl, activate)

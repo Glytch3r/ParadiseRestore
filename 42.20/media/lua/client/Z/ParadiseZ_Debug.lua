@@ -73,9 +73,8 @@ function ParadiseZ.killZeds(x, y, z, radius)
                 for i = sq:getMovingObjects():size(), 1, -1 do
                     local zed = sq:getMovingObjects():get(i - 1)
                     if zed and instanceof(zed, "IsoZombie") then
-                        zed:changeState(ZombieOnGroundState.instance())
                         zed:setAttackedBy(cell:getFakeZombieForHit())
-                        zed:becomeCorpse()
+                        zed:setHealth(0)
                     end
                 end
             end

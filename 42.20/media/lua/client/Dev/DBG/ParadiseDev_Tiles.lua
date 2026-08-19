@@ -99,5 +99,5 @@ function ParadiseDev.Tiles.addContext(plNum, context, worldobjects, test)
     end
 end
 
-Events.OnFillWorldObjectContextMenu.Remove(ParadiseDev.Tiles.addContext)
+--Events.OnFillWorldObjectContextMenu.Remove(ParadiseDev.Tiles.addContext)
 Events.OnFillWorldObjectContextMenu.Add(ParadiseDev.Tiles.addContext)

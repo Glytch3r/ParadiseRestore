@@ -3,6 +3,8 @@ ParadiseDev.Context = ParadiseDev.Context or {}
 ParadiseZ = ParadiseZ or {}
 ParadiseZ.soundDbg = ParadiseZ.soundDbg or false
 
+require "Dev/ParadiseDev_AdminPanels"
+
 
 function ParadiseDev.Context.onOrOff(value)
     return value and "On" or "Off"
@@ -126,13 +128,23 @@ function ParadiseDev.Context.context(plNum, context)
     local menu = ISContextMenu:getNew(context)
     context:addSubMenu(main, menu)
 
-    if ParadiseDev.Zones and ParadiseDev.Zones.openUI then ParadiseDev.Context.addOption(menu, "Zone Editor Panel", ParadiseDev.Zones.openUI, "media/ui/Paradise/ZoneContextIcon.png") end
-    if ParadiseDev.Zones and ParadiseDev.Zones.openTestRemote then ParadiseDev.Context.addOption(menu, "Zone Test Control Remote", ParadiseDev.Zones.openTestRemote, "media/ui/Paradise/ZoneContextIcon.png") end
-    if ParadiseDev.Cage and ParadiseDev.Cage.openPanel then ParadiseDev.Context.addOption(menu, "Cage Administration", ParadiseDev.Cage.openPanel, "media/ui/Paradise/ContextIcon.png") end
+    local panelsRoot = menu:addOption("Panels")
+    panelsRoot.iconTexture = getTexture("media/ui/Paradise/ContextIcon.png")
+    local panelsMenu = ISContextMenu:getNew(context)
+    menu:addSubMenu(panelsRoot, panelsMenu)
+    if ParadiseDev.Zones and ParadiseDev.Zones.openUI then ParadiseDev.Context.addOption(panelsMenu, "Zone Editor", ParadiseDev.Zones.openUI, "media/ui/Paradise/ZoneContextIcon.png") end
+    if ParadiseDev.Cage and ParadiseDev.Cage.openPanel then ParadiseDev.Context.addOption(panelsMenu, "Cage Administration", ParadiseDev.Cage.openPanel, "media/ui/Paradise/ContextIcon.png") end
+    if ParadiseDev.Panels then
+        ParadiseDev.Context.addOption(panelsMenu, "Mini Scoreboard", ParadiseDev.Panels.openMiniScoreboard, "media/ui/Paradise/ContextIcon.png")
+        ParadiseDev.Context.addOption(panelsMenu, "Users List", ParadiseDev.Panels.openUsersList, "media/ui/Paradise/ContextIcon.png")
+        ParadiseDev.Context.addOption(panelsMenu, "WaveCaster", ParadiseDev.Panels.openWaveCaster, "media/ui/Paradise/ContextIcon.png")
+        ParadiseDev.Context.addOption(panelsMenu, "Global ModData", ParadiseDev.Panels.openGlobalModData, "media/ui/Paradise/ContextIcon.png")
+    end
+    if ParadiseDev.Zones and ParadiseDev.Zones.openTestRemote then ParadiseDev.Context.addOption(panelsMenu, "Zone Test Control", ParadiseDev.Zones.openTestRemote, "media/ui/Paradise/ZoneContextIcon.png") end
 
     ParadiseDev.Context.addOption(menu, "Audio Direction: " .. ParadiseDev.Context.onOrOff(ParadiseZ.soundDbg), ParadiseDev.Context.toggleSound, "media/ui/Paradise/LightContextIcon.png")
     if ParadiseZ.isTrailingLightMode and ParadiseZ.toggleTrailingLightMode then ParadiseDev.Context.addOption(menu, "Trailing Light: " .. ParadiseDev.Context.onOrOff(ParadiseZ.isTrailingLightMode(pl)), ParadiseDev.Context.toggleTrailingLight, "media/ui/Paradise/LightContextIcon.png", pl) end
-    if ParadiseZ.isHideAdminTag and ParadiseZ.toggleHideAdminTag then ParadiseDev.Context.addOption(menu, "Hide Admin Tag: " .. ParadiseDev.Context.onOrOff(ParadiseZ.isHideAdminTag(pl)), ParadiseDev.Context.toggleHideAdminTag, "media/ui/Paradise/AdmTagContextIcon.png", pl) end
+    if ParadiseZ.isHideAdminTag and ParadiseZ.toggleHideAdminTag then ParadiseDev.Context.addOption(menu, "Hide Admin Tag: " .. ParadiseDev.Context.onOrOff(ParadiseZ.isHideAdminTag(pl)), ParadiseDev.Context.toggleHideAdminTag, ParadiseZ.isHideAdminTag(pl) and "media/ui/MP/mp_ui_star_outline.png" or "media/ui/MP/mp_ui_star.png", pl) end
 
     if ParadiseDev.TP then
         ParadiseDev.Context.addOption(menu, "Save Rebound Point", ParadiseDev.Context.saveRebound, "media/ui/Paradise/ContextIcon.png", pl)

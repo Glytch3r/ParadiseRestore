@@ -97,12 +97,18 @@ function ParadiseDev.Cage.setTrait(pl, isCaged)
     if not pl then return end
     local trait = ParadiseDev.getTrait(ParadiseDev.Cage.trait)
     if not trait then return end
+    local changed = false
     if isCaged then
-        if not ParadiseDev.hasTrait(pl, trait) then pl:getCharacterTraits():add(trait) end
+        if not ParadiseDev.hasTrait(pl, trait) then
+            pl:getCharacterTraits():add(trait)
+            changed = true
+        end
     elseif ParadiseDev.hasTrait(pl, trait) then
         pl:getCharacterTraits():remove(trait)
+        changed = true
     end
-    if sendSyncPlayerFields then sendSyncPlayerFields(pl, 2) end
+    if changed and sendSyncPlayerFields then sendSyncPlayerFields(pl, 2) end
+    return changed
 end
 
 function ParadiseDev.Cage.syncPlayer(pl)
@@ -209,6 +215,22 @@ function ParadiseDev.Cage.onClientCommand(module, command, pl, args)
         ParadiseDev.Cage.sendState(pl)
         return
     end
+    if command == "chatSet" then
+        local username = args and args.username or ParadiseDev.Cage.getUsername(pl)
+        local target = ParadiseDev.Cage.findPlayer(username)
+        if not target and ParadiseDev.Cage.getUsername(pl) == username then target = pl end
+        local isCaged = args and args.isCaged
+        if isCaged == nil then
+            isCaged = target and not ParadiseDev.Cage.isCaged(target) or not ParadiseDev.Cage.getStore().pending[ParadiseDev.Cage.getUsernameKey(username)]
+        end
+        if target then
+            ParadiseDev.Cage.set(target, isCaged)
+        else
+            ParadiseDev.Cage.setPending(username, isCaged)
+        end
+        ParadiseDev.Cage.sendState(pl)
+        return
+    end
     if command ~= "set" then return end
     if args and args.key then
         ParadiseDev.Cage.setStored(args.key, args.username, args.isCaged == true)
@@ -235,5 +257,71 @@ function ParadiseDev.Cage.onInitGlobalModData()
     ParadiseDev.Cage.getStore()
 end
 
+function ParadiseDev.Cage.onPlayerUpdate(pl)
+    if not pl then return end
+    local now = getGameTime():getWorldAgeHours()
+    local key = ParadiseDev.Cage.getKey(pl) or ParadiseDev.Cage.getUsername(pl)
+    if not key then return end
+    ParadiseDev.Cage.traitSyncTimes = ParadiseDev.Cage.traitSyncTimes or {}
+    if ParadiseDev.Cage.traitSyncTimes[key] and now - ParadiseDev.Cage.traitSyncTimes[key] < 0.01 then return end
+    ParadiseDev.Cage.traitSyncTimes[key] = now
+    ParadiseDev.Cage.syncPlayer(pl)
+end
+
 Events.OnInitGlobalModData.Add(ParadiseDev.Cage.onInitGlobalModData)
 Events.OnClientCommand.Add(ParadiseDev.Cage.onClientCommand)
+Events.OnPlayerUpdate.Add(ParadiseDev.Cage.onPlayerUpdate)
+
+ParadiseDev.GlobalModData = ParadiseDev.GlobalModData or {}
+ParadiseDev.GlobalModData.module = "ParadiseDevGlobalModData"
+
+function ParadiseDev.GlobalModData.resolveParent(data, path)
+    if type(path) ~= "table" or #path == 0 then return data, nil end
+    local target = data
+    for index = 1, #path - 1 do
+        target = target[path[index]]
+        if type(target) ~= "table" then return nil, nil end
+    end
+    return target, path[#path]
+end
+
+function ParadiseDev.GlobalModData.sync(pl, name, removed)
+    if removed then
+        sendServerCommand(pl, ParadiseDev.GlobalModData.module, "removed", { name = name })
+        return
+    end
+    ModData.transmit(name)
+    sendServerCommand(pl, ParadiseDev.GlobalModData.module, "updated", { name = name })
+end
+
+function ParadiseDev.GlobalModData.onClientCommand(module, command, pl, args)
+    if module ~= ParadiseDev.GlobalModData.module or not pl or not ParadiseDev.isAdm(pl) then return end
+    local name = args and tostring(args.name or "") or ""
+    if name == "" then return end
+    if command == "addTable" then
+        ModData.getOrCreate(name)
+        ParadiseDev.GlobalModData.sync(pl, name)
+        return
+    end
+    if command == "deleteTable" then
+        ModData.remove(name)
+        ParadiseDev.GlobalModData.sync(pl, name, true)
+        return
+    end
+    local data = ModData.get(name)
+    if not data then return end
+    local target, key = ParadiseDev.GlobalModData.resolveParent(data, args.path)
+    if not target then target, key = data, args.key end
+    if key == nil or tostring(key) == "" then return end
+    if command == "setValue" then
+        target[key] = args.value
+    elseif command == "deleteValue" then
+        target[key] = nil
+    else
+        return
+    end
+    ParadiseDev.GlobalModData.sync(pl, name)
+end
+
+Events.OnClientCommand.Remove(ParadiseDev.GlobalModData.onClientCommand)
+Events.OnClientCommand.Add(ParadiseDev.GlobalModData.onClientCommand)

@@ -32,16 +32,24 @@ end
 
 function ParadiseDev.TheRange.getCards(items)
     local cards = {}
+    local found = {}
+    local function addCard(card)
+        if not ParadiseDev.TheRange.isCard(card) then return end
+        local id = card:getID()
+        if found[id] then return end
+        found[id] = true
+        cards[#cards + 1] = card
+    end
     if ParadiseDev.TheRange.isCard(items) then
-        cards[#cards + 1] = items
+        addCard(items)
         return cards
     end
     for _, entry in ipairs(items or {}) do
         if ParadiseDev.TheRange.isCard(entry) then
-            cards[#cards + 1] = entry
+            addCard(entry)
         elseif type(entry) == "table" and entry.items then
             for _, item in ipairs(entry.items) do
-                if ParadiseDev.TheRange.isCard(item) then cards[#cards + 1] = item end
+                addCard(item)
             end
         end
     end

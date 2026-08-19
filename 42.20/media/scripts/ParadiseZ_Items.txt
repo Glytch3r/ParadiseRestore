@@ -47,4 +47,75 @@ module ParadiseZ
         Icon = TheRangeCard,
         WorldStaticModel = TheRangeCard,
     }
+
+
+    item FU_GoldCoin
+    {
+        DisplayCategory = Memento,
+        ItemType = base:normal,
+        Weight = 0.05,
+        Icon = Coin_Gold,
+        WorldStaticModel = FU_GoldCoin,
+        Tags = base:hasmetal;base:fitswallet;base:smallestgoldscrap,
+    }
+
+    item FU_SilverCoin
+    {
+        DisplayCategory = Memento,
+        ItemType = base:normal,
+        Weight = 0.05,
+        Icon = Coin_Silver,
+        WorldStaticModel = FU_SilverCoin,
+        Tags = base:hasmetal;base:fitswallet;base:smallestsilverscrap,
+    }
+    model FU_GoldCoin
+    {
+        mesh = WorldItems/Coin,
+        texture = WorldItems/FU_Coin_Gold,
+        scale = 0.125,
+        attachment world
+        {
+            offset = 0.0 0.0 0.0,
+            rotate = 0.0 0.0 0.0,
+        }
+    }
+
+    model FU_SilverCoin
+    {
+        mesh = WorldItems/Coin,
+        texture = WorldItems/FU_Coin_Silver,
+        scale = 0.125,
+        attachment world
+        {
+            offset = 0.0 0.0 0.0,
+            rotate = 0.0 0.0 0.0,
+        }
+    }
+    craftRecipe Create_FUCoins
+    {
+        time = 100,
+        SkillRequired = Blacksmith:1,
+        NeedToBeLearn = false,
+        timedAction = HammerMetalStanding,
+        xpAward = Blacksmith:25,
+        Tags = PrimitiveForge,
+        category = Blacksmithing,
+        inputs
+        {
+            item 1 tags[base:charcoal],
+            item 1 tags[base:smithinghammer] mode:keep flags[Prop1;MayDegradeLight],
+            item 1 tags[base:metalworkingpliers;base:tongs] mode:keep flags[Prop2;MayDegradeLight],
+            item 1 [Base.GoldSheet;Base.SilverSheet] mappers[metalType],
+        }
+        outputs
+        {
+            item 10 mapper:metalType,
+        }
+        itemMapper metalType
+        {
+            PareadiseZ.FU_GoldCoin = Base.GoldSheet,
+            PareadiseZ.FU_SilverCoin = Base.SilverSheet,
+            default = PareadiseZ.FU_SilverCoin,
+        }
+    }
 }

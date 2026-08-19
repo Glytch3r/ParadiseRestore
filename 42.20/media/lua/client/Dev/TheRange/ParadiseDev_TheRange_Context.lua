@@ -97,18 +97,18 @@ function ParadiseDev.TheRange.Context.exchangePrompt(pl, obj)
     modal:addToUIManager()
 end
 
-function ParadiseDev.TheRange.Context.requestRegister(card, context)
-    ParadiseDev.TheRange.requestRegister(card)
+function ParadiseDev.TheRange.Context.requestRegister(cards, context)
+    for _, card in ipairs(cards) do ParadiseDev.TheRange.requestRegister(card) end
     ParadiseDev.TheRange.Context.close(context)
 end
 
-function ParadiseDev.TheRange.Context.requestCredit(card, amount, context)
-    ParadiseDev.TheRange.requestCredit(card, amount)
+function ParadiseDev.TheRange.Context.requestCredit(cards, amount, context)
+    for _, card in ipairs(cards) do ParadiseDev.TheRange.requestCredit(card, amount) end
     ParadiseDev.TheRange.Context.close(context)
 end
 
-function ParadiseDev.TheRange.Context.requestPoints(card, amount, context)
-    ParadiseDev.TheRange.requestPoints(card, amount)
+function ParadiseDev.TheRange.Context.requestPoints(cards, amount, context)
+    for _, card in ipairs(cards) do ParadiseDev.TheRange.requestPoints(card, amount) end
     ParadiseDev.TheRange.Context.close(context)
 end
 
@@ -120,24 +120,22 @@ function ParadiseDev.TheRange.Context.addCardContext(plNum, context, items)
     root.iconTexture = getTexture("media/textures/TheRange.png")
     local submenu = ISContextMenu:getNew(context)
     context:addSubMenu(root, submenu)
-    for _, card in ipairs(cards) do
-        local owner = ParadiseDev.TheRange.getOwner(card)
-        local name = card:getDisplayName()
-        local info = submenu:addOption(name .. " | Owner: " .. (owner ~= "" and owner or "None"))
-        info.notAvailable = true
-        local register = submenu:addOption("Register", card, ParadiseDev.TheRange.Context.requestRegister, context)
-        register.notAvailable = owner ~= "" and owner ~= pl:getUsername()
-        if ParadiseDev.isAdm(pl) then
-            submenu:addOption("Add Credit", card, ParadiseDev.TheRange.Context.requestCredit, 1, context)
-            submenu:addOption("Reduce Credit", card, ParadiseDev.TheRange.Context.requestCredit, -1, context)
-            submenu:addOption("Add Points", card, ParadiseDev.TheRange.Context.requestPoints, 1, context)
-            submenu:addOption("Reduce Points", card, ParadiseDev.TheRange.Context.requestPoints, -1, context)
-        end
-        local credit = submenu:addOption("Credits: " .. tostring(ParadiseDev.TheRange.getCredits(card)))
-        credit.notAvailable = true
-        local points = submenu:addOption("Points: " .. tostring(ParadiseDev.TheRange.getPoints(card)))
-        points.notAvailable = true
+    local card = cards[1]
+    local owner = ParadiseDev.TheRange.getOwner(card)
+    local info = submenu:addOption(card:getDisplayName() .. " | Owner: " .. (owner ~= "" and owner or "None"))
+    info.notAvailable = true
+    local register = submenu:addOption("Register", cards, ParadiseDev.TheRange.Context.requestRegister, context)
+    register.notAvailable = owner ~= "" and owner ~= pl:getUsername()
+    if ParadiseDev.isAdm(pl) then
+        submenu:addOption("Add Credit", cards, ParadiseDev.TheRange.Context.requestCredit, 1, context)
+        submenu:addOption("Reduce Credit", cards, ParadiseDev.TheRange.Context.requestCredit, -1, context)
+        submenu:addOption("Add Points", cards, ParadiseDev.TheRange.Context.requestPoints, 1, context)
+        submenu:addOption("Reduce Points", cards, ParadiseDev.TheRange.Context.requestPoints, -1, context)
     end
+    local credit = submenu:addOption("Credits: " .. tostring(ParadiseDev.TheRange.getCredits(card)))
+    credit.notAvailable = true
+    local points = submenu:addOption("Points: " .. tostring(ParadiseDev.TheRange.getPoints(card)))
+    points.notAvailable = true
 end
 
 function ParadiseDev.TheRange.Context.withdraw(pl, obj, context)

@@ -1,7 +1,12 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Cage = ParadiseDev.Cage or {}
 
-require "ISUI/AdminPanel/ISUsersList"
+--require "ISUI/AdminPanel/ISUsersList"
+
+ParadiseDev.Cage.scoreboardContext = nil
+ParadiseDev.Cage.usersListContext = nil
+ParadiseDev.Cage.populateScoreboard = nil
+ParadiseDev.Cage.hookScoreboard = nil
 
 ParadiseDev.Cage.entries = ParadiseDev.Cage.entries or {}
 ParadiseDev.Cage.window = ParadiseDev.Cage.window or nil
@@ -101,73 +106,6 @@ end
 function ParadiseDev.Cage.addWorldContext(plNum, context, worldobjects, test)
     if test or not ParadiseDev.isAdm() then return end
     ParadiseDev.Cage.addTargetOptions(context, ParadiseDev.Cage.getWorldTarget(context))
-end
-
-function ParadiseDev.Cage.addScoreboardOptions(scoreboard, target, x, y)
-    if not scoreboard or not ParadiseDev.isAdm() then return end
-    local context = ISContextMenu.get(scoreboard.admin:getPlayerNum(), x + scoreboard:getAbsoluteX(), y + scoreboard:getAbsoluteY())
-    ParadiseDev.Cage.addTargetOptions(context, target)
-end
-
-function ParadiseDev.Cage.scoreboardContext(scoreboard, target, x, y)
-    ParadiseDev.Cage.scoreboardOriginal(scoreboard, target, x, y)
-    if ParadiseZ and ParadiseZ.Oversight and ParadiseZ.Oversight.addScoreboardOptions then
-        ParadiseZ.Oversight.addScoreboardOptions(scoreboard, target, x, y)
-    end
-    ParadiseDev.Cage.addScoreboardOptions(scoreboard, target, x, y)
-end
-
-function ParadiseDev.Cage.addUsersListOptions(usersList, item, x, y)
-    if not usersList or not item or not ParadiseDev.isAdm(usersList.player) then return end
-    local username = item:getUsername()
-    if not username or username == "" then return end
-    local context = ISContextMenu.get(usersList.player:getPlayerNum(), x + usersList:getAbsoluteX(), y + usersList:getAbsoluteY())
-    if not context then return end
-    ParadiseDev.Cage.addTargetOptions(context, { username = username })
-    if item:isOnline() and username ~= usersList.player:getUsername() then
-        local role = usersList.player:getRole()
-        if role and role:hasCapability(Capability.TeleportToPlayer) then
-            context:addOption("Spectate: " .. username, nil, ParadiseZ.setSpectate, username)
-            if ParadiseZ.isSpectating(usersList.player) then
-                context:addOption("Stop Spectating", nil, ParadiseZ.stopSpectate)
-            end
-        end
-    end
-end
-
-function ParadiseDev.Cage.usersListContext(usersList, item, x, y)
-    ParadiseDev.Cage.usersListOriginal(usersList, item, x, y)
-    ParadiseDev.Cage.addUsersListOptions(usersList, item, x, y)
-end
-
-function ParadiseDev.Cage.populateScoreboard(scoreboard)
-    ParadiseDev.Cage.scoreboardPopulateOriginal(scoreboard)
-    local admin = scoreboard.admin
-    local username = admin and admin:getUsername()
-    if not username then return end
-    for _, item in ipairs(scoreboard.playerList.items) do
-        if item.item and item.item.username == username then return end
-    end
-    local displayName = admin.getDisplayName and admin:getDisplayName() or username
-    local item = scoreboard.playerList:addItem(displayName, { username = username, displayName = displayName })
-    if username ~= displayName then item.tooltip = username end
-end
-
-function ParadiseDev.Cage.hookScoreboard()
-    if ISMiniScoreboardUI then
-        if not ParadiseDev.Cage.scoreboardOriginal then
-            ParadiseDev.Cage.scoreboardOriginal = ISMiniScoreboardUI.doPlayerListContextMenu
-            ISMiniScoreboardUI.doPlayerListContextMenu = ParadiseDev.Cage.scoreboardContext
-        end
-        if not ParadiseDev.Cage.scoreboardPopulateOriginal then
-            ParadiseDev.Cage.scoreboardPopulateOriginal = ISMiniScoreboardUI.populateList
-            ISMiniScoreboardUI.populateList = ParadiseDev.Cage.populateScoreboard
-        end
-    end
-    if not ParadiseDev.Cage.usersListOriginal and ISUsersList then
-        ParadiseDev.Cage.usersListOriginal = ISUsersList.doContextMenu
-        ISUsersList.doContextMenu = ParadiseDev.Cage.usersListContext
-    end
 end
 
 ParadiseDev.Cage.Panel = ISCollapsableWindow:derive("ParadiseDev.Cage.Panel")
@@ -295,4 +233,3 @@ end
 
 Events.OnServerCommand.Add(ParadiseDev.Cage.onServerCommand)
 Events.OnFillWorldObjectContextMenu.Add(ParadiseDev.Cage.addWorldContext)
-Events.OnGameStart.Add(ParadiseDev.Cage.hookScoreboard)

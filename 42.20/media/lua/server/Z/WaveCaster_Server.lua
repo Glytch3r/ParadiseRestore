@@ -14,18 +14,105 @@ function WaveCaster.transmit()
     ModData.transmit("WaveCaster_Data")
 end
 
+local ZED_SKINS = { "F_ZedBody01_level1", "F_ZedBody01_level2", "F_ZedBody01_level3", "F_ZedBody01", "F_ZedBody02_level1", "F_ZedBody02_level2", "F_ZedBody02_level3", "F_ZedBody02", "F_ZedBody03_level1", "F_ZedBody03_level2", "F_ZedBody03_level3", "F_ZedBody03", "F_ZedBody04_level1", "F_ZedBody04_level2", "F_ZedBody04_level3", "F_ZedBody04", "M_ZedBody01_level1", "M_ZedBody01_level2", "M_ZedBody01_level3", "M_ZedBody01", "M_ZedBody02_level1", "M_ZedBody02_level2", "M_ZedBody02_level3", "M_ZedBody02", "M_ZedBody03_level1", "M_ZedBody03_level2", "M_ZedBody03_level3", "M_ZedBody03", "M_ZedBody04_level1", "M_ZedBody04_level2", "M_ZedBody04_level3", "M_ZedBody04" }
+local HUMAN_SKINS = { "FemaleBody01", "FemaleBody02", "FemaleBody03", "FemaleBody04", "FemaleBody05", "MaleBody01", "MaleBody01a", "MaleBody02", "MaleBody02a", "MaleBody03", "MaleBody03a", "MaleBody04", "MaleBody04a", "MaleBody05", "MaleBody05a" }
+local SKELETON_SKINS = { "Skeleton_Mannequin", "Skeleton", "SkeletonBurned", "SkeletonMuscle", "F_Mannequin_White", "F_Mannequin_Black", "M_Mannequin_Black", "M_Mannequin_White", "Male_Scarecrow" }
+
+local copyContainer
+local function copyItem(item, target)
+    if not item or not target then return end
+    local copy = target:AddItem(item:getFullType())
+    if not copy then return end
+    local sourceVisual = item.getVisual and item:getVisual() or nil
+    local targetVisual = copy.getVisual and copy:getVisual() or nil
+    if sourceVisual and targetVisual then targetVisual:copyVisualFrom(sourceVisual) end
+    if item.getCondition and copy.setCondition then copy:setCondition(item:getCondition()) end
+    if item.getInventory and copy.getInventory then copyContainer(item:getInventory(), copy:getInventory()) end
+    return copy
+end
+
+copyContainer = function(source, target)
+    if not source or not target then return end
+    local items = source:getItems()
+    for i = 0, items:size() - 1 do copyItem(items:get(i), target) end
+end
+
+function WaveCaster.copyPlayerVisuals(player, zed)
+    if not player or not zed then return end
+    zed:setFemaleEtc(player:isFemale())
+    local sourceVisual = player:getHumanVisual()
+    local targetVisual = zed:getHumanVisual()
+    if sourceVisual and targetVisual then targetVisual:copyFrom(sourceVisual) end
+    local sourceDescriptor = player:getDescriptor()
+    local targetDescriptor = zed:getDescriptor()
+    if sourceVisual and targetDescriptor then targetDescriptor:getHumanVisual():copyFrom(sourceVisual) end
+    local sourceInventory = player:getInventory()
+    local targetInventory = zed:getInventory()
+    if not sourceInventory or not targetInventory then return end
+    local targetItems = targetInventory:getItems()
+    for i = targetItems:size() - 1, 0, -1 do targetInventory:Remove(targetItems:get(i)) end
+    local worn = player:getWornItems()
+    local targetWorn = zed:getWornItems()
+    targetWorn:clear()
+    local sourceItems = sourceInventory:getItems()
+    for i = 0, sourceItems:size() - 1 do
+        local item = sourceItems:get(i)
+        local isWorn = false
+        for j = 0, worn:size() - 1 do if worn:getItemByIndex(j) == item then isWorn = true; break end end
+        if not isWorn then copyItem(item, targetInventory) end
+    end
+    for i = 0, worn:size() - 1 do
+        local item = worn:getItemByIndex(i)
+        local location = worn:getLocation(item)
+        if item and location then
+            local copy = copyItem(item, targetInventory)
+            if copy then targetWorn:setItem(location, copy) end
+        end
+    end
+    zed:onWornItemsChanged()
+    zed:resetModelNextFrame()
+end
+
+function WaveCaster.applySkin(zed, zd)
+    local skin = zd and zd.skin
+    if zd and zd.humanize and (not skin or skin == "Random Zed") then skin = "Random Human" end
+    if not zed or not skin or skin == "Random Zed" then return end
+    if skin == "Random Human" then skin = HUMAN_SKINS[ZombRand(#HUMAN_SKINS) + 1] end
+    if skin == "Random Skeleton" then skin = SKELETON_SKINS[ZombRand(#SKELETON_SKINS) + 1] end
+    if skin == "Random Any" then
+        local all = {}
+        for _, value in ipairs(ZED_SKINS) do table.insert(all, value) end
+        for _, value in ipairs(HUMAN_SKINS) do table.insert(all, value) end
+        for _, value in ipairs(SKELETON_SKINS) do table.insert(all, value) end
+        skin = all[ZombRand(#all) + 1]
+    end
+    local visual = zed:getHumanVisual()
+    if not visual then return end
+    local human = string.find(skin, "Body") ~= nil and string.find(skin, "Zed") == nil
+    local skeleton = string.find(skin, "Skeleton") ~= nil
+    if string.sub(skin, 1, 2) == "F_" or string.sub(skin, 1, 6) == "Female" then zed:setFemaleEtc(true) end
+    if string.sub(skin, 1, 2) == "M_" or string.sub(skin, 1, 4) == "Male" then zed:setFemaleEtc(false) end
+    if human then
+        zed:clearAttachedItems()
+        visual:getBodyVisuals():clear()
+        visual:removeBlood()
+        visual:removeDirt()
+    end
+    if skeleton then zed:setSkeleton(true) end
+    visual:setSkinTextureName(skin)
+    zed:resetModelNextFrame()
+    zed:resetModel()
+end
+
 function WaveCaster.applyZedData(zed, zd, pl, soundX, soundY)
     if zd.immortalTutorialZombie then zed:setImmortalTutorialZombie(true) end
     if zd.randomOutfit then zed:dressInRandomOutfit() end
     if zd.useless then zed:setUseless(true) end
     if zd.randomBloodDirtHoles then zed:ddRandomBloodDirtHolesEtc() end
     if zd.knifeDeath then zed:setKnifeDeath(true) end
-    if zd.turnAlerted then zed:setTurnAlertedValues(soundX, soundY) end
     if zd.noTeeth then zed:setNoTeeth(true) end
     if zd.jawStabAttach then zed:setJawStabAttach(true) end
     if zd.onlyJawStab then zed:setOnlyJawStab(true) end
-    if zd.spottedNew and pl then zed:spottedNew(pl) end
-    if zd.aggro and pl then zed:addAggro(pl, zd.aggroDamage or 1) end
     if zd.forceEatingAnimation then zed:setForceEatingAnimation(true) end
     if zd.alwaysKnockedDown then zed:setAlwaysKnockedDown(true) end
     if zd.walkType and zd.walkType ~= "" then zed:setWalkType(zd.walkType) end
@@ -34,8 +121,31 @@ function WaveCaster.applyZedData(zed, zd, pl, soundX, soundY)
     if zd.sitAgainstWall then zed:setSitAgainstWall(true) end
     if zd.skeleton then zed:setSkeleton(true) end
     if zd.inactive then zed:makeInactive(true) end
+    if zd.reanimatedPlayer then zed:setReanimatedPlayer(true) end
+    if zd.scratch then zed.scratch = true end
+    if zd.laceration then zed.laceration = true end
+    if zd.keepItReal then zed.keepItReal = true end
+    if zd.strength ~= nil then zed.strength = zd.strength end
+    if zd.cognition ~= nil then zed.cognition = zd.cognition end
+    if zd.memory ~= nil then zed.memory = zd.memory end
+    if zd.sight ~= nil then zed.sight = zd.sight end
+    if zd.hearing ~= nil then zed.hearing = zd.hearing end
+    if zd.voice ~= nil then
+        pcall(function()
+            local field = zed:getClass():getDeclaredField("voiceChoice")
+            field:setAccessible(true)
+            field:setInt(zed, zd.voice)
+        end)
+    end
     if zd.turnDelta then zed:setTurnDelta(zd.turnDelta) end
     if zd.becomeCrawler then zed:setBecomeCrawler(true) end
+    WaveCaster.applySkin(zed, zd)
+    if zd.copyVisual then WaveCaster.copyPlayerVisuals(pl, zed) end
+    if zd.walkTargetX ~= nil and zd.walkTargetY ~= nil and zd.walkTargetZ ~= nil then
+        zed:setTurnAlertedValues(zd.walkTargetX, zd.walkTargetY)
+        zed:setTarget(nil)
+        zed:getPathFindBehavior2():pathToLocationF(zd.walkTargetX, zd.walkTargetY, zd.walkTargetZ)
+    end
 end
 
 function WaveCaster.spawn(player, args)
@@ -47,7 +157,7 @@ function WaveCaster.spawn(player, args)
     for i = 1, count do
         local x = ZombRand(args.x - radius, args.x + radius + 1)
         local y = ZombRand(args.y - radius, args.y + radius + 1)
-        local zeds = addZombiesInOutfit(x, y, args.z or 0, 1, zd.outfit, args.femaleChance, zd.crawler or false, zd.isFallOnFront or false, zd.isFakeDead or false, zd.knockedDown or false, zd.isInvulnerable or false, zd.isSitting or false, zd.health or 1, zd.isRecordingAnims or false, zd.heightOffset or 0, zd.isRagdolling or false, zd.onFire or false)
+        local zeds = addZombiesInOutfit(x, y, args.z or 0, 1, zd.outfit, args.femaleChance, zd.crawler or false, zd.isFallOnFront or false, zd.isFakeDead or false, zd.knockedDown or false, zd.isInvulnerable or false, zd.isSitting or false, zd.health or 1, zd.isRecordingAnims or false, zd.heightOffset or 0, false, zd.onFire or false)
         for j = 0, zeds:size() - 1 do
             WaveCaster.applyZedData(zeds:get(j), zd, player, args.x, args.y)
         end
@@ -72,7 +182,7 @@ function WaveCaster.processWave(castEvent)
     for i = 1, count do
         local spawnX = ZombRand(x - radius, x + radius + 1)
         local spawnY = ZombRand(y - radius, y + radius + 1)
-        local zeds = addZombiesInOutfit(spawnX, spawnY, z, 1, zd.outfit, zd.femaleChance, zd.crawler or false, zd.isFallOnFront or false, zd.isFakeDead or false, zd.knockedDown or false, zd.isInvulnerable or false, zd.isSitting or false, zd.health or 1, zd.isRecordingAnims or false, zd.heightOffset or 0, zd.isRagdolling or false, zd.onFire or false)
+        local zeds = addZombiesInOutfit(spawnX, spawnY, z, 1, zd.outfit, zd.femaleChance, zd.crawler or false, zd.isFallOnFront or false, zd.isFakeDead or false, zd.knockedDown or false, zd.isInvulnerable or false, zd.isSitting or false, zd.health or 1, zd.isRecordingAnims or false, zd.heightOffset or 0, false, zd.onFire or false)
         for j = 0, zeds:size() - 1 do
             WaveCaster.applyZedData(zeds:get(j), zd, pl, x, y)
         end
