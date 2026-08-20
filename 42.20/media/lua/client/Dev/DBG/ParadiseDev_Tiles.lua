@@ -1,7 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Tiles = ParadiseDev.Tiles or {}
 
-require "Dev/ParadiseDev_Players"
 
 function ParadiseDev.Tiles.getSpriteName(spr)
     if not spr or not spr.getName then return nil end
@@ -100,5 +99,5 @@ function ParadiseDev.Tiles.addContext(plNum, context, worldobjects, test)
     end
 end
 
-Events.OnFillWorldObjectContextMenu.Remove(ParadiseDev.Tiles.addContext)
+--Events.OnFillWorldObjectContextMenu.Remove(ParadiseDev.Tiles.addContext)
 Events.OnFillWorldObjectContextMenu.Add(ParadiseDev.Tiles.addContext)

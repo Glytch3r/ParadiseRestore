@@ -2,7 +2,6 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
 ParadiseDev.Zones.Harness = ParadiseDev.Zones.Harness or {}
 
-require "Dev/ParadiseDev_Players"
 
 local MODULE = "PZZoneHarness"
 local RESULT = "result"

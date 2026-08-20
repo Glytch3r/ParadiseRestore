@@ -16,6 +16,6 @@
 	<m_MasksFolder>media/textures/Clothes/Hoodie/Masks_Down</m_MasksFolder>
 	<m_UnderlayMasksFolder>media/textures/Clothes/Hoodie/Masks_Down</m_UnderlayMasksFolder>
 	<textureChoices>Clothes\Hoodie\HoodieUP_ParadiseZ</textureChoices>
-	<textureChoices>Clothes\Hoodie\HoodieUP_jaynie</textureChoices>
+    <textureChoices>Clothes\Hoodie\HoodieUP_Jaynie</textureChoices>
 
 </clothingItem>

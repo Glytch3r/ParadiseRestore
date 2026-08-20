@@ -87,22 +87,36 @@ function ParadiseZ.setSprinter(zed)
     zed:makeInactive(false)      ]]   
 end
 
-
-
 --[[ 
-function ParadiseZ.setSprinter(zed, num)
-	local sandOpt = getSandboxOptions()
-	local zSpeed = sandOpt:getOptionByName("ZombieLore.Speed"):getValue()
-    num = num or 1
-    
-	zed:setWalkType("sprint"..tostring(num))
-	sandOpt:set("ZombieLore.Speed", 1)
-	zed:makeInactive(true)
-	zed:makeInactive(false)
-	zed:DoZombieStats()
-	sandOpt:set("ZombieLore.Speed", zSpeed)
-end
+    setImmortalTutorialZombie Link icon
+    dressInRandomOutfit Link icon
+    setUseless Link icon
+    ddRandomBloodDirtHolesEtc()
+    setKnifeDeath Link icon
+    setTurnAlertedValues
+    setNoTeeth 
+    getPlayer():kill
+    cantBite 
+    setTurnAlertedValues(int soundX,
+    int soundY)
+    setJawStabAttach 
+    addAggro(IsoMovingObject other,
+    float damage)
+    setOnlyJawStab 
+    spottedNew Link icon
+    setForceEatingAnimation 
+    setAlwaysKnockedDown 
+    setWalkType Link icon
+    setCanWalk 
+    setCanCrawlUnderVehicle 
+    setSitAgainstWall 
+    setSkeleton 
+    makeInactive 
+    setTurnDelta
+    setBecomeCrawler(boolean)
  ]]
+
+
 
 function ParadiseZ.isSprinter(zed)
 	if not zed then return end
@@ -117,11 +131,9 @@ end
 
 function ParadiseZ.isSprintZoneFromSquare(sq)
     if not sq then return false end
-    local zoneName = ParadiseZ.getZoneName(sq)
-    if zoneName == tostring(SandboxVars.ParadiseZ.OutsideStr) then return false end
-    local zone = ParadiseZ.ZoneData[zoneName]
-    if not zone then return false end
-    return zone.isSprint == true
+    if not ParadiseDev or not ParadiseDev.Zones or not ParadiseDev.Zones.Border or not ParadiseDev.Zones.Border.getAuthorityAt then return false end
+    local zone = ParadiseDev.Zones.Border.getAuthorityAt(sq:getX(), sq:getY(), sq:getZ(), 0)
+    return zone and zone.features and zone.features.isSprint == true or false
 end
 
 local ticks = 0
@@ -139,4 +151,3 @@ function ParadiseZ.sprinterHandler(zed)
 end
 Events.OnZombieUpdate.Remove(ParadiseZ.sprinterHandler)
 Events.OnZombieUpdate.Add(ParadiseZ.sprinterHandler)
-

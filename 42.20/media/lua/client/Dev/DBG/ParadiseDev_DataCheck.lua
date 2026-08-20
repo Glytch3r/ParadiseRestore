@@ -1,23 +1,38 @@
+require "ISUI/ISTickBox"
+
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.DataCheck = ParadiseDev.DataCheck or {}
 
-require "Dev/ParadiseDev_Players"
-require "Dev/ParadiseDev_TP"
-
-require "ISUI/ISCollapsableWindow"
-require "ISUI/ISButton"
-require "ISUI/ISLabel"
-require "ISUI/ISScrollingListBox"
 
 ParadiseDev.DataCheck.entries = ParadiseDev.DataCheck.entries or {}
 ParadiseDev.DataCheck.window = ParadiseDev.DataCheck.window or nil
 ParadiseDev.DataCheck.maxDepth = 4
 ParadiseDev.DataCheck.maxRows = 300
+ParadiseDev.DataCheck.objectTypes = {
+    { name = "PlayerObject", class = "IsoPlayer" },
+    { name = "ZombieObject", class = "IsoZombie" },
+    { name = "InventoryItem", class = "InventoryItem" },
+    { name = "VehicleObject", class = "BaseVehicle" },
+    { name = "WorldInventoryObject", class = "IsoWorldInventoryObject" },
+    { name = "DeadBodyObject", class = "IsoDeadBody" },
+    { name = "AnimalObject", class = "IsoAnimal" },
+    { name = "WorldObject", class = "IsoObject" },
+    { name = "OtherObject" },
+}
 
 function ParadiseDev.DataCheck.isType(obj, className)
     if not obj or not instanceof then return false end
     local ok, result = pcall(instanceof, obj, className)
     return ok and result or false
+end
+
+function ParadiseDev.DataCheck.getObjectType(obj)
+    for _, definition in ipairs(ParadiseDev.DataCheck.objectTypes) do
+        if not definition.class or ParadiseDev.DataCheck.isType(obj, definition.class) then
+            return definition.name
+        end
+    end
+    return "OtherObject"
 end
 
 function ParadiseDev.DataCheck.getSpriteName(obj)
@@ -126,7 +141,12 @@ function ParadiseDev.DataCheck.add(obj, name)
     ParadiseDev.DataCheck.entries[#ParadiseDev.DataCheck.entries + 1] = {
         obj = obj,
         name = ParadiseDev.DataCheck.objectName(obj, name),
+        type = ParadiseDev.DataCheck.getObjectType(obj),
+        focusRows = {},
     }
+    if ParadiseDev.DataCheck.isType(obj, "IsoZombie") then
+        dbgZed = obj
+    end
     return #ParadiseDev.DataCheck.entries
 end
 
@@ -148,7 +168,7 @@ function ParadiseDev.DataCheck.open(obj, name)
         ParadiseDev.DataCheck.window:refresh(index)
         return ParadiseDev.DataCheck.window
     end
-    local window = ParadiseDev.DataCheck.Panel:new(60, 60, 980, 620)
+    local window = ParadiseDev.DataCheck.Panel:new(60, 60, 1250, 620)
     window:initialise()
     window:addToUIManager()
     window:setVisible(true)
@@ -165,11 +185,19 @@ function ParadiseDev.DataCheck.close()
     ParadiseDev.DataCheck.window = nil
 end
 
-function ParadiseDev.DataCheck.getClickedSquare()
+function ParadiseDev.DataCheck.getClickedSquare(worldobjects)
     if ISWorldObjectContextMenu and ISWorldObjectContextMenu.fetchVars then
-        return ISWorldObjectContextMenu.fetchVars.clickedSquare
+        local sq = ISWorldObjectContextMenu.fetchVars.clickedSquare
+        if sq then return sq end
     end
-    return clickedSquare
+    if clickedSquare then return clickedSquare end
+    for _, obj in ipairs(worldobjects or {}) do
+        if obj and obj.getSquare then
+            local ok, sq = pcall(obj.getSquare, obj)
+            if ok and sq then return sq end
+        end
+    end
+    return nil
 end
 
 function ParadiseDev.DataCheck.addWorldObjectOption(menu, obj, name)
@@ -203,8 +231,10 @@ function ParadiseDev.DataCheck.openSelected(obj, name)
 end
 
 function ParadiseDev.DataCheck.addWorldContext(plNum, context, worldobjects, test)
-    if test or not ParadiseDev.isAdm() then return end
-    local root = context:addOptionOnTop("Data Inspector")
+    if test then return end
+    if not getCore():getDebug() then return end
+
+    local root = context:addOptionOnTop("Data")
     local submenu = ISContextMenu:getNew(context)
     context:addSubMenu(root, submenu)
     local pl = getSpecificPlayer(plNum)
@@ -214,8 +244,11 @@ function ParadiseDev.DataCheck.addWorldContext(plNum, context, worldobjects, tes
     if clickedPlayer then
         ParadiseDev.DataCheck.addWorldObjectOption(submenu, clickedPlayer, clickedPlayer:getUsername())
     end
-    local sq = ParadiseDev.DataCheck.getClickedSquare()
+    local sq = ParadiseDev.DataCheck.getClickedSquare(worldobjects)
     if not sq then return end
+    ParadiseDev.DataCheck.addWorldObjectOption(submenu, sq, "Square")
+    local floor = sq:getFloor()
+    if floor then ParadiseDev.DataCheck.addWorldObjectOption(submenu, floor, "Floor") end
     local objects = sq:getObjects()
     for index = 0, objects:size() - 1 do
         ParadiseDev.DataCheck.addWorldObjectOption(submenu, objects:get(index))
@@ -224,6 +257,12 @@ function ParadiseDev.DataCheck.addWorldContext(plNum, context, worldobjects, tes
     for index = 0, movingObjects:size() - 1 do
         ParadiseDev.DataCheck.addWorldObjectOption(submenu, movingObjects:get(index))
     end
+    local staticMovingObjects = sq:getStaticMovingObjects()
+    for index = 0, staticMovingObjects:size() - 1 do
+        ParadiseDev.DataCheck.addWorldObjectOption(submenu, staticMovingObjects:get(index))
+    end
+    local body = ISWorldObjectContextMenu and ISWorldObjectContextMenu.fetchVars and ISWorldObjectContextMenu.fetchVars.body
+    if body then ParadiseDev.DataCheck.addWorldObjectOption(submenu, body, "Dead Body") end
 end
 
 function ParadiseDev.DataCheck.addInventoryContext(plNum, context, items)
@@ -313,6 +352,8 @@ function ParadiseDev.DataCheck.copyDetails(panel)
         .. ParadiseDev.DataCheck.getColumnText(panel.modData)
         .. "\n\nJava Fields\n\n"
         .. ParadiseDev.DataCheck.getColumnText(panel.fields)
+        .. "\n\nFocus\n\n"
+        .. ParadiseDev.DataCheck.getColumnText(panel.focus)
     Clipboard.setClipboard(text)
 end
 
@@ -344,90 +385,277 @@ end
 
 ParadiseDev.DataCheck.Panel = ISCollapsableWindow:derive("ParadiseDev.DataCheck.Panel")
 
+function ParadiseDev.DataCheck.layoutWindowChrome(window)
+    local buttonHeight = window:titleBarHeight() - 2
+    local rightX = window.width - 1 - buttonHeight
+    if window.pinButton then window.pinButton:setX(rightX) end
+    if window.collapseButton then window.collapseButton:setX(rightX) end
+    local resizeHeight = window:resizeWidgetHeight()
+    if window.resizeWidget then
+        window.resizeWidget:setX(window.width - resizeHeight)
+        window.resizeWidget:setY(window.height - resizeHeight)
+    end
+    if window.resizeWidget2 then
+        window.resizeWidget2:setY(window.height - resizeHeight)
+        window.resizeWidget2:setWidth(window.width - resizeHeight)
+    end
+end
+
+function ParadiseDev.DataCheck.updateScrollWidth(list)
+    if not list then return end
+    local width = list:getWidth()
+    for _, row in ipairs(list.items or {}) do
+        width = math.max(width, getTextManager():MeasureStringX(list.font, tostring(row.text or "")) + 30)
+    end
+    list:setScrollWidth(width)
+end
+
+function ParadiseDev.DataCheck.resizeWindow(panel, newWidth, newHeight)
+    panel:setWidth(math.max(newWidth, panel.minimumWidth or 0))
+    panel:setHeight(math.max(newHeight, panel.minimumHeight or 0))
+    ParadiseDev.DataCheck.layoutWindowChrome(panel)
+    if panel.layoutChildren then panel:layoutChildren() end
+end
+
+function ParadiseDev.DataCheck.enableWindowResize(panel)
+    panel:setResizable(true)
+    if panel.resizeWidget then panel.resizeWidget.resizeFunction = ParadiseDev.DataCheck.resizeWindow end
+    if panel.resizeWidget2 then panel.resizeWidget2.resizeFunction = ParadiseDev.DataCheck.resizeWindow end
+    ParadiseDev.DataCheck.layoutWindowChrome(panel)
+end
+
 function ParadiseDev.DataCheck.Panel:createChildren()
     ISCollapsableWindow.createChildren(self)
+    ParadiseDev.DataCheck.enableWindowResize(self)
     local top = self:titleBarHeight() + 8
     self.titleLabel = ISLabel:new(12, top, 18, "Data Inspector", 0.85, 0.9, 1, 1, UIFont.Medium, true)
     self.titleLabel:initialise()
     self.titleLabel:instantiate()
     self:addChild(self.titleLabel)
-    self.objects = ISScrollingListBox:new(12, top + 28, 235, self.height - top - 116)
+    self.typeVisibility = {}
+    self.typeFilterGroups = {}
+    for index, definition in ipairs(ParadiseDev.DataCheck.objectTypes) do
+        self.typeVisibility[definition.name] = true
+        local groupIndex = math.ceil(index / 3)
+        local filter = self.typeFilterGroups[groupIndex]
+        if not filter then
+            filter = ISTickBox:new(0, 0, 155, 20, "", self, ParadiseDev.DataCheck.Panel.onTypeFilterChanged)
+            filter:initialise()
+            filter:instantiate()
+            self.typeFilterGroups[groupIndex] = filter
+            self:addChild(filter)
+        end
+        local optionIndex = filter:addOption(definition.name, definition.name)
+        filter:setSelected(optionIndex, true)
+    end
+    self.typeFilters = self.typeFilterGroups[1]
+    self.objects = ISScrollingListBox:new(12, top + 116, 235, self.height - top - 176)
     self.objects:initialise()
     self.objects:instantiate()
+    self.objects:addScrollBars(true)
     self.objects.itemheight = 22
     self.objects.font = UIFont.Small
     self.objects.drawBorder = true
     self.objects:setOnMouseDownFunction(self, ParadiseDev.DataCheck.Panel.onObjectSelected)
     self:addChild(self.objects)
-    self.modData = ISScrollingListBox:new(255, top + 28, 330, self.height - top - 116)
+    self.modData = ISScrollingListBox:new(255, top + 116, 330, self.height - top - 176)
     self.modData:initialise()
     self.modData:instantiate()
+    self.modData:addScrollBars(true)
     self.modData.itemheight = 22
     self.modData.font = UIFont.Small
     self.modData.drawBorder = true
     self:addChild(self.modData)
-    self.fields = ISScrollingListBox:new(593, top + 28, self.width - 605, self.height - top - 116)
+    self.fields = ISScrollingListBox:new(593, top + 116, 330, self.height - top - 176)
     self.fields:initialise()
     self.fields:instantiate()
+    self.fields:addScrollBars(true)
     self.fields.itemheight = 22
     self.fields.font = UIFont.Small
     self.fields.drawBorder = true
     self:addChild(self.fields)
-    self.refreshButton = ISButton:new(12, self.height - 76, 55, 26, "Refresh", self, ParadiseDev.DataCheck.Panel.onClick)
+    self.focus = ISScrollingListBox:new(931, top + 116, self.width - 943, self.height - top - 176)
+    self.focus:initialise()
+    self.focus:instantiate()
+    self.focus:addScrollBars(true)
+    self.focus.itemheight = 22
+    self.focus.font = UIFont.Small
+    self.focus.drawBorder = true
+    self.focus:setOnMouseDownFunction(self, ParadiseDev.DataCheck.Panel.onFocusSelected)
+    self:addChild(self.focus)
+    self.refreshButton = ISButton:new(12, self.height - 40, 55, 26, "Refresh", self, ParadiseDev.DataCheck.Panel.onClick)
     self.refreshButton.internal = "REFRESH"
     self.refreshButton:initialise()
     self.refreshButton:instantiate()
     self:addChild(self.refreshButton)
-    self.removeButton = ISButton:new(73, self.height - 76, 55, 26, "Remove", self, ParadiseDev.DataCheck.Panel.onClick)
+    self.removeButton = ISButton:new(73, self.height - 40, 55, 26, "Remove", self, ParadiseDev.DataCheck.Panel.onClick)
     self.removeButton.internal = "REMOVE"
     self.removeButton:initialise()
     self.removeButton:instantiate()
     self:addChild(self.removeButton)
-    self.clearButton = ISButton:new(134, self.height - 76, 55, 26, "Clear", self, ParadiseDev.DataCheck.Panel.onClick)
+    self.clearButton = ISButton:new(134, self.height - 40, 55, 26, "Clear", self, ParadiseDev.DataCheck.Panel.onClick)
     self.clearButton.internal = "CLEAR"
     self.clearButton:initialise()
     self.clearButton:instantiate()
     self:addChild(self.clearButton)
-    self.clipButton = ISButton:new(195, self.height - 76, 55, 26, "Clip", self, ParadiseDev.DataCheck.Panel.onClick)
+    self.clipButton = ISButton:new(195, self.height - 40, 55, 26, "Clip", self, ParadiseDev.DataCheck.Panel.onClick)
     self.clipButton.internal = "CLIP"
     self.clipButton:initialise()
     self.clipButton:instantiate()
     self:addChild(self.clipButton)
-    self.tpButton = ISButton:new(12, self.height - 45, 55, 26, "TP", self, ParadiseDev.DataCheck.Panel.onClick)
+    self.focusButton = ISButton:new(256, self.height - 40, 55, 26, "Focus", self, ParadiseDev.DataCheck.Panel.onClick)
+    self.focusButton.internal = "FOCUS"
+    self.focusButton:initialise()
+    self.focusButton:instantiate()
+    self:addChild(self.focusButton)
+    self.clearFocusButton = ISButton:new(317, self.height - 40, 80, 26, "Clear Focus", self, ParadiseDev.DataCheck.Panel.onClick)
+    self.clearFocusButton.internal = "CLEAR_FOCUS"
+    self.clearFocusButton:initialise()
+    self.clearFocusButton:instantiate()
+    self:addChild(self.clearFocusButton)
+    self.tpButton = ISButton:new(403, self.height - 40, 55, 26, "TP", self, ParadiseDev.DataCheck.Panel.onClick)
     self.tpButton.internal = "TP"
     self.tpButton:initialise()
     self.tpButton:instantiate()
     self:addChild(self.tpButton)
+    self:layoutChildren()
+end
+
+function ParadiseDev.DataCheck.Panel:layoutChildren()
+    local contentX, spacing = 12, 8
+    local contentWidth = self.width - contentX * 2
+    local top = self:titleBarHeight() + 8
+    self.titleLabel:setX(contentX)
+    self.titleLabel:setY(top)
+    local filtersY = top + 28
+    local filterWidth = math.max(145, math.floor((contentWidth - spacing * 4) / 5))
+    for index, filter in ipairs(self.typeFilterGroups) do
+        filter:setX(contentX + (index - 1) * (filterWidth + spacing))
+        filter:setY(filtersY)
+        filter:setWidth(filterWidth)
+    end
+    local listsY = filtersY + 88
+    local listsHeight = math.max(120, self.height - listsY - 52)
+    local objectsWidth = math.max(170, math.floor(contentWidth * 0.14))
+    local modDataWidth = math.max(250, math.floor(contentWidth * 0.22))
+    local fieldsWidth = math.max(310, math.floor(contentWidth * 0.31))
+    local focusWidth = math.max(280, contentWidth - objectsWidth - modDataWidth - fieldsWidth - spacing * 3)
+    local objectsX = contentX
+    local modDataX = objectsX + objectsWidth + spacing
+    local fieldsX = modDataX + modDataWidth + spacing
+    local focusX = fieldsX + fieldsWidth + spacing
+    self.objects:setX(objectsX); self.objects:setY(listsY); self.objects:setWidth(objectsWidth); self.objects:setHeight(listsHeight)
+    self.modData:setX(modDataX); self.modData:setY(listsY); self.modData:setWidth(modDataWidth); self.modData:setHeight(listsHeight)
+    self.fields:setX(fieldsX); self.fields:setY(listsY); self.fields:setWidth(fieldsWidth); self.fields:setHeight(listsHeight)
+    self.focus:setX(focusX); self.focus:setY(listsY); self.focus:setWidth(focusWidth); self.focus:setHeight(listsHeight)
+    local buttonY = self.height - 40
+    self.refreshButton:setY(buttonY); self.removeButton:setY(buttonY); self.clearButton:setY(buttonY)
+    self.clipButton:setY(buttonY); self.focusButton:setY(buttonY); self.clearFocusButton:setY(buttonY); self.tpButton:setY(buttonY)
+    ParadiseDev.DataCheck.updateScrollWidth(self.objects)
+    ParadiseDev.DataCheck.updateScrollWidth(self.modData)
+    ParadiseDev.DataCheck.updateScrollWidth(self.fields)
+    ParadiseDev.DataCheck.updateScrollWidth(self.focus)
+end
+
+function ParadiseDev.DataCheck.Panel:getSelectedEntry()
+    local row = self.objects.items[self.objects.selected]
+    return row and row.item or nil
+end
+
+function ParadiseDev.DataCheck.Panel:isEntryVisible(entry)
+    return entry and self.typeVisibility[entry.type] ~= false
 end
 
 function ParadiseDev.DataCheck.Panel:refresh(selected)
+    local selectedEntry = self:getSelectedEntry()
+    if type(selected) == "number" then selectedEntry = ParadiseDev.DataCheck.entries[selected] end
+    if type(selected) == "table" then selectedEntry = selected end
     if not self.objects then return end
-    selected = selected or self.objects.selected
     self.objects:clear()
     for _, entry in ipairs(ParadiseDev.DataCheck.entries) do
-        self.objects:addItem(entry.name, entry)
+        entry.type = entry.type or ParadiseDev.DataCheck.getObjectType(entry.obj)
+        entry.focusRows = entry.focusRows or {}
+        if self:isEntryVisible(entry) then
+            self.objects:addItem("[" .. entry.type .. "] " .. entry.name, entry)
+        end
     end
-    if #ParadiseDev.DataCheck.entries == 0 then
+    if #self.objects.items == 0 then
         self.objects.selected = 0
     else
-        self.objects.selected = math.max(1, math.min(selected or 1, #ParadiseDev.DataCheck.entries))
+        self.objects.selected = 1
+        for index, row in ipairs(self.objects.items) do
+            if row.item == selectedEntry then
+                self.objects.selected = index
+                break
+            end
+        end
     end
+    ParadiseDev.DataCheck.updateScrollWidth(self.objects)
     self:refreshDetails()
 end
 
 function ParadiseDev.DataCheck.Panel:refreshDetails()
     self.modData:clear()
     self.fields:clear()
-    local row = self.objects.items[self.objects.selected]
-    local entry = row and row.item or nil
-    self.titleLabel:setName("Data Inspector: " .. tostring(entry and entry.name or "No selection"))
+    self.focus:clear()
+    local entry = self:getSelectedEntry()
+    self.titleLabel:setName("Data Inspector: " .. tostring(entry and entry.name or "No selection")
+        .. (entry and " [" .. tostring(entry.type) .. "]" or ""))
     if not entry then return end
     ParadiseDev.DataCheck.addModDataRows(self.modData, entry.obj)
     ParadiseDev.DataCheck.addFieldRows(self.fields, entry.obj)
+    for _, text in ipairs(entry.focusRows or {}) do self.focus:addItem(text) end
+    ParadiseDev.DataCheck.updateScrollWidth(self.modData)
+    ParadiseDev.DataCheck.updateScrollWidth(self.fields)
+    ParadiseDev.DataCheck.updateScrollWidth(self.focus)
+    self.focusButton:setTitle("Focus")
+    self.focusButton.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
+    self.focusButton.backgroundColorMouseOver = { r = 0.3, g = 0.3, b = 0.3, a = 1 }
 end
 
 function ParadiseDev.DataCheck.Panel:onObjectSelected()
     self:refreshDetails()
+end
+
+function ParadiseDev.DataCheck.Panel:onFocusSelected()
+    if self.focus.items[self.focus.selected] then
+        self.focusButton:setTitle("Unfocus")
+        self.focusButton.backgroundColor = { r = 0.65, g = 0, b = 0, a = 1 }
+        self.focusButton.backgroundColorMouseOver = { r = 0.9, g = 0.1, b = 0.1, a = 1 }
+    end
+end
+
+function ParadiseDev.DataCheck.Panel.onTypeFilterChanged(panel, index, selected, _, _, tickBox)
+    if not panel or not tickBox then return end
+    local objectType = tickBox:getOptionData(index)
+    if not objectType then return end
+    panel.typeVisibility[objectType] = selected
+    panel:refresh(panel:getSelectedEntry())
+end
+
+function ParadiseDev.DataCheck.Panel:addFocusRow()
+    local entry = self:getSelectedEntry()
+    local row = self.fields.items[self.fields.selected]
+    if not entry or not row or not row.text then return end
+    entry.focusRows = entry.focusRows or {}
+    for _, text in ipairs(entry.focusRows) do
+        if text == row.text then return end
+    end
+    entry.focusRows[#entry.focusRows + 1] = row.text
+    self.focus:addItem(row.text)
+    ParadiseDev.DataCheck.updateScrollWidth(self.focus)
+end
+
+function ParadiseDev.DataCheck.Panel:removeFocusRow()
+    local entry = self:getSelectedEntry()
+    local row = self.focus.items[self.focus.selected]
+    if not entry or not row then return end
+    table.remove(entry.focusRows, self.focus.selected)
+    self.focus:removeItemByIndex(self.focus.selected)
+    self.focus.selected = math.min(self.focus.selected, #self.focus.items)
+    self.focusButton:setTitle("Focus")
+    self.focusButton.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
+    self.focusButton.backgroundColorMouseOver = { r = 0.3, g = 0.3, b = 0.3, a = 1 }
 end
 
 function ParadiseDev.DataCheck.Panel:onClick(button)
@@ -441,9 +669,21 @@ function ParadiseDev.DataCheck.Panel:onClick(button)
         self:refresh(0)
     elseif button.internal == "CLIP" then
         ParadiseDev.DataCheck.copyDetails(self)
+    elseif button.internal == "FOCUS" then
+        if self.focus.items[self.focus.selected] and self.focusButton:getTitle() == "Unfocus" then
+            self:removeFocusRow()
+        else
+            self:addFocusRow()
+        end
+    elseif button.internal == "CLEAR_FOCUS" then
+        local entry = self:getSelectedEntry()
+        if entry then entry.focusRows = {} end
+        self.focus:clear()
+        self.focusButton:setTitle("Focus")
+        self.focusButton.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
+        self.focusButton.backgroundColorMouseOver = { r = 0.3, g = 0.3, b = 0.3, a = 1 }
     elseif button.internal == "TP" then
-        local row = self.objects.items[self.objects.selected]
-        local entry = row and row.item or nil
+        local entry = self:getSelectedEntry()
         ParadiseDev.DataCheck.teleportTo(entry and entry.obj)
     end
 end
@@ -457,6 +697,8 @@ function ParadiseDev.DataCheck.Panel:new(x, y, width, height)
     setmetatable(panel, self)
     self.__index = self
     panel.title = "ParadiseZ Data Inspector"
+    panel.minimumWidth = 1100
+    panel.minimumHeight = 400
     panel.resizable = true
     return panel
 end

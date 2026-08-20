@@ -10,9 +10,20 @@ ParadiseDev.Zones.Visualization.lastRefreshY = ParadiseDev.Zones.Visualization.l
 ParadiseDev.Zones.Visualization.lastRefreshZ = ParadiseDev.Zones.Visualization.lastRefreshZ or nil
 ParadiseDev.Zones.Visualization.VISIBLE_RADIUS = 80
 ParadiseDev.Zones.Visualization.BAND_WIDTH = 2
-ParadiseDev.Zones.Visualization.OUTSIDE_COLOR = { r = 0.15, g = 0.55, b = 1.0, a = 0.35 }
-ParadiseDev.Zones.Visualization.INSIDE_COLOR = { r = 1.0, g = 0.35, b = 0.10, a = 0.35 }
-ParadiseDev.Zones.Visualization.BORDER_COLOR = { r = 1.0, g = 1.0, b = 0.20, a = 0.95 }
+ParadiseDev.Zones.Visualization.cagedZoneId = ParadiseDev.Zones.Visualization.cagedZoneId or nil
+ParadiseDev.Zones.Visualization.OUTSIDE_COLOR = { r = 1.0, g = 0.9, b = 0.10, a = 0.35 }
+ParadiseDev.Zones.Visualization.INSIDE_COLOR = { r = 1.0, g = 1.0, b = 1.0, a = 0.35 }
+ParadiseDev.Zones.Visualization.RESTRICTED_OUTSIDE_COLOR = { r = 1.0, g = 1.0, b = 1.0, a = 0.35 }
+ParadiseDev.Zones.Visualization.RESTRICTED_INSIDE_COLOR = { r = 1.0, g = 0.15, b = 0.10, a = 0.35 }
+ParadiseDev.Zones.Visualization.CAGED_OUTSIDE_COLOR = { r = 1.0, g = 0.15, b = 0.10, a = 0.35 }
+ParadiseDev.Zones.Visualization.BORDER_COLOR = { r = 1.0, g = 0.9, b = 0.10, a = 0.95 }
+ParadiseDev.Zones.Visualization.INSIDE_BORDER_COLOR = { r = 0.20, g = 1.0, b = 0.20, a = 0.95 }
+ParadiseDev.Zones.Visualization.KOS_BORDER_COLOR = { r = 1.0, g = 0.15, b = 0.10, a = 0.95 }
+
+function ParadiseDev.Zones.Visualization.canRender(pl)
+    if ParadiseDev.isAdm and ParadiseDev.isAdm(pl) then return true end
+    return SandboxVars and SandboxVars.ParadiseZ and SandboxVars.ParadiseZ.ShowZoneDrawToNonAdmins == true
+end
 
 function ParadiseDev.Zones.Visualization.zoneOnLevel(zone, z)
     return zone.zMode == "all" or (z >= zone.zMin and z < zone.zMaxExclusive)
@@ -56,22 +67,41 @@ function ParadiseDev.Zones.Visualization.highlightVertical(x1, x2, y1, y2, z, co
     end
 end
 
-function ParadiseDev.Zones.Visualization.highlightRegion(region, z)
+function ParadiseDev.Zones.Visualization.regionContains(region, x, y)
+    return x >= region.xMin and x < region.xMax and y >= region.yMin and y < region.yMax
+end
+
+function ParadiseDev.Zones.Visualization.getRegionColors(zone, region, pl)
+    local inside = ParadiseDev.Zones.Visualization.regionContains(region, pl:getX(), pl:getY())
+    if zone.id == ParadiseDev.Zones.Visualization.cagedZoneId then
+        return ParadiseDev.Zones.Visualization.INSIDE_COLOR, ParadiseDev.Zones.Visualization.CAGED_OUTSIDE_COLOR,
+            inside and ParadiseDev.Zones.Visualization.INSIDE_BORDER_COLOR or ParadiseDev.Zones.Visualization.BORDER_COLOR
+    end
+    if zone.restricted == true and not inside then
+        return ParadiseDev.Zones.Visualization.RESTRICTED_INSIDE_COLOR, ParadiseDev.Zones.Visualization.RESTRICTED_OUTSIDE_COLOR,
+            (zone.features and zone.features.isKos) and ParadiseDev.Zones.Visualization.KOS_BORDER_COLOR or ParadiseDev.Zones.Visualization.BORDER_COLOR
+    end
+    local borderColor = (zone.features and zone.features.isKos) and ParadiseDev.Zones.Visualization.KOS_BORDER_COLOR or
+        (inside and ParadiseDev.Zones.Visualization.INSIDE_BORDER_COLOR or ParadiseDev.Zones.Visualization.BORDER_COLOR)
+    return ParadiseDev.Zones.Visualization.INSIDE_COLOR, ParadiseDev.Zones.Visualization.OUTSIDE_COLOR, borderColor
+end
+
+function ParadiseDev.Zones.Visualization.highlightRegion(region, z, insideColor, outsideColor)
     local x1, y1 = math.floor(region.xMin), math.floor(region.yMin)
     local x2, y2 = math.floor(region.xMax) - 1, math.floor(region.yMax) - 1
     local width = ParadiseDev.Zones.Visualization.BAND_WIDTH
 
-    ParadiseDev.Zones.Visualization.highlightHorizontal(x1 - width, x2 + width, y1 - width, y1 - 1, z, ParadiseDev.Zones.Visualization.OUTSIDE_COLOR)
-    ParadiseDev.Zones.Visualization.highlightHorizontal(x1 - width, x2 + width, y2 + 1, y2 + width, z, ParadiseDev.Zones.Visualization.OUTSIDE_COLOR)
-    ParadiseDev.Zones.Visualization.highlightVertical(x1 - width, x1 - 1, y1, y2, z, ParadiseDev.Zones.Visualization.OUTSIDE_COLOR)
-    ParadiseDev.Zones.Visualization.highlightVertical(x2 + 1, x2 + width, y1, y2, z, ParadiseDev.Zones.Visualization.OUTSIDE_COLOR)
+    ParadiseDev.Zones.Visualization.highlightHorizontal(x1 - width, x2 + width, y1 - width, y1 - 1, z, outsideColor)
+    ParadiseDev.Zones.Visualization.highlightHorizontal(x1 - width, x2 + width, y2 + 1, y2 + width, z, outsideColor)
+    ParadiseDev.Zones.Visualization.highlightVertical(x1 - width, x1 - 1, y1, y2, z, outsideColor)
+    ParadiseDev.Zones.Visualization.highlightVertical(x2 + 1, x2 + width, y1, y2, z, outsideColor)
 
     local insideWidth = math.min(width, math.floor((x2 - x1 + 1) / 2), math.floor((y2 - y1 + 1) / 2))
     if insideWidth < 1 then insideWidth = 1 end
-    ParadiseDev.Zones.Visualization.highlightHorizontal(x1, x2, y1, math.min(y2, y1 + insideWidth - 1), z, ParadiseDev.Zones.Visualization.INSIDE_COLOR)
-    ParadiseDev.Zones.Visualization.highlightHorizontal(x1, x2, math.max(y1, y2 - insideWidth + 1), y2, z, ParadiseDev.Zones.Visualization.INSIDE_COLOR)
-    ParadiseDev.Zones.Visualization.highlightVertical(x1, math.min(x2, x1 + insideWidth - 1), y1 + insideWidth, y2 - insideWidth, z, ParadiseDev.Zones.Visualization.INSIDE_COLOR)
-    ParadiseDev.Zones.Visualization.highlightVertical(math.max(x1, x2 - insideWidth + 1), x2, y1 + insideWidth, y2 - insideWidth, z, ParadiseDev.Zones.Visualization.INSIDE_COLOR)
+    ParadiseDev.Zones.Visualization.highlightHorizontal(x1, x2, y1, math.min(y2, y1 + insideWidth - 1), z, insideColor)
+    ParadiseDev.Zones.Visualization.highlightHorizontal(x1, x2, math.max(y1, y2 - insideWidth + 1), y2, z, insideColor)
+    ParadiseDev.Zones.Visualization.highlightVertical(x1, math.min(x2, x1 + insideWidth - 1), y1 + insideWidth, y2 - insideWidth, z, insideColor)
+    ParadiseDev.Zones.Visualization.highlightVertical(math.max(x1, x2 - insideWidth + 1), x2, y1 + insideWidth, y2 - insideWidth, z, insideColor)
 end
 
 function ParadiseDev.Zones.Visualization.refreshHighlights(force)
@@ -85,12 +115,14 @@ function ParadiseDev.Zones.Visualization.refreshHighlights(force)
     ParadiseDev.Zones.Visualization.lastRefreshX, ParadiseDev.Zones.Visualization.lastRefreshY, ParadiseDev.Zones.Visualization.lastRefreshZ = px, py, pz
     ParadiseDev.Zones.Visualization.clearHighlights()
     if not ParadiseDev.Zones.Visualization.enabled then return end
+    if not ParadiseDev.Zones.Visualization.canRender(pl) then return end
 
     for _, zone in ipairs(ParadiseDev.Zones.Visualization.zones) do
         if ParadiseDev.Zones.Visualization.zoneOnLevel(zone, pz) then
             for _, region in ipairs(zone.regions or {}) do
                 if ParadiseDev.Zones.Visualization.regionNearPlayer(region, pl, ParadiseDev.Zones.Visualization.VISIBLE_RADIUS) then
-                    ParadiseDev.Zones.Visualization.highlightRegion(region, pz)
+                    local insideColor, outsideColor = ParadiseDev.Zones.Visualization.getRegionColors(zone, region, pl)
+                    ParadiseDev.Zones.Visualization.highlightRegion(region, pz, insideColor, outsideColor)
                 end
             end
         end
@@ -136,12 +168,14 @@ function ParadiseDev.Zones.Visualization.renderBorders()
     if not ParadiseDev.Zones.Visualization.enabled then return end
     local pl = getPlayer()
     if not pl then return end
+    if not ParadiseDev.Zones.Visualization.canRender(pl) then return end
     local z = math.floor(pl:getZ())
     for _, zone in ipairs(ParadiseDev.Zones.Visualization.zones) do
         if ParadiseDev.Zones.Visualization.zoneOnLevel(zone, z) then
             for _, region in ipairs(zone.regions or {}) do
                 if ParadiseDev.Zones.Visualization.regionNearPlayer(region, pl, ParadiseDev.Zones.Visualization.VISIBLE_RADIUS) then
-                    ParadiseDev.Zones.Visualization.drawRegionBorder(region, z, ParadiseDev.Zones.Visualization.BORDER_COLOR)
+                    local _, _, borderColor = ParadiseDev.Zones.Visualization.getRegionColors(zone, region, pl)
+                    ParadiseDev.Zones.Visualization.drawRegionBorder(region, z, borderColor)
                 end
             end
         end
@@ -152,6 +186,7 @@ function ParadiseDev.Zones.Visualization.onServerCommand(module, command, args)
     if module ~= "PZZoneEngine" or command ~= "boundaryState" or not args then return end
     ParadiseDev.Zones.Visualization.zones = args.zones or {}
     ParadiseDev.Zones.Visualization.BAND_WIDTH = tonumber(args.borderWidth) or 2
+    ParadiseDev.Zones.Visualization.cagedZoneId = args.cagedZoneId
     ParadiseDev.Zones.Visualization.refreshHighlights(true)
 end
 

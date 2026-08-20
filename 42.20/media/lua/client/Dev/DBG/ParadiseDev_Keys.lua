@@ -1,10 +1,11 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Keys = ParadiseDev.Keys or {}
 
-require "Dev/ParadiseDev_Players"
 
 function ParadiseDev.Keys.flashlightTeleport(key)
     if not ParadiseDev.isAdm() then return key end
+    if not ISFastTeleportMove.cheat then return end
+
     if not getCore():isKey("Equip/Turn On/Off Light Source", key) then return key end
 
     local pl = getPlayer()

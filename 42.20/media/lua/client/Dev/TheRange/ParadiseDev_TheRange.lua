@@ -1,7 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.TheRange = ParadiseDev.TheRange or {}
 
-require "Dev/ParadiseDev_Players"
 
 ParadiseDev.TheRange.module = "ParadiseDevTheRange"
 ParadiseDev.TheRange.cardType = "ParadiseZ.TheRangeCard"
@@ -33,16 +32,24 @@ end
 
 function ParadiseDev.TheRange.getCards(items)
     local cards = {}
+    local found = {}
+    local function addCard(card)
+        if not ParadiseDev.TheRange.isCard(card) then return end
+        local id = card:getID()
+        if found[id] then return end
+        found[id] = true
+        cards[#cards + 1] = card
+    end
     if ParadiseDev.TheRange.isCard(items) then
-        cards[#cards + 1] = items
+        addCard(items)
         return cards
     end
     for _, entry in ipairs(items or {}) do
         if ParadiseDev.TheRange.isCard(entry) then
-            cards[#cards + 1] = entry
+            addCard(entry)
         elseif type(entry) == "table" and entry.items then
             for _, item in ipairs(entry.items) do
-                if ParadiseDev.TheRange.isCard(item) then cards[#cards + 1] = item end
+                addCard(item)
             end
         end
     end
@@ -73,7 +80,7 @@ function ParadiseDev.TheRange.isStaff(pl)
     pl = pl or getPlayer()
     if not pl then return false end
     if ParadiseDev.isAdm(pl) then return true end
-    if pl:hasTrait(ParadiseDev.TheRange.staffTrait) or pl:hasTrait("TheRangeStaff") then return true end
+    if ParadiseDev.hasTrait(pl, ParadiseDev.TheRange.staffTrait) or ParadiseDev.hasTrait(pl, "TheRangeStaff") then return true end
     local staff = SandboxVars.TheRange and SandboxVars.TheRange.Staff or ""
     for username in string.gmatch(tostring(staff), "[^;]+") do
         if username == pl:getUsername() then return true end

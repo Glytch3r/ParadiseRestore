@@ -47,4 +47,50 @@ module ParadiseZ
         Icon = TheRangeCard,
         WorldStaticModel = TheRangeCard,
     }
+
+
+    item FU_GoldCoin
+    {
+        DisplayCategory = Memento,
+        ItemType = base:normal,
+        Weight = 0.05,
+        Icon = Coin_Gold,
+        WorldStaticModel = FU_GoldCoin,
+        Tags = base:hasmetal;base:fitswallet;base:smallestgoldscrap,
+    }
+
+    item FU_SilverCoin
+    {
+        DisplayCategory = Memento,
+        ItemType = base:normal,
+        Weight = 0.05,
+        Icon = Coin_Silver,
+        WorldStaticModel = FU_SilverCoin,
+        Tags = base:hasmetal;base:fitswallet;base:smallestsilverscrap,
+    }
+    model FU_GoldCoin
+    {
+        mesh = WorldItems/Coin,
+        texture = WorldItems/FU_Coin_Gold,
+        scale = 0.125,
+        attachment world
+        {
+            offset = 0.0 0.0 0.0,
+            rotate = 0.0 0.0 0.0,
+        }
+    }
+
+    model FU_SilverCoin
+    {
+        mesh = WorldItems/Coin,
+        texture = WorldItems/FU_Coin_Silver,
+        scale = 0.125,
+        attachment world
+        {
+            offset = 0.0 0.0 0.0,
+            rotate = 0.0 0.0 0.0,
+        }
+    }
+
+
 }

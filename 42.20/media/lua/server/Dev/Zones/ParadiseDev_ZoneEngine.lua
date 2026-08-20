@@ -2,7 +2,6 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
 ParadiseDev.Zones.Engine = ParadiseDev.Zones.Engine or {}
 
-require "Dev/ParadiseDev_Players"
 
 ParadiseDev.Zones.Engine.CELL_SIZE = 100
 ParadiseDev.Zones.Engine.zones = ParadiseDev.Zones.Engine.zones or {}
@@ -23,7 +22,7 @@ ParadiseDev.Zones.Engine.FEATURE_KEYS = {
 ParadiseDev.Zones.Engine.featureKeySet = {}
 for _, key in ipairs(ParadiseDev.Zones.Engine.FEATURE_KEYS) do ParadiseDev.Zones.Engine.featureKeySet[key] = true end
 
-ParadiseDev.Zones.Engine.vehicleMode = ParadiseDev.Zones.Engine.vehicleMode or "observe"
+ParadiseDev.Zones.Engine.vehicleMode = ParadiseDev.Zones.Engine.vehicleMode or "rebound"
 
 function ParadiseDev.Zones.Engine.userName(pl)
     return pl and pl:getUsername() or nil
@@ -266,27 +265,35 @@ function ParadiseDev.Zones.Engine.getCandidateZones(x, y, padding)
     return result
 end
 
-function ParadiseDev.Zones.Engine.isAllowed(zone, pl)
-    if ParadiseDev.isAdm(pl) and zone.policy.adminBypass ~= false then return true end
-
+function ParadiseDev.Zones.Engine.getDeniedReason(zone, pl)
     local profile = ParadiseDev.Zones.Engine.getProfile(pl)
     local tags = profile.tags
     local features = zone.features or {}
-    if features.isBlocked then return false end
-    if features.isKos and tags.pve then return false end
-    if features.isHunt and not tags.range_staff and not tags.can_hunt then return false end
+    if features.isBlocked then return "Blocked zone" end
+    if features.isKos and tags.pve then return "PvE profile cannot enter a KoS zone" end
+    if features.isHunt and not tags.range_staff and not tags.can_hunt then return "Hunt authorization required" end
     for tag in pairs(zone.policy.denyTags or {}) do
-        if tags[tag] then return false end
+        if tags[tag] then return "Player profile is denied" end
     end
 
     local required = zone.policy.requireAnyTags or {}
     local hasRequirement = false
     for tag in pairs(required) do
         hasRequirement = true
-        if tags[tag] then return true end
+        if tags[tag] then return nil end
     end
-    if hasRequirement then return false end
-    return true
+    if hasRequirement then return "Required zone authorization missing" end
+    return nil
+end
+
+function ParadiseDev.Zones.Engine.adminBypassEnabled()
+    return SandboxVars and SandboxVars.ParadiseZ and SandboxVars.ParadiseZ.AdminBypassZoneRestrictions == true
+end
+
+function ParadiseDev.Zones.Engine.isAllowed(zone, pl)
+    local deniedReason = ParadiseDev.Zones.Engine.getDeniedReason(zone, pl)
+    if not deniedReason then return true end
+    return ParadiseDev.isAdm(pl) and ParadiseDev.Zones.Engine.adminBypassEnabled() and zone.policy.adminBypass ~= false
 end
 
 function ParadiseDev.Zones.Engine.syncBoundaryState(pl)
@@ -300,6 +307,7 @@ function ParadiseDev.Zones.Engine.syncBoundaryState(pl)
                 xMax = region.xMax, yMax = region.yMax,
             }
         end
+        local deniedReason = ParadiseDev.Zones.Engine.getDeniedReason(zone, pl)
         zones[#zones + 1] = {
             id = zone.id,
             name = zone.name,
@@ -308,6 +316,8 @@ function ParadiseDev.Zones.Engine.syncBoundaryState(pl)
             zMin = zone.zMin,
             zMaxExclusive = zone.zMaxExclusive,
             allowed = ParadiseDev.Zones.Engine.isAllowed(zone, pl),
+            restricted = deniedReason ~= nil,
+            deniedReason = deniedReason,
             features = ParadiseDev.Zones.Engine.copyFeatures(zone.features),
             regions = regions,
         }

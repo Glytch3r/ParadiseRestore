@@ -2,7 +2,7 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
 ParadiseDev.Zones.Probe = ParadiseDev.Zones.Probe or {}
 
-require "Dev/ParadiseDev_Players"
+
 
 ParadiseDev.Zones.Probe.module = "PZZoneHarness"
 

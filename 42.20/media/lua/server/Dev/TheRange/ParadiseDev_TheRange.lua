@@ -1,7 +1,7 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.TheRange = ParadiseDev.TheRange or {}
 
-require "Dev/ParadiseDev_Players"
+
 
 ParadiseDev.TheRange.module = "ParadiseDevTheRange"
 ParadiseDev.TheRange.cardType = "ParadiseZ.TheRangeCard"
@@ -14,7 +14,7 @@ ParadiseDev.TheRange.vendorSprites = {
 ParadiseDev.TheRange.lastHourly = ParadiseDev.TheRange.lastHourly or {}
 
 function ParadiseDev.TheRange.isCard(card)
-    return card and card:getFullType() == ParadiseDev.TheRange.cardType
+    return card and instanceof(card, "InventoryItem") and card:getFullType() == ParadiseDev.TheRange.cardType
 end
 
 function ParadiseDev.TheRange.getOwner(card)
@@ -86,7 +86,7 @@ function ParadiseDev.TheRange.isStaff(pl)
     for username in string.gmatch(tostring(staff), "[^;]+") do
         if username == pl:getUsername() then return true end
     end
-    return pl:hasTrait("ParadiseDev:TheRangeStaff") or pl:hasTrait("TheRangeStaff")
+    return ParadiseDev.hasTrait(pl, "ParadiseDev:TheRangeStaff") or ParadiseDev.hasTrait(pl, "TheRangeStaff")
 end
 
 function ParadiseDev.TheRange.canHunt(pl)

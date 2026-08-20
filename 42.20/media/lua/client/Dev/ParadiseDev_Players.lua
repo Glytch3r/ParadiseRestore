@@ -1,6 +1,7 @@
 
 ParadiseDev = ParadiseDev or {}
 
+
 function ParadiseDev.getTarg(targ)
     if not targ then
         return nil
