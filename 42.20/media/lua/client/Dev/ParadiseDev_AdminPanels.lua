@@ -312,7 +312,7 @@ function ParadiseDev.Panels.GlobalModData:onClickDeleteValue()
     end
     self.selectedTableName = name
     self:populateList()
-end
+end 
 
 function ParadiseDev.Panels.GlobalModData:onClickDeleteTable()
     local name = self:getSelectedTableName()
