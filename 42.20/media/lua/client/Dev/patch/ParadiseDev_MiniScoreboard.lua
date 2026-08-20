@@ -1,3 +1,5 @@
+require "ISUI/AdminPanel/ISMiniScoreboardUI"
+
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.miniscoreboard = ParadiseDev.miniscoreboard or {}
 

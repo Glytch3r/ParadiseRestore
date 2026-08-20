@@ -114,9 +114,9 @@ module ParadiseZ
         }
         itemMapper metalType
         {
-            PareadiseZ.FU_GoldCoin = Base.GoldSheet,
-            PareadiseZ.FU_SilverCoin = Base.SilverSheet,
-            default = PareadiseZ.FU_SilverCoin,
+            ParadiseZ.FU_GoldCoin = Base.GoldSheet,
+            ParadiseZ.FU_SilverCoin = Base.SilverSheet,
+            default = ParadiseZ.FU_SilverCoin,
         }
     }
 }

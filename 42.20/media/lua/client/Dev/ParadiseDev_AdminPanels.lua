@@ -12,7 +12,7 @@ ParadiseDev.Panels.GlobalModData = GlobalModDataDebug:derive("ParadiseDev.Panels
 function ParadiseDev.Panels.isAdmin(player)
     return ParadiseDev.isAdm(player)
 end
-
+--[[ 
 function ParadiseDev.Panels.addMissingScoreboardOptions(panel, player, x, y)
     if not ParadiseDev.Panels.isAdmin(panel.admin) then return end
     local role = panel.admin:getRole()
@@ -46,7 +46,7 @@ function ParadiseDev.Panels.addScoreboardOptions(panel, player, x, y)
         ParadiseDev.Cage.addTargetOptions(context, player)
     end
 end
-
+ ]]
 function ParadiseDev.Panels.GlobalModData:new(x, y, width, height, title)
     local panel = ISPanel:new(x, y, width, height)
     setmetatable(panel, self)
@@ -323,7 +323,7 @@ function ParadiseDev.Panels.GlobalModData:onClickDeleteTable()
     self.valueEntry:setText("")
     self:populateList()
 end
-
+--[[ 
 function ParadiseDev.Panels.openMiniScoreboard()
     if ParadiseDev.Panels.miniScoreboard then
         ParadiseDev.Panels.miniScoreboard:setVisible(true)
@@ -359,7 +359,8 @@ function ParadiseDev.Panels.openMiniScoreboard()
     panel:setVisible(true)
     ParadiseDev.Panels.miniScoreboard = panel
 end
-
+ ]]
+--[[ 
 function ParadiseDev.Panels.openUsersList()
     if ParadiseDev.Panels.usersList then
         ParadiseDev.Panels.usersList:setVisible(true)
@@ -397,6 +398,7 @@ function ParadiseDev.Panels.openUsersList()
     panel:setVisible(true)
     ParadiseDev.Panels.usersList = panel
 end
+ ]]
 
 function ParadiseDev.Panels.openGlobalModData()
     if ParadiseDev.Panels.globalModData then
