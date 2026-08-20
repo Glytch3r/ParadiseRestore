@@ -91,9 +91,10 @@ module ParadiseZ
             rotate = 0.0 0.0 0.0,
         }
     }
+
     craftRecipe Create_FUCoins
     {
-        time = 100,
+        time = 100, 
         SkillRequired = Blacksmith:1,
         NeedToBeLearn = false,
         timedAction = HammerMetalStanding,

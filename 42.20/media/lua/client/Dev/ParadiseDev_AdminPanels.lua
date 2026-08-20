@@ -335,7 +335,6 @@ function ParadiseDev.Panels.openMiniScoreboard()
     panel.doPlayerListContextMenu = function(self, player, x, y)
         ISMiniScoreboardUI.doPlayerListContextMenu(self, player, x, y)
         ParadiseDev.Panels.addMissingScoreboardOptions(self, player, x, y)
-        ParadiseDev.Panels.addScoreboardOptions(self, player, x, y)
     end
     panel.populateList = function(self)
         ISMiniScoreboardUI.populateList(self)
