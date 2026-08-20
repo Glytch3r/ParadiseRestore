@@ -322,7 +322,7 @@ function ParadiseDev.Panels.GlobalModData:onClickDeleteTable()
     self.keyEntry:setText("")
     self.valueEntry:setText("")
     self:populateList()
-end
+end 
 --[[ 
 function ParadiseDev.Panels.openMiniScoreboard()
     if ParadiseDev.Panels.miniScoreboard then
