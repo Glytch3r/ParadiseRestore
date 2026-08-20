@@ -92,31 +92,5 @@ module ParadiseZ
         }
     }
 
-    craftRecipe Create_FUCoins
-    {
-        time = 100, 
-        SkillRequired = Blacksmith:1,
-        NeedToBeLearn = false,
-        timedAction = HammerMetalStanding,
-        xpAward = Blacksmith:25,
-        Tags = PrimitiveForge,
-        category = Blacksmithing,
-        inputs
-        {
-            item 1 tags[base:charcoal],
-            item 1 tags[base:smithinghammer] mode:keep flags[Prop1;MayDegradeLight],
-            item 1 tags[base:metalworkingpliers;base:tongs] mode:keep flags[Prop2;MayDegradeLight],
-            item 1 [Base.GoldSheet;Base.SilverSheet] mappers[metalType],
-        }
-        outputs
-        {
-            item 10 mapper:metalType,
-        }
-        itemMapper metalType
-        {
-            ParadiseZ.FU_GoldCoin = Base.GoldSheet,
-            ParadiseZ.FU_SilverCoin = Base.SilverSheet,
-            default = ParadiseZ.FU_SilverCoin,
-        }
-    }
+
 }
