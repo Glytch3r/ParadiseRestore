@@ -49,6 +49,6 @@ function ISMiniScoreboardUI:onCommand(player, command)
     elseif command == "SPECTATE" then
         if ParadiseZ and ParadiseZ.setSpectate and player and player.username then ParadiseZ.setSpectate(player.username) end
     else
-        ParadiseDev.miniscoreboard.onCommand(self, player, command)
+        ParadiseDev.miniscoreboard.onCommand(player, command)
     end
 end
