@@ -135,9 +135,17 @@ function ParadiseDev.Context.context(plNum, context)
     if ParadiseDev.Zones and ParadiseDev.Zones.openUI then ParadiseDev.Context.addOption(panelsMenu, "Zone Editor", ParadiseDev.Zones.openUI, "media/ui/Paradise/ZoneContextIcon.png") end
     if ParadiseDev.Cage and ParadiseDev.Cage.openPanel then ParadiseDev.Context.addOption(panelsMenu, "Cage Administration", ParadiseDev.Cage.openPanel, "media/ui/Paradise/ContextIcon.png") end
     if ParadiseDev.Panels then
-            ParadiseDev.Context.addOption(panelsMenu, "Mini Scoreboard", ParadiseDev.Panels.openMiniScoreboard, "media/ui/Paradise/ContextIcon.png")
-            ParadiseDev.Context.addOption(panelsMenu, "Users List", ParadiseDev.Panels.openUsersList, "media/ui/Paradise/ContextIcon.png")
             ParadiseDev.Context.addOption(panelsMenu, "WaveCaster", ParadiseDev.Panels.openWaveCaster, "media/ui/Paradise/ContextIcon.png")
+
+            ParadiseDev.Context.addOption(panelsMenu, "Mini Scoreboard", function() 
+                if ISMiniScoreboardUI.instance then
+                    ISMiniScoreboardUI.instance:close()
+                end
+                local ui = ISMiniScoreboardUI:new(50,50,300,300, getPlayer());
+                ui:initialise();
+                ui:addToUIManager();
+            end, "media/ui/Paradise/ContextIcon.png")
+            ParadiseDev.Context.addOption(panelsMenu, "Users List", ParadiseDev.Panels.openUsersList, "media/ui/Paradise/ContextIcon.png")
             ParadiseDev.Context.addOption(panelsMenu, "Global ModData", ParadiseDev.Panels.openGlobalModData, "media/ui/Paradise/ContextIcon.png")        if getCore():getDebug() then 
             ParadiseDev.Context.addOption(panelsMenu, "AnimMonitor", ParadiseDev.Panels.ISAnimDebugMonitor, "media/ui/Paradise/ContextIcon.png")
         end
