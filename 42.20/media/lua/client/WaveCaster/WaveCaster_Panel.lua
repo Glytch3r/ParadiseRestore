@@ -6,6 +6,7 @@ WaveCaster.pickedColor = { r = 0.65, g = 0.84, b = 0.94 }
 WaveCaster.ZedSkins = { "F_ZedBody01_level1", "F_ZedBody01_level2", "F_ZedBody01_level3", "F_ZedBody01", "F_ZedBody02_level1", "F_ZedBody02_level2", "F_ZedBody02_level3", "F_ZedBody02", "F_ZedBody03_level1", "F_ZedBody03_level2", "F_ZedBody03_level3", "F_ZedBody03", "F_ZedBody04_level1", "F_ZedBody04_level2", "F_ZedBody04_level3", "F_ZedBody04", "M_ZedBody01_level1", "M_ZedBody01_level2", "M_ZedBody01_level3", "M_ZedBody01", "M_ZedBody02_level1", "M_ZedBody02_level2", "M_ZedBody02_level3", "M_ZedBody02", "M_ZedBody03_level1", "M_ZedBody03_level2", "M_ZedBody03_level3", "M_ZedBody03", "M_ZedBody04_level1", "M_ZedBody04_level2", "M_ZedBody04_level3", "M_ZedBody04" }
 WaveCaster.HumanSkins = { "FemaleBody01", "FemaleBody02", "FemaleBody03", "FemaleBody04", "FemaleBody05", "MaleBody01", "MaleBody01a", "MaleBody02", "MaleBody02a", "MaleBody03", "MaleBody03a", "MaleBody04", "MaleBody04a", "MaleBody05", "MaleBody05a" }
 WaveCaster.SkeletonSkins = { "Skeleton_Mannequin", "Skeleton", "SkeletonBurned", "SkeletonMuscle", "F_Mannequin_White", "F_Mannequin_Black", "M_Mannequin_Black", "M_Mannequin_White", "Male_Scarecrow" }
+--[[ 
 if DebugContextMenu and DebugContextMenu.onHordeManager then
 	function DebugContextMenu.onHordeManager(sq, pl)
 		if not getCore():getDebug() then return end
@@ -20,6 +21,7 @@ if AdminContextMenu and AdminContextMenu.onHordeManager then
 		WaveCaster.panel(true)
 	end
 end
+ ]]
 -----------------------            ---------------------------
 function WaveCasterPanel:render()
     ISCollapsableWindow.render(self)
@@ -45,21 +47,21 @@ function WaveCasterPanel:render()
     self:drawText(
         "STATE:  \n[  ".. state .."  ]",
         450,
-        710,
+        810,
         1,1,1,1,
         UIFont.Small
     )
     self:drawText(
         "NEXT WAVE:  \n[ " .. tostring(castEvent and castEvent.Countdown or 0)..' ]',
         600,
-        710,
+        810,
         1,1,1,1,
         UIFont.Small
     )
     self:drawText(
         "WAVES:  \n[ " .. tostring(castEvent and #castEvent.Waves or 0)..' ]',
         750,
-        710,
+        810,
         1,1,1,1,
         UIFont.Small
     )
@@ -118,8 +120,10 @@ function WaveCasterPanel:createChildren()
 	local pCol = WaveCaster.pickedColor
 
 	ISCollapsableWindow.createChildren(self)
-	local labelY =112
-	self.zombiesNbrLabel = ISLabel:new(130, labelY, 10, "Zombies Number" ,1,1,1,1,UIFont.Small, true);
+	local labelY = 112
+
+
+	self.zombiesNbrLabel = ISLabel:new(40, labelY, 20, "Zombies Number" ,1,1,1,1,UIFont.Small, true);
 	self:addChild(self.zombiesNbrLabel);
 	self.zombiesNbr = ISTextEntryBox:new("1", self.zombiesNbrLabel.x, labelY + 15, 100, 20);
 	self.zombiesNbr:initialise();
@@ -127,7 +131,7 @@ function WaveCasterPanel:createChildren()
 	self.zombiesNbr:setOnlyNumbers(true);
 	self:addChild(self.zombiesNbr);
 	
-	self.radiusLbl = ISLabel:new(315, 50, 10, "Wave Radius" ,1,1,1,1,UIFont.Small, true);
+	self.radiusLbl = ISLabel:new(315, 50, 20, "Wave Radius" ,1,1,1,1,UIFont.Small, true);
 	self:addChild(self.radiusLbl);
 	
 	self.radius = ISTextEntryBox:new("1", self.radiusLbl.x, 66, 100, 20);
@@ -139,14 +143,14 @@ function WaveCasterPanel:createChildren()
 	self.radius.backgroundColor.b = mCol.b
 
 	self:addChild(self.radius);
---**
-	self.outfitLbl = ISLabel:new(254, labelY, 10, "Zombies Outfit" ,1,1,1,1,UIFont.Small, true);
+--- 254, labelY
+	self.outfitLbl = ISLabel:new(40, labelY+42, 20, "Zombies Outfit" ,1,1,1,1,UIFont.Small, true);
 	self:addChild(self.outfitLbl);
 	self.outfitLbl.backgroundColor.r = mCol.r
 	self.outfitLbl.backgroundColor.g = mCol.g
 	self.outfitLbl.backgroundColor.b = mCol.b
 	--**
-	self.outfit = ISComboBox:new(self.outfitLbl.x, labelY + 15, 160, 20)
+	self.outfit = ISComboBox:new(self.outfitLbl.x, self.outfitLbl.y + 15, 160, 20)
 	self.outfit.textColor = {r=1, g=0, b=0, a=1};
 	self.outfit.backgroundColor = {r=0, g=0, b=0, a=1};
 	self.outfit.backgroundColorMouseOver = {r=0.4, g=0.4, b=0.4, a=1};
@@ -172,10 +176,12 @@ function WaveCasterPanel:createChildren()
 			self.outfit:addOptionWithData(self.femaleOutfits:get(i) .. " - Female only", self.femaleOutfits:get(i));
 		end
 	end
-	self.skinLabel = ISLabel:new(254, 158, 10, "Skin Texture", 1, 1, 1, 1, UIFont.Small, true)
+
+
+	self.skinLabel = ISLabel:new(254, labelY+42, 20, "Skin Texture", 1, 1, 1, 1, UIFont.Small, true)
 	self.skinLabel:initialise()
 	self:addChild(self.skinLabel)
-	self.skin = ISComboBox:new(254, 175, 160, 20)
+	self.skin = ISComboBox:new(254, labelY+62, 160, 20)
 	self.skin:initialise()
 	self:addChild(self.skin)
 	self.humanizeOption = ISTickBox:new(254, 202, 95, 20, "", self, WaveCasterPanel.onSkinOptionsChanged)
@@ -183,7 +189,7 @@ function WaveCasterPanel:createChildren()
 	self.humanizeOption.choicesColor = {r=0, g=1, b=0.6, a=1}
 	self.humanizeOption:addOption("Humanize")
 	self:addChild(self.humanizeOption)
-	self.randomAnyOption = ISTickBox:new(344, 202, 95, 20, "", self, WaveCasterPanel.onSkinOptionsChanged)
+	self.randomAnyOption = ISTickBox:new(254, 262, 95, 20, "", self, WaveCasterPanel.onSkinOptionsChanged)
 	self.randomAnyOption:initialise()
 	self.randomAnyOption.choicesColor = {r=0, g=1, b=0.6, a=1}
 	self.randomAnyOption:addOption("Random Any")
@@ -249,6 +255,15 @@ function WaveCasterPanel:createChildren()
 		self.zombieStats[stat.key] = combo
 	end
 
+	self.healthLabel = ISLabel:new(130, 335, 10, "Health", 1, 1, 1, 1, UIFont.Small, true)
+	self.healthLabel:initialise()
+	self:addChild(self.healthLabel)
+	self.health = ISTextEntryBox:new("1", 130, 352, 80, 20)
+	self.health:initialise()
+	self.health:instantiate()
+	self.health:setOnlyNumbers(true)
+	self:addChild(self.health)
+
 	y = 410
 	self.leftBoolOptions = ISTickBox:new(40, y, 180, 20, "", self, WaveCasterPanel.onBoolOptionsChangeLeft);
 	self.leftBoolOptions:initialise()
@@ -290,7 +305,8 @@ function WaveCasterPanel:createChildren()
 	self.extraBoolOptions:addOption("No Teeth");
 	self.extraBoolOptions:addOption("Jaw Stab Attach");
 	self.extraBoolOptions:addOption("Only Jaw Stab");
-	self.stateBoolOptions = ISTickBox:new(254, y + 225, 180, 20, "", self, nil)
+	--self.stateBoolOptions = ISTickBox:new(254, y + 225, 180, 20, "", self, nil)
+	self.stateBoolOptions = ISTickBox:new(254, y + 290, 180, 20, "", self, nil)
 	self.stateBoolOptions:initialise()
 	self.stateBoolOptions.choicesColor = {r=0, g=1, b=0.6, a=1}
 	self:addChild(self.stateBoolOptions)
@@ -299,18 +315,10 @@ function WaveCasterPanel:createChildren()
 	self.stateBoolOptions:addOption("Scratch")
 	self.stateBoolOptions:addOption("Laceration")
 	self.stateBoolOptions:addOption("Keep It Real")
-	self.healthLabel = ISLabel:new(55, labelY, 10, "Health", 1, 1, 1, 1, UIFont.Small, true)
-	self.healthLabel:initialise()
-	self:addChild(self.healthLabel)
-	self.health = ISTextEntryBox:new("1", 55, labelY + 15, 80, 20)
-	self.health:initialise()
-	self.health:instantiate()
-	self.health:setOnlyNumbers(true)
-	self:addChild(self.health)
 	
 	self.pickNewSq = ISButton:new(35, 30, btnWid+25, btnHgt+25, "Pick Cast Point", self, WaveCasterPanel.onSelectNewSquare);
 	self.pickNewSq.anchorTop = false
-	self.pickNewSq.anchorBottom = true
+	--self.pickNewSq.anchorBottom = true
 	self.pickNewSq:initialise();
 	self.pickNewSq:instantiate();
 	self.pickNewSq.backgroundColor = {r=pCol.r, g=pCol.g, b=pCol.b, a=0.6};
@@ -345,21 +353,9 @@ function WaveCasterPanel:createChildren()
 		if entry.name == "Z" then self.selectZEntry = input end
 	end
 
-
-
---[[ 
-	self.pickNewSq = ISButton:new(5, 20, btnWid, btnHgt, "Pick Cast Point", self, WaveCasterPanel.onSelectNewSquare);
-	self.pickNewSq.anchorTop = false
-	self.pickNewSq.anchorBottom = true
-	self.pickNewSq:initialise();
-	self.pickNewSq:instantiate();
-	self.pickNewSq = {r=0.2, g=3.2, b=0.2, a=0.4};
-	self.pickNewSq.borderColor = {r=1, g=1, b=1, a=0.4};
-	self:addChild(self.pickNewSq);
- ]]
-	self.add = ISButton:new(40, 760, btnWid*f, btnHgt, "Cast Now", self, WaveCasterPanel.onSpawn);
+	self.add = ISButton:new(40, 800, btnWid, btnHgt, "Cast Now", self, WaveCasterPanel.onSpawn);
 	self.add.anchorTop = false
-	self.add.anchorBottom = true
+	self.add.anchorBottom = false
 	self.add:initialise();
 	self.add:instantiate();
 	self.add.borderColor = {r=0, g=1, b=0, a=0.1};
@@ -389,43 +385,43 @@ function WaveCasterPanel:createChildren()
 	end
 	self.waveList:setOnMouseDownFunction(self, WaveCasterPanel.onWaveListClick)
 	self:addChild(self.waveList)
-	self.castWave = ISButton:new(40, 790, btnWid, btnHgt, "Cast Wave", self, WaveCasterPanel.onCast);
+	self.castWave = ISButton:new(40, 830, btnWid, btnHgt, "Cast Wave", self, WaveCasterPanel.onCast);
 	self.castWave.anchorTop = false
-	self.castWave.anchorBottom = true
+	--self.castWave.anchorBottom = true
 	self.castWave:initialise();
 	self.castWave:instantiate();
 	self.castWave.borderColor = {r=1, g=1, b=1, a=0.1};
 	self.castWave.enable = false
 	self.castWave.tooltip = 'Forces the first wave to trigger by setting the countdown timer to 0'
 	self:addChild(self.castWave);
-	self.removeZombies = ISButton:new(40, 760, btnWid, btnHgt, getText("IGUI_SpawnHorde_RemoveZombies"), self, WaveCasterPanel.onRemoveZombies);
+	self.removeZombies = ISButton:new(40, 860, btnWid, btnHgt, getText("IGUI_SpawnHorde_RemoveZombies"), self, WaveCasterPanel.onRemoveZombies);
 	self.removeZombies.anchorTop = false
-	self.removeZombies.anchorBottom = true
+	--self.removeZombies.anchorBottom = true
 	self.removeZombies:initialise();
 	self.removeZombies:instantiate();
 	self.removeZombies.borderColor = {r=1, g=1, b=1, a=0.1};
 	self.removeZombies.tooltip = 'Hold Shift to remove all loaded zombies.'
 	self:addChild(self.removeZombies);
-	self.removeBodies = ISButton:new(40, 730, btnWid, btnHgt, getText("IGUI_SpawnHorde_RemoveBodies"), self, WaveCasterPanel.onRemoveBodies);
+	self.removeBodies = ISButton:new(40, 890, btnWid, btnHgt, getText("IGUI_SpawnHorde_RemoveBodies"), self, WaveCasterPanel.onRemoveBodies);
 	self.removeBodies.anchorTop = false
-	self.removeBodies.anchorBottom = true
+	--self.removeBodies.anchorBottom = true
 	self.removeBodies:initialise();
 	self.removeBodies:instantiate();
 	self.removeBodies.borderColor = {r=1, g=1, b=1, a=0.1};
 	self.removeBodies.tooltip = 'Remove corpses within the Cast Point radius.'
 	self:addChild(self.removeBodies);
-	self.queue = ISButton:new(253, 760, btnWid*f, btnHgt, "Add Queue", self, WaveCasterPanel.onQueue);
+	self.queue = ISButton:new(253, 855, btnWid*f, btnHgt, "Add Queue", self, WaveCasterPanel.onQueue);
 	self.queue.anchorTop = false
-	self.queue.anchorBottom = true
+	--self.queue.anchorBottom = true
 	self.queue:initialise();
 	self.queue:instantiate();
 	self.queue.borderColor = {r=1, g=0, b=0, a=0.2};
 	self.queue.tooltip = 'Add a wave to the queue list based on your settings'
 
 	self:addChild(self.queue);
-	self.removeWave = ISButton:new(253, 790, btnWid, btnHgt, "Remove Wave", self, WaveCasterPanel.onRemoveWave);
+	self.removeWave = ISButton:new(253, 886, btnWid, btnHgt, "Remove Wave", self, WaveCasterPanel.onRemoveWave);
 	self.removeWave.anchorTop = false
-	self.removeWave.anchorBottom = true
+	--self.removeWave.anchorBottom = true
 	self.removeWave:initialise();
 	self.removeWave:instantiate();
 	self.removeWave.borderColor = {r=1, g=0, b=0, a=0.4};
@@ -434,6 +430,8 @@ function WaveCasterPanel:createChildren()
 
 	self:addChild(self.removeWave);
 end
+
+
 ------------------------            ---------------------------
 function WaveCasterPanel:onSpawn()
 	if not self:applyTypedSquare() then return end
@@ -1022,7 +1020,7 @@ function WaveCaster.panel(activate)
         local sq = pl:getSquare()
         if not pl or not sq then return end
 		local width = 1020;
-		local height = 860;
+		local height = 960;
         local x = (getCore():getScreenWidth() - width) / 2 - 300
         local y = (getCore():getScreenHeight() - height) / 2
         local editor = WaveCasterPanel:new(x, y, width, height, pl, sq )

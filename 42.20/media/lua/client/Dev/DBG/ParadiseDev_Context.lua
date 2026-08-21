@@ -135,10 +135,12 @@ function ParadiseDev.Context.context(plNum, context)
     if ParadiseDev.Zones and ParadiseDev.Zones.openUI then ParadiseDev.Context.addOption(panelsMenu, "Zone Editor", ParadiseDev.Zones.openUI, "media/ui/Paradise/ZoneContextIcon.png") end
     if ParadiseDev.Cage and ParadiseDev.Cage.openPanel then ParadiseDev.Context.addOption(panelsMenu, "Cage Administration", ParadiseDev.Cage.openPanel, "media/ui/Paradise/ContextIcon.png") end
     if ParadiseDev.Panels then
-        ParadiseDev.Context.addOption(panelsMenu, "Mini Scoreboard", ParadiseDev.Panels.openMiniScoreboard, "media/ui/Paradise/ContextIcon.png")
-        ParadiseDev.Context.addOption(panelsMenu, "Users List", ParadiseDev.Panels.openUsersList, "media/ui/Paradise/ContextIcon.png")
-        ParadiseDev.Context.addOption(panelsMenu, "WaveCaster", ParadiseDev.Panels.openWaveCaster, "media/ui/Paradise/ContextIcon.png")
-        ParadiseDev.Context.addOption(panelsMenu, "Global ModData", ParadiseDev.Panels.openGlobalModData, "media/ui/Paradise/ContextIcon.png")
+            ParadiseDev.Context.addOption(panelsMenu, "Mini Scoreboard", ParadiseDev.Panels.openMiniScoreboard, "media/ui/Paradise/ContextIcon.png")
+            ParadiseDev.Context.addOption(panelsMenu, "Users List", ParadiseDev.Panels.openUsersList, "media/ui/Paradise/ContextIcon.png")
+            ParadiseDev.Context.addOption(panelsMenu, "WaveCaster", ParadiseDev.Panels.openWaveCaster, "media/ui/Paradise/ContextIcon.png")
+            ParadiseDev.Context.addOption(panelsMenu, "Global ModData", ParadiseDev.Panels.openGlobalModData, "media/ui/Paradise/ContextIcon.png")        if getCore():getDebug() then 
+            ParadiseDev.Context.addOption(panelsMenu, "AnimMonitor", ParadiseDev.Panels.ISAnimDebugMonitor, "media/ui/Paradise/ContextIcon.png")
+        end
     end
     if ParadiseDev.Zones and ParadiseDev.Zones.openTestRemote then ParadiseDev.Context.addOption(panelsMenu, "Zone Test Control", ParadiseDev.Zones.openTestRemote, "media/ui/Paradise/ZoneContextIcon.png") end
 

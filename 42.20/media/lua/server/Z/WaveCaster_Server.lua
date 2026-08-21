@@ -243,8 +243,7 @@ function WaveCaster.processEvents()
                 castEvent.Countdown = 0
             end
             if castEvent.Countdown <= 0 then
-                local nearbyPlayer = WaveCaster.getClosestPlayerInRange(castEvent)
-                if nearbyPlayer then WaveCaster.processWave(castEvent) end
+                WaveCaster.processWave(castEvent)
             end
             changed = true
         end
