@@ -65,7 +65,7 @@ function ParadiseZ.setSpectateOffset(key)
     if not ParadiseZ.isSpectating(pl) then return key end
 
     local md = pl:getModData()
-    local off = md.SpectateOffset
+    local off = md.ParadiseZSpectateOffset
     if not off then return key end
     
     local core = getCore()
@@ -89,7 +89,7 @@ function ParadiseZ.setSpectateOffset(key)
     elseif key == offsetRight then
         off.x = off.x + 1
     elseif key == stopSpectate or key == mapKey then
-        md.Spectating = nil
+        ParadiseZ.stopSpectate()
     elseif key == offsetUp then
         off.z = math.min(7, math.max(0, off.z + 1))
     elseif key == offsetDown then

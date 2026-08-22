@@ -48,16 +48,26 @@ function ParadiseZ.setSpectate(target)
     local username = type(target) == "string" and target or (target and target:getUsername())
     if not username or username == "" or username == player:getUsername() then
         player:getModData().ParadiseZSpectateTarget = nil
+        player:getModData().ParadiseZSpectateOffset = nil
         ParadiseZ.setSpectateSkin(player)
         return
     end
 
     player:getModData().ParadiseZSpectateTarget = username
+    player:getModData().ParadiseZSpectateOffset = { x = 0, y = 0, z = 0 }
     ParadiseZ.setSpectateSkin(player)
 end
 
 function ParadiseZ.stopSpectate()
     ParadiseZ.setSpectate(nil)
+end
+
+function ParadiseZ.getSpectatePoint(player)
+    player = player or getLocalPlayer()
+    local target = ParadiseZ.getSpectateTarg(player)
+    if not target or (target.isDead and target:isDead()) then return nil, nil, nil end
+    local offset = player:getModData().ParadiseZSpectateOffset or { x = 0, y = 0, z = 0 }
+    return target:getX() + (tonumber(offset.x) or 0), target:getY() + (tonumber(offset.y) or 0), target:getZ() + (tonumber(offset.z) or 0)
 end
 
 local function applyHiddenModel(player, hidden)
@@ -108,18 +118,25 @@ function ParadiseZ.doSpectateTP(player)
     local username = ParadiseZ.getSpectateTargUser(player)
     if not username then return end
 
+    local target = ParadiseZ.getSpectateTarg(player)
+    if not target or (target.isDead and target:isDead()) then
+        ParadiseZ.stopSpectate()
+        return
+    end
+
     followTicks = followTicks + 1
     if followTicks % FOLLOW_INTERVAL ~= 0 then return end
 
     if isClient() then
-        sendClientCommand(MODULE, "follow", { username = username })
+        local offset = player:getModData().ParadiseZSpectateOffset or { x = 0, y = 0, z = 0 }
+        sendClientCommand(MODULE, "follow", { username = username, x = offset.x, y = offset.y, z = offset.z })
         return
     end
 
-    local target = getPlayerFromUsername(username)
-    if target and ParadiseDev and ParadiseDev.TP then
-        ParadiseDev.TP.applyTeleport(player, target:getX(), target:getY(), target:getZ())
-    elseif not target then
+    local x, y, z = ParadiseZ.getSpectatePoint(player)
+    if x and ParadiseDev and ParadiseDev.TP then
+        ParadiseDev.TP.applyTeleport(player, x, y, z)
+    else
         ParadiseZ.stopSpectate()
     end
 end

@@ -165,6 +165,27 @@ function ParadiseDev.Notes.getClickedSquare()
     return clickedSquare
 end
 
+function ParadiseDev.Notes.isContextVisible(menu)
+    if not menu then return false end
+    if menu.getIsVisible and menu:getIsVisible() then return true end
+    for _, option in ipairs(menu.options or {}) do
+        local submenu = option.subOption and menu.getSubMenu and menu:getSubMenu(option.subOption) or nil
+        if ParadiseDev.Notes.isContextVisible(submenu) then return true end
+    end
+    return false
+end
+
+function ParadiseDev.Notes.highlightWhileContextVisible(context, flr)
+    flr:setHighlighted(true, false)
+    local clearHighlight
+    clearHighlight = function()
+        if ParadiseDev.Notes.isContextVisible(context) then return end
+        flr:setHighlighted(false, false)
+        Events.OnTick.Remove(clearHighlight)
+    end
+    Events.OnTick.Add(clearHighlight)
+end
+
 function ParadiseDev.Notes.setFont(target, font)
     ParadiseDev.Notes.settings.font = font
 end
@@ -294,6 +315,7 @@ function ParadiseDev.Notes.addWorldContext(plNum, context, worldobjects, test)
     local option = context:addOptionOnTop("Notes:")
     option.iconTexture = ParadiseDev.Notes.getIcon("context_note")
     if note then
+        ParadiseDev.Notes.highlightWhileContextVisible(context, flr)
         local tooltip = ISToolTip:new()
         tooltip:initialise()
         tooltip.description = note

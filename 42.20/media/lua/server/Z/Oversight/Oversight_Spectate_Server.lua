@@ -45,9 +45,9 @@ Events.OnClientCommand.Add(function(module, command, player, args)
     elseif command == "follow" then
         if not canSpectate(player) then return end
         local target = findPlayer(args and args.username)
-        if not target or target == player then return end
+        if not target or target == player or (target.isDead and target:isDead()) then return end
         if ParadiseDev and ParadiseDev.TP then
-            ParadiseDev.TP.teleportPlayer(player, target:getX(), target:getY(), target:getZ())
+            ParadiseDev.TP.teleportPlayer(player, target:getX() + (tonumber(args and args.x) or 0), target:getY() + (tonumber(args and args.y) or 0), target:getZ() + (tonumber(args and args.z) or 0))
         end
     end
 end)

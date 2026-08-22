@@ -10,6 +10,7 @@ ParadiseDev.Zones.Engine.profiles = ParadiseDev.Zones.Engine.profiles or {}
 ParadiseDev.Zones.Engine.lastValid = ParadiseDev.Zones.Engine.lastValid or {}
 ParadiseDev.Zones.Engine.eventLog = ParadiseDev.Zones.Engine.eventLog or {}
 ParadiseDev.Zones.Engine.cageAssignments = ParadiseDev.Zones.Engine.cageAssignments or {}
+ParadiseDev.Zones.Engine.storeName = "ParadiseDev_Zones"
 
 ParadiseDev.Zones.Engine.BORDER_WIDTH = 2
 
@@ -23,6 +24,30 @@ ParadiseDev.Zones.Engine.featureKeySet = {}
 for _, key in ipairs(ParadiseDev.Zones.Engine.FEATURE_KEYS) do ParadiseDev.Zones.Engine.featureKeySet[key] = true end
 
 ParadiseDev.Zones.Engine.vehicleMode = ParadiseDev.Zones.Engine.vehicleMode or "rebound"
+
+function ParadiseDev.Zones.Engine.getStore()
+    local store = ModData.getOrCreate(ParadiseDev.Zones.Engine.storeName)
+    store.zones = store.zones or {}
+    store.profiles = store.profiles or {}
+    store.vehicleMode = store.vehicleMode or "rebound"
+    return store
+end
+
+function ParadiseDev.Zones.Engine.save()
+    local store = ParadiseDev.Zones.Engine.getStore()
+    store.zones = ParadiseDev.Zones.Engine.zones
+    store.profiles = ParadiseDev.Zones.Engine.profiles
+    store.vehicleMode = ParadiseDev.Zones.Engine.vehicleMode
+    ModData.transmit(ParadiseDev.Zones.Engine.storeName)
+end
+
+function ParadiseDev.Zones.Engine.load()
+    local store = ParadiseDev.Zones.Engine.getStore()
+    ParadiseDev.Zones.Engine.zones = store.zones
+    ParadiseDev.Zones.Engine.profiles = store.profiles
+    ParadiseDev.Zones.Engine.vehicleMode = store.vehicleMode
+    ParadiseDev.Zones.Engine.rebuildIndex()
+end
 
 function ParadiseDev.Zones.Engine.userName(pl)
     return pl and pl:getUsername() or nil
@@ -77,6 +102,7 @@ function ParadiseDev.Zones.Engine.setZoneFeature(id, key, enabled)
             if cageId == id then ParadiseDev.Zones.Engine.cageAssignments[steamId] = nil end
         end
     end
+    ParadiseDev.Zones.Engine.save()
     return true
 end
 
@@ -103,6 +129,7 @@ function ParadiseDev.Zones.Engine.clear()
     ParadiseDev.Zones.Engine.lastValid = {}
     ParadiseDev.Zones.Engine.eventLog = {}
     ParadiseDev.Zones.Engine.cageAssignments = {}
+    ParadiseDev.Zones.Engine.save()
 end
 
 function ParadiseDev.Zones.Engine.rebuildIndex()
@@ -155,6 +182,7 @@ function ParadiseDev.Zones.Engine.addRegion(id, x1, y1, x2, y2, options)
         yMax = yMax + 1,
     }
     ParadiseDev.Zones.Engine.rebuildIndex()
+    ParadiseDev.Zones.Engine.save()
     return zone
 end
 
@@ -171,6 +199,7 @@ function ParadiseDev.Zones.Engine.updateZone(id, options)
     end
     if options.policy ~= nil then zone.policy = options.policy end
     if options.features ~= nil then zone.features = ParadiseDev.Zones.Engine.copyFeatures(options.features) end
+    ParadiseDev.Zones.Engine.save()
     return true
 end
 
@@ -187,6 +216,7 @@ function ParadiseDev.Zones.Engine.updateRegion(id, regionIndex, x1, y1, x2, y2)
     region.xMin, region.yMin = xMin, yMin
     region.xMax, region.yMax = xMax + 1, yMax + 1
     ParadiseDev.Zones.Engine.rebuildIndex()
+    ParadiseDev.Zones.Engine.save()
     return true
 end
 function ParadiseDev.Zones.Engine.removeRegion(id, regionIndex)
@@ -203,6 +233,7 @@ function ParadiseDev.Zones.Engine.removeRegion(id, regionIndex)
         end
     end
     ParadiseDev.Zones.Engine.rebuildIndex()
+    ParadiseDev.Zones.Engine.save()
     return true
 end
 
@@ -213,11 +244,13 @@ function ParadiseDev.Zones.Engine.removeZone(id)
         if cageId == id then ParadiseDev.Zones.Engine.cageAssignments[steamId] = nil end
     end
     ParadiseDev.Zones.Engine.rebuildIndex()
+    ParadiseDev.Zones.Engine.save()
     return true
 end
 function ParadiseDev.Zones.Engine.setProfile(username, tags)
     if not username or username == "" then return false end
     ParadiseDev.Zones.Engine.profiles[username] = { tags = ParadiseDev.Zones.Engine.copyTags(tags) }
+    ParadiseDev.Zones.Engine.save()
     return true
 end
 
@@ -557,3 +590,5 @@ end
 
 Events.OnClientCommand.Remove(ParadiseDev.Zones.Engine.onClientCommand)
 Events.OnClientCommand.Add(ParadiseDev.Zones.Engine.onClientCommand)
+Events.OnInitGlobalModData.Remove(ParadiseDev.Zones.Engine.load)
+Events.OnInitGlobalModData.Add(ParadiseDev.Zones.Engine.load)

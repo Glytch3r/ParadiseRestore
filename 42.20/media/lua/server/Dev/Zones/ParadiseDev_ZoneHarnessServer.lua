@@ -242,6 +242,7 @@ function ParadiseDev.Zones.Harness.onClientCommand(module, command, pl, args)
         ParadiseDev.Zones.Harness.publish(engine, pl, "Profile for " .. tostring(target) .. " set to " .. tostring(profile) .. ".")
     elseif command == "vehicleMode" then
         ParadiseDev.Zones.Engine.vehicleMode = (args and args.mode == "rebound") and "rebound" or "observe"
+        ParadiseDev.Zones.Engine.save()
         ParadiseDev.Zones.Harness.publish(engine, pl, "Vehicle mode: " .. ParadiseDev.Zones.Engine.vehicleMode)
     elseif command == "testFeature" then
         local feature = tostring(args and args.feature or "")
@@ -347,6 +348,7 @@ function ParadiseDev.Zones.Harness.onClientCommand(module, command, pl, args)
         ParadiseDev.Zones.Engine.lastValid = {}
         ParadiseDev.Zones.Engine.cageAssignments = {}
         ParadiseDev.Zones.Engine.rebuildIndex()
+        ParadiseDev.Zones.Engine.save()
         ParadiseDev.Zones.Harness.publish(engine, pl, "Restored the in-memory zone backup.")
     elseif command == "createZone" then
         local id = tostring(args and args.id or "")
