@@ -1,6 +1,34 @@
 -- Server authority and state relay for B42.20 Oversight spectating.
 local MODULE = "ParadiseZOversight"
 
+local function setupSuspectRole()
+    if not addRole or not getRoles or not setupRole then return end
+    local roles = getRoles()
+    local suspect = nil
+    for index = 0, roles:size() - 1 do
+        local role = roles:get(index)
+        if role and role:getName() == "Suspect" then
+            suspect = role
+            break
+        end
+    end
+    if not suspect then
+        addRole("Suspect")
+        roles = getRoles()
+        for index = 0, roles:size() - 1 do
+            local role = roles:get(index)
+            if role and role:getName() == "Suspect" then
+                suspect = role
+                break
+            end
+        end
+    end
+    if suspect then setupRole(suspect, "", Color.new(1, 0, 0, 1), {}) end
+end
+
+Events.OnServerStarted.Remove(setupSuspectRole)
+Events.OnServerStarted.Add(setupSuspectRole)
+
 local function canSpectate(player)
     local role = player and player:getRole()
     return role and role:hasCapability(Capability.TeleportToPlayer)

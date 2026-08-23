@@ -24,6 +24,7 @@
 █████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████--]]
 
 ParadiseZ = ParadiseZ or {}
+ParadiseZ.suspectTags = ParadiseZ.suspectTags or {}
 
 if isServer and isServer() then return end
 
@@ -51,6 +52,65 @@ function ParadiseZ.isShowTag()
     local settings = SandboxVars and SandboxVars.ParadiseZ
     return (settings and settings.ShowPvETag) or (getCore and getCore():getDebug()) or false
 end
+
+local function isAdminViewer()
+    local pl = getPlayer and getPlayer() or nil
+    return pl and pl.getAccessLevel and string.lower(tostring(pl:getAccessLevel())) == "admin" or false
+end
+
+local function isSuspect(targ)
+    local role = targ and targ.getRole and targ:getRole() or nil
+    return role and role:getName() == "Suspect" or false
+end
+
+function ParadiseZ.setSuspectTag(targ)
+    local key = targ and targ.getOnlineID and targ:getOnlineID() or nil
+    if not key or not isAdminViewer() or not isSuspect(targ) then
+        if key then ParadiseZ.suspectTags[key] = nil end
+        return
+    end
+    local data = ParadiseZ.suspectTags[key]
+    if not data then
+        local tag = TextDrawObject.new()
+        tag:setDefaultFont(UIFont.NewLarge)
+        tag:ReadString(UIFont.NewLarge, "SUSPECT", -1)
+        tag:setDefaultColors(1, 0, 0)
+        tag:setVisibleRadius(360)
+        data = { tag = tag, target = targ }
+        ParadiseZ.suspectTags[key] = data
+    else
+        data.target = targ
+    end
+end
+
+function ParadiseZ.renderSuspectTags()
+    if not isIngameState() or not isAdminViewer() then return end
+    local now = getTimestampMs()
+    if not ParadiseZ.suspectTagCheckAt or now - ParadiseZ.suspectTagCheckAt >= 1000 then
+        ParadiseZ.suspectTagCheckAt = now
+        local cell = getCell and getCell() or nil
+        local players = cell and cell:getObjectListForLua() or nil
+        if players then
+            for index = 0, players:size() - 1 do
+                local targ = players:get(index)
+                if targ and instanceof(targ, "IsoPlayer") then ParadiseZ.setSuspectTag(targ) end
+            end
+        end
+    end
+    local zoom = getCore():getZoom(0)
+    for key, data in pairs(ParadiseZ.suspectTags) do
+        local targ = data.target
+        if not targ or not isSuspect(targ) then
+            ParadiseZ.suspectTags[key] = nil
+        else
+            local screenX = (IsoUtils.XToScreen(targ:getX(), targ:getY(), targ:getZ(), 0) - IsoCamera.getOffX()) / zoom
+            local screenY = (IsoUtils.YToScreen(targ:getX(), targ:getY(), targ:getZ(), 0) - IsoCamera.getOffY()) / zoom - 56
+            data.tag:AddBatchedDraw(screenX, screenY, 1, 0, 0, 1, false)
+        end
+    end
+end
+Events.OnPostRender.Remove(ParadiseZ.renderSuspectTags)
+Events.OnPostRender.Add(ParadiseZ.renderSuspectTags)
 
 function ParadiseZ.removeTag(targ)
     if targ then
@@ -107,6 +167,7 @@ function ParadiseZ.isShouldShow(targ)
 end
 
 function ParadiseZ.doTagCheck(targ)
+    ParadiseZ.setSuspectTag(targ)
     if ParadiseZ.isShouldShow(targ) then
         ParadiseZ.setTag(targ)
     else

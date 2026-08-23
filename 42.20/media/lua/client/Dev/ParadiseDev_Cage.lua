@@ -58,6 +58,12 @@ function ParadiseDev.Cage.requestSet(username, isCaged)
     return ParadiseDev.Cage.setLocal(username, nil, isCaged == true)
 end
 
+function ParadiseDev.Cage.requestLogData(username)
+    if not username or username == "" or not sendClientCommand then return false end
+    sendClientCommand("ParadiseDevCage", "logData", { username = username })
+    return true
+end
+
 function ParadiseDev.Cage.requestSteamIdSet(steamId, isCaged)
     ParadiseDev.Cage.requestKeySet(steamId, nil, isCaged)
 end
@@ -92,6 +98,7 @@ function ParadiseDev.Cage.addTargetOptions(context, targ)
     else
         context:addOption("Add Caged Trait: " .. tostring(user), nil, ParadiseDev.Cage.requestSet, user, true)
     end
+    context:addOption("Log Data: " .. tostring(user), nil, ParadiseDev.Cage.requestLogData, user)
 end
 
 function ParadiseDev.Cage.getWorldTarget(context)
