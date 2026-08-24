@@ -74,7 +74,7 @@ function vehicleState.onPlayerUpdate(pl)
         return
     end
 
-    if vehicle and state.safehouse ~= safehouse and state.x and state.y then
+    if vehicle and safehouse and state.safehouse ~= safehouse and state.x and state.y then
         vehicleState.rebound(pl, vehicle, state.x, state.y)
         state.safehouse = vehicleState.getSafehouse(pl)
         state.x, state.y = state.x, state.y
