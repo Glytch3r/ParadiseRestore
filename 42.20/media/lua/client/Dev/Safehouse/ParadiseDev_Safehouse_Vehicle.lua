@@ -14,6 +14,10 @@ function vehicleState.getSafehouse(obj)
     return sq and SafeHouse.getSafeHouse(sq) or nil
 end
 
+function vehicleState.canEnter(safehouse, pl)
+    return safehouse and pl and safehouse:playerAllowed(pl) or false
+end
+
 function vehicleState.moveVehicle(vehicle, x, y)
     if not vehicle or not x or not y then return false end
     local fromX, fromY = vehicle:getX(), vehicle:getY()
@@ -53,6 +57,13 @@ function vehicleState.onPlayerUpdate(pl)
     local safehouse = vehicleState.getSafehouse(vehicle or pl)
     local state = pl:getModData().ParadiseDevSafehouseVehicle or {}
     pl:getModData().ParadiseDevSafehouseVehicle = state
+
+    if vehicle and vehicleState.canEnter(safehouse, pl) then
+        state.safehouse = safehouse
+        state.x, state.y = x, y
+        state.vehicle = vehicle
+        return
+    end
 
     if vehicle and safehouse and state.vehicle ~= vehicle then
         local outX, outY = vehicleState.outside(safehouse, x, y)

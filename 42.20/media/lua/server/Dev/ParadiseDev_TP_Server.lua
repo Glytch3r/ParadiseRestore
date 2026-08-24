@@ -99,6 +99,11 @@ function ParadiseDev.TP.onClientCommand(module, command, pl, args)
         end
     elseif command == "teleport" and ParadiseDev.isAdm(pl) then
         ParadiseDev.TP.exitVehicleAndTeleport(pl, args and args.x, args and args.y, args and args.z, false)
+    elseif command == "teleportVehicle" and ParadiseDev.isAdm(pl) then
+        local vehicle = pl:getVehicle()
+        if vehicle then
+            ParadiseDev.TP.reboundVehicle(vehicle, vehicle:getX(), vehicle:getY(), args and args.x, args and args.y)
+        end
     elseif command == "die" and pl and pl:isAlive() then
         pl:getBodyDamage():ReduceGeneralHealth(110)
     end
