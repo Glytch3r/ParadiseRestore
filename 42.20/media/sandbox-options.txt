@@ -108,6 +108,12 @@ option ParadiseZ.BlockSafehouseVehicles
 	type = boolean, default = false,
 	page = ParadiseZ, translation = ParadiseZ_BlockSafehouseVehicles,
 }
+option ParadiseZ.TrailerBrakeFix
+{
+	type = enum, numValues = 3, default = 1,
+	page = ParadiseZ, translation = ParadiseZ_TrailerBrakeFix,
+	valueTranslation = ParadiseZ_TrailerBrakeFix,
+}
 option ParadiseZ.AdminBypassZoneRestrictions
 {
 	type = boolean, default = true,
