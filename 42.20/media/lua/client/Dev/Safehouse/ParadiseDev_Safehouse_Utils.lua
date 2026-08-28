@@ -125,3 +125,11 @@ function ParadiseDev.Safehouse.getOwnedSafehouse(pl)
     if not user then return nil end
     return SafeHouse.getSafehouseByOwner(user)
 end
+
+function ParadiseDev.Safehouse.debugAdd(obj, pl)
+    pl = pl or (getPlayer and getPlayer())
+    local sq = ParadiseDev.Safehouse.getSquare(obj or pl)
+    if not pl or not sq or not ParadiseDev.Safehouse.getBuilding(sq) then return nil end
+    if not SafeHouse or not SafeHouse.addSafeHouse then return nil end
+    return SafeHouse.addSafeHouse(sq, pl)
+end
