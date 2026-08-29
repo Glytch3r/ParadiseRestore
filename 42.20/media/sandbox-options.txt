@@ -114,6 +114,12 @@ option ParadiseZ.TrailerBrakeFix
 	page = ParadiseZ, translation = ParadiseZ_TrailerBrakeFix,
 	valueTranslation = ParadiseZ_TrailerBrakeFix,
 }
+option ParadiseZ.RecoverySystem
+{
+    type = enum, numValues = 5, default = 1,
+    page = ParadiseZ, translation = ParadiseZ_RecoverySystem,
+    valueTranslation = ParadiseZ_RecoverySystem,
+}
 option ParadiseZ.AdminBypassZoneRestrictions
 {
 	type = boolean, default = true,

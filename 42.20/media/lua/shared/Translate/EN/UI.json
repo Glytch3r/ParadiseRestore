@@ -7,6 +7,8 @@
     "UI_trait_InjuredPvP": "InjuredPvP",
     "UI_trait_InjuredPvPDesc": "InjuredPvP",
     "UI_trait_PvE": "PvE",
-    "UI_trait_PvEDesc": "PvE"
+    "UI_trait_PvEDesc": "PvE",
+    "UI_trait_Reincarnate": "Reincarnate",
+    "UI_trait_ReincarnateDesc": "Recover skill experience from previous lives."
 
 }

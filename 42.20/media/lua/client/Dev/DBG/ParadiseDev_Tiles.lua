@@ -1,6 +1,34 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Tiles = ParadiseDev.Tiles or {}
 
+function ParadiseDev.Tiles.openBrushTool()
+    ParadiseDev.Tiles.installServerBrushCursor()
+    local player = getPlayer and getPlayer() or nil
+    if not player or not ParadiseDev.isAdm(player) then return end
+    if BrushToolManager and BrushToolManager.openPanel then
+        BrushToolManager.openPanel(player)
+    elseif BrushToolChooseTileUI and BrushToolChooseTileUI.openPanel then
+        BrushToolChooseTileUI.openPanel(900, 20, player)
+    end
+end
+
+function ParadiseDev.Tiles.installServerBrushCursor()
+    if ParadiseDev.Tiles.serverBrushInstalled or not ISBrushToolTileCursor or not ISBrushToolTileCursor.create then return end
+    ParadiseDev.Tiles.serverBrushInstalled = true
+    ParadiseDev.Tiles.originalBrushCreate = ISBrushToolTileCursor.create
+    function ISBrushToolTileCursor:create(x, y, z, north, sprite)
+        if isClient and isClient() then
+            if sendClientCommand and self.character and type(sprite) == "string" then
+                sendClientCommand(self.character, "ParadiseDevBrushTool", "place", { x = x, y = y, z = z, sprite = sprite })
+            end
+            return
+        end
+        return ParadiseDev.Tiles.originalBrushCreate(self, x, y, z, north, sprite)
+    end
+end
+
+ParadiseDev.Tiles.installServerBrushCursor()
+
 
 function ParadiseDev.Tiles.getSpriteName(spr)
     if not spr or not spr.getName then return nil end
@@ -38,6 +66,7 @@ end
 
 function ParadiseDev.Tiles.copyTile(obj, spriteName, pl)
     if not spriteName or tostring(spriteName) == "" then return end
+    ParadiseDev.Tiles.installServerBrushCursor()
     spriteName = tostring(spriteName)
     if Clipboard and Clipboard.setClipboard then Clipboard.setClipboard(spriteName) end
     pl = pl or getPlayer()
