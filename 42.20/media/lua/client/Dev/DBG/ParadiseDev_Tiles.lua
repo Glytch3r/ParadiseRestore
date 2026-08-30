@@ -1,14 +1,67 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Tiles = ParadiseDev.Tiles or {}
 
+function ParadiseDev.Tiles.layoutBrushPanel(panel)
+    local titleHeight = panel:titleBarHeight()
+    local resizeHeight = panel:resizeWidgetHeight()
+    local sidebarWidth = math.max(250, math.floor(panel.width * 0.36))
+    if panel.resizeWidget then
+        panel.resizeWidget:setX(panel.width - resizeHeight)
+        panel.resizeWidget:setY(panel.height - resizeHeight)
+    end
+    if panel.resizeWidget2 then
+        panel.resizeWidget2:setY(panel.height - resizeHeight)
+        panel.resizeWidget2:setWidth(panel.width - resizeHeight)
+    end
+    if panel.searchEntryBox then
+        panel.searchEntryBox:setY(titleHeight)
+        panel.searchEntryBox:setWidth(sidebarWidth)
+    end
+    if panel.imageList then
+        panel.imageList:setY(titleHeight + 20)
+        panel.imageList:setWidth(sidebarWidth)
+        panel.imageList:setHeight(math.max(100, panel.height - titleHeight - 20 - resizeHeight))
+    end
+    if panel.tilesList then
+        panel.tilesList:setX(sidebarWidth)
+        panel.tilesList:setY(titleHeight)
+        panel.tilesList:setWidth(math.max(250, panel.width - sidebarWidth))
+        panel.tilesList:setHeight(math.max(100, panel.height - titleHeight - resizeHeight))
+    end
+end
+
+function ParadiseDev.Tiles.resizeBrushPanel(panel, width, height)
+    panel:setWidth(math.max(width, panel.minimumWidth or 0))
+    panel:setHeight(math.max(height, panel.minimumHeight or 0))
+    ParadiseDev.Tiles.layoutBrushPanel(panel)
+end
+
+function ParadiseDev.Tiles.enableBrushResize(panel)
+    panel.minimumWidth = 550
+    panel.minimumHeight = 360
+    panel:setResizable(true)
+    if panel.resizeWidget then panel.resizeWidget.resizeFunction = ParadiseDev.Tiles.resizeBrushPanel end
+    if panel.resizeWidget2 then panel.resizeWidget2.resizeFunction = ParadiseDev.Tiles.resizeBrushPanel end
+    ParadiseDev.Tiles.layoutBrushPanel(panel)
+end
+
 function ParadiseDev.Tiles.openBrushTool()
     ParadiseDev.Tiles.installServerBrushCursor()
     local player = getPlayer and getPlayer() or nil
     if not player or not ParadiseDev.isAdm(player) then return end
-    if BrushToolManager and BrushToolManager.openPanel then
-        BrushToolManager.openPanel(player)
-    elseif BrushToolChooseTileUI and BrushToolChooseTileUI.openPanel then
+    if BrushToolChooseTileUI and BrushToolChooseTileUI.openPanel then
         BrushToolChooseTileUI.openPanel(900, 20, player)
+        local panel = BrushToolChooseTileUI.instance
+        if panel then
+            if not panel._paradiseBrushTool then
+                panel:setWidth(1100)
+                panel:setHeight(800)
+                panel._paradiseBrushTool = true
+            end
+            ParadiseDev.Tiles.enableBrushResize(panel)
+            panel.title = "Paradise Brush Tool"
+            if panel.bringToTop then panel:bringToTop() end
+        end
     end
 end
 

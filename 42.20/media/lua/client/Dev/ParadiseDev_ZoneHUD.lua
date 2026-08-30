@@ -137,7 +137,7 @@ function ParadiseDev.ZoneHUD.draw()
     local fonts = ParadiseDev.ZoneHUD.fonts[settings.fontSize]
     local zoneName = zone and tostring(zone.name or zone.id) or "Outside"
     local mapLabel = ParadiseDev.ZoneHUD.getMapLabel(pl)
-    local header = (mapLabel and mapLabel .. "\n" or "") .. zoneName .. "\nX: " .. tostring(math.floor(pl:getX() + 0.5)) .. "    Y: " .. tostring(math.floor(pl:getY() + 0.5))
+    local header = (mapLabel and mapLabel .. "\n" or "") .. zoneName .. "\nX: " .. tostring(math.floor(pl:getX() + 0.5)) .. "    Y: " .. tostring(math.floor(pl:getY() + 0.5)) .. "    Z: " .. tostring(math.floor(pl:getZ() + 0.5))
     local allowed = not zone or zone.allowed ~= false
     local alpha = zone and 0.8 or (ParadiseDev.isAdm and ParadiseDev.isAdm(pl) and 1 or 0.4)
     local r, g, b = allowed and 1 or 1, allowed and 1 or 0.35, allowed and 1 or 0.35

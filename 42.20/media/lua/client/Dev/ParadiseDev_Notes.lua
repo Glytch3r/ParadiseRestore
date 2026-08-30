@@ -5,6 +5,7 @@ ParadiseDev.Notes.module = "ParadiseDevNotes"
 ParadiseDev.Notes.key = "ParadiseDevNote"
 ParadiseDev.Notes.colorKey = "ParadiseDevNoteColor"
 ParadiseDev.Notes.ownerKey = "ParadiseDevNoteOwner"
+ParadiseDev.Notes.offsetKey = "ParadiseDevNoteOffset"
 ParadiseDev.Notes.globalStore = "ParadiseDev_GlobalNotes"
 ParadiseDev.Notes.maxLength = 160
 ParadiseDev.Notes.renderRadius = 24
@@ -14,7 +15,7 @@ ParadiseDev.Notes.mapLabels = ParadiseDev.Notes.mapLabels or {}
 ParadiseDev.Notes.mapAPI = ParadiseDev.Notes.mapAPI or nil
 ParadiseDev.Notes.tick = 0
 ParadiseDev.Notes.mapDirty = true
-ParadiseDev.Notes.settings = ParadiseDev.Notes.settings or { font = UIFont.Medium, showText = true, offsetX = 0, offsetY = 0 }
+ParadiseDev.Notes.settings = ParadiseDev.Notes.settings or { font = UIFont.Medium, showText = true }
 
 function ParadiseDev.Notes.getMaxLength()
     local value = SandboxVars and SandboxVars.ParadiseZnotes and tonumber(SandboxVars.ParadiseZnotes.NotesMaxLineWidth) or ParadiseDev.Notes.maxLength
@@ -42,6 +43,14 @@ function ParadiseDev.Notes.normalizeColor(color)
     return { r = channel(color.r, 1), g = channel(color.g, 0.85), b = channel(color.b, 0.2) }
 end
 
+function ParadiseDev.Notes.normalizeOffset(offset)
+    offset = type(offset) == "table" and offset or {}
+    local function value(number)
+        return math.max(-100, math.min(100, tonumber(number) or 0))
+    end
+    return { x = value(offset.x), y = value(offset.y) }
+end
+
 function ParadiseDev.Notes.getNote(flr)
     if not flr or not flr.getModData then return nil end
     return ParadiseDev.Notes.normalizeTag(flr:getModData()[ParadiseDev.Notes.key])
@@ -49,6 +58,10 @@ end
 
 function ParadiseDev.Notes.getColor(flr)
     return ParadiseDev.Notes.normalizeColor(flr and flr.getModData and flr:getModData()[ParadiseDev.Notes.colorKey])
+end
+
+function ParadiseDev.Notes.getOffset(flr)
+    return ParadiseDev.Notes.normalizeOffset(flr and flr.getModData and flr:getModData()[ParadiseDev.Notes.offsetKey])
 end
 
 function ParadiseDev.Notes.getOwner(flr)
@@ -81,16 +94,18 @@ function ParadiseDev.Notes.getFloorKey(flr)
     return ref and ref.x .. ":" .. ref.y .. ":" .. ref.z or nil
 end
 
-function ParadiseDev.Notes.setNote(flr, note, color, owner)
+function ParadiseDev.Notes.setNote(flr, note, color, owner, offset)
     if not flr or not flr.getModData then return false end
     local md = flr:getModData()
     note = ParadiseDev.Notes.normalizeTag(note)
     md[ParadiseDev.Notes.key] = note
     if note then
         md[ParadiseDev.Notes.colorKey] = ParadiseDev.Notes.normalizeColor(color or md[ParadiseDev.Notes.colorKey])
+        md[ParadiseDev.Notes.offsetKey] = ParadiseDev.Notes.normalizeOffset(offset or md[ParadiseDev.Notes.offsetKey])
         md[ParadiseDev.Notes.ownerKey] = md[ParadiseDev.Notes.ownerKey] or owner or ParadiseDev.Notes.getUsername()
     else
         md[ParadiseDev.Notes.colorKey] = nil
+        md[ParadiseDev.Notes.offsetKey] = nil
         md[ParadiseDev.Notes.ownerKey] = nil
     end
     if flr.transmitModData then flr:transmitModData() end
@@ -99,16 +114,17 @@ function ParadiseDev.Notes.setNote(flr, note, color, owner)
     return true
 end
 
-function ParadiseDev.Notes.requestSet(flr, note, color)
+function ParadiseDev.Notes.requestSet(flr, note, color, offset)
     local ref = flr and ParadiseDev.Notes.getSquareRef(flr:getSquare()) or nil
     if not ref then return false end
     ref.note = ParadiseDev.Notes.normalizeTag(note)
     ref.color = ParadiseDev.Notes.normalizeColor(color or ParadiseDev.Notes.getColor(flr))
+    ref.offset = ParadiseDev.Notes.normalizeOffset(offset or ParadiseDev.Notes.getOffset(flr))
     if isClient() then
         sendClientCommand(ParadiseDev.Notes.module, "set", ref)
         return true
     end
-    return ParadiseDev.Notes.setNote(flr, ref.note, ref.color, ParadiseDev.Notes.getUsername())
+    return ParadiseDev.Notes.setNote(flr, ref.note, ref.color, ParadiseDev.Notes.getUsername(), ref.offset)
 end
 
 function ParadiseDev.Notes.onEnteredText(target, button, flr)
@@ -145,6 +161,7 @@ function ParadiseDev.Notes.openColorPicker(flr, hsb)
         local picker = ISColorPickerHSB:new(getMouseX(), getMouseY(), initial)
         picker:setPickedFunc(ParadiseDev.Notes.onFloorColorPicked, flr)
         picker:initialise()
+        ParadiseDev.Notes.placePicker(picker)
         picker:addToUIManager()
         return
     end
@@ -157,7 +174,16 @@ function ParadiseDev.Notes.openColorPicker(flr, hsb)
     picker.index = nearest
     picker:setPickedFunc(ParadiseDev.Notes.onFloorColorPicked, flr)
     picker:initialise()
+    ParadiseDev.Notes.placePicker(picker)
     picker:addToUIManager()
+end
+
+function ParadiseDev.Notes.placePicker(picker)
+    local core = getCore and getCore() or nil
+    if not picker or not core then return end
+    local width, height = core:getScreenWidth(), core:getScreenHeight()
+    picker:setX(math.max(0, math.min((getMouseX and getMouseX() or 0), width - picker.width)))
+    picker:setY(math.max(0, math.min((getMouseY and getMouseY() or 0), height - picker.height)))
 end
 
 function ParadiseDev.Notes.getClickedSquare()
@@ -194,21 +220,24 @@ function ParadiseDev.Notes.setTextVisible()
     ParadiseDev.Notes.settings.showText = not ParadiseDev.Notes.settings.showText
 end
 
-function ParadiseDev.Notes.onOffsetEntered(target, button)
+function ParadiseDev.Notes.onOffsetEntered(target, button, flr)
     if not button or button.internal ~= "OK" or not button.parent then return end
     local modal = button.parent
-    ParadiseDev.Notes.settings.offsetX = tonumber(modal.offsetX and modal.offsetX:getText()) or 0
-    ParadiseDev.Notes.settings.offsetY = tonumber(modal.offsetY and modal.offsetY:getText()) or 0
+    ParadiseDev.Notes.requestSet(flr, ParadiseDev.Notes.getNote(flr), ParadiseDev.Notes.getColor(flr), {
+        x = modal.offsetX and modal.offsetX:getText(), y = modal.offsetY and modal.offsetY:getText()
+    })
 end
 
-function ParadiseDev.Notes.openOffsetPanel()
-    local modal = ISModalDialog:new(0, 0, 300, 170, "World note offset", false, ParadiseDev.Notes, ParadiseDev.Notes.onOffsetEntered)
+function ParadiseDev.Notes.openOffsetPanel(flr)
+    if not flr or not ParadiseDev.Notes.canModifyFloor(flr) then return end
+    local offset = ParadiseDev.Notes.getOffset(flr)
+    local modal = ISModalDialog:new(0, 0, 300, 170, "World note offset", false, ParadiseDev.Notes, ParadiseDev.Notes.onOffsetEntered, nil, flr)
     modal:initialise()
-    modal.offsetX = ISTextEntryBox:new(tostring(ParadiseDev.Notes.settings.offsetX or 0), 75, 58, 180, 24)
+    modal.offsetX = ISTextEntryBox:new(tostring(offset.x), 75, 58, 180, 24)
     modal.offsetX:initialise()
     modal.offsetX:instantiate()
     modal:addChild(modal.offsetX)
-    modal.offsetY = ISTextEntryBox:new(tostring(ParadiseDev.Notes.settings.offsetY or 0), 75, 90, 180, 24)
+    modal.offsetY = ISTextEntryBox:new(tostring(offset.y), 75, 90, 180, 24)
     modal.offsetY:initialise()
     modal.offsetY:instantiate()
     modal:addChild(modal.offsetY)
@@ -220,7 +249,7 @@ function ParadiseDev.Notes.openOffsetPanel()
     modal:addToUIManager()
 end
 
-function ParadiseDev.Notes.addSettings(menu)
+function ParadiseDev.Notes.addSettings(menu, flr)
     local settingsOption = menu:addOption("Settings")
     settingsOption.iconTexture = ParadiseDev.Notes.getIcon("context_noteWrite")
     local settingsMenu = ISContextMenu:getNew(menu)
@@ -237,7 +266,7 @@ function ParadiseDev.Notes.addSettings(menu)
     sizeMenu:setOptionChecked(large, ParadiseDev.Notes.settings.font == UIFont.Large)
     local text = settingsMenu:addOption("Show", ParadiseDev.Notes, ParadiseDev.Notes.setTextVisible)
     settingsMenu:setOptionChecked(text, ParadiseDev.Notes.settings.showText)
-    settingsMenu:addOption("World Offset", ParadiseDev.Notes, ParadiseDev.Notes.openOffsetPanel)
+    settingsMenu:addOption("World Offset", flr, ParadiseDev.Notes.openOffsetPanel)
 end
 
 function ParadiseDev.Notes.getGlobalNotes()
@@ -355,6 +384,7 @@ function ParadiseDev.Notes.addWorldContext(plNum, context, worldobjects, test)
                 ParadiseDev.Notes.requestGlobal(targetFloor, existing.text, picked)
             end, floor)
             picker:initialise()
+            ParadiseDev.Notes.placePicker(picker)
             picker:addToUIManager()
         end)
         globalColor.iconTexture = ParadiseDev.Notes.getIcon("context_noteRGB")
@@ -365,7 +395,7 @@ function ParadiseDev.Notes.addWorldContext(plNum, context, worldobjects, test)
         local mapOption = submenu:addOption(ParadiseDev.Notes.isMapVisible(flr) and "Hide Note On Map" or "Show Note On Map", flr, ParadiseDev.Notes.toggleMapVisible)
         mapOption.iconTexture = ParadiseDev.Notes.getIcon("context_note")
     end
-    ParadiseDev.Notes.addSettings(submenu)
+    ParadiseDev.Notes.addSettings(submenu, flr)
 end
 
 function ParadiseDev.Notes.refresh(force)
@@ -397,9 +427,10 @@ function ParadiseDev.Notes.canDraw()
     return not (ISWorldMap_instance and ISWorldMap_instance.isVisible and ISWorldMap_instance:isVisible())
 end
 
-function ParadiseDev.Notes.drawText(plNum, pl, ref, note, color)
-    local x = isoToScreenX(plNum, ref.x + 0.5 + (ParadiseDev.Notes.settings.offsetX or 0), ref.y + 0.5 + (ParadiseDev.Notes.settings.offsetY or 0), ref.z)
-    local y = isoToScreenY(plNum, ref.x + 0.5 + (ParadiseDev.Notes.settings.offsetX or 0), ref.y + 0.5 + (ParadiseDev.Notes.settings.offsetY or 0), ref.z) - 18
+function ParadiseDev.Notes.drawText(plNum, pl, ref, note, color, offset)
+    offset = ParadiseDev.Notes.normalizeOffset(offset)
+    local x = isoToScreenX(plNum, ref.x + 0.5 + offset.x, ref.y + 0.5 + offset.y, ref.z)
+    local y = isoToScreenY(plNum, ref.x + 0.5 + offset.x, ref.y + 0.5 + offset.y, ref.z) - 18
     local font = ParadiseDev.Notes.settings.font
     getTextManager():DrawStringCentre(font, x - 1, y - 1, note, 0, 0, 0, 1)
     getTextManager():DrawStringCentre(font, x + 1, y + 1, note, 0, 0, 0, 1)
@@ -419,7 +450,7 @@ function ParadiseDev.Notes.draw()
             ParadiseDev.Notes.cache[key] = nil
         else
             local dx, dy = ref.x - pl:getX(), ref.y - pl:getY()
-            if dx * dx + dy * dy <= radiusSq then ParadiseDev.Notes.drawText(plNum, pl, ref, note, ParadiseDev.Notes.getColor(flr)) end
+            if dx * dx + dy * dy <= radiusSq then ParadiseDev.Notes.drawText(plNum, pl, ref, note, ParadiseDev.Notes.getColor(flr), ParadiseDev.Notes.getOffset(flr)) end
         end
     end
     for _, entry in pairs(ParadiseDev.Notes.getGlobalNotes()) do

@@ -359,7 +359,7 @@
   "Sandbox_ParadiseZ_TrailerBrakeFix_option2": "Brake With Tow Vehicle",
     "Sandbox_ParadiseZ_TrailerBrakeFix_option3": "Position Correction When Closing",
     "Sandbox_ParadiseZ_RecoverySystem": "Recovery System",
-    "Sandbox_ParadiseZ_RecoverySystem_tooltip": "Controls recovery only. Every death is always stored at 100% raw XP.",
+    "Sandbox_ParadiseZ_RecoverySystem_tooltip": "Controls recovery only. Every death is always stored at 100%% raw XP.",
     "Sandbox_ParadiseZ_RecoverySystem_option1": "Previous Life Only",
     "Sandbox_ParadiseZ_RecoverySystem_option2": "Accumulative",
     "Sandbox_ParadiseZ_RecoverySystem_option3": "Partial Recovery",
