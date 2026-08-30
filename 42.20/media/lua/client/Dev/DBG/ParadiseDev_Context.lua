@@ -136,6 +136,7 @@ function ParadiseDev.Context.context(plNum, context)
     if ParadiseDev.Cage and ParadiseDev.Cage.openPanel then ParadiseDev.Context.addOption(panelsMenu, "Cage Administration", ParadiseDev.Cage.openPanel, "media/ui/Paradise/ContextIcon.png") end
     if ParadiseDev.Panels then
             ParadiseDev.Context.addOption(panelsMenu, "WaveCaster", ParadiseDev.Panels.openWaveCaster, "media/ui/Paradise/ContextIcon.png")
+            ParadiseDev.Context.addOption(panelsMenu, "Media Spawner", ParadiseDev.Panels.openMediaSpawner, "media/ui/Paradise/ContextIcon.png")
             if ParadiseDev.Tiles and ParadiseDev.Tiles.openBrushTool then ParadiseDev.Context.addOption(panelsMenu, "Brush Tool", ParadiseDev.Tiles.openBrushTool, "media/ui/Paradise/ContextIcon.png") end
 
             ParadiseDev.Context.addOption(panelsMenu, "Mini Scoreboard", function() 
@@ -161,6 +162,8 @@ function ParadiseDev.Context.context(plNum, context)
         ParadiseDev.Context.addOption(menu, "Save Rebound Point", ParadiseDev.Context.saveRebound, "media/ui/Paradise/ContextIcon.png", pl)
         if ParadiseDev.TP.getRebound(pl) then ParadiseDev.Context.addOption(menu, "Force Rebound", ParadiseDev.Context.forceRebound, "media/ui/Paradise/ContextIcon.png", pl) end
     end
+
+    ParadiseDev.Context.addOption(menu, "GunAmmos", function() ParadiseDev.Context.reloadGuns() end, "media/ui/LootableMaps/map_bullets.png", pl)
 
     ParadiseDev.Context.addOption(menu, "Spawn TheRange Membership Card", ParadiseDev.Context.spawnRangeCard, "media/textures/TheRange.png", pl)
     ParadiseDev.Context.addOption(menu, "NVG: " .. ParadiseDev.Context.onOrOff(pl:isWearingNightVisionGoggles()), ParadiseDev.Context.toggleNightVision, "media/ui/Paradise/NVGContextIcon.png", pl)
@@ -199,3 +202,42 @@ Events.OnWorldSound.Remove(ParadiseDev.Context.dbgSoundHandler)
 Events.OnWorldSound.Add(ParadiseDev.Context.dbgSoundHandler)
 Events.OnFillWorldObjectContextMenu.Remove(ParadiseDev.Context.context)
 Events.OnFillWorldObjectContextMenu.Add(ParadiseDev.Context.context)
+
+function ParadiseDev.Context.reloadGuns()
+    local pl = getPlayer()
+    if not pl then return end
+
+    local loaded = {}
+
+    local function loadGun(gun)
+        if loaded[gun] or not (gun and instanceof(gun, "HandWeapon") and gun:isRanged()) then
+            return
+        end
+
+        loaded[gun] = true
+
+        if gun:getMagazineType() then
+            local mag = pl:getInventory():AddItem(gun:getMagazineType())
+            mag:setCurrentAmmoCount(mag:getMaxAmmo())
+            gun:setCurrentAmmoCount(mag:getCurrentAmmoCount())
+            gun:setContainsClip(true)
+            pl:getInventory():Remove(mag)
+        else
+            gun:setCurrentAmmoCount(gun:getMaxAmmo())
+        end
+
+        if gun:haveChamber() then
+            gun:setRoundChambered(true)
+        end
+
+        syncHandWeaponFields(pl, gun)
+    end
+
+    local items = pl:getInventory():getItems()
+    for i = 0, items:size() - 1 do
+        loadGun(items:get(i))
+    end
+
+    loadGun(pl:getPrimaryHandItem())
+    loadGun(pl:getSecondaryHandItem())
+end

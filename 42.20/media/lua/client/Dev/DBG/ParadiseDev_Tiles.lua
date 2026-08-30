@@ -5,10 +5,14 @@ function ParadiseDev.Tiles.openBrushTool()
     ParadiseDev.Tiles.installServerBrushCursor()
     local player = getPlayer and getPlayer() or nil
     if not player or not ParadiseDev.isAdm(player) then return end
-    if BrushToolManager and BrushToolManager.openPanel then
-        BrushToolManager.openPanel(player)
-    elseif BrushToolChooseTileUI and BrushToolChooseTileUI.openPanel then
+    if BrushToolChooseTileUI and BrushToolChooseTileUI.openPanel then
         BrushToolChooseTileUI.openPanel(900, 20, player)
+        local panel = BrushToolChooseTileUI.instance
+        if panel then
+            panel:setResizable(true)
+            panel.title = "Paradise Brush Tool"
+            if panel.bringToTop then panel:bringToTop() end
+        end
     end
 end
 

@@ -146,8 +146,14 @@ function recovery.findPlayer(username, fallback)
     return fallback and recovery.getUsername(fallback) == username and fallback or nil
 end
 
+function recovery.getReincarnateTrait()
+    if not CharacterTrait or not ResourceLocation then return nil end
+    return CharacterTrait.get(ResourceLocation.of(recovery.trait))
+end
+
 function recovery.hasReincarnate(player)
-    return player and player.HasTrait and player:HasTrait(recovery.trait) or false
+    local trait = recovery.getReincarnateTrait()
+    return player and trait and player.hasTrait and player:hasTrait(trait) or false
 end
 
 function recovery.setBaseline(player)
