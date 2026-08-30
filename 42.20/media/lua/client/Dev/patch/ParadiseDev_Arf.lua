@@ -7,6 +7,9 @@ if not ParadiseDev.hook.ISEquippedItemInitialise then
     function ISEquippedItem:initialise()
         ParadiseDev.hook.ISEquippedItemInitialise(self)
 
+        self.clientIconOn = getTexture("media/ui/Client_Icon_On.png")
+        self.clientIconOff = getTexture("media/ui/Client_Icon_Off.png")
+
         local arfBtn = self.arfBtn
         if not arfBtn then
             return

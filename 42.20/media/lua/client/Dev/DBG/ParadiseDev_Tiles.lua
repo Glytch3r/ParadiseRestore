@@ -20,13 +20,13 @@ function ParadiseDev.Tiles.layoutBrushPanel(panel)
     if panel.imageList then
         panel.imageList:setY(titleHeight + 20)
         panel.imageList:setWidth(sidebarWidth)
-        panel.imageList:setHeight(math.max(100, panel.height - titleHeight - 20))
+        panel.imageList:setHeight(math.max(100, panel.height - titleHeight - 20 - resizeHeight))
     end
     if panel.tilesList then
         panel.tilesList:setX(sidebarWidth)
         panel.tilesList:setY(titleHeight)
         panel.tilesList:setWidth(math.max(250, panel.width - sidebarWidth))
-        panel.tilesList:setHeight(math.max(100, panel.height - titleHeight))
+        panel.tilesList:setHeight(math.max(100, panel.height - titleHeight - resizeHeight))
     end
 end
 
@@ -53,6 +53,11 @@ function ParadiseDev.Tiles.openBrushTool()
         BrushToolChooseTileUI.openPanel(900, 20, player)
         local panel = BrushToolChooseTileUI.instance
         if panel then
+            if not panel._paradiseBrushTool then
+                panel:setWidth(1100)
+                panel:setHeight(800)
+                panel._paradiseBrushTool = true
+            end
             ParadiseDev.Tiles.enableBrushResize(panel)
             panel.title = "Paradise Brush Tool"
             if panel.bringToTop then panel:bringToTop() end
