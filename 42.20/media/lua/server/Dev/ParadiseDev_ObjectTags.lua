@@ -5,6 +5,7 @@ ParadiseDev.Notes.module = "ParadiseDevNotes"
 ParadiseDev.Notes.key = "ParadiseDevNote"
 ParadiseDev.Notes.colorKey = "ParadiseDevNoteColor"
 ParadiseDev.Notes.ownerKey = "ParadiseDevNoteOwner"
+ParadiseDev.Notes.offsetKey = "ParadiseDevNoteOffset"
 ParadiseDev.Notes.globalStore = "ParadiseDev_GlobalNotes"
 ParadiseDev.Notes.maxLength = 160
 
@@ -30,6 +31,14 @@ function ParadiseDev.Notes.normalizeColor(color)
     return { r = channel(color.r, 1), g = channel(color.g, 0.85), b = channel(color.b, 0.2) }
 end
 
+function ParadiseDev.Notes.normalizeOffset(offset)
+    offset = type(offset) == "table" and offset or {}
+    local function value(number)
+        return math.max(-100, math.min(100, tonumber(number) or 0))
+    end
+    return { x = value(offset.x), y = value(offset.y) }
+end
+
 function ParadiseDev.Notes.getFloor(args)
     if type(args) ~= "table" then return nil end
     local x, y, z = tonumber(args.x), tonumber(args.y), tonumber(args.z)
@@ -53,16 +62,18 @@ function ParadiseDev.Notes.canModifyFloor(pl, floor)
     return not owner or ParadiseDev.Notes.isAdmin(pl) or tostring(owner) == ParadiseDev.Notes.getUsername(pl)
 end
 
-function ParadiseDev.Notes.setNote(floor, note, color, owner)
+function ParadiseDev.Notes.setNote(floor, note, color, owner, offset)
     if not floor or not floor.getModData then return false end
     local md = floor:getModData()
     note = ParadiseDev.Notes.normalizeNote(note)
     md[ParadiseDev.Notes.key] = note
     if note then
         md[ParadiseDev.Notes.colorKey] = ParadiseDev.Notes.normalizeColor(color or md[ParadiseDev.Notes.colorKey])
+        md[ParadiseDev.Notes.offsetKey] = ParadiseDev.Notes.normalizeOffset(offset or md[ParadiseDev.Notes.offsetKey])
         md[ParadiseDev.Notes.ownerKey] = md[ParadiseDev.Notes.ownerKey] or owner or ParadiseDev.Notes.getUsername()
     else
         md[ParadiseDev.Notes.colorKey] = nil
+        md[ParadiseDev.Notes.offsetKey] = nil
         md[ParadiseDev.Notes.ownerKey] = nil
     end
     if floor.transmitModData then floor:transmitModData() end
@@ -103,7 +114,7 @@ function ParadiseDev.Notes.onClientCommand(module, command, pl, args)
     if command ~= "set" then return end
     local floor = ParadiseDev.Notes.getFloor(args)
     if not floor or not ParadiseDev.Notes.canModifyFloor(pl, floor) then return end
-    ParadiseDev.Notes.setNote(floor, args.note, args.color, ParadiseDev.Notes.getUsername(pl))
+    ParadiseDev.Notes.setNote(floor, args.note, args.color, ParadiseDev.Notes.getUsername(pl), args.offset)
 end
 
 Events.OnInitGlobalModData.Remove(ParadiseDev.Notes.onInitGlobalModData)

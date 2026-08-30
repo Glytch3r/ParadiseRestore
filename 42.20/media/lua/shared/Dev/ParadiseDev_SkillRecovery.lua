@@ -103,7 +103,7 @@ function recovery.getRecoveryXP(record, perkID)
     if mode == 5 or #lives == 0 then return 0 end
     local result = 0
     if mode == 1 or mode == 4 then
-        result = tonumber(lives[#lives].skills and lives[#lives].skills[perkID]) or 0
+        result = tonumber(lives[#lives].earned and lives[#lives].earned[perkID]) or 0
         if mode == 4 then result = result * 0.5 end
     elseif mode == 2 then
         for _, life in ipairs(lives) do result = result + (tonumber(life.earned and life.earned[perkID]) or 0) end
@@ -118,7 +118,9 @@ function recovery.applySkill(player, perkID)
     local perk = Perks[perkID]
     local xp = player and player.getXp and player:getXp() or nil
     if not record or not perk or not xp then return 0 end
-    local desired = recovery.getRecoveryXP(record, perkID)
+    local baseline = player.getModData and player:getModData().ParadiseDevSkillRecoveryBaseline or {}
+    local startingXP = math.max(0, tonumber(baseline[perkID]) or 0)
+    local desired = math.min(recovery.getMaxXP(perk), startingXP + recovery.getRecoveryXP(record, perkID))
     local current = math.max(0, tonumber(xp:getXP(perk)) or 0)
     local rawAmount = math.max(0, desired - current)
     if rawAmount > 0 then xp:AddXP(perk, rawAmount, false, false, true) end
@@ -169,8 +171,11 @@ function recovery.getPlan(player)
     local xp = player and player.getXp and player:getXp() or nil
     local skills = {}
     if not record or not xp or recovery.getMode() == 5 then return skills end
+    local baseline = player.getModData and player:getModData().ParadiseDevSkillRecoveryBaseline or {}
     recovery.forEachPerk(function(perk, perkID)
-        if recovery.getRecoveryXP(record, perkID) > (tonumber(xp:getXP(perk)) or 0) then table.insert(skills, perkID) end
+        local startingXP = math.max(0, tonumber(baseline[perkID]) or 0)
+        local desired = math.min(recovery.getMaxXP(perk), startingXP + recovery.getRecoveryXP(record, perkID))
+        if desired > (tonumber(xp:getXP(perk)) or 0) then table.insert(skills, perkID) end
     end)
     return skills
 end
@@ -195,6 +200,7 @@ function recovery.onClientCommand(module, command, sender, args)
     elseif command == "retrieve" and ParadiseDev.isAdm(sender) then
         recovery.retrieve(target)
     elseif command == "autoStart" and recovery.hasReincarnate(sender) then
+        recovery.setBaseline(sender)
         local skills = recovery.getPlan(sender)
         if isServer and isServer() then sendServerCommand(sender, recovery.module, "recoveryPlan", { skills = skills }) else recovery.queueRecovery(sender, skills) end
     elseif command == "recoverSkill" and recovery.hasReincarnate(sender) and args and args.perkID then
@@ -283,8 +289,8 @@ end
 function recovery.onCreatePlayer(playerNum, player)
     if isServer and isServer() then return end
     player = player or (getPlayer and getPlayer() or nil)
+    recovery.setBaseline(player)
     if not recovery.hasReincarnate(player) then
-        recovery.setBaseline(player)
         return
     end
     if isClient and isClient() then
