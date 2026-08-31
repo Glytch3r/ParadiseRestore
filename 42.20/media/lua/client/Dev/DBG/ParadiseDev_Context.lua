@@ -4,6 +4,7 @@ ParadiseZ = ParadiseZ or {}
 ParadiseZ.soundDbg = ParadiseZ.soundDbg or false
 
 require "Dev/ParadiseDev_AdminPanels"
+require "Dev/DBG/ParadiseDev_VisualDebug"
 
 
 function ParadiseDev.Context.onOrOff(value)
@@ -165,6 +166,17 @@ function ParadiseDev.Context.context(plNum, context)
 
     ParadiseDev.Context.addOption(menu, "GunAmmos", function() ParadiseDev.Context.reloadGuns() end, "media/ui/LootableMaps/map_bullets.png", pl)
 
+    if ParadiseDev.Visual then
+        local visualRoot = menu:addOption("Visual Tests")
+        visualRoot.iconTexture = getTexture("media/ui/Paradise/ContextIcon.png")
+        local visualMenu = ISContextMenu:getNew(context)
+        menu:addSubMenu(visualRoot, visualMenu)
+        ParadiseDev.Context.addOption(visualMenu, "Hide Worn Visuals", ParadiseDev.Visual.hide, "media/ui/Paradise/ContextIcon.png", pl)
+        ParadiseDev.Context.addOption(visualMenu, "Restore Worn Visuals", ParadiseDev.Visual.replace, "media/ui/Paradise/ContextIcon.png", pl)
+        ParadiseDev.Context.addOption(visualMenu, "Test Firearm Model: Handgun03", ParadiseDev.Visual.testWeaponSprite, "media/ui/LootableMaps/map_bullets.png", pl)
+        ParadiseDev.Context.addOption(visualMenu, "Restore Firearm Model", ParadiseDev.Visual.resetWeaponSprite, "media/ui/LootableMaps/map_bullets.png", pl)
+    end
+
     ParadiseDev.Context.addOption(menu, "Spawn TheRange Membership Card", ParadiseDev.Context.spawnRangeCard, "media/textures/TheRange.png", pl)
     ParadiseDev.Context.addOption(menu, "NVG: " .. ParadiseDev.Context.onOrOff(pl:isWearingNightVisionGoggles()), ParadiseDev.Context.toggleNightVision, "media/ui/Paradise/NVGContextIcon.png", pl)
     if ParadiseZ.lvlUp then ParadiseDev.Context.addOption(menu, "Level Up", ParadiseZ.lvlUp, "media/ui/Paradise/LvlContextIcon.png") end
@@ -215,6 +227,10 @@ function ParadiseDev.Context.reloadGuns()
         end
 
         loaded[gun] = true
+
+        if (gun:getMagazineType() and gun:isContainsClip()) or gun:getCurrentAmmoCount() > 0 or (gun:haveChamber() and gun:isRoundChambered()) then
+            return
+        end
 
         if gun:getMagazineType() then
             local mag = pl:getInventory():AddItem(gun:getMagazineType())
