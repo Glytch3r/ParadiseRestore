@@ -1,5 +1,8 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.ZoneHUD = ParadiseDev.ZoneHUD or {}
+ParadiseDev.ZoneHUD.width = 250
+ParadiseDev.ZoneHUD.defaultX = 68 + ParadiseDev.ZoneHUD.width
+ParadiseDev.ZoneHUD.defaultY = 73
 
 require "ISUI/ISPanel"
 require "ISUI/ISLabel"
@@ -60,9 +63,9 @@ ParadiseDev.ZoneHUD.fonts = {
 
 function ParadiseDev.ZoneHUD.getSettings(pl)
     local modData = pl:getModData()
-    local settings = modData.HUDSettings or modData.ParadiseZHUDSettings or { x = 68, y = 73, fontSize = "Medium" }
-    settings.x = tonumber(settings.x) or 68
-    settings.y = tonumber(settings.y) or 73
+    local settings = modData.HUDSettings or modData.ParadiseZHUDSettings or { x = ParadiseDev.ZoneHUD.defaultX, y = ParadiseDev.ZoneHUD.defaultY, fontSize = "Medium" }
+    settings.x = tonumber(settings.x) or ParadiseDev.ZoneHUD.defaultX
+    settings.y = tonumber(settings.y) or ParadiseDev.ZoneHUD.defaultY
     settings.fontSize = ParadiseDev.ZoneHUD.fonts[settings.fontSize] and settings.fontSize or "Medium"
     if settings.visible == nil then settings.visible = true end
     modData.HUDSettings = settings
@@ -219,7 +222,7 @@ end
 
 function ParadiseDev.ZoneHUD.SettingsPanel:onReset()
     local settings = ParadiseDev.ZoneHUD.getSettings(self.player)
-    settings.x, settings.y, settings.fontSize, settings.visible = 68, 73, "Medium", true
+    settings.x, settings.y, settings.fontSize, settings.visible = ParadiseDev.ZoneHUD.defaultX, ParadiseDev.ZoneHUD.defaultY, "Medium", true
     ParadiseDev.ZoneHUD.saveSettings(self.player, settings)
     self.xSlider:setCurrentValue(settings.x, true)
     self.ySlider:setCurrentValue(settings.y, true)

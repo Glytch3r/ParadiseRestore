@@ -149,7 +149,10 @@ function ParadiseDev.Context.context(plNum, context)
                 ui:addToUIManager();
             end, "media/ui/Paradise/ContextIcon.png")
             ParadiseDev.Context.addOption(panelsMenu, "Users List", ParadiseDev.Panels.openUsersList, "media/ui/Paradise/ContextIcon.png")
-            ParadiseDev.Context.addOption(panelsMenu, "Global ModData", ParadiseDev.Panels.openGlobalModData, "media/ui/Paradise/ContextIcon.png")        if getCore():getDebug() then 
+            ParadiseDev.Context.addOption(panelsMenu, "Global ModData", ParadiseDev.Panels.openGlobalModData, "media/ui/Paradise/ContextIcon.png")
+            ParadiseDev.Context.addOption(panelsMenu, "Mod Active Check", ParadiseDev.Panels.openModActiveCheck, "media/ui/Paradise/ContextIcon.png")
+            ParadiseDev.Context.addOption(panelsMenu, "Paradise Playtime Checker", ParadiseDev.Panels.openPlaytimeCheck, "media/ui/Paradise/ContextIcon.png")
+        if getCore():getDebug() then
             ParadiseDev.Context.addOption(panelsMenu, "AnimMonitor", ParadiseDev.Panels.ISAnimDebugMonitor, "media/ui/Paradise/ContextIcon.png")
         end
     end

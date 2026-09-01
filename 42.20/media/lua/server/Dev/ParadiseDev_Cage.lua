@@ -215,29 +215,84 @@ ParadiseDev.Cage.auditSessions = ParadiseDev.Cage.auditSessions or {}
 function ParadiseDev.Cage.getAuditStore()
     local store = ModData.getOrCreate(ParadiseDev.Cage.auditStoreName)
     store.seconds = store.seconds or {}
+    store.profiles = store.profiles or {}
     return store
 end
 
-function ParadiseDev.Cage.updatePlaytime(pl)
+function ParadiseDev.Cage.getAuditKey(pl)
     local username = ParadiseDev.Cage.getUsername(pl)
-    if not username then return 0 end
+    if not username then return nil end
+    if ParadiseDev.Cage.isSteamMode() then
+        local steamId = ParadiseDev.Cage.getSteamId(pl)
+        if steamId then return "steam:" .. steamId end
+    end
+    return "username:" .. string.lower(username)
+end
+
+function ParadiseDev.Cage.getAuditProfile(pl)
+    local username = ParadiseDev.Cage.getUsername(pl)
+    local key = ParadiseDev.Cage.getAuditKey(pl)
+    if not username or not key then return nil end
+    local store = ParadiseDev.Cage.getAuditStore()
+    local profile = store.profiles[key]
+    if not profile then
+        profile = {
+            username = username,
+            steamId = ParadiseDev.Cage.getSteamId(pl) or "",
+            seconds = tonumber(store.seconds[username]) or 0,
+        }
+        store.profiles[key] = profile
+    else
+        profile.username = username
+        profile.steamId = ParadiseDev.Cage.getSteamId(pl) or profile.steamId or ""
+        profile.seconds = tonumber(profile.seconds) or 0
+    end
+    store.seconds[username] = profile.seconds
+    return profile, key
+end
+
+function ParadiseDev.Cage.updatePlaytime(pl)
+    local profile, key = ParadiseDev.Cage.getAuditProfile(pl)
+    if not profile or not key then return 0 end
     local now = getTimestampMs()
-    local session = ParadiseDev.Cage.auditSessions[username]
+    local session = ParadiseDev.Cage.auditSessions[key]
     if not session then
-        ParadiseDev.Cage.auditSessions[username] = { last = now }
+        ParadiseDev.Cage.auditSessions[key] = { last = now }
         return 0
     end
     local elapsed = math.max(0, now - session.last)
     session.last = now
-    local store = ParadiseDev.Cage.getAuditStore()
-    store.seconds[username] = (tonumber(store.seconds[username]) or 0) + elapsed / 1000
-    return store.seconds[username]
+    profile.seconds = (tonumber(profile.seconds) or 0) + elapsed / 1000
+    ParadiseDev.Cage.getAuditStore().seconds[profile.username] = profile.seconds
+    return profile.seconds
 end
 
 function ParadiseDev.Cage.updateAllPlaytime()
     local players = getOnlinePlayers and getOnlinePlayers() or nil
     if not players then return end
     for index = 0, players:size() - 1 do ParadiseDev.Cage.updatePlaytime(players:get(index)) end
+end
+
+function ParadiseDev.Cage.findPlaytime(query)
+    local value = tostring(query or ""):gsub("^%s*(.-)%s*$", "%1")
+    if value == "" or #value > 64 or value:find("[%c]") then return nil, "Enter a username or Steam ID." end
+    local store = ParadiseDev.Cage.getAuditStore()
+    if value:match("^%d+$") then
+        if not ParadiseDev.Cage.isSteamMode() then return nil, "Steam IDs require Steam mode." end
+        return store.profiles["steam:" .. value], store.profiles["steam:" .. value] and nil or "No tracked playtime found."
+    end
+    local usernameKey = string.lower(value)
+    local profile = store.profiles["username:" .. usernameKey]
+    if profile then return profile end
+    for _, entry in pairs(store.profiles) do
+        if string.lower(tostring(entry.username or "")) == usernameKey then return entry end
+    end
+    for username, seconds in pairs(store.seconds) do
+        if string.lower(tostring(username)) == usernameKey then
+            return { username = username, steamId = "", seconds = tonumber(seconds) or 0 }
+        end
+    end
+    return nil, "No tracked playtime found."
 end
 
 function ParadiseDev.Cage.formatDuration(seconds)
@@ -336,6 +391,18 @@ function ParadiseDev.Cage.writePlayerLog(requester, pl)
 end
 
 function ParadiseDev.Cage.onClientCommand(module, command, pl, args)
+    if module == "ParadiseDevPlaytime" then
+        if command ~= "check" or not ParadiseDev.isAdm(pl) then return end
+        ParadiseDev.Cage.updateAllPlaytime()
+        local profile, reason = ParadiseDev.Cage.findPlaytime(args and args.query)
+        sendServerCommand(pl, module, "result", {
+            username = profile and profile.username or "",
+            steamId = profile and profile.steamId or "",
+            seconds = profile and profile.seconds or 0,
+            error = reason,
+        })
+        return
+    end
     if module ~= "ParadiseDevCage" or not ParadiseDev.isAdm(pl) then return end
     if command == "list" then
         ParadiseDev.Cage.sendState(pl)

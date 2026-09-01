@@ -18,6 +18,9 @@ function ISMiniScoreboardUI:doPlayerListContextMenu(player, x,y)
         if role and role:hasCapability(Capability.TeleportToPlayer) then
             context:addOption("Spectate: " .. username, self, ISMiniScoreboardUI.onCommand, player, "SPECTATE")
         end
+        if ParadiseDev.SkillRecovery and ParadiseDev.SkillRecovery.addTargetOptions then
+            ParadiseDev.SkillRecovery.addTargetOptions(context, player)
+        end
     end
 
 --[[ 

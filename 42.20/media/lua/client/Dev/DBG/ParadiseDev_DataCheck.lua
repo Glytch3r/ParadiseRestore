@@ -322,20 +322,7 @@ function ParadiseDev.DataCheck.addFieldRows(list, obj)
         list:addItem("No object selected.")
         return
     end
-    local okCount, count = pcall(getNumClassFields, obj)
-    if not okCount or not count or count <= 0 then
-        list:addItem("No readable Java fields.")
-        return
-    end
-    for index = 0, count - 1 do
-        local okField, field = pcall(getClassField, obj, index)
-        if okField and field then
-            local okName, name = pcall(field.getName, field)
-            local okValue, value = pcall(field.get, field, obj)
-            local valueText = okValue and tostring(value) or "<unreadable>"
-            list:addItem(tostring(okName and name or index) .. " = " .. valueText)
-        end
-    end
+    list:addItem("Java field inspection is unavailable.")
 end
 
 function ParadiseDev.DataCheck.getColumnText(list)

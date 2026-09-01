@@ -49,13 +49,30 @@ function ParadiseZ.getColor(z)
 end
 
 function ParadiseZ.isModActive(name)
-    for i = 0, getActivatedMods():size()-1 do
-        local mod = getActivatedMods():get(i):gsub("^\\+", ""):lower()
-        if mod == name:lower() then
-            return true
+    local target = tostring(name or ""):gsub("^%s*(.-)%s*$", "%1"):gsub("^%+", ""):lower()
+    if target == "" then return false end
+
+    local function contains(getter)
+        if type(getter) ~= "function" then return false end
+        local ok, entries = pcall(getter)
+        if not ok or not entries then return false end
+        if entries.size and entries.get then
+            for i = 0, entries:size() - 1 do
+                local value = tostring(entries:get(i) or ""):gsub("^%s*(.-)%s*$", "%1"):gsub("^%+", ""):lower()
+                if value == target then return true end
+            end
+            return false
         end
+        if type(entries) == "table" then
+            for _, entry in pairs(entries) do
+                local value = tostring(entry or ""):gsub("^%s*(.-)%s*$", "%1"):gsub("^%+", ""):lower()
+                if value == target then return true end
+            end
+        end
+        return false
     end
-    return false
+
+    return contains(getActivatedMods) or contains(getActivatedWorkshopItems) or contains(getActivatedWorkshopMods)
 end
 
 function ParadiseZ.checkDist(pl, sq)

@@ -52,6 +52,7 @@ module ParadiseDev
         Cost = 3,
         UIName = UI_trait_Reincarnate,
         UIDescription = UI_trait_ReincarnateDesc,
+        Texture = media/ui/Traits/trait_Reincarnate.png,
     }
 }
 

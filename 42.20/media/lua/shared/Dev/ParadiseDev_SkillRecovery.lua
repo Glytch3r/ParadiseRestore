@@ -322,19 +322,6 @@ if Events.OnPlayerDeath then Events.OnPlayerDeath.Add(recovery.onPlayerDeath) en
 if Events.OnTick then Events.OnTick.Add(recovery.onTick) end
 if Events.OnServerCommand then Events.OnServerCommand.Add(recovery.onServerCommand) end
 
-function recovery.installScoreboardHook()
-    if recovery.scoreboardInstalled or not ISMiniScoreboardUI then return end
-    recovery.scoreboardInstalled = true
-    recovery.scoreboardContext = ISMiniScoreboardUI.doPlayerListContextMenu
-    function ISMiniScoreboardUI:doPlayerListContextMenu(player, x, y)
-        recovery.scoreboardContext(self, player, x, y)
-        local context = ISContextMenu.get(self.admin:getPlayerNum(), x + self:getAbsoluteX(), y + self:getAbsoluteY())
-        recovery.addTargetOptions(context, player)
-    end
-end
-
-recovery.installScoreboardHook()
 if Events.OnGameStart then Events.OnGameStart.Add(function()
     if ModData.request then ModData.request(recovery.storeName) end
-    recovery.installScoreboardHook()
 end) end

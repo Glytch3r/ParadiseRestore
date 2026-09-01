@@ -1,11 +1,15 @@
-ParadiseDev = ParadiseDev or {}
-ParadiseDev.AdminPower = ParadiseDev.AdminPower or {}
-ParadiseZ = ParadiseZ or {}
 
+
+--[[ 
 require "ISUI/AdminPanel/ISAdminPowerUI"
 require "Dev/ParadiseDev_Players"
 require "Z/Oversight/Oversight_AdminTag"
+ ]]
 
+--[[ 
+ParadiseDev = ParadiseDev or {}
+ParadiseZ = ParadiseZ or {}
+ParadiseDev.AdminPower = ParadiseDev.AdminPower or {}
 function ParadiseDev.AdminPower.getHideAdminTags(self)
     if not self or not self.player then return false end
     return ParadiseZ.isHideAdminTag(self.player) or false
@@ -32,6 +36,7 @@ function ParadiseDev.AdminPower.syncPanel(panel)
     syncTickBox(panel.tickBoxRight, panel.optionsRight)
 end
 
+
 function ParadiseDev.AdminPower.addOption()
     if ISAdminPowerUI.OptionById.HideAdminTags then return end
     local option = ISAdminPowerUI.AddOption("HideAdminTags", "right", Capability.ToggleWriteRoleNameAbove,
@@ -50,3 +55,4 @@ if not ParadiseDev.AdminPower.originalOnOpenPanel then
         return panel
     end
 end
+]]
