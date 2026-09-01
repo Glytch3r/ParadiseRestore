@@ -161,9 +161,27 @@ end
 function recovery.setBaseline(player)
     local xp = player and player.getXp and player:getXp() or nil
     if not xp then return end
+    local data = player:getModData()
+    if type(data.ParadiseDevSkillRecoveryBaseline) == "table" then return end
     local baseline = {}
     recovery.forEachPerk(function(perk, perkID) baseline[perkID] = math.max(0, tonumber(xp:getXP(perk)) or 0) end)
-    player:getModData().ParadiseDevSkillRecoveryBaseline = baseline
+    data.ParadiseDevSkillRecoveryBaseline = baseline
+end
+
+function recovery.getLifeCount(player)
+    local record = recovery.getRecord(player)
+    return record and #(record.lives or {}) or 0
+end
+
+function recovery.isLifeRestored(player, lifeCount)
+    local data = player and player.getModData and player:getModData() or nil
+    return data and tonumber(data.ParadiseDevSkillRecoveryRestoredLifeCount) == tonumber(lifeCount) or false
+end
+
+function recovery.markLifeRestored(player, lifeCount)
+    if not player or not player.getModData then return end
+    if tonumber(lifeCount) ~= recovery.getLifeCount(player) then return end
+    player:getModData().ParadiseDevSkillRecoveryRestoredLifeCount = lifeCount
 end
 
 function recovery.getPlan(player)
@@ -171,6 +189,7 @@ function recovery.getPlan(player)
     local xp = player and player.getXp and player:getXp() or nil
     local skills = {}
     if not record or not xp or recovery.getMode() == 5 then return skills end
+    if recovery.isLifeRestored(player, #(record.lives or {})) then return skills end
     local baseline = player.getModData and player:getModData().ParadiseDevSkillRecoveryBaseline or {}
     recovery.forEachPerk(function(perk, perkID)
         local startingXP = math.max(0, tonumber(baseline[perkID]) or 0)
@@ -180,9 +199,9 @@ function recovery.getPlan(player)
     return skills
 end
 
-function recovery.request(command, username, perkID)
+function recovery.request(command, username, perkID, lifeCount)
     if not username or username == "" then return false end
-    local args = { username = username, perkID = perkID }
+    local args = { username = username, perkID = perkID, lifeCount = lifeCount }
     if isClient and isClient() then
         if not sendClientCommand then return false end
         sendClientCommand(recovery.module, command, args)
@@ -202,9 +221,12 @@ function recovery.onClientCommand(module, command, sender, args)
     elseif command == "autoStart" and recovery.hasReincarnate(sender) then
         recovery.setBaseline(sender)
         local skills = recovery.getPlan(sender)
-        if isServer and isServer() then sendServerCommand(sender, recovery.module, "recoveryPlan", { skills = skills }) else recovery.queueRecovery(sender, skills) end
+        local lifeCount = recovery.getLifeCount(sender)
+        if isServer and isServer() then sendServerCommand(sender, recovery.module, "recoveryPlan", { skills = skills, lifeCount = lifeCount }) else recovery.queueRecovery(sender, skills, lifeCount) end
     elseif command == "recoverSkill" and recovery.hasReincarnate(sender) and args and args.perkID then
         recovery.applySkill(sender, args.perkID)
+    elseif command == "autoComplete" and recovery.hasReincarnate(sender) then
+        recovery.markLifeRestored(sender, args and args.lifeCount)
     elseif command == "death" then
         recovery.recordDeath(sender)
     end
@@ -255,12 +277,12 @@ function recovery.addWorldOptions(playerNum, context, worldobjects, test)
     recovery.addTooltip(retrieve, player)
 end
 
-function recovery.queueRecovery(player, skills)
+function recovery.queueRecovery(player, skills, lifeCount)
     if not player or not skills or #skills == 0 then
-        recovery.setBaseline(player)
+        recovery.markLifeRestored(player, lifeCount or recovery.getLifeCount(player))
         return
     end
-    recovery.queue = { player = player, skills = skills, index = 1, delay = 90, announced = false }
+    recovery.queue = { player = player, skills = skills, index = 1, delay = 90, announced = false, lifeCount = lifeCount or recovery.getLifeCount(player) }
 end
 
 function recovery.onTick()
@@ -276,7 +298,8 @@ function recovery.onTick()
     end
     local perkID = queue.skills[queue.index]
     if not perkID then
-        recovery.setBaseline(queue.player)
+        recovery.markLifeRestored(queue.player, queue.lifeCount)
+        recovery.request("autoComplete", recovery.getUsername(queue.player), nil, queue.lifeCount)
         recovery.queue = nil
         return
     end
@@ -296,7 +319,7 @@ function recovery.onCreatePlayer(playerNum, player)
     if isClient and isClient() then
         recovery.request("autoStart", recovery.getUsername(player))
     else
-        recovery.queueRecovery(player, recovery.getPlan(player))
+        recovery.queueRecovery(player, recovery.getPlan(player), recovery.getLifeCount(player))
     end
 end
 
@@ -312,7 +335,7 @@ end
 
 function recovery.onServerCommand(module, command, args)
     if module ~= recovery.module or command ~= "recoveryPlan" then return end
-    recovery.queueRecovery(getPlayer and getPlayer() or nil, args and args.skills or {})
+    recovery.queueRecovery(getPlayer and getPlayer() or nil, args and args.skills or {}, args and args.lifeCount)
 end
 
 if Events.OnClientCommand then Events.OnClientCommand.Add(recovery.onClientCommand) end
