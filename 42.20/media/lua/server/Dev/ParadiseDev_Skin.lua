@@ -73,6 +73,7 @@ end
 Events.OnFillInventoryObjectContextMenu.Remove(ParadiseDev.mp5SpriteSwap)
 Events.OnFillInventoryObjectContextMenu.Add(ParadiseDev.mp5SpriteSwap)
  ]]
+--[[ 
 function ParadiseDev.mp5ReloadResikin(pl, wpn)
     if not pl or not wpn then return end
 
@@ -86,6 +87,7 @@ end
 
 Events.OnPressReloadButton.Remove(ParadiseDev.mp5ReloadResikin)
 Events.OnPressReloadButton.Add(ParadiseDev.mp5ReloadResikin)
+ ]]
 
 function ParadiseDev.parseMp5AllowedSkinChangeNames()
     local strList = SandboxVars.ParadiseDev.mp5SkinChanger or "Glytch3r;OldmanTurtle"
