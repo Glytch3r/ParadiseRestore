@@ -1,0 +1,129 @@
+module Base
+{
+
+    model Handgun_gold
+    {
+        mesh = weapons/firearm/D_E_Pistol,
+        attachment muzzle
+        {
+            offset = 0.0 0.1466 -0.0236,
+            rotate = -90.0 0.0 0.0,
+        }
+        attachment reddot
+        {
+            offset = 0.001 0.044 -0.04,
+            rotate = 0.0 0.0 0.0,
+        }
+        attachment gunlight
+        {
+            offset = 0.0 0.0953 0.0227,
+            rotate = 0.0 0.0 0.0,
+            scale = 0.775,
+        }
+        attachment scope
+        {
+            offset = 0.0 0.0324 -0.0495,
+            rotate = 180.0 0.0 -180.0,
+            scale = 1.285,
+        }
+        attachment laser
+        {
+            offset = 0.0 0.0968 0.0141,
+            rotate = 0.0 0.0 0.0,
+        }
+        attachment world
+        {
+            offset = -0.011 0.067 0.0,
+            rotate = 0.0 0.0 0.0,
+        }
+        attachment Bip01_Prop2
+        {
+            offset = -0.0338 0.0424 0.0,
+            rotate = 90.0008 1.1964 -90.0396,
+        }
+    }
+
+    item Pistol3_gold
+    {
+        DisplayCategory = Weapon,
+        ItemType = base:weapon,
+        Weight = 2.0,
+        Icon = HandGun,
+        AimingPerkCritModifier = 6,
+        AimingPerkHitChanceModifier = 4,
+        AimingPerkMinAngleModifier = 0.05,
+        AimingPerkRangeModifier = 0,
+        AimReleaseSound = DesertEagleAimRelease,
+        Aimingtime = 25,
+        AmmoBox = Base.Bullets44Box,
+        AmmoType = base:bullets_44,
+        AttachmentType = Holster,
+        BreakSound = DesertEagleBreak,
+        BringToBearSound = DesertEagleBringToBear,
+        ClickSound = DesertEagleJam,
+        DropSound = DesertEagleDrop,
+        ClipSize = 15,
+        ConditionLowerChanceOneIn = 200,
+        ConditionMax = 10,
+        CritDmgMultiplier = 4.0,
+        CriticalChance = 20.0,
+        DoorDamage = 5,
+        EjectAmmoSound = DesertEagleEjectAmmo,
+        EjectAmmoStartSound = DesertEagleEjectAmmoStart,
+        EjectAmmoStopSound = DesertEagleEjectAmmoStop,
+        EquipSound = DesertEagleEquip,
+        HitChance = 50,
+        HitSound = BulletImpact,
+        ImpactSound = null,
+        InsertAmmoSound = DesertEagleInsertAmmo,
+        InsertAmmoStartSound = DesertEagleInsertAmmoStart,
+        InsertAmmoStopSound = DesertEagleInsertAmmoStop,
+        IsAimedFirearm = true,
+        JamGunChance = 1,
+        KnockBackOnNoDeath = true,
+        KnockdownMod = 2.0,
+        MagazineType = Base.44Clip,
+        MaxAmmo = 8,
+        MaxDamage = 1.6,
+        MaxHitcount = 1,
+        MaxRange = 17.0,
+        MinSightRange = 2,
+        MaxSightRange = 6.0,
+        MetalValue = 30.0,
+        MinAngle = 0.95,
+        MinDamage = 1.0,
+        MinRange = 0.61,
+        MinimumSwingtime = 0.5,
+        ModelWeaponPart = GunLight GunLight gunlight gunlight,
+        ModelWeaponPart = Laser Laser laser laser,
+        MultipleHitConditionAffected = false,
+        MuzzleFlashModelKey = muzzle_flash_handgun03,
+        NPCSoundBoost = 1.5,
+        /* Projectilecount = 1, */
+        PushBackMod = 0.3,
+        RackSound = DesertEagleRack,
+        Ranged = true,
+        RecoilDelay = 17,
+        Reloadtime = 30,
+        RunAnim = Run_Weapon2,
+        ShellFallSound = DesertEagleCartridgeFall,
+        SoundGain = 1.5,
+        SoundRadius = 120,
+        SoundVolume = 75,
+        SplatBloodOnNoDeath = true,
+        SplatNumber = 3,
+        SplatSize = 3,
+        StopPower = 9.0,
+        SubCategory = Firearm,
+        SwingAmountBeforeImpact = 0.0,
+        SwingAnim = Handgun,
+        SwingSound = DesertEagleShoot,
+        Swingtime = 0.5,
+        ToHitModifier = 1.5,
+        UnequipSound = DesertEagleUnequip,
+        UseEndurance = false,
+        WeaponReloadType = handgun,
+        WeaponSprite = Handgun_gold,
+        Tags = base:hasmetal;base:ignorezombiedensity;base:firearm,
+    }
+}

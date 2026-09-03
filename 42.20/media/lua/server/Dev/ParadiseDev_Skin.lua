@@ -15,6 +15,7 @@ function ParadiseDev.tempChangeSpr(fType, sprStr)
         itemScr:DoParam(param2)
     end
 end
+
 function ParadiseDev.cloneWithWeaponSprite(item, newSprite)
     if not item then return end
 

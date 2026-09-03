@@ -171,6 +171,10 @@ function ParadiseDev.Context.context(plNum, context)
 
     ParadiseDev.Context.addOption(menu, "GunAmmos", function() ParadiseDev.Context.reloadGuns() end, "media/ui/LootableMaps/map_bullets.png", pl)
 
+    ParadiseDev.Context.addOption(menu, "Goldgun", function() ParadiseDev.tempChangeSpr("Base.Pistol3_gold", 'Handgun_gold') end, "media/ui/LootableMaps/map_bullets.png", pl)
+
+
+
     if ParadiseDev.Visual then
         local visualRoot = menu:addOption("Visual Tests")
         visualRoot.iconTexture = getTexture("media/ui/Paradise/ContextIcon.png")
@@ -186,6 +190,10 @@ function ParadiseDev.Context.context(plNum, context)
     ParadiseDev.Context.addOption(menu, "NVG: " .. ParadiseDev.Context.onOrOff(pl:isWearingNightVisionGoggles()), ParadiseDev.Context.toggleNightVision, "media/ui/Paradise/NVGContextIcon.png", pl)
     if ParadiseZ.lvlUp then ParadiseDev.Context.addOption(menu, "Level Up", ParadiseZ.lvlUp, "media/ui/Paradise/LvlContextIcon.png") end
     if ParadiseZ.die then ParadiseDev.Context.addOption(menu, "Suicide", ParadiseZ.die, "media/ui/Paradise/RIPContextIcon.png") end
+
+
+
+
 
     local zombieRoot = menu:addOption("Zombies")
     zombieRoot.iconTexture = getTexture("media/ui/Paradise/StopZedContextIcon.png")
