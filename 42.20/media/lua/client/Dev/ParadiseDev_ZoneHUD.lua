@@ -11,6 +11,7 @@ require "ISUI/ISComboBox"
 require "ISUI/ISTickBox"
 require "RadioCom/ISUIRadio/ISSliderPanel"
 require "ISUI/UserPanel/ISUserPanelUI"
+require "Dev/ParadiseEconomy/ParadiseEconomy_Client"
 
 ParadiseDev.ZoneHUD.mapLabels = {
     { key = "MapLabel_Brandenburg", x = 2056, y = 6070 },
@@ -329,12 +330,25 @@ if not ParadiseDev.ZoneHUD.userPanelHooked then
 
         self:addChild(self.zoneHUDSettings)
         close:setY(close.y + close.height + 10)
+        self.financeManager = ISButton:new(close.x, close.y, close.width, close.height, "Finance Manager", self, ISUserPanelUI.onOptionMouseDown)
+        self.financeManager.internal = "PARADISE_ECONOMY_FINANCE_MANAGER"
+        self.financeManager:initialise()
+        self.financeManager:instantiate()
+        self.financeManager.borderColor = self.buttonBorderColor
+        self.financeManager.backgroundColor.a = 0.7;
+        self.financeManager.backgroundColor.b = 0.5;
+        self:addChild(self.financeManager)
+        close:setY(close.y + close.height + 10)
         self:setHeight(close.y + close.height + 11)
     end
 
     function ISUserPanelUI:onOptionMouseDown(button, x, y)
         if button.internal == "PARADISEDEV_ZONEHUD_SETTINGS" then
             ParadiseDev.ZoneHUD.openSettings(self.player)
+            return
+        end
+        if button.internal == "PARADISE_ECONOMY_FINANCE_MANAGER" then
+            ParadiseEconomy.openPanel(self.player)
             return
         end
         return ParadiseDev.ZoneHUD.onUserPanelOption(self, button, x, y)

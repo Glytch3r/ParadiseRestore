@@ -1,9 +1,20 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.TP = ParadiseDev.TP or {}
+ParadiseDev.Debug = ParadiseDev.Debug or {}
 
 
 
 ParadiseDev.TP.module = "ParadiseDevTP"
+ParadiseDev.Debug.module = "ParadiseDevDebug"
+
+function ParadiseDev.Debug.onClientCommand(module, command, pl, args)
+    if module ~= ParadiseDev.Debug.module or command ~= "testDmg" then return end
+    if not pl or string.lower(pl:getAccessLevel()) ~= "admin" then return end
+    local targ = args and getPlayerByOnlineID(args.targId) or nil
+    if not targ then return end
+    local dmg = math.min(100, math.max(0, tonumber(args.dmg) or 15))
+    sendServerCommand(targ, ParadiseDev.Debug.module, "testDmg", { dmg = dmg, pushedDir = args.pushedDir })
+end
 
 function ParadiseDev.TP.validCoordinates(x, y, z)
     return tonumber(x) ~= nil and tonumber(y) ~= nil and tonumber(z) ~= nil
@@ -111,3 +122,5 @@ end
 
 Events.OnClientCommand.Remove(ParadiseDev.TP.onClientCommand)
 Events.OnClientCommand.Add(ParadiseDev.TP.onClientCommand)
+Events.OnClientCommand.Remove(ParadiseDev.Debug.onClientCommand)
+Events.OnClientCommand.Add(ParadiseDev.Debug.onClientCommand)

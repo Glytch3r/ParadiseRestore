@@ -47,9 +47,32 @@ function brush.place(player, request)
 end
 
 function brush.onClientCommand(module, command, player, args)
-    if module ~= brush.module or command ~= "place" then return end
+    if module ~= brush.module or not ParadiseDev.isAdm(player) then return end
+    if command == "place" then
+        local request = brush.normalizeRequest(args)
+        if request then brush.place(player, request) end
+        return
+    end
+    if command ~= "replace" and command ~= "destroy" and command ~= "moveable" then return end
     local request = brush.normalizeRequest(args)
-    if request then brush.place(player, request) end
+    local index = args and tonumber(args.index) or nil
+    if not request or not index or index ~= math.floor(index) or not brush.isNearPlayer(player, request) then return end
+    local square = getCell():getGridSquare(request.x, request.y, request.z)
+    if not square or index < 0 or index >= square:getObjects():size() then return end
+    local object = square and square:getObjects():get(index) or nil
+    if not object then return end
+    if command == "replace" then
+        if object.setSpriteFromName then object:setSpriteFromName(request.sprite) end
+        if object.transmitUpdatedSpriteToClients then object:transmitUpdatedSpriteToClients() end
+    elseif command == "destroy" then
+        square:transmitRemoveItemFromSquare(object)
+    else
+        local item = player:getInventory():AddItem("Moveables.Moveable")
+        if item then
+            item:ReadFromWorldSprite(request.sprite)
+            sendAddItemToContainer(player:getInventory(), item)
+        end
+    end
 end
 
 Events.OnClientCommand.Remove(brush.onClientCommand)

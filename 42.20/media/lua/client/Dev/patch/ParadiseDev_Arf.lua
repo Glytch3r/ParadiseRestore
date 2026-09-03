@@ -9,6 +9,8 @@ if not ParadiseDev.hook.ISEquippedItemInitialise then
 
         self.clientIconOn = getTexture("media/ui/Client_Icon_On.png")
         self.clientIconOff = getTexture("media/ui/Client_Icon_Off.png")
+        self.adminIconOn = getTexture("media/ui/Admin_Icon_On.png")
+        self.adminIconOff = getTexture("media/ui/Admin_Icon.png")
 
         local arfBtn = self.arfBtn
         if not arfBtn then

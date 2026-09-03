@@ -215,13 +215,6 @@ option ParadiseZ.DuckDropChance
 
 
 
-option ParadiseZ.ThunderFlashDecay
-{
-	type = double,	 min = 0.000,  max = 5,  default = 0.04,
-	page = ParadiseZ, translation = ParadiseZ_ThunderFlashDecay,
-}
-
-
 option ParadiseZ.BlazeTemp
 {
 	type = double, min = 0.000, max = 6000, default = 40,
@@ -286,6 +279,12 @@ option ParadiseZpvp.PvPInjuryChance
 {
 	type = double,	 min = 0,  max = 100,  default = 10,
 	page = ParadiseZpvp, translation = ParadiseZpvp_PvPInjuryChance,
+}
+
+option ParadiseZpvp.CustomPvP
+{
+	type = boolean, default = true,
+	page = ParadiseZpvp, translation = ParadiseZpvp_CustomPvP,
 }
 
 option ParadiseZpvp.VanillaNonPvpZone

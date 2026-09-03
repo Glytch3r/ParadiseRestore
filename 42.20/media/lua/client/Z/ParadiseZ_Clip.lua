@@ -1,5 +1,5 @@
 
-ParadiseZ = ParadiseZ or {}
+--ParadiseZ = ParadiseZ or {}
 ParadiseClip = ParadiseClip or {}
 
 --[[ 
@@ -90,7 +90,7 @@ function ParadiseClip.formatTable(t, indent)
     return result
 end
 
-function ParadiseZ.clipMetaFunc(func)
+function ParadiseClip.clipMetaFunc(func)
     local result = ""
     local pl = getPlayer()
     local meta = getmetatable(func)
@@ -103,7 +103,7 @@ function ParadiseZ.clipMetaFunc(func)
     end
 end
 
-function ParadiseZ.clipMetaVar(var)
+function ParadiseClip.clipMetaVar(var)
     local pl = getPlayer()
     local meta = getmetatable(var)
     if meta then

@@ -378,22 +378,21 @@ function ParadiseZ.addTempMarker(sq)
 	end
 end
 
-function ParadiseZ.testDmg(targ, dmg, pushedDir)
-    dmg = dmg or 15
-    dmg = math.min(100, dmg)
-    targ = targ or getPlayer() 
+function ParadiseZ.applyTestDmg(targ, dmg, pushedDir)
     if not targ then return end
     local md = targ:getModData()
-    md.LifePoints = math.max(0, md.LifePoints - dmg)
-    md.LifeBarFlash = 0.4
-	
-    local percent = SandboxVars.ParadiseZpvp.pvpStaggerChance or 34
+    dmg = math.min(100, math.max(0, tonumber(dmg) or 15))
+    md.LifePoints = math.max(0, (md.LifePoints or 100) - dmg)
+    md.ParadiseDevDamageFlash = { decay = 0.04, rgb = { 1, 0, 0 }, opacity = 0.4 }
+
+    local pvp = SandboxVars and SandboxVars.ParadiseZpvp
+    local percent = pvp and pvp.pvpStaggerChance or 34
     if ParadiseZ.doRoll(percent) then
 		pushedDir = pushedDir or 'pushedbehind'
 --[[         targ:setBumpType(pushedDir)
         targ:setVariable("BumpFall", true) ]]
         --targ:setVariable("BumpFallType", "pushedbehind")
-		sendClientCommand("ParadiseZ", "knockDownPl", { targId = targ:getOnlineID(), pushedDir = pushedDir })
+		targ:fallenOnKnees()
 
     end
 
@@ -404,6 +403,24 @@ function ParadiseZ.testDmg(targ, dmg, pushedDir)
         end)
     end ]]
 end
+
+function ParadiseZ.testDmg(targ, dmg, pushedDir)
+    targ = targ or getPlayer()
+    if not targ then return end
+    if isClient() then
+        sendClientCommand("ParadiseDevDebug", "testDmg", { targId = targ:getOnlineID(), dmg = dmg, pushedDir = pushedDir })
+        return
+    end
+    ParadiseZ.applyTestDmg(targ, dmg, pushedDir)
+end
+
+function ParadiseZ.onDebugServerCommand(module, command, args)
+    if module ~= "ParadiseDevDebug" or command ~= "testDmg" then return end
+    ParadiseZ.applyTestDmg(getPlayer(), args and args.dmg, args and args.pushedDir)
+end
+
+Events.OnServerCommand.Remove(ParadiseZ.onDebugServerCommand)
+Events.OnServerCommand.Add(ParadiseZ.onDebugServerCommand)
 
 
 function ParadiseZ.isTempMarkerActive()

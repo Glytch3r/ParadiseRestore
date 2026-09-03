@@ -147,6 +147,12 @@ end
 function ParadiseDev.Inventory.cloneMultiple(item, count)
     local pl = getPlayer()
     if not pl then return end
+    if isClient and isClient() then
+        if sendClientCommand and item and item.getID then
+            sendClientCommand(pl, "ParadiseDevItemCloner", "clone", { itemID = item:getID(), count = count })
+        end
+        return
+    end
     for index = 1, count or 1 do
         ParadiseDev.Inventory.clone(item, pl:getInventory())
     end

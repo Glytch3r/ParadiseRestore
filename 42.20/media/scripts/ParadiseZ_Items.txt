@@ -53,7 +53,7 @@ module ParadiseZ
     {
         DisplayCategory = Memento,
         ItemType = base:normal,
-        Weight = 0.05,
+        Weight = 0.001,
         Icon = Coin_Gold,
         WorldStaticModel = FU_GoldCoin,
         Tags = base:hasmetal;base:fitswallet;base:smallestgoldscrap,
@@ -63,7 +63,7 @@ module ParadiseZ
     {
         DisplayCategory = Memento,
         ItemType = base:normal,
-        Weight = 0.05,
+        Weight = 0.001,
         Icon = Coin_Silver,
         WorldStaticModel = FU_SilverCoin,
         Tags = base:hasmetal;base:fitswallet;base:smallestsilverscrap,

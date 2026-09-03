@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<animNode x_extends="PreyZed_sprintPathfind.xml">
+	<m_Name>PreyZed_sprintPathfind2</m_Name>
+	<m_AnimName>Bob_Sprint</m_AnimName>
+
+	<m_Conditions>
+		<m_Name>isPrey</m_Name>
+		<m_Type>BOOL</m_Type>
+		<m_BoolValue>true</m_BoolValue>
+	</m_Conditions>
+
+	<m_deferredBoneAxis>Y</m_deferredBoneAxis>
+	<m_BlendTime>0.20</m_BlendTime>
+	<m_Conditions/>
+	<m_Conditions/>
+	<m_Conditions>
+		<m_Name>zombieWalkType</m_Name>
+		<m_Type>STRING</m_Type>
+		<m_StringValue>sprint2</m_StringValue>
+	</m_Conditions>
+	<m_Events>
+		<m_EventName>Footstep</m_EventName>
+		<m_TimePc>0.15</m_TimePc>
+		<m_ParameterValue>sprint</m_ParameterValue>
+	</m_Events>
+	<m_Events>
+		<m_EventName>Footstep</m_EventName>
+		<m_TimePc>0.6</m_TimePc>
+		<m_ParameterValue>sprint</m_ParameterValue>
+	</m_Events>
+</animNode>
