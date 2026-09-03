@@ -47,7 +47,7 @@ end
 
 function recovery.getMode()
     local mode = SandboxVars and SandboxVars.ParadiseZ and tonumber(SandboxVars.ParadiseZ.RecoverySystem) or 1
-    return math.max(1, math.min(5, math.floor(mode or 1)))
+    return math.max(1, math.min(6, math.floor(mode or 1)))
 end
 
 function recovery.log(action, username, total)
@@ -58,6 +58,29 @@ function recovery.getStoredTotal(record)
     local total = 0
     for _, life in ipairs(record and record.lives or {}) do total = total + (tonumber(life.total) or 0) end
     return total
+end
+
+function recovery.getTraits(player)
+    local traits = {}
+    local descriptor = player and player.getDescriptor and player:getDescriptor() or nil
+    local list = descriptor and descriptor.getTraits and descriptor:getTraits() or nil
+    if list then
+        for index = 0, list:size() - 1 do
+            table.insert(traits, list:get(index))
+        end
+    end
+    return traits
+end
+
+function recovery.getKnownRecipes(player)
+    local recipes = {}
+    local list = player and player.getKnownRecipes and player:getKnownRecipes() or nil
+    if list then
+        for index = 0, list:size() - 1 do
+            table.insert(recipes, list:get(index))
+        end
+    end
+    return recipes
 end
 
 function recovery.saveDeath(player)
@@ -76,6 +99,12 @@ function recovery.saveDeath(player)
         if current > previous then life.earned[perkID] = current - previous end
         life.total = life.total + current
     end)
+    local descriptor = player.getDescriptor and player:getDescriptor() or nil
+    life.profession = descriptor and descriptor.getProfession and descriptor:getProfession() or nil
+    life.forename = descriptor and descriptor.getForename and descriptor:getForename() or nil
+    life.surname = descriptor and descriptor.getSurname and descriptor:getSurname() or nil
+    life.traits = recovery.getTraits(player)
+    life.recipes = recovery.getKnownRecipes(player)
     table.insert(record.lives, life)
     store.players[username] = record
     if ModData.transmit then ModData.transmit(recovery.storeName) end
@@ -109,6 +138,8 @@ function recovery.getRecoveryXP(record, perkID)
         for _, life in ipairs(lives) do result = result + (tonumber(life.earned and life.earned[perkID]) or 0) end
     elseif mode == 3 then
         for _, life in ipairs(lives) do result = (result + (tonumber(life.earned and life.earned[perkID]) or 0)) * 0.75 end
+    elseif mode == 6 then
+        result = (tonumber(lives[#lives].skills and lives[#lives].skills[perkID]) or 0) * 0.9
     end
     return math.min(maxXP, math.max(0, result))
 end
@@ -130,6 +161,7 @@ end
 function recovery.retrieve(player)
     local record, username = recovery.getRecord(player)
     if not record then return false end
+    if recovery.getMode() == 6 then recovery.applyIdentity(player) end
     local restored = 0
     recovery.forEachPerk(function(_, perkID) restored = restored + recovery.applySkill(player, perkID) end)
     recovery.log("RETRIEVE", username, restored)
@@ -199,6 +231,32 @@ function recovery.getPlan(player)
     return skills
 end
 
+function recovery.applyIdentity(player)
+    local record = recovery.getRecord(player)
+    local lives = record and record.lives or {}
+    local life = lives[#lives]
+    if not life then return false end
+    local descriptor = player.getDescriptor and player:getDescriptor() or nil
+    if not descriptor then return false end
+    if life.forename and descriptor.setForename then descriptor:setForename(life.forename) end
+    if life.surname and descriptor.setSurname then descriptor:setSurname(life.surname) end
+    if life.profession and descriptor.setProfession then descriptor:setProfession(life.profession) end
+    if descriptor.getTraits then
+        local currentTraits = descriptor:getTraits()
+        if currentTraits then
+            currentTraits:clear()
+            for _, traitID in ipairs(life.traits or {}) do currentTraits:add(traitID) end
+        end
+    end
+    local knownRecipes = player.getKnownRecipes and player:getKnownRecipes() or nil
+    if knownRecipes then
+        for _, recipeName in ipairs(life.recipes or {}) do
+            if not knownRecipes:contains(recipeName) then knownRecipes:add(recipeName) end
+        end
+    end
+    return true
+end
+
 function recovery.request(command, username, perkID, lifeCount)
     if not username or username == "" then return false end
     local args = { username = username, perkID = perkID, lifeCount = lifeCount }
@@ -220,6 +278,7 @@ function recovery.onClientCommand(module, command, sender, args)
         recovery.retrieve(target)
     elseif command == "autoStart" and recovery.hasReincarnate(sender) then
         recovery.setBaseline(sender)
+        if recovery.getMode() == 6 then recovery.applyIdentity(sender) end
         local skills = recovery.getPlan(sender)
         local lifeCount = recovery.getLifeCount(sender)
         if isServer and isServer() then sendServerCommand(sender, recovery.module, "recoveryPlan", { skills = skills, lifeCount = lifeCount }) else recovery.queueRecovery(sender, skills, lifeCount) end
@@ -319,6 +378,7 @@ function recovery.onCreatePlayer(playerNum, player)
     if isClient and isClient() then
         recovery.request("autoStart", recovery.getUsername(player))
     else
+        if recovery.getMode() == 6 then recovery.applyIdentity(player) end
         recovery.queueRecovery(player, recovery.getPlan(player), recovery.getLifeCount(player))
     end
 end

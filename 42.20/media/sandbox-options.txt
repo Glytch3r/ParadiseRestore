@@ -116,7 +116,7 @@ option ParadiseZ.TrailerBrakeFix
 }
 option ParadiseZ.RecoverySystem
 {
-    type = enum, numValues = 5, default = 1,
+    type = enum, numValues = 6, default = 6,
     page = ParadiseZ, translation = ParadiseZ_RecoverySystem,
     valueTranslation = ParadiseZ_RecoverySystem,
 }
