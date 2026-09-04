@@ -420,8 +420,14 @@ function ParadiseDev.DataCheck.updateScrollWidth(list)
 end
 
 function ParadiseDev.DataCheck.resizeWindow(panel, newWidth, newHeight)
-    panel:setWidth(math.max(newWidth, panel.minimumWidth or 0))
-    panel:setHeight(math.max(newHeight, panel.minimumHeight or 0))
+    if not panel then return end
+    local core = getCore()
+    local maxWidth = math.max(120, core:getScreenWidth() - panel:getX())
+    local maxHeight = math.max(120, core:getScreenHeight() - panel:getY())
+    local minWidth = math.min(panel.minimumWidth or 120, maxWidth)
+    local minHeight = math.min(panel.minimumHeight or 120, maxHeight)
+    panel:setWidth(math.max(minWidth, math.min(newWidth, maxWidth)))
+    panel:setHeight(math.max(minHeight, math.min(newHeight, maxHeight)))
     ParadiseDev.DataCheck.layoutWindowChrome(panel)
     if panel.layoutChildren then panel:layoutChildren() end
 end
