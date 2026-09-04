@@ -1,20 +1,27 @@
 ParadiseDev = ParadiseDev or {}
+ParadiseDev.Skin = ParadiseDev.Skin or {}
 
-function ParadiseDev.tempChangeSpr(fType, sprStr)
-    fType = fType or "Base.Katana"
-    sprStr = sprStr or "Knife"
-    local param = "WeaponSprite = "..tostring(sprStr)
-    local itemScr = ScriptManager.instance:getItem(fType)
-    local param2
-    if itemScr then
-        param2 = "WeaponSprite = "..tostring(itemScr:getWeaponSprite())
-        itemScr:DoParam(param)
-        local inv = pl:getInventory() 
-        local item = InventoryItemFactory.CreateItem(fType);
-        inv:AddItem(item)
-        itemScr:DoParam(param2)
-    end
+local skin = ParadiseDev.Skin
+skin.module = "ParadiseDevSkin"
+
+function skin.spawnGoldgun(player)
+    if not player or not ParadiseDev.isAdm(player) then return false end
+
+    local inventory = player:getInventory()
+    local item = inventory and inventory:AddItem("Base.Pistol3_gold") or nil
+    if not item then return false end
+
+    item:setWeaponSprite("Handgun_gold")
+    sendAddItemToContainer(inventory, item)
+    return item
 end
+
+function skin.onClientCommand(module, command, player)
+    if module == skin.module and command == "spawnGoldgun" then skin.spawnGoldgun(player) end
+end
+
+Events.OnClientCommand.Remove(skin.onClientCommand)
+Events.OnClientCommand.Add(skin.onClientCommand)
 
 function ParadiseDev.cloneWithWeaponSprite(item, newSprite)
     if not item then return end

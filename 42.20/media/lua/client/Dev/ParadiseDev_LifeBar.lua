@@ -77,6 +77,17 @@ function ParadiseDev.LifeBar.hide()
     ParadiseDev.LifeBar.panel:setVisible(false)
 end
 
+function ParadiseDev.LifeBar.placeInZoneHUD(pl, x, y, visible)
+    if not visible or not pl or (ParadiseDev.PvP and ParadiseDev.PvP.isEnabled and not ParadiseDev.PvP.isEnabled()) or ParadiseDev.LifeBar.isPvE(pl) or ParadiseDev.LifeBar.isPvEZone(pl) or pl:isDead() then
+        ParadiseDev.LifeBar.hide()
+        return
+    end
+    if not ParadiseDev.LifeBar.panel then ParadiseDev.LifeBar.create() end
+    ParadiseDev.LifeBar.panel:setX(x)
+    ParadiseDev.LifeBar.panel:setY(y)
+    ParadiseDev.LifeBar.show()
+end
+
 function ParadiseDev.LifeBar.updateVisibility(pl)
     if not isIngameState() then return end
     pl = pl or getPlayer()
@@ -121,7 +132,6 @@ function ParadiseDev.LifeBar.onMinute()
 end
 
 Events.OnPlayerUpdate.Remove(ParadiseDev.LifeBar.updateVisibility)
-Events.OnPlayerUpdate.Add(ParadiseDev.LifeBar.updateVisibility)
 Events.OnCreatePlayer.Remove(ParadiseDev.LifeBar.init)
 Events.OnCreatePlayer.Add(ParadiseDev.LifeBar.init)
 Events.EveryOneMinute.Remove(ParadiseDev.LifeBar.onMinute)

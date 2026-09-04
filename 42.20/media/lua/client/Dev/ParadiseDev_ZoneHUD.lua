@@ -130,12 +130,21 @@ function ParadiseDev.ZoneHUD.getReboundText(pl)
 end
 
 function ParadiseDev.ZoneHUD.draw()
-    if not isIngameState() then return end
+    if not isIngameState() then
+        if ParadiseDev.LifeBar and ParadiseDev.LifeBar.hide then ParadiseDev.LifeBar.hide() end
+        return
+    end
     local pl = getPlayer()
-    if not pl or not pl:isAlive() then return end
+    if not pl or not pl:isAlive() then
+        if ParadiseDev.LifeBar and ParadiseDev.LifeBar.hide then ParadiseDev.LifeBar.hide() end
+        return
+    end
 
     local settings = ParadiseDev.ZoneHUD.getSettings(pl)
-    if not settings.visible then return end
+    if not settings.visible then
+        if ParadiseDev.LifeBar and ParadiseDev.LifeBar.hide then ParadiseDev.LifeBar.hide() end
+        return
+    end
     local zone = ParadiseDev.ZoneHUD.getCurrentZone(pl)
     local baseX, baseY = settings.x, settings.y
     local fonts = ParadiseDev.ZoneHUD.fonts[settings.fontSize]
@@ -177,7 +186,13 @@ function ParadiseDev.ZoneHUD.draw()
         currentY = currentY + getTextManager():getFontHeight(fonts.detail) + 10
     end
     local rebound = ParadiseDev.ZoneHUD.getReboundText(pl)
-    if rebound ~= "" then getTextManager():DrawString(fonts.detail, baseX, currentY + 8, rebound, 1, 1, 1, alpha) end
+    if rebound ~= "" then
+        getTextManager():DrawString(fonts.detail, baseX, currentY + 8, rebound, 1, 1, 1, alpha)
+        currentY = currentY + getTextManager():getFontHeight(fonts.detail) * 2 + 10
+    end
+    if ParadiseDev.LifeBar and ParadiseDev.LifeBar.placeInZoneHUD then
+        ParadiseDev.LifeBar.placeInZoneHUD(pl, baseX, currentY + 8, true)
+    end
 end
 
 ParadiseDev.ZoneHUD.SettingsPanel = ISPanel:derive("ParadiseDev.ZoneHUD.SettingsPanel")

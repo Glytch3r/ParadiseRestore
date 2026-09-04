@@ -12,10 +12,10 @@ function recovery.getStore()
     return store
 end
 
-function recovery.getUsername(player)
-    if not player then return nil end
-    if player.getUsername then return tostring(player:getUsername()) end
-    return player.username and tostring(player.username) or nil
+function recovery.getUsername(pl)
+    if not pl then return nil end
+    if pl.getUsername then return tostring(pl:getUsername()) end
+    return pl.username and tostring(pl.username) or nil
 end
 
 function recovery.normalizeRecord(record)
@@ -28,8 +28,8 @@ function recovery.normalizeRecord(record)
     return record
 end
 
-function recovery.getRecord(player)
-    local username = recovery.getUsername(player)
+function recovery.getRecord(pl)
+    local username = recovery.getUsername(pl)
     if not username or username == "" then return nil end
     return recovery.normalizeRecord(recovery.getStore().players[username]), username
 end
@@ -60,21 +60,26 @@ function recovery.getStoredTotal(record)
     return total
 end
 
-function recovery.getTraits(player)
+function recovery.getTraits(pl)
     local traits = {}
-    local descriptor = player and player.getDescriptor and player:getDescriptor() or nil
-    local list = descriptor and descriptor.getTraits and descriptor:getTraits() or nil
+    local list = pl and pl.getTraits and pl:getTraits() or nil
+    if not list then
+        local descriptor = pl and pl.getDescriptor and pl:getDescriptor() or nil
+        list = descriptor and descriptor.getTraits and descriptor:getTraits() or nil
+    end
     if list then
         for index = 0, list:size() - 1 do
-            table.insert(traits, list:get(index))
+            local trait = list:get(index)
+            local traitID = type(trait) == "string" and trait or (trait and trait.getId and trait:getId() or tostring(trait))
+            if traitID and traitID ~= "" then table.insert(traits, traitID) end
         end
     end
     return traits
 end
 
-function recovery.getKnownRecipes(player)
+function recovery.getKnownRecipes(pl)
     local recipes = {}
-    local list = player and player.getKnownRecipes and player:getKnownRecipes() or nil
+    local list = pl and pl.getKnownRecipes and pl:getKnownRecipes() or nil
     if list then
         for index = 0, list:size() - 1 do
             table.insert(recipes, list:get(index))
@@ -83,14 +88,14 @@ function recovery.getKnownRecipes(player)
     return recipes
 end
 
-function recovery.saveDeath(player)
-    local username = recovery.getUsername(player)
-    local xp = player and player.getXp and player:getXp() or nil
-    if not username or not xp then return false end
+function recovery.saveDeath(pl)
+    local user = recovery.getUsername(pl)
+    local xp = pl and pl.getXp and pl:getXp() or nil
+    if not user or not xp then return false end
     local store = recovery.getStore()
-    local record = recovery.normalizeRecord(store.players[username]) or { lives = {} }
+    local record = recovery.normalizeRecord(store.players[user]) or { lives = {} }
     local life = { skills = {}, earned = {}, total = 0 }
-    local baseline = player:getModData().ParadiseDevSkillRecoveryBaseline or {}
+    local baseline = pl:getModData().ParadiseDevSkillRecoveryBaseline or {}
     recovery.forEachPerk(function(perk, perkID)
         local maxXP = recovery.getMaxXP(perk)
         local current = math.min(maxXP, math.max(0, tonumber(xp:getXP(perk)) or 0))
@@ -99,28 +104,28 @@ function recovery.saveDeath(player)
         if current > previous then life.earned[perkID] = current - previous end
         life.total = life.total + current
     end)
-    local descriptor = player.getDescriptor and player:getDescriptor() or nil
+    local descriptor = pl.getDescriptor and pl:getDescriptor() or nil
     life.profession = descriptor and descriptor.getProfession and descriptor:getProfession() or nil
     life.forename = descriptor and descriptor.getForename and descriptor:getForename() or nil
     life.surname = descriptor and descriptor.getSurname and descriptor:getSurname() or nil
-    life.traits = recovery.getTraits(player)
-    life.recipes = recovery.getKnownRecipes(player)
+    life.traits = recovery.getTraits(pl)
+    life.recipes = recovery.getKnownRecipes(pl)
     table.insert(record.lives, life)
-    store.players[username] = record
+    store.players[user] = record
     if ModData.transmit then ModData.transmit(recovery.storeName) end
-    recovery.log("SAVE", username, life.total)
+    recovery.log("SAVE", user, life.total)
     return true
 end
 
 recovery.save = recovery.saveDeath
 
-function recovery.recordDeath(player)
-    if not player or not player.getModData then return false end
-    local data = player:getModData()
+function recovery.recordDeath(pl)
+    if not pl or not pl.getModData then return false end
+    local data = pl:getModData()
     local now = getGameTime and getGameTime():getWorldAgeHours() or 0
     if data.ParadiseDevSkillRecoveryDeathTime == now then return false end
     data.ParadiseDevSkillRecoveryDeathTime = now
-    return recovery.saveDeath(player)
+    return recovery.saveDeath(pl)
 end
 
 function recovery.getRecoveryXP(record, perkID)
@@ -139,17 +144,17 @@ function recovery.getRecoveryXP(record, perkID)
     elseif mode == 3 then
         for _, life in ipairs(lives) do result = (result + (tonumber(life.earned and life.earned[perkID]) or 0)) * 0.75 end
     elseif mode == 6 then
-        result = (tonumber(lives[#lives].skills and lives[#lives].skills[perkID]) or 0) * 0.9
+        result = (tonumber(lives[#lives].earned and lives[#lives].earned[perkID]) or 0) * 0.9
     end
     return math.min(maxXP, math.max(0, result))
 end
 
-function recovery.applySkill(player, perkID)
-    local record = recovery.getRecord(player)
+function recovery.applySkill(pl, perkID)
+    local record = recovery.getRecord(pl)
     local perk = Perks[perkID]
-    local xp = player and player.getXp and player:getXp() or nil
+    local xp = pl and pl.getXp and pl:getXp() or nil
     if not record or not perk or not xp then return 0 end
-    local baseline = player.getModData and player:getModData().ParadiseDevSkillRecoveryBaseline or {}
+    local baseline = pl.getModData and pl:getModData().ParadiseDevSkillRecoveryBaseline or {}
     local startingXP = math.max(0, tonumber(baseline[perkID]) or 0)
     local desired = math.min(recovery.getMaxXP(perk), startingXP + recovery.getRecoveryXP(record, perkID))
     local current = math.max(0, tonumber(xp:getXP(perk)) or 0)
@@ -158,26 +163,26 @@ function recovery.applySkill(player, perkID)
     return rawAmount
 end
 
-function recovery.retrieve(player)
-    local record, username = recovery.getRecord(player)
+function recovery.retrieve(pl)
+    local record, username = recovery.getRecord(pl)
     if not record then return false end
-    if recovery.getMode() == 6 then recovery.applyIdentity(player) end
+    if recovery.getMode() == 6 then recovery.applyIdentity(pl) end
     local restored = 0
-    recovery.forEachPerk(function(_, perkID) restored = restored + recovery.applySkill(player, perkID) end)
+    recovery.forEachPerk(function(_, perkID) restored = restored + recovery.applySkill(pl, perkID) end)
     recovery.log("RETRIEVE", username, restored)
     return true
 end
 
-function recovery.findPlayer(username, fallback)
-    if not username or username == "" then return fallback end
+function recovery.findPlayer(user, fallback)
+    if not user or user == "" then return fallback end
     local players = getOnlinePlayers and getOnlinePlayers() or nil
     if players then
         for index = 0, players:size() - 1 do
-            local player = players:get(index)
-            if recovery.getUsername(player) == username then return player end
+            local pl = players:get(index)
+            if recovery.getUsername(pl) == user then return pl end
         end
     end
-    return fallback and recovery.getUsername(fallback) == username and fallback or nil
+    return fallback and recovery.getUsername(fallback) == user and fallback or nil
 end
 
 function recovery.getReincarnateTrait()
@@ -185,44 +190,49 @@ function recovery.getReincarnateTrait()
     return CharacterTrait.get(ResourceLocation.of(recovery.trait))
 end
 
-function recovery.hasReincarnate(player)
+function recovery.hasReincarnate(pl)
     local trait = recovery.getReincarnateTrait()
-    return player and trait and player.hasTrait and player:hasTrait(trait) or false
+    return pl and trait and pl.hasTrait and pl:hasTrait(trait) or false
 end
 
-function recovery.setBaseline(player)
-    local xp = player and player.getXp and player:getXp() or nil
+function recovery.setBaseline(pl)
+    local xp = pl and pl.getXp and pl:getXp() or nil
     if not xp then return end
-    local data = player:getModData()
+    local data = pl:getModData()
     if type(data.ParadiseDevSkillRecoveryBaseline) == "table" then return end
     local baseline = {}
     recovery.forEachPerk(function(perk, perkID) baseline[perkID] = math.max(0, tonumber(xp:getXP(perk)) or 0) end)
     data.ParadiseDevSkillRecoveryBaseline = baseline
 end
 
-function recovery.getLifeCount(player)
-    local record = recovery.getRecord(player)
+function recovery.getLifeCount(pl)
+    local record = recovery.getRecord(pl)
     return record and #(record.lives or {}) or 0
 end
 
-function recovery.isLifeRestored(player, lifeCount)
-    local data = player and player.getModData and player:getModData() or nil
+function recovery.isLifeRestored(pl, lifeCount)
+    local data = pl and pl.getModData and pl:getModData() or nil
     return data and tonumber(data.ParadiseDevSkillRecoveryRestoredLifeCount) == tonumber(lifeCount) or false
 end
 
-function recovery.markLifeRestored(player, lifeCount)
-    if not player or not player.getModData then return end
-    if tonumber(lifeCount) ~= recovery.getLifeCount(player) then return end
-    player:getModData().ParadiseDevSkillRecoveryRestoredLifeCount = lifeCount
+function recovery.markLifeRestored(pl, lifeCount)
+    if not pl or not pl.getModData then return end
+    if tonumber(lifeCount) ~= recovery.getLifeCount(pl) then return end
+    pl:getModData().ParadiseDevSkillRecoveryRestoredLifeCount = lifeCount
 end
 
-function recovery.getPlan(player)
-    local record = recovery.getRecord(player)
-    local xp = player and player.getXp and player:getXp() or nil
+function recovery.completeRecovery(pl, lifeCount)
+    if recovery.getMode() == 6 then recovery.applyIdentity(pl) end
+    recovery.markLifeRestored(pl, lifeCount)
+end
+
+function recovery.getPlan(pl)
+    local record = recovery.getRecord(pl)
+    local xp = pl and pl.getXp and pl:getXp() or nil
     local skills = {}
     if not record or not xp or recovery.getMode() == 5 then return skills end
-    if recovery.isLifeRestored(player, #(record.lives or {})) then return skills end
-    local baseline = player.getModData and player:getModData().ParadiseDevSkillRecoveryBaseline or {}
+    if recovery.isLifeRestored(pl, #(record.lives or {})) then return skills end
+    local baseline = pl.getModData and pl:getModData().ParadiseDevSkillRecoveryBaseline or {}
     recovery.forEachPerk(function(perk, perkID)
         local startingXP = math.max(0, tonumber(baseline[perkID]) or 0)
         local desired = math.min(recovery.getMaxXP(perk), startingXP + recovery.getRecoveryXP(record, perkID))
@@ -231,16 +241,24 @@ function recovery.getPlan(player)
     return skills
 end
 
-function recovery.applyIdentity(player)
-    local record = recovery.getRecord(player)
+function recovery.applyIdentity(pl)
+    local record = recovery.getRecord(pl)
     local lives = record and record.lives or {}
     local life = lives[#lives]
     if not life then return false end
-    local descriptor = player.getDescriptor and player:getDescriptor() or nil
+    local descriptor = pl.getDescriptor and pl:getDescriptor() or nil
     if not descriptor then return false end
     if life.forename and descriptor.setForename then descriptor:setForename(life.forename) end
     if life.surname and descriptor.setSurname then descriptor:setSurname(life.surname) end
     if life.profession and descriptor.setProfession then descriptor:setProfession(life.profession) end
+    local playerTraits = pl.getTraits and pl:getTraits() or nil
+    if playerTraits then
+        playerTraits:clear()
+        for _, traitID in ipairs(life.traits or {}) do
+            local trait = CharacterTrait and ResourceLocation and CharacterTrait.get and ResourceLocation.of and CharacterTrait.get(ResourceLocation.of(traitID)) or traitID
+            if trait then playerTraits:add(trait) end
+        end
+    end
     if descriptor.getTraits then
         local currentTraits = descriptor:getTraits()
         if currentTraits then
@@ -248,12 +266,13 @@ function recovery.applyIdentity(player)
             for _, traitID in ipairs(life.traits or {}) do currentTraits:add(traitID) end
         end
     end
-    local knownRecipes = player.getKnownRecipes and player:getKnownRecipes() or nil
+    local knownRecipes = pl.getKnownRecipes and pl:getKnownRecipes() or nil
     if knownRecipes then
         for _, recipeName in ipairs(life.recipes or {}) do
             if not knownRecipes:contains(recipeName) then knownRecipes:add(recipeName) end
         end
     end
+    if sendPlayerStatsChange then sendPlayerStatsChange(pl) end
     return true
 end
 
@@ -278,14 +297,13 @@ function recovery.onClientCommand(module, command, sender, args)
         recovery.retrieve(target)
     elseif command == "autoStart" and recovery.hasReincarnate(sender) then
         recovery.setBaseline(sender)
-        if recovery.getMode() == 6 then recovery.applyIdentity(sender) end
         local skills = recovery.getPlan(sender)
         local lifeCount = recovery.getLifeCount(sender)
         if isServer and isServer() then sendServerCommand(sender, recovery.module, "recoveryPlan", { skills = skills, lifeCount = lifeCount }) else recovery.queueRecovery(sender, skills, lifeCount) end
     elseif command == "recoverSkill" and recovery.hasReincarnate(sender) and args and args.perkID then
         recovery.applySkill(sender, args.perkID)
     elseif command == "autoComplete" and recovery.hasReincarnate(sender) then
-        recovery.markLifeRestored(sender, args and args.lifeCount)
+        recovery.completeRecovery(sender, args and args.lifeCount)
     elseif command == "death" then
         recovery.recordDeath(sender)
     end
@@ -312,36 +330,40 @@ function recovery.addTargetOptions(context, target)
     recovery.addTooltip(retrieve, target)
 end
 
-function recovery.getWorldTarget(context)
-    if not context or not context.options then return nil end
-    for _, option in ipairs(context.options) do
-        if option.param4 and instanceof(option.param4, "IsoPlayer") then return option.param4 end
+function recovery.getClickedSquare(worldobjects)
+    if ISWorldObjectContextMenu and ISWorldObjectContextMenu.fetchVars and ISWorldObjectContextMenu.fetchVars.clickedSquare then
+        return ISWorldObjectContextMenu.fetchVars.clickedSquare
     end
-    return nil
+    for _, obj in ipairs(worldobjects or {}) do
+        if obj and obj.getSquare then
+            local sq = obj:getSquare()
+            if sq then return sq end
+        end
+    end
+    return clickedSquare
 end
 
-function recovery.addWorldOptions(playerNum, context, worldobjects, test)
-    if test or not ParadiseDev.isAdm() then return end
-    local target = recovery.getWorldTarget(context)
-    if target then
-        recovery.addTargetOptions(context, target)
-        return
-    end
-    local player = getPlayer and getPlayer() or nil
-    local username = recovery.getUsername(player)
-    if not username then return end
-    local save = context:addOption("Save My Skill XP", nil, recovery.request, "save", username)
-    local retrieve = context:addOption("Retrieve My Skill XP", nil, recovery.request, "retrieve", username)
-    recovery.addTooltip(save, player)
-    recovery.addTooltip(retrieve, player)
+function recovery.addParadiseOptions(menu, pl, worldobjects)
+    if not menu or not pl or not ParadiseDev.isAdm(pl) then return end
+    if recovery.getClickedSquare(worldobjects) ~= pl:getSquare() then return end
+    local root = menu:addOption("Skill Recovery")
+    root.iconTexture = getTexture("media/ui/Traits/trait_Reincarnate.png")
+    local submenu = ISContextMenu:getNew(menu)
+    menu:addSubMenu(root, submenu)
+    local user = recovery.getUsername(pl)
+    local save = submenu:addOption("Save Skill XP", nil, recovery.request, "save", user)
+    local retrieve = submenu:addOption("Retrieve Skill XP", nil, recovery.request, "retrieve", user)
+    recovery.addTooltip(save, pl)
+    recovery.addTooltip(retrieve, pl)
 end
 
-function recovery.queueRecovery(player, skills, lifeCount)
-    if not player or not skills or #skills == 0 then
-        recovery.markLifeRestored(player, lifeCount or recovery.getLifeCount(player))
+function recovery.queueRecovery(pl, skills, lifeCount)
+    if not pl or not skills or #skills == 0 then
+        local completedLifeCount = lifeCount or recovery.getLifeCount(pl)
+        if isClient and isClient() then recovery.request("autoComplete", recovery.getUsername(pl), nil, completedLifeCount) else recovery.completeRecovery(pl, completedLifeCount) end
         return
     end
-    recovery.queue = { player = player, skills = skills, index = 1, delay = 90, announced = false, lifeCount = lifeCount or recovery.getLifeCount(player) }
+    recovery.queue = { pl = pl, skills = skills, index = 1, delay = 90, announced = false, lifeCount = lifeCount or recovery.getLifeCount(pl) }
 end
 
 function recovery.onTick()
@@ -352,45 +374,43 @@ function recovery.onTick()
     if not queue.announced then
         queue.announced = true
         queue.delay = 60
-        HaloTextHelper.addText(queue.player, "Recovering skill points...", "", HaloTextHelper.getColorWhite())
+        HaloTextHelper.addText(queue.pl, "Recovering skill points...", "", HaloTextHelper.getColorWhite())
         return
     end
     local perkID = queue.skills[queue.index]
     if not perkID then
-        recovery.markLifeRestored(queue.player, queue.lifeCount)
-        recovery.request("autoComplete", recovery.getUsername(queue.player), nil, queue.lifeCount)
+        if isClient and isClient() then recovery.request("autoComplete", recovery.getUsername(queue.pl), nil, queue.lifeCount) else recovery.completeRecovery(queue.pl, queue.lifeCount) end
         recovery.queue = nil
         return
     end
-    recovery.request("recoverSkill", recovery.getUsername(queue.player), perkID)
-    HaloTextHelper.addText(queue.player, "Recovered " .. tostring(perkID) .. " skill points", "", HaloTextHelper.getColorWhite())
+    recovery.request("recoverSkill", recovery.getUsername(queue.pl), perkID)
+    HaloTextHelper.addText(queue.pl, "Recovered " .. tostring(perkID) .. " skill points", "", HaloTextHelper.getColorWhite())
     queue.index = queue.index + 1
     queue.delay = 30
 end
 
-function recovery.onCreatePlayer(playerNum, player)
+function recovery.onCreatePlayer(playerNum, pl)
     if isServer and isServer() then return end
-    player = player or (getPlayer and getPlayer() or nil)
-    recovery.setBaseline(player)
-    if not recovery.hasReincarnate(player) then
+    pl = pl or (getPlayer and getPlayer() or nil)
+    recovery.setBaseline(pl)
+    if not recovery.hasReincarnate(pl) then
         return
     end
     if isClient and isClient() then
-        recovery.request("autoStart", recovery.getUsername(player))
+        recovery.request("autoStart", recovery.getUsername(pl))
     else
-        if recovery.getMode() == 6 then recovery.applyIdentity(player) end
-        recovery.queueRecovery(player, recovery.getPlan(player), recovery.getLifeCount(player))
+        recovery.queueRecovery(pl, recovery.getPlan(pl), recovery.getLifeCount(pl))
     end
 end
 
-function recovery.onPlayerDeath(player)
+function recovery.onPlayerDeath(pl)
     if isClient and isClient() then
-        if player and player.isLocalPlayer and player:isLocalPlayer() then
+        if pl and pl.isLocalPlayer and pl:isLocalPlayer() then
             sendClientCommand(recovery.module, "death", {})
         end
         return
     end
-    recovery.recordDeath(player)
+    recovery.recordDeath(pl)
 end
 
 function recovery.onServerCommand(module, command, args)
@@ -399,7 +419,6 @@ function recovery.onServerCommand(module, command, args)
 end
 
 if Events.OnClientCommand then Events.OnClientCommand.Add(recovery.onClientCommand) end
-if Events.OnFillWorldObjectContextMenu then Events.OnFillWorldObjectContextMenu.Add(recovery.addWorldOptions) end
 if Events.OnCreatePlayer then Events.OnCreatePlayer.Add(recovery.onCreatePlayer) end
 if Events.OnPlayerDeath then Events.OnPlayerDeath.Add(recovery.onPlayerDeath) end
 if Events.OnTick then Events.OnTick.Add(recovery.onTick) end

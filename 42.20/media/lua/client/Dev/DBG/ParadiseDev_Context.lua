@@ -99,6 +99,11 @@ function ParadiseDev.Context.deleteZeds()
     ParadiseZ.delZeds(nil, nil, nil, ParadiseDev.Context.getClearRadius())
 end
 
+function ParadiseDev.Context.clearAndSave(pl)
+    if not pl or not (isClient and isClient()) or not ParadiseDev.Save then return end
+    sendClientCommand(ParadiseDev.Save.module, "clearAndSave", {})
+end
+
 function ParadiseDev.Context.getClearRadius()
     return SandboxVars.ParadiseZ and SandboxVars.ParadiseZ.ClearRadius or 15
 end
@@ -122,13 +127,17 @@ function ParadiseDev.Context.addClearOption(menu, entry, context)
     if option then option.iconTexture = getTexture(entry.icon) end
 end
 
-function ParadiseDev.Context.context(plNum, context)
+function ParadiseDev.Context.context(plNum, context, worldobjects)
     local pl = getSpecificPlayer(plNum)
     if not pl or not pl:isAlive() or not ParadiseDev.isAdm(pl) then return end
     local main = context:addOptionOnTop("ParadiseZ")
     main.iconTexture = getTexture("media/ui/Paradise/ContextIcon.png")
     local menu = ISContextMenu:getNew(context)
     context:addSubMenu(main, menu)
+
+    if ParadiseDev.SkillRecovery and ParadiseDev.SkillRecovery.addParadiseOptions then
+        ParadiseDev.SkillRecovery.addParadiseOptions(menu, pl, worldobjects)
+    end
 
     local panelsRoot = menu:addOption("Panels")
     panelsRoot.iconTexture = getTexture("media/ui/Paradise/ContextIcon.png")
@@ -171,7 +180,7 @@ function ParadiseDev.Context.context(plNum, context)
 
     ParadiseDev.Context.addOption(menu, "GunAmmos", function() ParadiseDev.Context.reloadGuns() end, "media/ui/LootableMaps/map_bullets.png", pl)
 
-    ParadiseDev.Context.addOption(menu, "Goldgun", function() ParadiseDev.tempChangeSpr("Base.Pistol3_gold", 'Handgun_gold') end, "media/ui/LootableMaps/map_bullets.png", pl)
+    ParadiseDev.Context.addOption(menu, "Goldgun", function() sendClientCommand("ParadiseDevSkin", "spawnGoldgun", {}) end, "media/ui/LootableMaps/map_bullets.png", pl)
 
 
 
@@ -211,6 +220,7 @@ function ParadiseDev.Context.context(plNum, context)
     local clearMenu = ISContextMenu:getNew(context)
     menu:addSubMenu(clearRoot, clearMenu)
     for _, entry in ipairs(ParadiseDev.Context.clearOptions) do ParadiseDev.Context.addClearOption(clearMenu, entry, context) end
+    local clearAndSave = ParadiseDev.Context.addOption(clearMenu, "Clear and Save", ParadiseDev.Context.clearAndSave, "media/ui/Paradise/ClearContextIcon.png", pl)
     ParadiseDev.Context.addOption(clearMenu, "Clean Character", ParadiseZ.washChar, "media/ui/Paradise/WashContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "Clear Map Record", ParadiseZ.ClearMap, "media/ui/Paradise/MapContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "WorldMapVisited.Reset", ParadiseDev.Context.resetMapVisited, "media/ui/Paradise/MapContextIcon.png")

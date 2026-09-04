@@ -1,11 +1,21 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.TP = ParadiseDev.TP or {}
 ParadiseDev.Debug = ParadiseDev.Debug or {}
+ParadiseDev.Save = ParadiseDev.Save or {}
 
 
 
 ParadiseDev.TP.module = "ParadiseDevTP"
 ParadiseDev.Debug.module = "ParadiseDevDebug"
+ParadiseDev.Save.module = "ParadiseSave"
+
+function ParadiseDev.Save.clearAndSave(pl)
+    if not pl or not ParadiseDev.isAdm(pl) then return false end
+    if not ServerMap or not ServerMap.instance then return false end
+    ServerMap.instance:QueueSaveAll()
+    sendServerCommand(ParadiseDev.Save.module, "countdown", { initiator = pl:getUsername() })
+    return true
+end
 
 function ParadiseDev.Debug.onClientCommand(module, command, pl, args)
     if module ~= ParadiseDev.Debug.module or command ~= "testDmg" then return end
@@ -94,6 +104,10 @@ function ParadiseDev.TP.reply(pl, message)
 end
 
 function ParadiseDev.TP.onClientCommand(module, command, pl, args)
+    if module == ParadiseDev.Save.module and command == "clearAndSave" then
+        ParadiseDev.Save.clearAndSave(pl)
+        return
+    end
     if module ~= ParadiseDev.TP.module then return end
     if command == "rebound" then
         if ParadiseDev.TP.isInKosZone(pl) then
