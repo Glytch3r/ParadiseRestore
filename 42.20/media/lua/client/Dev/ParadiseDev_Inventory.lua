@@ -1,6 +1,46 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Inventory = ParadiseDev.Inventory or {}
 
+require "ISUI/AdminPanel/ISItemEditorUI"
+require "ISUI/AdminPanel/ISItemEditPanel"
+
+if not ParadiseDev.Inventory.itemEditorExpanded then
+    ParadiseDev.Inventory.itemEditorExpanded = true
+    ParadiseDev.Inventory.itemEditorInitElements = ISItemEditPanel.initElements
+    ParadiseDev.Inventory.itemEditorOnOptionMouseDown = ISItemEditorUI.onOptionMouseDown
+
+    function ISItemEditPanel:initElements()
+        ParadiseDev.Inventory.itemEditorInitElements(self)
+        self:registerNumber("Uses", "getUses", "setUses", 0)
+        self:registerBoolean("Activated", "isActivated", "setActivated", true)
+        self:registerBoolean("Favorite", "isFavorite", "setFavorite", true)
+
+        local elem = self:registerNumber("Ammo", "getCurrentAmmoCount", "setCurrentAmmoCount", 0)
+        elem.funcValidate = ISItemEditPanel.validateWeapon
+        elem.funcEditable = "isRanged"
+        elem = self:registerBoolean("Chambered Round", "isRoundChambered", "setRoundChambered", true)
+        elem.funcValidate = ISItemEditPanel.validateWeapon
+        elem.funcEditable = "isRanged"
+        elem = self:registerBoolean("Magazine Inserted", "isContainsClip", "setContainsClip", true)
+        elem.funcValidate = ISItemEditPanel.validateWeapon
+        elem.funcEditable = "isRanged"
+        elem = self:registerBoolean("Jammed", "isJammed", "setJammed", true)
+        elem.funcValidate = ISItemEditPanel.validateWeapon
+        elem.funcEditable = "isRanged"
+        elem = self:registerNumber("Hit Chance", "getHitChance", "setHitChance", 0, 100)
+        elem.funcValidate = ISItemEditPanel.validateWeapon
+        elem.funcEditable = "isRanged"
+    end
+
+    function ISItemEditorUI:onOptionMouseDown(button, x, y)
+        local saveItem = button and button.internal == "SAVE" and self.item or nil
+        ParadiseDev.Inventory.itemEditorOnOptionMouseDown(self, button, x, y)
+        if saveItem and isClient and isClient() and saveItem.transmitCompleteItemToServer then
+            saveItem:transmitCompleteItemToServer()
+        end
+    end
+end
+
 
 ParadiseDev.Inventory.genericProperties = {
     { "getCondition", "setCondition" },
@@ -186,11 +226,20 @@ function ParadiseDev.Inventory.getTexture(item)
     return nil
 end
 
+function ParadiseDev.Inventory.openItemEditor(item, pl)
+    if not item or not pl or not ISItemEditorUI then return end
+    ISItemEditorUI.OpenPanel(pl, item)
+end
+
 function ParadiseDev.Inventory.inventoryContext(plNum, context, items)
     local pl = getSpecificPlayer(plNum)
     if not ParadiseDev.isAdm(pl) then return end
     local selected = ParadiseDev.Inventory.getItems(items)
     if #selected == 0 then return end
+    if #selected == 1 then
+        local editor = context:addOption(getText("ContextMenu_EditItem"), selected[1], ParadiseDev.Inventory.openItemEditor, pl)
+        editor.itemForTexture = selected[1]
+    end
     local root = context:addOption("Paradise Item Cloner: ")
     root.iconTexture = getTexture("media/ui/Paradise/cloner.png")
     local submenu = ISContextMenu:getNew(context)

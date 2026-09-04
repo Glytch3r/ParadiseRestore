@@ -5,30 +5,13 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.Save = ParadiseDev.Save or {}
 ParadiseDev.Save.module = "ParadiseSave"
 
-local modal = nil
-ISServerSavingMessage.showPauseMessage = function()
-    local width = 225;
-    local height = 250;
-    local x = getCore():getScreenWidth() / 2 - width / 2;
-    local y = getCore():getScreenHeight() / 2 - 200;
-    local text = "<CENTRE> <SIZE:medium> Saving Paradise Server. <LINE> <LEFT> <IMAGE:media/ui/saveSpiffo.png> <LINE>";
-    modal = ISServerSavingMessage:new(x, y, width, height, text);
-    modal:initialise();
-    modal:addToUIManager();
-end
-
-ISServerSavingMessage.showSavingFinishMessage = function()
-    if modal then
-        modal:removeFromUIManager();
-    end
-end
+ISServerSavingMessage.showPauseMessage = function() end
+ISServerSavingMessage.showSavingFinishMessage = function() end
 
 
 function ParadiseDev.Save.registerSavingHandlers()
     Events.OnServerStartSaving.Remove(ISServerSavingMessage.showPauseMessage);
     Events.OnServerFinishSaving.Remove(ISServerSavingMessage.showSavingFinishMessage);
-    Events.OnServerStartSaving.Add(ISServerSavingMessage.showPauseMessage);
-    Events.OnServerFinishSaving.Add(ISServerSavingMessage.showSavingFinishMessage);
 end
 
 ParadiseDev.Save.registerSavingHandlers()
