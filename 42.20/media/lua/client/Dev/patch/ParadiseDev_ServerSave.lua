@@ -5,6 +5,11 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.Save = ParadiseDev.Save or {}
 ParadiseDev.Save.module = "ParadiseSave"
 
+local vanillaShowPauseMessage = ISServerSavingMessage.showPauseMessage
+local vanillaShowSavingFinishMessage = ISServerSavingMessage.showSavingFinishMessage
+Events.OnServerStartSaving.Remove(vanillaShowPauseMessage)
+Events.OnServerFinishSaving.Remove(vanillaShowSavingFinishMessage)
+
 ISServerSavingMessage.showPauseMessage = function() end
 ISServerSavingMessage.showSavingFinishMessage = function() end
 
@@ -16,6 +21,20 @@ end
 
 ParadiseDev.Save.registerSavingHandlers()
 Events.OnGameStart.Add(ParadiseDev.Save.registerSavingHandlers)
+
+local modal = nil
+
+function ParadiseDev.Save.showSavingMessage()
+    if modal then return end
+    local width = 225
+    local height = 250
+    local x = getCore():getScreenWidth() / 2 - width / 2
+    local y = getCore():getScreenHeight() / 2 - 200
+    local text = "<CENTRE> <SIZE:medium> Saving Paradise Server. <LINE> <LEFT> <IMAGE:media/ui/saveSpiffo.png> <LINE>"
+    modal = ISServerSavingMessage:new(x, y, width, height, text)
+    modal:initialise()
+    modal:addToUIManager()
+end
 
 function ParadiseDev.Save.exitToMenu()
     getCore():exitToMenu()
@@ -32,6 +51,7 @@ end
 function ParadiseDev.Save.countdown(initiator)
     local pl = getPlayer()
     if not pl then return end
+    ParadiseDev.Save.showSavingMessage()
     timer:Create("ParadiseSaveCountdown", 1, 10, function()
         local remaining = timer:RepsLeft("ParadiseSaveCountdown")
         if remaining and remaining > 0 then
