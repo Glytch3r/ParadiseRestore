@@ -100,7 +100,7 @@ function ParadiseDev.Context.deleteZeds()
 end
 
 function ParadiseDev.Context.clearAndSave(pl)
-    if not pl or not (isClient and isClient()) or not ParadiseDev.Save then return end
+    if not pl or not ParadiseDev.Save or not sendClientCommand then return end
     sendClientCommand(ParadiseDev.Save.module, "clearAndSave", {})
 end
 
