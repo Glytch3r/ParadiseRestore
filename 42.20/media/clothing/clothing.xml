@@ -1,5 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <outfitManager>
+    <m_FemaleOutfits>
+        <m_Name>ScareCrow</m_Name>
+        <m_Guid>d9567e94-58b1-42a1-b39a-b74c3ea9c972</m_Guid>
+        <m_Top>false</m_Top>
+        <m_Pants>false</m_Pants>
+        <m_items>
+            <itemGUID>a2046c0a-8c70-4d04-adfb-2ab87c19d702</itemGUID>
+        </m_items>
+    </m_FemaleOutfits>
+    <m_MaleOutfits>
+        <m_Name>ScareCrow</m_Name>
+        <m_Guid>bc7f85ad-6162-4831-8198-2adcf0403c95</m_Guid>
+        <m_Top>false</m_Top>
+        <m_Pants>false</m_Pants>
+        <m_items>
+            <itemGUID>a2046c0a-8c70-4d04-adfb-2ab87c19d702</itemGUID>
+        </m_items>
+    </m_MaleOutfits>
     <m_MaleOutfits>
         <m_Name>PreyZed</m_Name>
         <m_Guid>6d338864-fbdc-4407-a4d6-582a1449ed44</m_Guid>

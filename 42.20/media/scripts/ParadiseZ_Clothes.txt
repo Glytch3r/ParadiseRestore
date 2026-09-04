@@ -1,3 +1,16 @@
+module Skin
+{
+    item ScareCrow
+    {
+        DisplayCategory = MaleBody,
+        ItemType = base:clothing,
+        BodyLocation = base:zeddmg,
+        ClothingItem = ScareCrow,
+        WorldRender = false,
+        hidden = true,
+    }
+}
+
 module ParadiseZ
 {
     item Shirt_ParadiseZ
