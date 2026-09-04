@@ -210,16 +210,25 @@ end
 
 function ParadiseDev.DataCheck.getInventoryItems(items)
     local result = {}
+    local seen = {}
+    local function addItem(item)
+        if not instanceof(item, "InventoryItem") then return end
+        local id = item:getID()
+        local key = id and tostring(id) or tostring(item)
+        if seen[key] then return end
+        seen[key] = true
+        result[#result + 1] = item
+    end
     if instanceof(items, "InventoryItem") then
-        result[#result + 1] = items
+        addItem(items)
         return result
     end
     for _, entry in ipairs(items or {}) do
         if instanceof(entry, "InventoryItem") then
-            result[#result + 1] = entry
+            addItem(entry)
         elseif type(entry) == "table" and entry.items then
             for _, item in ipairs(entry.items) do
-                if instanceof(item, "InventoryItem") then result[#result + 1] = item end
+                addItem(item)
             end
         end
     end
@@ -322,7 +331,20 @@ function ParadiseDev.DataCheck.addFieldRows(list, obj)
         list:addItem("No object selected.")
         return
     end
-    list:addItem("Java field inspection is unavailable.")
+    local okCount, count = pcall(getNumClassFields, obj)
+    if not okCount or not count or count <= 0 then
+        list:addItem("No readable Java fields.")
+        return
+    end
+    for index = 0, count - 1 do
+        local okField, field = pcall(getClassField, obj, index)
+        if okField and field then
+            local okName, name = pcall(field.getName, field)
+            local okValue, value = pcall(field.get, field, obj)
+            local valueText = okValue and tostring(value) or "<unreadable>"
+            list:addItem(tostring(okName and name or index) .. " = " .. valueText)
+        end
+    end
 end
 
 function ParadiseDev.DataCheck.getColumnText(list)

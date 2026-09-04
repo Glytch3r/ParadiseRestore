@@ -240,43 +240,6 @@ Events.OnFillWorldObjectContextMenu.Add(ParadiseDev.Context.context)
 
 function ParadiseDev.Context.reloadGuns()
     local pl = getPlayer()
-    if not pl then return end
-
-    local loaded = {}
-
-    local function loadGun(gun)
-        if loaded[gun] or not (gun and instanceof(gun, "HandWeapon") and gun:isRanged()) then
-            return
-        end
-
-        loaded[gun] = true
-
-        if (gun:getMagazineType() and gun:isContainsClip()) or gun:getCurrentAmmoCount() > 0 or (gun:haveChamber() and gun:isRoundChambered()) then
-            return
-        end
-
-        if gun:getMagazineType() then
-            local mag = pl:getInventory():AddItem(gun:getMagazineType())
-            mag:setCurrentAmmoCount(mag:getMaxAmmo())
-            gun:setCurrentAmmoCount(mag:getCurrentAmmoCount())
-            gun:setContainsClip(true)
-            pl:getInventory():Remove(mag)
-        else
-            gun:setCurrentAmmoCount(gun:getMaxAmmo())
-        end
-
-        if gun:haveChamber() then
-            gun:setRoundChambered(true)
-        end
-
-        syncHandWeaponFields(pl, gun)
-    end
-
-    local items = pl:getInventory():getItems()
-    for i = 0, items:size() - 1 do
-        loadGun(items:get(i))
-    end
-
-    loadGun(pl:getPrimaryHandItem())
-    loadGun(pl:getSecondaryHandItem())
+    if not pl or not (isClient and isClient()) then return end
+    sendClientCommand(pl, "ParadiseDevSkin", "reloadGuns", {})
 end

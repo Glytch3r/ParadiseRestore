@@ -90,7 +90,7 @@ function visual.replace(targ)
     return targ
 end
 
-function visual.testWeaponSprite(targ)
+function visual.testWeaponSprite(targ, newSprite)
     targ = visual.getTarget(targ)
     if not targ or not targ.getPrimaryHandItem then return visual.fail(targ, "Visual test needs a player or zombie target") end
 
@@ -99,8 +99,14 @@ function visual.testWeaponSprite(targ)
         return visual.fail(targ, "Hold a firearm in your primary hand")
     end
 
+    newSprite = newSprite or "Handgun03"
+    local itemScript = ScriptManager.instance:getItem(wpn:getFullType())
+    if not itemScript then return visual.fail(targ, "Weapon script was not found") end
+    local originalSprite = itemScript:getWeaponSprite()
+    itemScript:DoParam("WeaponSprite = " .. tostring(newSprite))
     visual.weaponSprites[wpn] = visual.weaponSprites[wpn] or wpn:getWeaponSprite()
-    wpn:setWeaponSprite("Handgun03")
+    wpn:setWeaponSprite(newSprite)
+    itemScript:DoParam("WeaponSprite = " .. tostring(originalSprite))
 
     if targ.updateHandEquips then targ:updateHandEquips() end
     if targ.resetModelNextFrame then targ:resetModelNextFrame() end

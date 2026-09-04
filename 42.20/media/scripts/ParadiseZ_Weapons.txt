@@ -4,6 +4,7 @@ module Base
     model Handgun_gold
     {
         mesh = weapons/firearm/D_E_Pistol,
+        texture = weapons/firearm/Handgun_gold,
         attachment muzzle
         {
             offset = 0.0 0.1466 -0.0236,

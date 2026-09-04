@@ -49,11 +49,6 @@ end
 function ParadiseDev.Save.countdown(initiator)
     local pl = getPlayer()
     if not pl then return end
-    if initiator == pl:getUsername() then
-        Events.OnTick.Remove(ParadiseDev.Save.waitUntilAlone)
-        Events.OnTick.Add(ParadiseDev.Save.waitUntilAlone)
-        return
-    end
     timer:Create("ParadiseSaveCountdown", 1, 10, function()
         local remaining = timer:RepsLeft("ParadiseSaveCountdown")
         if remaining and remaining > 0 then

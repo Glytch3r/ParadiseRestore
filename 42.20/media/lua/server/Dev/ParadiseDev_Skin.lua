@@ -4,20 +4,67 @@ ParadiseDev.Skin = ParadiseDev.Skin or {}
 local skin = ParadiseDev.Skin
 skin.module = "ParadiseDevSkin"
 
+function skin.syncAddedItem(container, item)
+    if not container or not item then return false end
+    if item.SynchSpawn then item:SynchSpawn() end
+    sendAddItemToContainer(container, item)
+    return true
+end
+
 function skin.spawnGoldgun(player)
     if not player or not ParadiseDev.isAdm(player) then return false end
 
     local inventory = player:getInventory()
-    local item = inventory and inventory:AddItem("Base.Pistol3_gold") or nil
-    if not item then return false end
+    local itemScript = ScriptManager.instance:getItem("Base.Pistol3_gold")
+    if not inventory or not itemScript then return false end
+
+    local originalSprite = itemScript:getWeaponSprite()
+    itemScript:DoParam("WeaponSprite = Handgun_gold")
+    local ok, item = pcall(function()
+        return inventory:AddItem("Base.Pistol3_gold")
+    end)
+    itemScript:DoParam("WeaponSprite = " .. tostring(originalSprite))
+    if not ok or not item then return false end
 
     item:setWeaponSprite("Handgun_gold")
-    sendAddItemToContainer(inventory, item)
+    skin.syncAddedItem(inventory, item)
     return item
 end
 
+function skin.reloadGun(player, gun)
+    if not gun or not instanceof(gun, "HandWeapon") or not gun:isRanged() then return end
+    if (gun:getMagazineType() and gun:isContainsClip()) or gun:getCurrentAmmoCount() > 0 or (gun:haveChamber() and gun:isRoundChambered()) then return end
+    gun:setCurrentAmmoCount(gun:getMaxAmmo())
+    if gun:getMagazineType() then gun:setContainsClip(true) end
+    if gun:haveChamber() then gun:setRoundChambered(true) end
+    if sendItemStats then sendItemStats(gun) end
+end
+
+function skin.reloadGuns(player)
+    if not player or not ParadiseDev.isAdm(player) then return false end
+    local loaded = {}
+    local function loadContainer(container)
+        if not container then return end
+        local items = container:getItems()
+        for index = 0, items:size() - 1 do
+            local item = items:get(index)
+            if not loaded[item] then
+                loaded[item] = true
+                skin.reloadGun(player, item)
+                if item.getInventory then loadContainer(item:getInventory()) end
+            end
+        end
+    end
+    loadContainer(player:getInventory())
+    skin.reloadGun(player, player:getPrimaryHandItem())
+    skin.reloadGun(player, player:getSecondaryHandItem())
+    return true
+end
+
 function skin.onClientCommand(module, command, player)
-    if module == skin.module and command == "spawnGoldgun" then skin.spawnGoldgun(player) end
+    if module ~= skin.module then return end
+    if command == "spawnGoldgun" then skin.spawnGoldgun(player) end
+    if command == "reloadGuns" then skin.reloadGuns(player) end
 end
 
 Events.OnClientCommand.Remove(skin.onClientCommand)
