@@ -469,6 +469,21 @@ function ParadiseDev.Zones.Engine.captureCageReturn(pl)
     }
 end
 
+function ParadiseDev.Zones.Engine.saveCageRebound(pl, zone, x, y, z)
+    if not pl or not zone or not zone.id then return nil end
+    if not ParadiseDev.Zones.Engine.zoneContains(zone, x, y, z, 0) then return nil end
+    local point = { zoneId = zone.id, x = x, y = y, z = z }
+    pl:getModData().ParadiseDevCageRebound = point
+    return point
+end
+
+function ParadiseDev.Zones.Engine.getCageRebound(pl, zone)
+    local point = pl and pl:getModData().ParadiseDevCageRebound or nil
+    if not point or not zone or point.zoneId ~= zone.id then return nil end
+    if not ParadiseDev.Zones.Engine.zoneContains(zone, point.x, point.y, point.z, 0) then return nil end
+    return point
+end
+
 function ParadiseDev.Zones.Engine.restoreCageReturn(pl)
     if not pl then return false end
     local modData = pl:getModData()
@@ -490,6 +505,7 @@ function ParadiseDev.Zones.Engine.assignCage(pl, zone)
     local z = zone.zMode == "floor" and zone.zMin or pl:getZ()
     ParadiseDev.Zones.Engine.cageAssignments[steamId] = zone.id
     ParadiseDev.Zones.Engine.lastValid[ParadiseDev.Zones.Engine.userName(pl)] = nil
+    ParadiseDev.Zones.Engine.saveCageRebound(pl, zone, x, y, z)
     ParadiseDev.Zones.Engine.forceVehicleExit(pl, x, y, z)
     ParadiseDev.Zones.Engine.syncBoundaryState(pl)
     ParadiseDev.Zones.Engine.log("caged", pl, zone)
@@ -502,6 +518,7 @@ function ParadiseDev.Zones.Engine.releaseCage(pl)
     local zone = ParadiseDev.Zones.Engine.zones[ParadiseDev.Zones.Engine.cageAssignments[steamId]]
     ParadiseDev.Zones.Engine.cageAssignments[steamId] = nil
     ParadiseDev.Zones.Engine.lastValid[ParadiseDev.Zones.Engine.userName(pl)] = nil
+    pl:getModData().ParadiseDevCageRebound = nil
     ParadiseDev.Zones.Engine.syncBoundaryState(pl)
     ParadiseDev.Zones.Engine.log("uncaged", pl, zone)
     return true
@@ -511,13 +528,17 @@ function ParadiseDev.Zones.Engine.enforceCage(pl, zone, x, y, z)
     local inside = ParadiseDev.Zones.Engine.zoneContains(zone, x, y, z, 0)
     if inside then
         ParadiseDev.Zones.Engine.lastValid[ParadiseDev.Zones.Engine.userName(pl)] = { x = x, y = y, z = z }
+        ParadiseDev.Zones.Engine.saveCageRebound(pl, zone, x, y, z)
         return true
     end
-    local region = ParadiseDev.Zones.Engine.nearestRegion(zone, x, y)
-    if not region then return false end
-    local cageX, cageY = ParadiseDev.Zones.Engine.regionCenter(region)
-    local cageZ = zone.zMode == "floor" and zone.zMin or z
-    ParadiseDev.Zones.Engine.forceVehicleExit(pl, cageX, cageY, cageZ)
+    local point = ParadiseDev.Zones.Engine.getCageRebound(pl, zone)
+    if not point then
+        local region = ParadiseDev.Zones.Engine.nearestRegion(zone, x, y)
+        if not region then return false end
+        local cageX, cageY = ParadiseDev.Zones.Engine.regionCenter(region)
+        point = { x = cageX, y = cageY, z = zone.zMode == "floor" and zone.zMin or z }
+    end
+    ParadiseDev.Zones.Engine.forceVehicleExit(pl, point.x, point.y, point.z)
     ParadiseDev.Zones.Engine.log("cage-rebound", pl, zone)
     return true
 end

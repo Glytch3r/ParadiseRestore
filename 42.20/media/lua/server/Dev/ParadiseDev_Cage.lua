@@ -462,7 +462,7 @@ function ParadiseDev.Cage.onPlayerUpdate(pl)
     local key = ParadiseDev.Cage.getKey(pl) or ParadiseDev.Cage.getUsername(pl)
     if not key then return end
     ParadiseDev.Cage.traitSyncTimes = ParadiseDev.Cage.traitSyncTimes or {}
-    if ParadiseDev.Cage.traitSyncTimes[key] and now - ParadiseDev.Cage.traitSyncTimes[key] < 0.008 then return end
+    if ParadiseDev.Cage.traitSyncTimes[key] and now - ParadiseDev.Cage.traitSyncTimes[key] < 0.001 then return end
     ParadiseDev.Cage.traitSyncTimes[key] = now
     ParadiseDev.Cage.syncPlayer(pl)
 end

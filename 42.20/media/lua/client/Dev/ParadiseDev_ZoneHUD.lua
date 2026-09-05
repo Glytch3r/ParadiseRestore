@@ -365,16 +365,31 @@ function ParadiseDev.ZoneHUD.openSettings(pl)
 end
 
 
-if not ParadiseDev.ZoneHUD.userPanelHooked then
-    ParadiseDev.ZoneHUD.userPanelHooked = true
-    ParadiseDev.ZoneHUD.createUserPanel = ISUserPanelUI.create
-    ParadiseDev.ZoneHUD.onUserPanelOption = ISUserPanelUI.onOptionMouseDown
+function ParadiseDev.ZoneHUD.onUserPanelOption(self, button, x, y)
+    if button.internal == "PARADISEDEV_ZONEHUD_SETTINGS" then
+        ParadiseDev.ZoneHUD.openSettings(self.player)
+        return
+    end
+    if button.internal == "PARADISE_ECONOMY_FINANCE_MANAGER" then
+        ParadiseEconomy.openPanel(self.player)
+    end
+end
 
-    function ISUserPanelUI:create()
+function ParadiseDev.ZoneHUD.installUserPanelHook()
+    if ISUserPanelUI.create == ParadiseDev.ZoneHUD.userPanelCreateHook then return end
+
+    ParadiseDev.ZoneHUD.createUserPanel = ISUserPanelUI.create
+    ParadiseDev.ZoneHUD.userPanelCreateHook = function(self)
         ParadiseDev.ZoneHUD.createUserPanel(self)
         local close = self.cancel
         if not close then return end
-        self.zoneHUDSettings = ISButton:new(close.x, close.y, close.width, close.height, "Zone HUD Settings", self, ISUserPanelUI.onOptionMouseDown)
+        local bottom = close.y
+        for _, child in pairs(self:getChildren()) do
+            if child ~= close then
+                bottom = math.max(bottom, child:getBottom())
+            end
+        end
+        self.zoneHUDSettings = ISButton:new(close.x, bottom + 10, close.width, close.height, "Zone HUD Settings", self, ParadiseDev.ZoneHUD.onUserPanelOption)
         self.zoneHUDSettings.internal = "PARADISEDEV_ZONEHUD_SETTINGS"
         self.zoneHUDSettings:initialise()
         self.zoneHUDSettings:instantiate()
@@ -385,8 +400,7 @@ if not ParadiseDev.ZoneHUD.userPanelHooked then
         self.zoneHUDSettings.backgroundColor.b = 0.5;
 
         self:addChild(self.zoneHUDSettings)
-        close:setY(close.y + close.height + 10)
-        self.financeManager = ISButton:new(close.x, close.y, close.width, close.height, "Finance Manager", self, ISUserPanelUI.onOptionMouseDown)
+        self.financeManager = ISButton:new(close.x, self.zoneHUDSettings:getBottom() + 10, close.width, close.height, "Finance Manager", self, ParadiseDev.ZoneHUD.onUserPanelOption)
         self.financeManager.internal = "PARADISE_ECONOMY_FINANCE_MANAGER"
         self.financeManager:initialise()
         self.financeManager:instantiate()
@@ -394,24 +408,15 @@ if not ParadiseDev.ZoneHUD.userPanelHooked then
         self.financeManager.backgroundColor.a = 0.7;
         self.financeManager.backgroundColor.b = 0.5;
         self:addChild(self.financeManager)
-        close:setY(close.y + close.height + 10)
+        close:setY(self.financeManager:getBottom() + 10)
         self:setHeight(close.y + close.height + 11)
     end
 
-    function ISUserPanelUI:onOptionMouseDown(button, x, y)
-        if button.internal == "PARADISEDEV_ZONEHUD_SETTINGS" then
-            ParadiseDev.ZoneHUD.openSettings(self.player)
-            return
-        end
-        if button.internal == "PARADISE_ECONOMY_FINANCE_MANAGER" then
-            ParadiseEconomy.openPanel(self.player)
-            return
-        end
-        return ParadiseDev.ZoneHUD.onUserPanelOption(self, button, x, y)
-    end
+    ISUserPanelUI.create = ParadiseDev.ZoneHUD.userPanelCreateHook
 end
 
 function ParadiseDev.ZoneHUD.onGameStart()
+    ParadiseDev.ZoneHUD.installUserPanelHook()
     local pl = getPlayer()
     if pl then ParadiseDev.ZoneHUD.applyVisualSettings(ParadiseDev.ZoneHUD.getSettings(pl)) end
     if isClient() then sendClientCommand("PZZoneEngine", "requestBoundaryState", {}) end
