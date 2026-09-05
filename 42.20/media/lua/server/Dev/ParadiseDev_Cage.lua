@@ -35,7 +35,7 @@ end
 
 function ParadiseDev.Cage.getKey(pl)
     if ParadiseDev.Cage.isSteamMode() then return ParadiseDev.Cage.getUsername(pl) end
-    return ParadiseDev.Cage.getSteamId(pl)
+    return ParadiseDev.Cage.getSteamId(pl) or ParadiseDev.Cage.getUsername(pl)
 end
 
 function ParadiseDev.Cage.getUsernameKey(username)
