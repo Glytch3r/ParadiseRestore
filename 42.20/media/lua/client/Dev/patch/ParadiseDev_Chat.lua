@@ -176,6 +176,15 @@ end
 
 function ISChat:onCommandEntered()
     local command = self.textEntry and self.textEntry:getText()
+    if type(command) == "string" and command:match("^%s*/cage[%s]*") then
+        self:unfocus()
+        if self.chatText then self.chatText.logIndex = 0 end
+        ParadiseDev.chatCmd(command)
+        ParadiseDev.hook.ISChat_logChatCommand(self, command)
+        doKeyPress(false)
+        self.timerTextEntry = 20
+        return
+    end
     if ParadiseDev.serverMsgCmd(command) then
         self:unfocus()
         self:logChatCommand(command)
