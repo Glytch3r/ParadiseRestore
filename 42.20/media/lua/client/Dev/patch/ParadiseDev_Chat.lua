@@ -1,10 +1,12 @@
 
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.hook = ParadiseDev.hook or {}
-ParadiseDev.hook.ISChat_addLineInChat = ISChat.addLineInChat
+ParadiseDev.hook.ISChat_addLineInChat = ParadiseDev.hook.ISChat_addLineInChat or ISChat.addLineInChat
 ParadiseZ = ParadiseZ or {}
-ParadiseDev.hook.ISChat_logChatCommand = ISChat.logChatCommand
-ParadiseDev.hook.ISChat_onCommandEntered = ISChat.onCommandEntered
+ParadiseDev.hook.ISChat_logChatCommand = ParadiseDev.hook.ISChat_logChatCommand or ISChat.logChatCommand
+ParadiseDev.hook.ISChat_onCommandEntered = ParadiseDev.hook.ISChat_onCommandEntered or ISChat.onCommandEntered
+ParadiseDev.Chat = ParadiseDev.Chat or {}
+ParadiseDev.Chat.originalOnCommandEntered = ParadiseDev.Chat.originalOnCommandEntered or ParadiseDev.hook.ISChat_onCommandEntered
 
 
 ISChat.BlinkEnabled = true
@@ -175,14 +177,15 @@ function ISChat:logChatCommand(command)
 end
 
 function ISChat:onCommandEntered()
-    local command = self.textEntry and self.textEntry:getText()
-    if type(command) == "string" and command:match("^%s*/cage[%s]*") then
-        self:unfocus()
-        if self.chatText then self.chatText.logIndex = 0 end
+    local chat = ISChat.instance
+    local command = chat and chat.textEntry and chat.textEntry:getText() or nil
+    local keyword = type(command) == "string" and command:match("^%s*(/%S+)") or nil
+    if keyword and string.lower(keyword) == "/cage" then
         ParadiseDev.chatCmd(command)
-        ParadiseDev.hook.ISChat_logChatCommand(self, command)
+        ParadiseDev.hook.ISChat_logChatCommand(chat, command)
+        chat:unfocus()
         doKeyPress(false)
-        self.timerTextEntry = 20
+        chat.timerTextEntry = 20
         return
     end
     if ParadiseDev.serverMsgCmd(command) then
@@ -192,7 +195,7 @@ function ISChat:onCommandEntered()
         self.timerTextEntry = 20
         return
     end
-    return ParadiseDev.hook.ISChat_onCommandEntered(self)
+    return ParadiseDev.Chat.originalOnCommandEntered(self)
 end
 
 if ISChat.instance and ISChat.instance.textEntry then
