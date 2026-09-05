@@ -326,6 +326,7 @@ end
 function ParadiseDev.Zones.Engine.isAllowed(zone, pl)
     local deniedReason = ParadiseDev.Zones.Engine.getDeniedReason(zone, pl)
     if not deniedReason then return true end
+    if zone.features and zone.features.isBlocked then return false end
     return ParadiseDev.isAdm(pl) and ParadiseDev.Zones.Engine.adminBypassEnabled() and zone.policy.adminBypass ~= false
 end
 
@@ -445,8 +446,8 @@ function ParadiseDev.Zones.Engine.reboundPlayer(pl, zone, region, x, y, z)
     ParadiseDev.Zones.Engine.log("rebound-edge", pl, zone)
 end
 
-function ParadiseDev.Zones.Engine.reboundVehicle(vehicle, x, y, outX, outY)
-    return ParadiseDev and ParadiseDev.TP and ParadiseDev.TP.reboundVehicle(vehicle, x, y, outX, outY) or false
+function ParadiseDev.Zones.Engine.reboundVehicle(vehicle, x, y, outX, outY, pl)
+    return ParadiseDev and ParadiseDev.TP and ParadiseDev.TP.reboundVehicle(vehicle, x, y, outX, outY, pl) or false
 end
 
 function ParadiseDev.Zones.Engine.forcePassengerOut(pl, x, y, z)
@@ -553,6 +554,7 @@ function ParadiseDev.Zones.Engine.onPlayerMove(pl)
     local zone, region = ParadiseDev.Zones.Engine.getAuthority(x, y, z, vehicle and 2.0 or 0)
     if not zone or ParadiseDev.Zones.Engine.isAllowed(zone, pl) then
         ParadiseDev.Zones.Engine.lastValid[ParadiseDev.Zones.Engine.userName(pl)] = { x = x, y = y, z = z }
+        if ParadiseDev.TP and ParadiseDev.TP.saveRebound then ParadiseDev.TP.saveRebound(pl, "Zone Rebound") end
         return
     end
 
@@ -572,7 +574,7 @@ function ParadiseDev.Zones.Engine.onPlayerMove(pl)
 
     if ParadiseDev.Zones.Engine.vehicleMode == "rebound" then
         local outX, outY = ParadiseDev.Zones.Engine.nearestOutside(region, x, y, 2.0)
-        ParadiseDev.Zones.Engine.reboundVehicle(vehicle, x, y, outX, outY)
+        ParadiseDev.Zones.Engine.reboundVehicle(vehicle, x, y, outX, outY, pl)
         ParadiseDev.Zones.Engine.log("vehicle-rebounded", pl, zone)
     else
         ParadiseDev.Zones.Engine.log("vehicle-denied-observe", pl, zone, "Set vehicleMode=rebound to test server vehicle movement")

@@ -104,6 +104,9 @@ function ParadiseDev.Context.clearAndSave(pl)
     sendClientCommand(ParadiseDev.Save.module, "clearAndSave", {})
 end
 
+
+
+
 function ParadiseDev.Context.getClearRadius()
     return SandboxVars.ParadiseZ and SandboxVars.ParadiseZ.ClearRadius or 15
 end
@@ -225,6 +228,7 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     ParadiseDev.Context.addOption(clearMenu, "Clear Map Record", ParadiseZ.ClearMap, "media/ui/Paradise/MapContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "WorldMapVisited.Reset", ParadiseDev.Context.resetMapVisited, "media/ui/Paradise/MapContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "Clear Weather", ParadiseZ.clearWeather, "media/ui/Paradise/WeatherContextIcon.png")
+    ParadiseDev.Context.addOption(clearMenu, "Clear Fog", ParadiseZ.clearFog, "media/ui/Paradise/WeatherContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "Clear Worn Items", ParadiseZ.ClearWornItems, "media/ui/Paradise/WornItemsContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "Clear Perks", ParadiseZ.ClearPerks, "media/ui/Paradise/MemoryContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "Clear Learned Recipes", ParadiseZ.ClearLearned, "media/ui/Paradise/LearnContextIcon.png")

@@ -36,7 +36,16 @@ function ParadiseDev.TP.teleportPlayer(pl, x, y, z)
     return true
 end
 
-function ParadiseDev.TP.reboundVehicle(vehicle, fromX, fromY, toX, toY)
+function ParadiseDev.TP.saveRebound(pl, name)
+    if not pl then return nil end
+    local point = { x = pl:getX(), y = pl:getY(), z = pl:getZ(), name = name or "Rebound" }
+    local modData = pl:getModData()
+    modData.ParadiseZRebound = point
+    modData.Rebound = point
+    return point
+end
+
+function ParadiseDev.TP.reboundVehicle(vehicle, fromX, fromY, toX, toY, pl)
     if not vehicle or not fromX or not fromY or not toX or not toY then return false end
     local transform = BaseVehicle.allocTransform()
     vehicle:getWorldTransform(transform)
@@ -44,6 +53,11 @@ function ParadiseDev.TP.reboundVehicle(vehicle, fromX, fromY, toX, toY)
     origin:set(origin:x() + (toX - fromX), origin:y(), origin:z() + (toY - fromY))
     vehicle:setWorldTransform(transform)
     BaseVehicle.releaseTransform(transform)
+    if pl then
+        sendServerCommand(pl, ParadiseDev.TP.module, "vehicleTeleport", {
+            id = vehicle:getId(), x = tonumber(toX), y = tonumber(toY),
+        })
+    end
     return true
 end
 
@@ -109,7 +123,9 @@ function ParadiseDev.TP.onClientCommand(module, command, pl, args)
         return
     end
     if module ~= ParadiseDev.TP.module then return end
-    if command == "rebound" then
+    if command == "saveRebound" then
+        ParadiseDev.TP.saveRebound(pl, args and args.name)
+    elseif command == "rebound" then
         if ParadiseDev.TP.isInKosZone(pl) then
             ParadiseDev.TP.reply(pl, "Cannot use /stuck inside a KoS zone.")
             return
@@ -127,7 +143,7 @@ function ParadiseDev.TP.onClientCommand(module, command, pl, args)
     elseif command == "teleportVehicle" and ParadiseDev.isAdm(pl) then
         local vehicle = pl:getVehicle()
         if vehicle then
-            ParadiseDev.TP.reboundVehicle(vehicle, vehicle:getX(), vehicle:getY(), args and args.x, args and args.y)
+            ParadiseDev.TP.reboundVehicle(vehicle, vehicle:getX(), vehicle:getY(), args and args.x, args and args.y, pl)
         end
     elseif command == "die" and pl and pl:isAlive() then
         pl:getBodyDamage():ReduceGeneralHealth(110)

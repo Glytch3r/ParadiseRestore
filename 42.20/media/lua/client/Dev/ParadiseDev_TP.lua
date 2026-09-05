@@ -46,7 +46,8 @@ function ParadiseDev.TP.requestTeleport(x, y, z)
     local pl = getPlayer()
     if not pl or not ParadiseDev.TP.validCoordinates(x, y, z) then return false end
     if isClient() then
-        return ParadiseDev.TP.applyTeleport(pl, x, y, z)
+        sendClientCommand(ParadiseDev.TP.module, "teleport", { x = tonumber(x), y = tonumber(y), z = tonumber(z) })
+        return true
     end
     return ParadiseDev.TP.applyTeleport(pl, x, y, z)
 end
@@ -58,6 +59,7 @@ function ParadiseDev.TP.saveRebound(pl, name)
     local modData = pl:getModData()
     modData.ParadiseZRebound = point
     modData.Rebound = point
+    if isClient() then sendClientCommand(ParadiseDev.TP.module, "saveRebound", { name = point.name }) end
     return point
 end
 
@@ -75,10 +77,31 @@ function ParadiseDev.TP.getReboundXYZ(pl)
 end
 
 function ParadiseDev.TP.rebound(pl)
+    pl = pl or getPlayer()
+    if isClient() then
+        sendClientCommand(ParadiseDev.TP.module, "rebound", {})
+        return true
+    end
     local x, y, z = ParadiseDev.TP.getReboundXYZ(pl)
     if not ParadiseDev.TP.validCoordinates(x, y, z) then return false end
     ParadiseDev.TP.forceExitCar(pl)
     return ParadiseDev.TP.requestTeleport(x, y, z)
+end
+
+function ParadiseDev.TP.moveVehicle(vehicle, x, y)
+    if not vehicle or not x or not y then return false end
+    local transform = BaseVehicle.allocTransform()
+    vehicle:getWorldTransform(transform)
+    local origin = transform:getOrigin()
+    origin:set(origin:x() + (x - vehicle:getX()), origin:y(), origin:z() + (y - vehicle:getY()))
+    vehicle:setWorldTransform(transform)
+    BaseVehicle.releaseTransform(transform)
+    pcall(vehicle.update, vehicle)
+    pcall(vehicle.updateControls, vehicle)
+    pcall(vehicle.updateBulletStats, vehicle)
+    pcall(vehicle.updatePhysics, vehicle)
+    pcall(vehicle.updatePhysicsNetwork, vehicle)
+    return true
 end
 
 function ParadiseDev.TP.spawnRebound(_, pl)
@@ -112,6 +135,11 @@ function ParadiseDev.TP.onServerCommand(module, command, args)
     if module ~= ParadiseDev.TP.module then return end
     if command == "teleport" and args then
         ParadiseDev.TP.applyTeleport(getPlayer(), args.x, args.y, args.z)
+    elseif command == "vehicleTeleport" and args then
+        local pl = getPlayer()
+        local vehicle = getVehicleById and getVehicleById(args.id) or nil
+        if not vehicle and pl then vehicle = pl:getVehicle() end
+        ParadiseDev.TP.moveVehicle(vehicle, args.x, args.y)
     elseif command == "message" and args and args.text then
         local pl = getPlayer()
         if pl then pl:setHaloNote(args.text, 250, 0, 0, 180) end

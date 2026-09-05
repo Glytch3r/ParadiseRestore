@@ -150,14 +150,14 @@ end
 function ParadiseDev.Zones.Visualization.drawRegionBorder(region, z, color)
     local plNum = 0
     local offsetX, offsetY = -getPlayerScreenLeft(plNum), -getPlayerScreenTop(plNum)
-    function ParadiseDev.Zones.Visualization.screen(x, y)
+    local function screen(x, y)
         return isoToScreenX(plNum, x, y, z) + offsetX,
             isoToScreenY(plNum, x, y, z) + offsetY
     end
-    local x1, y1 = ParadiseDev.Zones.Visualization.screen(region.xMin, region.yMin)
-    local x2, y2 = ParadiseDev.Zones.Visualization.screen(region.xMax, region.yMin)
-    local x3, y3 = ParadiseDev.Zones.Visualization.screen(region.xMax, region.yMax)
-    local x4, y4 = ParadiseDev.Zones.Visualization.screen(region.xMin, region.yMax)
+    local x1, y1 = screen(region.xMin, region.yMin)
+    local x2, y2 = screen(region.xMax, region.yMin)
+    local x3, y3 = screen(region.xMax, region.yMax)
+    local x4, y4 = screen(region.xMin, region.yMax)
     ParadiseDev.Zones.Visualization.drawThinLine(x1, y1, x2, y2, color)
     ParadiseDev.Zones.Visualization.drawThinLine(x2, y2, x3, y3, color)
     ParadiseDev.Zones.Visualization.drawThinLine(x3, y3, x4, y4, color)
@@ -194,9 +194,15 @@ function ParadiseDev.Zones.Visualization.onPlayerMove(pl)
     if pl == getPlayer() then ParadiseDev.Zones.Visualization.refreshHighlights(false) end
 end
 
+function ParadiseDev.Zones.Visualization.onGameStart()
+    if isClient() then sendClientCommand("PZZoneEngine", "requestBoundaryState", {}) end
+end
+
 Events.OnServerCommand.Remove(ParadiseDev.Zones.Visualization.onServerCommand)
 Events.OnServerCommand.Add(ParadiseDev.Zones.Visualization.onServerCommand)
 Events.OnPlayerMove.Remove(ParadiseDev.Zones.Visualization.onPlayerMove)
 Events.OnPlayerMove.Add(ParadiseDev.Zones.Visualization.onPlayerMove)
+Events.OnGameStart.Remove(ParadiseDev.Zones.Visualization.onGameStart)
+Events.OnGameStart.Add(ParadiseDev.Zones.Visualization.onGameStart)
 Events.OnPreUIDraw.Remove(ParadiseDev.Zones.Visualization.renderBorders)
 Events.OnPreUIDraw.Add(ParadiseDev.Zones.Visualization.renderBorders)

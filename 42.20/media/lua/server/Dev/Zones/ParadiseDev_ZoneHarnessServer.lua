@@ -197,7 +197,7 @@ function ParadiseDev.Zones.Harness.moveTargetToRegion(engine, target, zone, regi
     local z = zone.zMode == "floor" and zone.zMin or target:getZ()
     local vehicle = target:getVehicle()
     if vehicle and vehicle:getCharacter(0) == target then
-        ParadiseDev.Zones.Engine.reboundVehicle(vehicle, vehicle:getX(), vehicle:getY(), x, y)
+        ParadiseDev.Zones.Engine.reboundVehicle(vehicle, vehicle:getX(), vehicle:getY(), x, y, target)
     elseif vehicle then
         ParadiseDev.Zones.Engine.forcePassengerOut(target, x, y, z)
     else
@@ -332,7 +332,7 @@ function ParadiseDev.Zones.Harness.onClientCommand(module, command, pl, args)
         local z = zone.zMode == "floor" and zone.zMin or pl:getZ()
         local vehicle = pl:getVehicle()
         if vehicle and vehicle:getCharacter(0) == pl then
-            ParadiseDev.Zones.Engine.reboundVehicle(vehicle, vehicle:getX(), vehicle:getY(), x, y)
+            ParadiseDev.Zones.Engine.reboundVehicle(vehicle, vehicle:getX(), vehicle:getY(), x, y, pl)
         elseif vehicle then
             ParadiseDev.Zones.Engine.forcePassengerOut(pl, x, y, z)
         else

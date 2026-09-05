@@ -93,8 +93,44 @@ function cloner.clone(source, destination)
     return clone
 end
 
+function cloner.spawn(player, args)
+    local fType = args and args.fType
+    local qty = args and tonumber(args.qty)
+    if not fType or not ScriptManager.instance:getItem(fType) or not qty then return false end
+    qty = math.floor(qty)
+    if qty < 1 or qty > 100 then return false end
+
+    if args.target == "world" then
+        local x, y, z = tonumber(args.x), tonumber(args.y), tonumber(args.z)
+        local sq = x and y and z and getCell():getGridSquare(x, y, z) or nil
+        if not sq then return false end
+        for index = 1, qty do sq:AddWorldInventoryItem(fType, 0, 0, 0) end
+        return true
+    end
+
+    local destination = player:getInventory()
+    if args.target == "container" then
+        local containerID = tonumber(args.containerID)
+        local containerItem = containerID and destination:getItemWithID(containerID) or nil
+        destination = containerItem and containerItem.getInventory and containerItem:getInventory() or nil
+    elseif args.target ~= "inventory" then
+        return false
+    end
+    if not destination then return false end
+    for index = 1, qty do
+        local item = destination:AddItem(fType)
+        if item then
+            if item.SynchSpawn then item:SynchSpawn() end
+            sendAddItemToContainer(destination, item)
+        end
+    end
+    return true
+end
+
 function cloner.onClientCommand(module, command, player, args)
-    if module ~= cloner.module or command ~= "clone" or not ParadiseDev.isAdm(player) then return end
+    if module ~= cloner.module or not ParadiseDev.isAdm(player) then return end
+    if command == "spawn" then return cloner.spawn(player, args) end
+    if command ~= "clone" then return end
     local itemID, count = args and tonumber(args.itemID), args and tonumber(args.count)
     if not itemID or not count then return end
     count = math.floor(count)

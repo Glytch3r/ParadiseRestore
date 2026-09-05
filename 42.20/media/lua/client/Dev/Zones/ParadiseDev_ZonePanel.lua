@@ -42,7 +42,7 @@ local FEATURE_DEFS = {
     { key = "isSpecial", label = "Special", texture = "ParadiseZ_Zone_Special", tooltip = "Special zone" },
     { key = "isTrade", label = "Trade", texture = "ParadiseZ_Zone_Trade", tooltip = "Trade zone" },
     { key = "isSprint", label = "Sprint", texture = "ParadiseZ_Zone_Sprint", tooltip = "Sprinter-zombie zone" },
-    { key = "isBlocked", label = "Blocked", texture = "ParadiseZ_Zone_Blocked", tooltip = "Blocked zone: nobody may enter unless admin bypass applies" },
+    { key = "isBlocked", label = "Blocked", texture = "ParadiseZ_Zone_Blocked", tooltip = "Blocked zone: all players rebound, including admins" },
 }
 local FEATURE_BY_KEY = {}
 for _, def in ipairs(FEATURE_DEFS) do

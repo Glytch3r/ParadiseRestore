@@ -82,7 +82,7 @@ function ParadiseDev.Inventory.copyWeapon(source, target)
         if getter then
             local ok, part = pcall(getter, source)
             if ok and part then
-                local clone = InventoryItemFactory.CreateItem(part:getFullType())
+                local clone = instanceItem(part:getFullType())
                 if clone then
                     ParadiseDev.Inventory.copyProperties(part, clone, ParadiseDev.Inventory.genericProperties)
                     ParadiseDev.Inventory.copyModData(part, clone)
@@ -109,13 +109,70 @@ function ParadiseDev.Inventory.copyClothing(source, target)
     end
 end
 
-function ParadiseDev.Inventory.syncAddedItem(container, item)
-    if not container or not item then return false end
+function ParadiseDev.Inventory.syncAddedItem(cont, item)
+    if not cont or not item then return false end
     if item.SynchSpawn then item:SynchSpawn() end
-    sendAddItemToContainer(container, item)
+    sendAddItemToContainer(cont, item)
     triggerEvent("OnContainerUpdate")
+    local inv = getPlayer():getInventory() 
+    inv:setDrawDirty(true)
+    ISInventoryPage.renderDirty = true;
     return true
 end
+
+function ParadiseDev.Inventory.spawnItem(fType, cont, qty)
+    if not fType then return end
+    local pl = getPlayer()
+    if not pl then return false end
+    local inv = pl:getInventory()
+    cont = cont or inv
+    local scr = ScriptManager.instance:getItem(fType)
+    if not scr then return false end
+
+    qty = qty or 1
+    local sq
+    if instanceof(cont, "IsoGridSquare") then
+        sq = cont
+    end
+
+    if isClient and isClient() then
+        if not sendClientCommand then return false end
+        local args = { fType = fType, qty = qty }
+        if sq then
+            args.target = "world"
+            args.x, args.y, args.z = sq:getX(), sq:getY(), sq:getZ()
+        elseif cont == inv then
+            args.target = "inventory"
+        else
+            local contItem = cont.getContainingItem and cont:getContainingItem() or nil
+            if not contItem then return false end
+            args.target = "container"
+            args.containerID = contItem:getID()
+        end
+        sendClientCommand(pl, "ParadiseDevItemCloner", "spawn", args)
+        return true
+    end
+
+    for i = 1, qty do
+        local inst = instanceItem(fType)
+        if sq then
+            sq:AddWorldInventoryItem(inst,0,0,0)
+        else            
+            local item = cont:AddItem(inst)
+            ParadiseDev.Inventory.syncAddedItem(cont, item)
+        end
+    end
+
+    return true
+end
+--[[ 
+local sq = getPlayer():getSquare() 
+ParadiseDev.Inventory.spawnItem('Base.Apple', sq,1) 
+
+ParadiseDev.Inventory.spawnItem('Base.Katana') 
+
+
+]]
 
 function ParadiseDev.Inventory.clone(item, destination)
     if not item or not destination then return nil end

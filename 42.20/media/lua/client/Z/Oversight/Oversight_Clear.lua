@@ -458,6 +458,57 @@ function ParadiseZ.washChar()
     pl:resetModel()
 end
 
+--[[ 
+function ParadiseZ.clearWeather()
+    if isClient() then
+        getClimateManager():transmitStopWeather();
+    else
+        getClimateManager():stopWeatherAndThunder();
+        local wp = getClimateManager():getWeatherPeriod();
+        if wp then
+            wp:stop();
+        end
+    end
+
+
+    local clim = getClimateManager()
+    local w = clim:getWeatherPeriod();
+    if w:isRunning() then
+        clim:stopWeatherAndThunder();
+    end
+    clim:setEnabledSimulation(false);
+
+    local var = clim:getClimateFloat(5)
+    var:setEnableOverride(true)
+    var:setOverride(0, 1)
+    var:setEnableOverride(false)
+
+
+    local fogFloat = clim:getClimateFloat(ClimateManager.FLOAT_FOG_INTENSITY);
+    if fogFloat then
+        fogFloat:setEnableAdmin(true);
+        fogFloat:setAdminValue(0);
+        --fogFloat:setEnableAdmin(false);
+    end
+
+    local cloudFloat = clim:getClimateFloat(ClimateManager.FLOAT_CLOUD_INTENSITY);
+    if cloudFloat then
+        cloudFloat:setEnableAdmin(true);
+        cloudFloat:setAdminValue(0);
+       -- cloudFloat:setEnableAdmin(false);
+    end
+
+    local fx = getCell():getWeatherFX();
+    if fx then
+        fx:setFogIntensity(0);
+        fx:setCloudIntensity(0);
+        fx:setPrecipitationIntensity(0);
+        fx:setWindIntensity(0);
+    end
+
+end
+ ]]
+
 function ParadiseZ.clearWeather()
     if isClient() then
         getClimateManager():transmitStopWeather()
@@ -466,6 +517,20 @@ function ParadiseZ.clearWeather()
     end
     local pl = getPlayer() 
     if pl then pl:addLineChatElement("Stopped Weather") end
+end
+
+function ParadiseZ.clearFog()
+    local clim = getClimateManager();
+    --[[     
+    local w = clim:getWeatherPeriod();
+    if w:isRunning() then
+        clim:stopWeatherAndThunder();
+    end ]]
+
+
+    local var = clim:getClimateFloat(5);
+    var:setEnableOverride(true);
+    var:setOverride(0, 1);
 end
 
 function ParadiseZ.ClearMap()

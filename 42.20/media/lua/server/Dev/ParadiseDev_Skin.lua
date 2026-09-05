@@ -5,10 +5,7 @@ local skin = ParadiseDev.Skin
 skin.module = "ParadiseDevSkin"
 
 function skin.syncAddedItem(container, item)
-    if not container or not item then return false end
-    if item.SynchSpawn then item:SynchSpawn() end
-    sendAddItemToContainer(container, item)
-    return true
+    ParadiseDev.Inventory.syncAddedItem(container, item)
 end
 
 function skin.spawnGoldgun(player)
