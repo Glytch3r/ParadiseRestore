@@ -241,7 +241,7 @@ function ParadiseDev.Zones.Harness.onClientCommand(module, command, pl, args)
         ParadiseDev.Zones.Engine.setProfile(target, ParadiseDev.Zones.Harness.tagsFor(profile))
         ParadiseDev.Zones.Harness.publish(engine, pl, "Profile for " .. tostring(target) .. " set to " .. tostring(profile) .. ".")
     elseif command == "vehicleMode" then
-        ParadiseDev.Zones.Engine.vehicleMode = (args and args.mode == "rebound") and "rebound" or "observe"
+        ParadiseDev.Zones.Engine.vehicleMode = "rebound"
         ParadiseDev.Zones.Engine.save()
         ParadiseDev.Zones.Harness.publish(engine, pl, "Vehicle mode: " .. ParadiseDev.Zones.Engine.vehicleMode)
     elseif command == "testFeature" then

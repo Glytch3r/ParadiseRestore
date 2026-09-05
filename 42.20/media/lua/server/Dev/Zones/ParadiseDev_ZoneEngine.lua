@@ -23,13 +23,13 @@ ParadiseDev.Zones.Engine.FEATURE_KEYS = {
 ParadiseDev.Zones.Engine.featureKeySet = {}
 for _, key in ipairs(ParadiseDev.Zones.Engine.FEATURE_KEYS) do ParadiseDev.Zones.Engine.featureKeySet[key] = true end
 
-ParadiseDev.Zones.Engine.vehicleMode = ParadiseDev.Zones.Engine.vehicleMode or "rebound"
+ParadiseDev.Zones.Engine.vehicleMode = "rebound"
 
 function ParadiseDev.Zones.Engine.getStore()
     local store = ModData.getOrCreate(ParadiseDev.Zones.Engine.storeName)
     store.zones = store.zones or {}
     store.profiles = store.profiles or {}
-    store.vehicleMode = store.vehicleMode or "rebound"
+    store.vehicleMode = "rebound"
     return store
 end
 
@@ -45,7 +45,7 @@ function ParadiseDev.Zones.Engine.load()
     local store = ParadiseDev.Zones.Engine.getStore()
     ParadiseDev.Zones.Engine.zones = store.zones
     ParadiseDev.Zones.Engine.profiles = store.profiles
-    ParadiseDev.Zones.Engine.vehicleMode = store.vehicleMode
+    ParadiseDev.Zones.Engine.vehicleMode = "rebound"
     ParadiseDev.Zones.Engine.rebuildIndex()
 end
 
@@ -593,17 +593,15 @@ function ParadiseDev.Zones.Engine.onPlayerMove(pl)
         return
     end
 
-    if ParadiseDev.Zones.Engine.vehicleMode == "rebound" then
-        local outX, outY = ParadiseDev.Zones.Engine.nearestOutside(region, x, y, 2.0)
-        ParadiseDev.Zones.Engine.reboundVehicle(vehicle, x, y, outX, outY, pl)
-        ParadiseDev.Zones.Engine.log("vehicle-rebounded", pl, zone)
-    else
-        ParadiseDev.Zones.Engine.log("vehicle-denied-observe", pl, zone, "Set vehicleMode=rebound to test server vehicle movement")
-    end
+    local outX, outY = ParadiseDev.Zones.Engine.nearestOutside(region, x, y, 2.0)
+    ParadiseDev.Zones.Engine.reboundVehicle(vehicle, x, y, outX, outY, pl)
+    ParadiseDev.Zones.Engine.log("vehicle-rebounded", pl, zone)
 end
 
 Events.OnPlayerMove.Remove(ParadiseDev.Zones.Engine.onPlayerMove)
 Events.OnPlayerMove.Add(ParadiseDev.Zones.Engine.onPlayerMove)
+Events.OnPlayerUpdate.Remove(ParadiseDev.Zones.Engine.onPlayerMove)
+Events.OnPlayerUpdate.Add(ParadiseDev.Zones.Engine.onPlayerMove)
 
 function ParadiseDev.Zones.Engine.onClientCommand(module, command, pl)
     if module == "PZZoneEngine" and command == "requestBoundaryState" then

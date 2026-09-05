@@ -12,6 +12,7 @@ function ParadiseDev.Cage.getStore()
     store.names = store.names or {}
     store.pending = store.pending or {}
     store.pendingNames = store.pendingNames or {}
+    store.released = store.released or {}
     return store
 end
 
@@ -50,9 +51,11 @@ function ParadiseDev.Cage.setPending(username, isCaged)
     if isCaged then
         store.pending[usernameKey] = true
         store.pendingNames[usernameKey] = tostring(username)
+        store.released[usernameKey] = nil
     else
         store.pending[usernameKey] = nil
         store.pendingNames[usernameKey] = nil
+        store.released[usernameKey] = true
     end
     ModData.transmit("ParadiseDev_IsCaged")
     return true
@@ -62,12 +65,15 @@ function ParadiseDev.Cage.setStored(key, username, isCaged)
     if not key or tostring(key) == "" then return false end
     key = tostring(key)
     local store = ParadiseDev.Cage.getStore()
+    local usernameKey = ParadiseDev.Cage.getUsernameKey(username)
     if isCaged then
         store.players[key] = true
         if username and tostring(username) ~= "" then store.names[key] = tostring(username) end
+        if usernameKey then store.released[usernameKey] = nil end
     else
         store.players[key] = nil
         store.names[key] = nil
+        if usernameKey then store.released[usernameKey] = true end
     end
     ModData.transmit("ParadiseDev_IsCaged")
     return true
@@ -108,6 +114,11 @@ function ParadiseDev.Cage.setTrait(pl, isCaged)
         changed = true
     end
     if changed and sendSyncPlayerFields then sendSyncPlayerFields(pl, 2) end
+    local key = ParadiseDev.Cage.getKey(pl) or ParadiseDev.Cage.getUsername(pl)
+    if key then
+        ParadiseDev.Cage.traitStates = ParadiseDev.Cage.traitStates or {}
+        ParadiseDev.Cage.traitStates[key] = isCaged == true
+    end
     return changed
 end
 
@@ -117,11 +128,29 @@ function ParadiseDev.Cage.syncPlayer(pl)
     local usernameKey = ParadiseDev.Cage.getUsernameKey(username)
     local key = ParadiseDev.Cage.getKey(pl)
     local store = ParadiseDev.Cage.getStore()
+    ParadiseDev.Cage.traitStates = ParadiseDev.Cage.traitStates or {}
     if usernameKey and key and store.pending[usernameKey] == true then
         ParadiseDev.Cage.setStored(key, username, true)
         ParadiseDev.Cage.setPending(username, false)
     end
     local isCaged = ParadiseDev.Cage.isCaged(pl)
+    local trait = ParadiseDev.getTrait(ParadiseDev.Cage.trait)
+    local hasTrait = trait and ParadiseDev.hasTrait(pl, trait) or false
+    local tracked = key and ParadiseDev.Cage.traitStates[key] or nil
+    if usernameKey and store.released[usernameKey] then
+        ParadiseDev.Cage.setTrait(pl, false)
+        store.released[usernameKey] = nil
+        ModData.transmit("ParadiseDev_IsCaged")
+        return false
+    end
+    if tracked == nil and hasTrait and not isCaged then
+        ParadiseDev.Cage.set(pl, true)
+        return true
+    end
+    if tracked ~= nil and hasTrait ~= tracked then
+        ParadiseDev.Cage.set(pl, hasTrait)
+        return hasTrait
+    end
     ParadiseDev.Cage.setTrait(pl, isCaged)
     return isCaged
 end
@@ -192,8 +221,11 @@ end
 function ParadiseDev.Cage.set(pl, isCaged)
     local key = ParadiseDev.Cage.getKey(pl)
     if not key then return false, "The target player has no cage identity." end
-    ParadiseDev.Cage.setStored(key, ParadiseDev.Cage.getUsername(pl), isCaged)
-    ParadiseDev.Cage.setPending(ParadiseDev.Cage.getUsername(pl), false)
+    local username = ParadiseDev.Cage.getUsername(pl)
+    ParadiseDev.Cage.setStored(key, username, isCaged)
+    ParadiseDev.Cage.setPending(username, false)
+    local usernameKey = ParadiseDev.Cage.getUsernameKey(username)
+    if usernameKey then ParadiseDev.Cage.getStore().released[usernameKey] = nil end
     ParadiseDev.Cage.setTrait(pl, isCaged)
 
     local engine = ParadiseDev.Zones and ParadiseDev.Zones.Engine or nil
@@ -204,7 +236,6 @@ function ParadiseDev.Cage.set(pl, isCaged)
         if zone then engine.assignCage(pl, zone) end
     else
         engine.releaseCage(pl)
-        engine.restoreCageReturn(pl)
     end
     return true
 end
@@ -462,7 +493,7 @@ function ParadiseDev.Cage.onPlayerUpdate(pl)
     local key = ParadiseDev.Cage.getKey(pl) or ParadiseDev.Cage.getUsername(pl)
     if not key then return end
     ParadiseDev.Cage.traitSyncTimes = ParadiseDev.Cage.traitSyncTimes or {}
-    if ParadiseDev.Cage.traitSyncTimes[key] and now - ParadiseDev.Cage.traitSyncTimes[key] < 0.001 then return end
+    if ParadiseDev.Cage.traitSyncTimes[key] and now - ParadiseDev.Cage.traitSyncTimes[key] < 0.0001 then return end
     ParadiseDev.Cage.traitSyncTimes[key] = now
     ParadiseDev.Cage.syncPlayer(pl)
 end
