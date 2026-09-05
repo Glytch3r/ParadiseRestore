@@ -194,3 +194,7 @@ function ISChat:onCommandEntered()
     end
     return ParadiseDev.hook.ISChat_onCommandEntered(self)
 end
+
+if ISChat.instance and ISChat.instance.textEntry then
+    ISChat.instance.textEntry.onCommandEntered = ISChat.onCommandEntered
+end
