@@ -388,7 +388,8 @@ function ParadiseDev.ZoneHUD.layoutUserPanel()
             bottom = math.max(bottom, child:getBottom())
         end
     end
-    local buttonWidth = math.max(close.width, 400)
+    local hasBetterSafehouse = ParadiseZ and ParadiseZ.isModActive and ParadiseZ.isModActive("BetterSafehouse")
+    local buttonWidth = math.max(close.width, hasBetterSafehouse and 400 or close.width)
     self:setWidth(math.max(self:getWidth(), close.x * 2 + buttonWidth))
     self.zoneHUDSettings = ISButton:new(close.x, bottom + 10, buttonWidth, close.height, "Zone HUD Settings", self, ParadiseDev.ZoneHUD.onUserPanelOption)
         self.zoneHUDSettings.internal = "PARADISEDEV_ZONEHUD_SETTINGS"
@@ -411,7 +412,7 @@ function ParadiseDev.ZoneHUD.layoutUserPanel()
     self:addChild(self.financeManager)
     close:setWidth(buttonWidth)
     close:setY(self.financeManager:getBottom() + 10)
-    self:setHeight(math.max(close.y + close.height + 11, 460))
+    self:setHeight(math.max(close.y + close.height + 11, hasBetterSafehouse and 460 or 0))
 end
 
 function ParadiseDev.ZoneHUD.onGameStart()
