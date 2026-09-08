@@ -301,6 +301,10 @@ function ParadiseZ.DespawnCar(pl)
     end
 
     removeVehicle(pl, car)
+    car:permanentlyRemove()
+    sendClientCommand("vehicle", "remove", {
+        vehicle = car:getId()
+    })
     pl:addLineChatElement("Removed Vehicle")
 end
 
