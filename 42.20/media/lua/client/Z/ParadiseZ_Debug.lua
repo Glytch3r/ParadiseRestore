@@ -1,11 +1,89 @@
 
 ParadiseZ = ParadiseZ or {}
+ParadiseZ.rateOfFireTestMode = ParadiseZ.rateOfFireTestMode or "Disable"
 -----------------------            ---------------------------
 
 function ParadiseZ.coinFlip()
 	return ZombRand(2) == 0
 end
 
+
+function ParadiseZ.zedRPM(zed)
+    if ParadiseZ.rateOfFireTestMode == "Disable" then
+        return
+    end
+
+	local md = zed:getModData()
+
+    local now = getTimestampMs()
+
+    if md.lastHit then
+        local delta = now - md.lastHit
+        if delta > 0 then
+            if ParadiseZ.rateOfFireTestMode == "RPM" then
+                md.rate = math.floor(60000 / delta)
+                md.rateSuffix = " rpm"
+            else
+                md.rate = math.floor(1000 / delta)
+                md.rateSuffix = " rps"
+            end
+        end
+    end
+    md.lastHit = now
+
+    if md.rate and md.rate > 0 then
+		zed:addLineChatElement(tostring(md.rate) .. md.rateSuffix)
+    end
+end
+Events.OnHitZombie.Remove(ParadiseZ.zedRPM)
+Events.OnHitZombie.Add(ParadiseZ.zedRPM)
+
+function ParadiseZ.plRPM(pl)
+    if ParadiseZ.rateOfFireTestMode == "Disable" then
+        return
+    end
+
+    local md = ModData.getOrCreate("ParadiseZ_" .. pl:getOnlineID())
+    if not md.shots then
+        md.shots = {}
+        md.lastAmmo = nil
+    end
+
+    local weapon = pl:getPrimaryHandItem()
+    if weapon and instanceof(weapon, "HandWeapon") and weapon:isRanged() then
+        local ammo = weapon:getCurrentAmmoCount()
+        if md.lastAmmo ~= nil and ammo < md.lastAmmo then
+            local fired = md.lastAmmo - ammo
+            local now = getTimestampMs()
+            for i = 1, fired do
+                table.insert(md.shots, now)
+            end
+        end
+        md.lastAmmo = ammo
+    else
+        md.lastAmmo = nil
+    end
+
+    local now = getTimestampMs()
+    local cutoff = now - 1000
+    local newShots = {}
+    for _, t in ipairs(md.shots) do
+        if t >= cutoff then
+            table.insert(newShots, t)
+        end
+    end
+    md.shots = newShots
+
+    local rate = #md.shots
+    local suffix = " rps"
+    if ParadiseZ.rateOfFireTestMode == "RPM" then
+        rate = rate * 60
+        suffix = " rpm"
+    end
+    pl:setHaloNote(tostring(rate) .. suffix, 150, 250, 150, 900)
+end
+Events.OnPlayerUpdate.Remove(ParadiseZ.plRPM)
+Events.OnPlayerUpdate.Add(ParadiseZ.plRPM)
 
 function ParadiseZ.getRandOutfit()
 	local maleOutfits = getAllOutfits(false)
