@@ -280,8 +280,7 @@ function ParadiseZ.DespawnCars(pl, rad)
                 local car = targetSq:getVehicleContainer()
                 if car then
                     count = count + 1
-                    if isClient() then sendClientCommand(pl, "vehicle", "remove", { vehicle = car:getId() }) end
-                    car:permanentlyRemove()
+                    removeVehicle(pl, car)
                 end
             end
         end
@@ -301,8 +300,7 @@ function ParadiseZ.DespawnCar(pl)
         return
     end
 
-    car:permanentlyRemove()
-    sendClientCommand("vehicle", "remove", { vehicle = car:getId() })
+    removeVehicle(pl, car)
     pl:addLineChatElement("Removed Vehicle")
 end
 
