@@ -223,6 +223,8 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     local clearMenu = ISContextMenu:getNew(context)
     menu:addSubMenu(clearRoot, clearMenu)
     for _, entry in ipairs(ParadiseDev.Context.clearOptions) do ParadiseDev.Context.addClearOption(clearMenu, entry, context) end
+    local despawnCar = ParadiseDev.Context.addOption(clearMenu, "Despawn Vehicle", ParadiseZ.DespawnCar, "media/ui/Paradise/CarsContextIcon.png", pl)
+    if despawnCar then despawnCar.notAvailable = not ParadiseZ.getCar() end
     local clearAndSave = ParadiseDev.Context.addOption(clearMenu, "Clear and Save", ParadiseDev.Context.clearAndSave, "media/ui/Paradise/ClearContextIcon.png", pl)
     ParadiseDev.Context.addOption(clearMenu, "Clean Character", ParadiseZ.washChar, "media/ui/Paradise/WashContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "Clear Map Record", ParadiseZ.ClearMap, "media/ui/Paradise/MapContextIcon.png")
