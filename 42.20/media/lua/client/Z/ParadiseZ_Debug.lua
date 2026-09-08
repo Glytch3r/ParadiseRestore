@@ -32,6 +32,10 @@ function ParadiseZ.zedRPM(zed)
     md.lastHit = now
 
     if md.rate and md.rate > 0 then
+        if not md.highest or md.rate > md.highest then
+            md.highest = md.rate
+        end
+        print("[ParadiseZ] highest rate: " .. tostring(md.highest) .. md.rateSuffix)
 		zed:addLineChatElement(tostring(md.rate) .. md.rateSuffix)
     end
 end
