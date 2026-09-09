@@ -44,6 +44,10 @@ function ParadiseDev.Context.toggleSound()
     ParadiseZ.soundDbg = not ParadiseZ.soundDbg
 end
 
+function ParadiseDev.Context.setRateOfFireTestMode(mode)
+    ParadiseZ.rateOfFireTestMode = mode
+end
+
 function ParadiseDev.Context.resetMapVisited()
     if WorldMapVisited and WorldMapVisited.Reset then WorldMapVisited.Reset() end
 end
@@ -185,6 +189,14 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
 
     ParadiseDev.Context.addOption(menu, "Goldgun", function() sendClientCommand("ParadiseDevSkin", "spawnGoldgun", {}) end, "media/ui/LootableMaps/map_bullets.png", pl)
 
+    local rateOfFireRoot = menu:addOption("Rate of Fire Test")
+    rateOfFireRoot.iconTexture = getTexture("media/ui/LootableMaps/map_bullets.png")
+    local rateOfFireMenu = ISContextMenu:getNew(context)
+    menu:addSubMenu(rateOfFireRoot, rateOfFireMenu)
+    ParadiseDev.Context.addOption(rateOfFireMenu, "RPS (rounds per sec)", ParadiseDev.Context.setRateOfFireTestMode, "media/ui/LootableMaps/map_bullets.png", "RPS")
+    ParadiseDev.Context.addOption(rateOfFireMenu, "RPM (rounds per min)", ParadiseDev.Context.setRateOfFireTestMode, "media/ui/LootableMaps/map_bullets.png", "RPM")
+    ParadiseDev.Context.addOption(rateOfFireMenu, "Disable", ParadiseDev.Context.setRateOfFireTestMode, "media/ui/LootableMaps/map_bullets.png", "Disable")
+
 
 
     if ParadiseDev.Visual then
@@ -223,10 +235,12 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     local clearMenu = ISContextMenu:getNew(context)
     menu:addSubMenu(clearRoot, clearMenu)
     for _, entry in ipairs(ParadiseDev.Context.clearOptions) do ParadiseDev.Context.addClearOption(clearMenu, entry, context) end
+    local despawnCar = ParadiseDev.Context.addOption(clearMenu, "Clear Vehicle", ParadiseZ.DespawnCar, "media/ui/Paradise/CarsContextIcon.png", pl)
+    if despawnCar then despawnCar.notAvailable = not ParadiseZ.getCar() end
     local clearAndSave = ParadiseDev.Context.addOption(clearMenu, "Clear and Save", ParadiseDev.Context.clearAndSave, "media/ui/Paradise/ClearContextIcon.png", pl)
     ParadiseDev.Context.addOption(clearMenu, "Clean Character", ParadiseZ.washChar, "media/ui/Paradise/WashContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "Clear Map Record", ParadiseZ.ClearMap, "media/ui/Paradise/MapContextIcon.png")
-    ParadiseDev.Context.addOption(clearMenu, "WorldMapVisited.Reset", ParadiseDev.Context.resetMapVisited, "media/ui/Paradise/MapContextIcon.png")
+    ParadiseDev.Context.addOption(clearMenu, "Clear WorldMapVisited", ParadiseDev.Context.resetMapVisited, "media/ui/Paradise/MapContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "Clear Weather", ParadiseZ.clearWeather, "media/ui/Paradise/WeatherContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "Clear Fog", ParadiseZ.clearFog, "media/ui/Paradise/WeatherContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "Clear Worn Items", ParadiseZ.ClearWornItems, "media/ui/Paradise/WornItemsContextIcon.png")
@@ -245,5 +259,5 @@ Events.OnFillWorldObjectContextMenu.Add(ParadiseDev.Context.context)
 function ParadiseDev.Context.reloadGuns()
     local pl = getPlayer()
     if not pl or not (isClient and isClient()) then return end
-    sendClientCommand(pl, "ParadiseDevSkin", "reloadGuns", {})
+    sendClientCommand("ParadiseDevSkin", "reloadGuns", {})
 end

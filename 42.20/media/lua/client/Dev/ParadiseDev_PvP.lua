@@ -54,7 +54,7 @@ end
 function ParadiseDev.PvP.injure(pl)
     local trait = ParadiseDev.getTrait and ParadiseDev.getTrait("ParadiseDev:InjuredPvP") or nil
     if trait and not ParadiseDev.hasTrait(pl, trait) then
-        pl:getTraits():add(trait)
+        pl:getCharacterTraits():add(trait)
         pl:addLineChatElement("PvP Injured")
     end
 end

@@ -116,19 +116,7 @@ function ParadiseDev.TP.reboundCountdown(isChat)
     if not pl then return false end
 
     isChat = isChat or false
-    if timer:Exists("countdown") then
-        return false
-    end
-
-    timer:Create("countdown", 1, 8, function()
-        local remaining = timer:RepsLeft("countdown")
-        if remaining and remaining > 0 then
-            pl:setHaloNote("Rebound " .. tostring(remaining), 150, 250, 150, 180)
-        else
-            ParadiseDev.TP.rebound(pl)
-        end
-    end)
-    return true
+    return ParadiseDev.TP.rebound(pl)
 end
 
 function ParadiseDev.TP.onServerCommand(module, command, args)

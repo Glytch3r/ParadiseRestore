@@ -53,6 +53,11 @@ function ParadiseDev.TP.reboundVehicle(vehicle, fromX, fromY, toX, toY, pl)
     origin:set(origin:x() + (toX - fromX), origin:y(), origin:z() + (toY - fromY))
     vehicle:setWorldTransform(transform)
     BaseVehicle.releaseTransform(transform)
+    pcall(vehicle.update, vehicle)
+    pcall(vehicle.updateControls, vehicle)
+    pcall(vehicle.updateBulletStats, vehicle)
+    pcall(vehicle.updatePhysics, vehicle)
+    pcall(vehicle.updatePhysicsNetwork, vehicle)
     if pl then
         sendServerCommand(pl, ParadiseDev.TP.module, "vehicleTeleport", {
             id = vehicle:getId(), x = tonumber(toX), y = tonumber(toY),
