@@ -455,6 +455,16 @@ function ParadiseDev.Zones.Panel:onPanelButton(button)
         return
     elseif internal == "SYNC" then
         self.syncRequested = true
+        for id, changes in pairs(self.pendingFeatureChanges or {}) do
+            for feature, enabled in pairs(changes) do
+                ParadiseDev.Zones.send("toggleFeature", {
+                    id = id,
+                    feature = feature,
+                    enabled = enabled == true,
+                })
+            end
+        end
+        self.pendingFeatureChanges = {}
         ParadiseDev.Zones.send("syncZones")
         return
     end
@@ -462,11 +472,24 @@ function ParadiseDev.Zones.Panel:onPanelButton(button)
     if not zone then return end
     if string.sub(internal, 1, 8) == "FEATURE:" then
         local key = string.sub(internal, 9)
+        local enabled = not (zone.features and zone.features[key] == true)
+        if key == "isCage" or key == "isBlocked" then
+            zone.features = zone.features or {}
+            zone.features[key] = enabled
+            local otherKey = key == "isCage" and "isBlocked" or "isCage"
+            zone.features[otherKey] = false
+            self.pendingFeatureChanges[zone.id] = self.pendingFeatureChanges[zone.id] or {}
+            self.pendingFeatureChanges[zone.id][key] = enabled
+            self.pendingFeatureChanges[zone.id][otherKey] = false
+            self:markDirty()
+            self:updateSelection()
+            return
+        end
         self:markDirty()
         ParadiseDev.Zones.send("toggleFeature", {
             id = zone.id,
             feature = key,
-            enabled = not (zone.features and zone.features[key] == true),
+            enabled = enabled,
         })
     elseif internal == "POINT1" then
         self:markDirty()
@@ -543,6 +566,7 @@ function ParadiseDev.Zones.Panel:new(x, y, width, height)
     o.minimumHeight = 480
     o.shouldSync = false
     o.syncRequested = false
+    o.pendingFeatureChanges = {}
     o.borderColor = { r = 0.81, g = 0.92, b = 0.84, a = 0.75 }
     o.backgroundColor = { r = 0.18, g = 0.02, b = 0.22, a = 0.80 }
     o.moveWithMouse = true
