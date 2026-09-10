@@ -10,18 +10,7 @@ function ParadiseDev.Keys.teleportVehicle(pl, x, y)
         return true
     end
 
-    local transform = BaseVehicle.allocTransform()
-    vehicle:getWorldTransform(transform)
-    local origin = transform:getOrigin()
-    origin:set(origin:x() + (x - vehicle:getX()), origin:y(), origin:z() + (y - vehicle:getY()))
-    vehicle:setWorldTransform(transform)
-    BaseVehicle.releaseTransform(transform)
-    pcall(vehicle.update, vehicle)
-    pcall(vehicle.updateControls, vehicle)
-    pcall(vehicle.updateBulletStats, vehicle)
-    pcall(vehicle.updatePhysics, vehicle)
-    pcall(vehicle.updatePhysicsNetwork, vehicle)
-    return true
+    return ParadiseDev.TP and ParadiseDev.TP.moveVehicle and ParadiseDev.TP.moveVehicle(vehicle, x, y) or false
 end
 
 function ParadiseDev.Keys.flashlightTeleport(key)

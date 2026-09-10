@@ -538,8 +538,23 @@ function ParadiseDev.Zones.Engine.enforceCage(pl, zone, x, y, z)
         local cageX, cageY = ParadiseDev.Zones.Engine.regionCenter(region)
         point = { x = cageX, y = cageY, z = zone.zMode == "floor" and zone.zMin or z }
     end
-    ParadiseDev.Zones.Engine.forceVehicleExit(pl, point.x, point.y, point.z)
-    ParadiseDev.Zones.Engine.log("cage-rebound", pl, zone)
+
+    local vehicle = pl:getVehicle()
+    if not vehicle then
+        ParadiseDev.Zones.Engine.teleportPlayer(pl, point.x, point.y, point.z)
+        ParadiseDev.Zones.Engine.log("cage-teleport", pl, zone)
+        return true
+    end
+
+    if vehicle:getCharacter(0) == pl then
+        ParadiseDev.Zones.Engine.reboundVehicle(vehicle, x, y, point.x, point.y, pl)
+        ParadiseDev.Zones.Engine.log("cage-vehicle-rebound", pl, zone)
+        return true
+    end
+
+    if ParadiseDev.Zones.Engine.forcePassengerOut(pl, point.x, point.y, point.z) then
+        ParadiseDev.Zones.Engine.log("cage-passenger-ejected", pl, zone)
+    end
     return true
 end
 
@@ -600,8 +615,6 @@ end
 
 Events.OnPlayerMove.Remove(ParadiseDev.Zones.Engine.onPlayerMove)
 Events.OnPlayerMove.Add(ParadiseDev.Zones.Engine.onPlayerMove)
-Events.OnPlayerUpdate.Remove(ParadiseDev.Zones.Engine.onPlayerMove)
-Events.OnPlayerUpdate.Add(ParadiseDev.Zones.Engine.onPlayerMove)
 
 function ParadiseDev.Zones.Engine.onClientCommand(module, command, pl)
     if module == "PZZoneEngine" and command == "requestBoundaryState" then

@@ -15,18 +15,6 @@ function whereami()
 	print('Clipboard Saved: ' ..whereVar)
 	pl:Say(tostring(whereVar))
 end
-
-
-function cliptab(t)
-    local formattedTable = ParadiseClip.printTable(t) 
-    Clipboard.setClipboard(formattedTable) 
-    print(formattedTable) 
-    local pl = getPlayer() 
-    if pl then pl:addLineChatElement(tostring('!')) end
-	
-	getSoundManager():playUISound("UIActivatePlayButton")
-end
-
 function clip(var)
     local pl = getPlayer()
     if not var then
@@ -41,6 +29,18 @@ function clip(var)
         pl:addLineChatElement(tostring(var))
     end
 end
+--[[ 
+function cliptab(t)
+    local formattedTable = ParadiseClip.printTable(t) 
+    Clipboard.setClipboard(formattedTable) 
+    print(formattedTable) 
+    local pl = getPlayer() 
+    if pl then pl:addLineChatElement(tostring('!')) end
+	
+	getSoundManager():playUISound("UIActivatePlayButton")
+end
+
+
 
 function ParadiseClip.printTable(t, indent)
     indent = indent or 0
@@ -63,7 +63,57 @@ function ParadiseClip.printTable(t, indent)
 
     return result
 end
+ ]]
+function cliptab(t)
+    if t == nil then
+        local pl = getPlayer()
+        if pl then pl:addLineChatElement("err") end
+        return
+    end
 
+    local formattedTable = ParadiseClip.printTable(t)
+    Clipboard.setClipboard(formattedTable)
+    print(formattedTable)
+    local pl = getPlayer()
+    if pl then pl:addLineChatElement(tostring('!')) end
+
+    getSoundManager():playUISound("UIActivatePlayButton")
+end
+
+function ParadiseClip.printTable(t, indent, seen)
+    indent = indent or 0
+    seen = seen or {}
+    local indentStr = string.rep("  ", indent)
+    local result = ""
+
+    if type(t) ~= "table" then
+        result = result .. indentStr .. tostring(t) .. "\n"
+        return result
+    end
+
+    if seen[t] then
+        result = result .. indentStr .. "*recursive*\n"
+        return result
+    end
+    seen[t] = true
+
+    local ok, err = pcall(function()
+        for key, value in pairs(t) do
+            if type(value) == "table" then
+                result = result .. indentStr .. tostring(key) .. ":\n"
+                result = result .. ParadiseClip.printTable(value, indent + 1, seen)
+            else
+                result = result .. indentStr .. tostring(key) .. ": " .. tostring(value) .. "\n"
+            end
+        end
+    end)
+
+    if not ok then
+        result = result .. indentStr .. "err: " .. tostring(err) .. "\n"
+    end
+
+    return result
+end
 function ParadiseClip.formatTable(t, indent)
     indent = indent or 0  
     local indentation = string.rep("  ", indent)  

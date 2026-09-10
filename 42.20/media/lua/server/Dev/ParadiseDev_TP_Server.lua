@@ -47,17 +47,22 @@ end
 
 function ParadiseDev.TP.reboundVehicle(vehicle, fromX, fromY, toX, toY, pl)
     if not vehicle or not fromX or not fromY or not toX or not toY then return false end
+    if pl then
+        sendServerCommand(pl, ParadiseDev.TP.module, "vehicleTeleport", {
+            id = vehicle:getId(), x = tonumber(toX), y = tonumber(toY),
+        })
+    end
+    return true
+end
+
+function ParadiseDev.TP.teleportVehicle(vehicle, toX, toY, pl)
+    if not vehicle or not ParadiseDev.TP.validCoordinates(toX, toY, 0) then return false end
     local transform = BaseVehicle.allocTransform()
     vehicle:getWorldTransform(transform)
     local origin = transform:getOrigin()
-    origin:set(origin:x() + (toX - fromX), origin:y(), origin:z() + (toY - fromY))
+    origin:set(origin:x() + (tonumber(toX) - vehicle:getX()), origin:y(), origin:z() + (tonumber(toY) - vehicle:getY()))
     vehicle:setWorldTransform(transform)
     BaseVehicle.releaseTransform(transform)
-    pcall(vehicle.update, vehicle)
-    pcall(vehicle.updateControls, vehicle)
-    pcall(vehicle.updateBulletStats, vehicle)
-    pcall(vehicle.updatePhysics, vehicle)
-    pcall(vehicle.updatePhysicsNetwork, vehicle)
     if pl then
         sendServerCommand(pl, ParadiseDev.TP.module, "vehicleTeleport", {
             id = vehicle:getId(), x = tonumber(toX), y = tonumber(toY),
@@ -145,10 +150,10 @@ function ParadiseDev.TP.onClientCommand(module, command, pl, args)
         end
     elseif command == "teleport" and ParadiseDev.isAdm(pl) then
         ParadiseDev.TP.exitVehicleAndTeleport(pl, args and args.x, args and args.y, args and args.z, false)
-    elseif command == "teleportVehicle" and ParadiseDev.isAdm(pl) then
+    elseif command == "teleportVehicle" then
         local vehicle = pl:getVehicle()
         if vehicle then
-            ParadiseDev.TP.reboundVehicle(vehicle, vehicle:getX(), vehicle:getY(), args and args.x, args and args.y, pl)
+            ParadiseDev.TP.teleportVehicle(vehicle, args and args.x, args and args.y, pl)
         end
     elseif command == "die" and pl and pl:isAlive() then
         pl:getBodyDamage():ReduceGeneralHealth(110)

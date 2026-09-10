@@ -200,8 +200,10 @@ end
 
 Events.OnServerCommand.Remove(ParadiseDev.Zones.Visualization.onServerCommand)
 Events.OnServerCommand.Add(ParadiseDev.Zones.Visualization.onServerCommand)
-Events.OnPlayerMove.Remove(ParadiseDev.Zones.Visualization.onPlayerMove)
-Events.OnPlayerMove.Add(ParadiseDev.Zones.Visualization.onPlayerMove)
+--[[ Events.OnPlayerMove.Remove(ParadiseDev.Zones.Visualization.onPlayerMove)
+Events.OnPlayerMove.Add(ParadiseDev.Zones.Visualization.onPlayerMove) ]]
+Events.OnPlayerUpdate.Remove(ParadiseDev.Zones.Visualization.onPlayerMove)
+Events.OnPlayerUpdate.Add(ParadiseDev.Zones.Visualization.onPlayerMove)
 Events.OnGameStart.Remove(ParadiseDev.Zones.Visualization.onGameStart)
 Events.OnGameStart.Add(ParadiseDev.Zones.Visualization.onGameStart)
 Events.OnPreUIDraw.Remove(ParadiseDev.Zones.Visualization.renderBorders)

@@ -9,6 +9,7 @@ ParadiseDev.Zones.Border.vehicleMode = ParadiseDev.Zones.Border.vehicleMode or "
 ParadiseDev.Zones.Border.cagedZoneId = ParadiseDev.Zones.Border.cagedZoneId or nil
 ParadiseDev.Zones.Border.noticeZoneId = ParadiseDev.Zones.Border.noticeZoneId or nil
 ParadiseDev.Zones.Border.noticeAt = ParadiseDev.Zones.Border.noticeAt or 0
+ParadiseDev.Zones.Border.vehicleReboundAt = ParadiseDev.Zones.Border.vehicleReboundAt or 0
 
 function ParadiseDev.Zones.Border.cellCoord(value)
     return math.floor(value / ParadiseDev.Zones.Border.CELL_SIZE)
@@ -169,6 +170,16 @@ function ParadiseDev.Zones.Border.onPlayerUpdate(pl)
         ParadiseDev.Zones.Border.noticeZoneId = nil
     end
     if not zone or zone.allowed then return end
+
+    if vehicle and vehicle:getCharacter(0) == pl and ParadiseDev.TP and ParadiseDev.TP.moveVehicle then
+        local now = getTimestampMs()
+        if now - ParadiseDev.Zones.Border.vehicleReboundAt >= 500 then
+            local outX, outY = ParadiseDev.Zones.Border.nearestOutside(region, x, y, padding)
+            if outX and outY and ParadiseDev.TP.moveVehicle(vehicle, outX, outY) then
+                ParadiseDev.Zones.Border.vehicleReboundAt = now
+            end
+        end
+    end
 end
 function ParadiseDev.Zones.Border.onServerCommand(module, command, args)
     if module ~= "PZZoneEngine" or command ~= "boundaryState" or not args then return end

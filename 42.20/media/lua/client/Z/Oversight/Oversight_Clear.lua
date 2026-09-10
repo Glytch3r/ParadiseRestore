@@ -261,7 +261,7 @@ function ParadiseZ.StopFire(pl, checkZone)
     end
     --pl:addLineChatElement("Stopped Fire")
 end
-
+--car*
 function ParadiseZ.DespawnCars(pl, rad)
     pl = pl or getPlayer() 
     if not pl then return end
@@ -280,7 +280,7 @@ function ParadiseZ.DespawnCars(pl, rad)
                 local car = targetSq:getVehicleContainer()
                 if car then
                     count = count + 1
-                    removeVehicle(pl, car)
+                    ParadiseZ.DespawnCar(pl, car)
                 end
             end
         end
@@ -290,11 +290,11 @@ function ParadiseZ.DespawnCars(pl, rad)
     pl:addLineChatElement("Removed "..tostring(count)..' Vehicle'..s)
 end
 
-function ParadiseZ.DespawnCar(pl)
+function ParadiseZ.DespawnCar(pl, car)
     pl = pl or getPlayer()
     if not pl then return end
 
-    local car = ParadiseZ.getCar()
+    car = car or ParadiseZ.getCar()
     if not car then
         pl:addLineChatElement("No vehicle found")
         return
@@ -302,10 +302,13 @@ function ParadiseZ.DespawnCar(pl)
 
     removeVehicle(pl, car)
     car:permanentlyRemove()
-    sendClientCommand("vehicle", "remove", {
-        vehicle = car:getId()
-    })
-    pl:addLineChatElement("Removed Vehicle")
+    if isClient() then
+        sendClientCommand(pl, "vehicle", "remove", { vehicle = car:getId() })
+    end
+    if VehicleManager and VehicleManager.instance then
+        VehicleManager.instance:unregisterVehicle(car)
+    end
+    --pl:addLineChatElement("Removed Vehicle")
 end
 
 function ParadiseZ.DespawnPlants(pl, rad)
