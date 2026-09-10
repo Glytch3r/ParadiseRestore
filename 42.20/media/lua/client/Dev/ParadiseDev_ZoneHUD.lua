@@ -232,7 +232,16 @@ function ParadiseDev.ZoneHUD.SettingsPanel:updatePosition(axis, value)
     local settings = ParadiseDev.ZoneHUD.getSettings(self.player)
     settings[axis] = math.floor(value)
     ParadiseDev.ZoneHUD.saveSettings(self.player, settings)
-    self[axis .. "Value"]:setName(axis:upper() .. ": " .. tostring(settings[axis]))
+    local labels = {
+        zoneX = { control = "xValue", title = "X" },
+        zoneY = { control = "yValue", title = "Y" },
+        hpX = { control = "hpXValue", title = "HP X" },
+        hpY = { control = "hpYValue", title = "HP Y" },
+    }
+    local label = labels[axis]
+    if label and self[label.control] then
+        self[label.control]:setName(label.title .. ": " .. tostring(settings[axis]))
+    end
 end
 
 function ParadiseDev.ZoneHUD.SettingsPanel:onXChanged(value)
