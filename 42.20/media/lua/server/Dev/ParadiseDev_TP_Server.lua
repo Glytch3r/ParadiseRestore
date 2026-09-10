@@ -2,12 +2,14 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.TP = ParadiseDev.TP or {}
 ParadiseDev.Debug = ParadiseDev.Debug or {}
 ParadiseDev.Save = ParadiseDev.Save or {}
+ParadiseDev.POI = ParadiseDev.POI or {}
 
 
 
 ParadiseDev.TP.module = "ParadiseDevTP"
 ParadiseDev.Debug.module = "ParadiseDevDebug"
 ParadiseDev.Save.module = "ParadiseSave"
+ParadiseDev.POI.module = "ParadisePOI"
 
 function ParadiseDev.Save.clearAndSave(pl)
     if not pl or not ParadiseDev.isAdm(pl) then return false end
@@ -24,6 +26,33 @@ function ParadiseDev.Debug.onClientCommand(module, command, pl, args)
     if not targ then return end
     local dmg = math.min(100, math.max(0, tonumber(args.dmg) or 15))
     sendServerCommand(targ, ParadiseDev.Debug.module, "testDmg", { dmg = dmg, pushedDir = args.pushedDir })
+end
+
+function ParadiseDev.POI.onClientCommand(module, command, pl, args)
+    if module ~= ParadiseDev.POI.module then return end
+
+    if command == "requestSync" then
+        if not ParadiseDev.isAdm(pl) then return end
+        local data = ModData.getOrCreate("ParadisePOI_Data")
+        sendServerCommand(pl, ParadiseDev.POI.module, "sync", { data = data })
+        return
+    end
+
+    if not ParadiseDev.isAdm(pl) then return end
+
+    if command == "save" and args and args.label then
+        local label = tostring(args.label):gsub("^%s*(.-)%s*$", "%1")
+        if label == "" then return end
+        local data = ModData.getOrCreate("ParadisePOI_Data")
+        data[label] = { x = args.x, y = args.y, z = args.z, desc = args.desc }
+        ModData.transmit("ParadisePOI_Data")
+        sendServerCommand(ParadiseDev.POI.module, "sync", { data = data })
+    elseif command == "delete" and args and args.label and args.label ~= "" then
+        local data = ModData.getOrCreate("ParadisePOI_Data")
+        data[args.label] = nil
+        ModData.transmit("ParadisePOI_Data")
+        sendServerCommand(ParadiseDev.POI.module, "sync", { data = data })
+    end
 end
 
 function ParadiseDev.TP.validCoordinates(x, y, z)
@@ -61,6 +90,22 @@ function ParadiseDev.TP.teleportVehicle(vehicle, toX, toY, pl)
     vehicle:getWorldTransform(transform)
     local origin = transform:getOrigin()
     origin:set(origin:x() + (tonumber(toX) - vehicle:getX()), origin:y(), origin:z() + (tonumber(toY) - vehicle:getY()))
+    vehicle:setWorldTransform(transform)
+    BaseVehicle.releaseTransform(transform)
+    if pl then
+        sendServerCommand(pl, ParadiseDev.TP.module, "vehicleTeleport", {
+            id = vehicle:getId(), x = tonumber(toX), y = tonumber(toY),
+        })
+    end
+    return true
+end
+
+function ParadiseDev.TP.teleportVehicleTo(vehicle, toX, toY, toZ, pl)
+    if not vehicle or not ParadiseDev.TP.validCoordinates(toX, toY, toZ) then return false end
+    local transform = BaseVehicle.allocTransform()
+    vehicle:getWorldTransform(transform)
+    local origin = transform:getOrigin()
+    origin:set(origin:x() + (tonumber(toX) - vehicle:getX()), origin:y(), origin:z() + (tonumber(toZ) - vehicle:getZ()))
     vehicle:setWorldTransform(transform)
     BaseVehicle.releaseTransform(transform)
     if pl then
@@ -150,6 +195,14 @@ function ParadiseDev.TP.onClientCommand(module, command, pl, args)
         end
     elseif command == "teleport" and ParadiseDev.isAdm(pl) then
         ParadiseDev.TP.exitVehicleAndTeleport(pl, args and args.x, args and args.y, args and args.z, false)
+    elseif command == "teleportWithVehicle" and ParadiseDev.isAdm(pl) then
+        local x, y, z = args and args.x, args and args.y, args and args.z
+        local vehicle = pl:getVehicle()
+        if vehicle then
+            ParadiseDev.TP.teleportVehicleTo(vehicle, x, y, z, pl)
+        else
+            ParadiseDev.TP.teleportPlayer(pl, x, y, z)
+        end
     elseif command == "teleportVehicle" then
         local vehicle = pl:getVehicle()
         if vehicle then
@@ -164,3 +217,5 @@ Events.OnClientCommand.Remove(ParadiseDev.TP.onClientCommand)
 Events.OnClientCommand.Add(ParadiseDev.TP.onClientCommand)
 Events.OnClientCommand.Remove(ParadiseDev.Debug.onClientCommand)
 Events.OnClientCommand.Add(ParadiseDev.Debug.onClientCommand)
+Events.OnClientCommand.Remove(ParadiseDev.POI.onClientCommand)
+Events.OnClientCommand.Add(ParadiseDev.POI.onClientCommand)

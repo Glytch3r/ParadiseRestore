@@ -4,6 +4,7 @@ ParadiseZ = ParadiseZ or {}
 ParadiseZ.soundDbg = ParadiseZ.soundDbg or false
 
 require "Dev/ParadiseDev_AdminPanels"
+require "Dev/ParadiseDev_POI"
 require "Dev/DBG/ParadiseDev_VisualDebug"
 require "Dev/ParadiseDev_ZedController"
 
@@ -168,6 +169,7 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
             end, "media/ui/Paradise/ContextIcon.png")
             ParadiseDev.Context.addOption(panelsMenu, "Users List", ParadiseDev.Panels.openUsersList, "media/ui/Paradise/ContextIcon.png")
             ParadiseDev.Context.addOption(panelsMenu, "Global ModData", ParadiseDev.Panels.openGlobalModData, "media/ui/Paradise/ContextIcon.png")
+            if ParadisePOI and ParadisePOI.openPanel then ParadiseDev.Context.addOption(panelsMenu, "POI Manager", ParadisePOI.openPanel, "media/ui/Paradise/ContextIcon.png") end
             ParadiseDev.Context.addOption(panelsMenu, "Mod Active Check", ParadiseDev.Panels.openModActiveCheck, "media/ui/Paradise/ContextIcon.png")
             ParadiseDev.Context.addOption(panelsMenu, "Paradise Playtime Checker", ParadiseDev.Panels.openPlaytimeCheck, "media/ui/Paradise/ContextIcon.png")
         if getCore():getDebug() then

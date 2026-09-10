@@ -90,6 +90,12 @@ end
 
 function ParadiseDev.TP.moveVehicle(vehicle, x, y)
     if not vehicle or not x or not y then return false end
+    local cell = vehicle:getCell()
+    local square = cell and cell:getGridSquare(math.floor(x), math.floor(y), vehicle:getZ()) or nil
+    if not square then return false end
+    local otherVehicle = square:getVehicleContainer()
+    if otherVehicle and otherVehicle ~= vehicle then return false end
+    if square:has(IsoFlagType.collideN) or square:has(IsoFlagType.collideW) then return false end
     local transform = BaseVehicle.allocTransform()
     vehicle:getWorldTransform(transform)
     local origin = transform:getOrigin()
@@ -118,6 +124,7 @@ function ParadiseDev.TP.reboundCountdown(isChat)
     isChat = isChat or false
     return ParadiseDev.TP.rebound(pl)
 end
+
 
 function ParadiseDev.TP.onServerCommand(module, command, args)
     if module ~= ParadiseDev.TP.module then return end

@@ -86,8 +86,8 @@ function ParadiseDev.chatCmd(cmd)
             pl:setHaloNote("Cannot use unstuck command inside a KoS zone.", 250, 0, 0, 180)
             return
         end
-        if ParadiseDev.reboundCountdown then
-            ParadiseDev.reboundCountdown(true)
+        if ParadiseDev.TP and ParadiseDev.TP.reboundCountdown then
+            ParadiseDev.TP.reboundCountdown(true)
         end
     elseif command == "/rebound" then
         if isAdm then
