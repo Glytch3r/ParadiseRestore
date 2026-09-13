@@ -251,19 +251,23 @@ function ParadisePromo_Admin_Manager:refreshCodeList()
     self:updateButtonStates()
 end
 
-function ParadisePromo_Admin_Manager:onSelectCode(item)
-    if not item then
-        self.codeList.selected = 0
-        self:updateButtonStates()
+function ParadisePromo_Admin_Manager:onSelectCode(x, y)
+    local list = self
+    local row = list:rowAt(x, y)
+    if row <= 0 or row > #list.items then
+        list.selected = 0
+        list.target:updateButtonStates()
         return
     end
+    list.selected = row
+    local item = list.items[row]
     local data = item.item or item
-    self.code:setText(item.text or "")
-    self.activeTick:setSelected(1, data.active == true)
-    self.randomTick:setSelected(1, data.randomized == true)
-    self:setSelectedMode(data.mode or 1)
-    self.itemsBox:setText(data.items or "")
-    self:updateButtonStates()
+    list.target.code:setText(item.text or "")
+    list.target.activeTick:setSelected(1, data.active == true)
+    list.target.randomTick:setSelected(1, data.randomized == true)
+    list.target:setSelectedMode(data.mode or 1)
+    list.target.itemsBox:setText(data.items or "")
+    list.target:updateButtonStates()
 end
 
 function ParadisePromo_Admin_Manager:onButtonClick(button)
