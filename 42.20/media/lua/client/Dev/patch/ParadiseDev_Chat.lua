@@ -8,7 +8,6 @@ ParadiseDev.hook.ISChat_onCommandEntered = ParadiseDev.hook.ISChat_onCommandEnte
 ParadiseDev.Chat = ParadiseDev.Chat or {}
 ParadiseDev.Chat.originalOnCommandEntered = ParadiseDev.Chat.originalOnCommandEntered or ParadiseDev.hook.ISChat_onCommandEntered
 
-
 ISChat.BlinkEnabled = true
 
 function ISChat.setAllTabBlinking(enabled)
@@ -89,6 +88,9 @@ function ParadiseDev.chatCmd(cmd)
         if ParadiseDev.TP and ParadiseDev.TP.reboundCountdown then
             ParadiseDev.TP.reboundCountdown(true)
         end
+
+    elseif command == "/promo" then
+        ParadisePromo.openPlayerPanel()
     elseif command == "/rebound" then
         if isAdm then
             if isClient() then
@@ -132,8 +134,8 @@ function ParadiseDev.chatCmd(cmd)
         local user = pl:getUsername()
         if not user then return end
 
-        if ParadiseDev.setTempTag then
-            ParadiseDev.setTempTag(pl)
+        if ParadiseZ.setTempTag then
+            ParadiseZ.setTempTag(pl)
         end
 
         local isGiftReceived = ParadiseDev.isGiftReceived or ParadiseDev.isGiftRecieved

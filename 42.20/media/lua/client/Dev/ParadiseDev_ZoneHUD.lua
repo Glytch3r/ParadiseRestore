@@ -427,7 +427,6 @@ function ParadiseDev.ZoneHUD.openSettings(pl)
     ParadiseDev.ZoneHUD.settingsPanel = panel
 end
 
-
 function ParadiseDev.ZoneHUD.onUserPanelOption(self, button, x, y)
     if button.internal == "PARADISEDEV_ZONEHUD_SETTINGS" then
         ParadiseDev.ZoneHUD.openSettings(self.player)
@@ -435,9 +434,12 @@ function ParadiseDev.ZoneHUD.onUserPanelOption(self, button, x, y)
     end
     if button.internal == "PARADISE_ECONOMY_FINANCE_MANAGER" then
         ParadiseEconomy.openPanel(self.player)
+        return
+    end
+    if button.internal == "PARADISE_PROMO_REDEEM" then
+        ParadisePromo.openPlayerPanel()
     end
 end
-
 function ParadiseDev.ZoneHUD.layoutUserPanel()
     local self = ISUserPanelUI.instance
     if not self or self._ParadiseDevZoneHUDLayoutApplied then return end
@@ -473,8 +475,16 @@ function ParadiseDev.ZoneHUD.layoutUserPanel()
         self.financeManager.backgroundColor.a = 0.7;
         self.financeManager.backgroundColor.b = 0.5;
     self:addChild(self.financeManager)
+    self.promoRedeem = ISButton:new(close.x, self.financeManager:getBottom() + 10, buttonWidth, close.height, "Redeem Code", self, ParadiseDev.ZoneHUD.onUserPanelOption)
+        self.promoRedeem.internal = "PARADISE_PROMO_REDEEM"
+        self.promoRedeem:initialise()
+        self.promoRedeem:instantiate()
+        self.promoRedeem.borderColor = self.buttonBorderColor
+        self.promoRedeem.backgroundColor.a = 0.7;
+        self.promoRedeem.backgroundColor.b = 0.5;
+    self:addChild(self.promoRedeem)
     close:setWidth(buttonWidth)
-    close:setY(self.financeManager:getBottom() + 10)
+    close:setY(self.promoRedeem:getBottom() + 10)
     self:setHeight(math.max(close.y + close.height + 11, hasBetterSafehouse and 460 or 0))
 end
 
