@@ -28,7 +28,7 @@ ParadiseDev.ZoneHUD.mapLabels = {
 }
 
 ParadiseDev.ZoneHUD.featureVisuals = {
-    isKos = { label = "PvP", texture = "ParadiseZ_Zone_PvP.png" },
+    isKos = { label = "KoS", texture = "ParadiseZ_Zone_PvP.png" },
     isPvE = { label = "PvE", texture = "ParadiseZ_Zone_NonPvP.png" },
     isBlocked = { label = "Blocked", texture = "ParadiseZ_Zone_Blocked.png" },
     isSafe = { label = "Protected", texture = "ParadiseZ_Zone_Protected.png" },

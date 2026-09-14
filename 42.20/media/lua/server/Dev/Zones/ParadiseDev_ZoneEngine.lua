@@ -488,9 +488,10 @@ function ParadiseDev.Zones.Engine.restoreCageReturn(pl)
     if not pl then return false end
     local modData = pl:getModData()
     local returnPoint = modData.ParadiseDevCageReturn
-    modData.ParadiseDevCageReturn = nil
     if not returnPoint then return false end
-    return ParadiseDev.Zones.Engine.teleportPlayer(pl, returnPoint.x, returnPoint.y, returnPoint.z)
+    local restored = ParadiseDev.Zones.Engine.teleportPlayer(pl, returnPoint.x, returnPoint.y, returnPoint.z)
+    if restored then modData.ParadiseDevCageReturn = nil end
+    return restored
 end
 
 function ParadiseDev.Zones.Engine.assignCage(pl, zone)
@@ -505,6 +506,7 @@ function ParadiseDev.Zones.Engine.assignCage(pl, zone)
     local z = zone.zMode == "floor" and zone.zMin or pl:getZ()
     ParadiseDev.Zones.Engine.cageAssignments[steamId] = zone.id
     ParadiseDev.Zones.Engine.lastValid[ParadiseDev.Zones.Engine.userName(pl)] = nil
+    ParadiseDev.Zones.Engine.captureCageReturn(pl)
     ParadiseDev.Zones.Engine.saveCageRebound(pl, zone, x, y, z)
     ParadiseDev.Zones.Engine.forceVehicleExit(pl, x, y, z)
     ParadiseDev.Zones.Engine.syncBoundaryState(pl)
@@ -520,6 +522,7 @@ function ParadiseDev.Zones.Engine.releaseCage(pl)
     ParadiseDev.Zones.Engine.lastValid[ParadiseDev.Zones.Engine.userName(pl)] = nil
     pl:getModData().ParadiseDevCageRebound = nil
     ParadiseDev.Zones.Engine.syncBoundaryState(pl)
+    ParadiseDev.Zones.Engine.restoreCageReturn(pl)
     ParadiseDev.Zones.Engine.log("uncaged", pl, zone)
     return true
 end
@@ -547,8 +550,9 @@ function ParadiseDev.Zones.Engine.enforceCage(pl, zone, x, y, z)
     end
 
     if vehicle:getCharacter(0) == pl then
-        ParadiseDev.Zones.Engine.reboundVehicle(vehicle, x, y, point.x, point.y, pl)
-        ParadiseDev.Zones.Engine.log("cage-vehicle-rebound", pl, zone)
+        if ParadiseDev.Zones.Engine.forceVehicleExit(pl, point.x, point.y, point.z) then
+            ParadiseDev.Zones.Engine.log("cage-driver-ejected", pl, zone)
+        end
         return true
     end
 

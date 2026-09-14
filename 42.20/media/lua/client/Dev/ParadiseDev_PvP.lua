@@ -21,6 +21,23 @@ function ParadiseDev.PvP.isProtected(pl)
     return ParadiseDev.LifeBar.isPvE(pl) or ParadiseDev.LifeBar.isPvEZone(pl)
 end
 
+function ParadiseDev.PvP.updateSafety(pl)
+    if not pl or not pl.getSafety or not ParadiseDev.LifeBar then return end
+    if ParadiseDev.LifeBar.isPvE(pl) then return end
+    local inPvE = ParadiseDev.LifeBar.isPvEZone(pl)
+    local border = ParadiseDev.Zones and ParadiseDev.Zones.Border
+    local zone = border and border.getZoneFor and border.getZoneFor(pl) or nil
+    local inKos = zone and zone.features and zone.features.isKos == true or false
+    local shouldBeOn = inPvE
+    if not inPvE and not inKos then return end
+    local safety = pl:getSafety()
+    if not safety or not safety.isCurrent or not safety:isToggleAllowed() then return end
+    if safety:isCurrent() ~= shouldBeOn then
+        local ui = getPlayerSafetyUI and getPlayerSafetyUI(pl:getPlayerNum()) or nil
+        if ui and ui.toggleSafety then ui:toggleSafety() end
+    end
+end
+
 function ParadiseDev.PvP.isUnarmed(pl)
     return tostring(WeaponType.getWeaponType(pl)) == "barehand"
 end
@@ -72,15 +89,19 @@ function ParadiseDev.PvP.applyDamage(targ, char, wpn, bonus)
 end
 
 function ParadiseDev.PvP.onWeaponHit(char, targ, wpn)
-    if not ParadiseDev.PvP.isEnabled() then return end
     if not char or not targ then return end
     if instanceof(char, "IsoZombie") or instanceof(targ, "IsoZombie") then
         targ:setAvoidDamage(false)
         return
     end
     local protected = ParadiseDev.PvP.isProtected(char) or ParadiseDev.PvP.isProtected(targ)
+    if protected then
+        targ:setAvoidDamage(true)
+        return
+    end
+    if not ParadiseDev.PvP.isEnabled() then return end
     targ:setAvoidDamage(true)
-    if protected or targ ~= getPlayer() then return end
+    if targ ~= getPlayer() then return end
     local pvp = SandboxVars and SandboxVars.ParadiseZpvp or {}
     local bonus = targ:isCriticalHit() and ZombRand(0, (tonumber(pvp.pvpDmgMult) or 0) + 1) or 0
     ParadiseDev.PvP.applyDamage(targ, char, wpn, bonus)
@@ -105,5 +126,7 @@ end
 
 Events.OnWeaponHitCharacter.Remove(ParadiseDev.PvP.onWeaponHit)
 Events.OnWeaponHitCharacter.Add(ParadiseDev.PvP.onWeaponHit)
+Events.OnPlayerUpdate.Remove(ParadiseDev.PvP.updateSafety)
+Events.OnPlayerUpdate.Add(ParadiseDev.PvP.updateSafety)
 Events.OnFillInventoryObjectContextMenu.Remove(ParadiseDev.PvP.addMedkitOption)
 Events.OnFillInventoryObjectContextMenu.Add(ParadiseDev.PvP.addMedkitOption)
