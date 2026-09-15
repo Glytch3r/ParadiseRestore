@@ -4,6 +4,7 @@ ParadiseZ = ParadiseZ or {}
 ParadiseZ.soundDbg = ParadiseZ.soundDbg or false
 
 require "Dev/ParadiseDev_AdminPanels"
+require "Dev/ParadiseDev_TargContext"
 require "Dev/ParadiseDev_POI"
 require "Dev/DBG/ParadiseDev_VisualDebug"
 require "Dev/ParadiseDev_ZedController"
@@ -57,8 +58,8 @@ function ParadiseDev.Context.toggleTrailingLight(pl)
     if ParadiseZ.toggleTrailingLightMode then ParadiseZ.toggleTrailingLightMode(pl) end
 end
 
-function ParadiseDev.Context.toggleHideAdminTag(pl)
-    if ParadiseZ.toggleHideAdminTag then ParadiseZ.toggleHideAdminTag(pl) end
+function ParadiseDev.Context.toggleShowAdminTag(pl)
+    if ParadiseZ.toggleShowAdminTag then ParadiseZ.toggleShowAdminTag(pl) end
 end
 
 function ParadiseDev.Context.saveRebound(pl)
@@ -81,7 +82,8 @@ function ParadiseDev.Context.toggleNightVision(pl)
 end
 
 function ParadiseDev.Context.toggleZombieAttacks(pl)
-    if pl then pl:setZombiesDontAttack(not pl:isZombiesDontAttack()) end
+    if not pl or not pl.setZombiesDontAttack or not pl.isZombiesDontAttack then return end
+    pl:setZombiesDontAttack(not (pl:isZombiesDontAttack() == true))
 end
 
 function ParadiseDev.Context.killZeds()
@@ -122,6 +124,8 @@ ParadiseDev.Context.clearOptions = {
     { label = "Clear Cars", name = "DespawnCars", icon = "media/ui/Paradise/CarsContextIcon.png" },
     { label = "Clear Fire", name = "StopFire", icon = "media/ui/Paradise/NoFireContextIcon.png" },
     { label = "Clear Floor Items", name = "ClearFloorItems2", icon = "media/ui/Paradise/NoItemsContextIcon.png" },
+    { label = "Clear Zombies", name = "delZeds", icon = "media/ui/LootableMaps/map_facedead.png" },
+    { label = "Clear Corpses", name = "delBodies", icon = "media/ui/LootableMaps/map_cross.png" },
 }
 
 function ParadiseDev.Context.confirmClear(entry, context)
@@ -184,7 +188,8 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
 
     ParadiseDev.Context.addOption(menu, "Audio Direction: " .. ParadiseDev.Context.onOrOff(ParadiseZ.soundDbg), ParadiseDev.Context.toggleSound, "media/ui/Paradise/LightContextIcon.png")
     if ParadiseZ.isTrailingLightMode and ParadiseZ.toggleTrailingLightMode then ParadiseDev.Context.addOption(menu, "Trailing Light: " .. ParadiseDev.Context.onOrOff(ParadiseZ.isTrailingLightMode(pl)), ParadiseDev.Context.toggleTrailingLight, "media/ui/Paradise/LightContextIcon.png", pl) end
-    --if ParadiseZ.isHideAdminTag and ParadiseZ.toggleHideAdminTag then ParadiseDev.Context.addOption(menu, "Hide Admin Tag: " .. ParadiseDev.Context.onOrOff(ParadiseZ.isHideAdminTag(pl)), ParadiseDev.Context.toggleHideAdminTag, ParadiseZ.isHideAdminTag(pl) and "media/ui/MP/mp_ui_star_outline.png" or "media/ui/MP/mp_ui_star.png", pl) end
+    local adminTagOption = ParadiseDev.Context.addOption(menu, "Show Admin Tag", ParadiseDev.Context.toggleShowAdminTag, "media/ui/Paradise/AdmTagContextIcon.png", pl)
+    if adminTagOption then adminTagOption.checkMark = ParadiseZ.isShowAdminTag(pl) end
 
     if ParadiseDev.TP then
         ParadiseDev.Context.addOption(menu, "Save Rebound Point", ParadiseDev.Context.saveRebound, "media/ui/Paradise/ContextIcon.png", pl)
@@ -217,7 +222,8 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     end
 
     ParadiseDev.Context.addOption(menu, "Spawn TheRange Membership Card", ParadiseDev.Context.spawnRangeCard, "media/textures/TheRange.png", pl)
-    ParadiseDev.Context.addOption(menu, "NVG: " .. ParadiseDev.Context.onOrOff(pl:isWearingNightVisionGoggles()), ParadiseDev.Context.toggleNightVision, "media/ui/Paradise/NVGContextIcon.png", pl)
+    local nvgOption = ParadiseDev.Context.addOption(menu, "NVG", ParadiseDev.Context.toggleNightVision, "media/ui/Paradise/NVGContextIcon.png", pl)
+    if nvgOption then nvgOption.checkMark = pl:isWearingNightVisionGoggles() end
     if ParadiseZ.lvlUp then ParadiseDev.Context.addOption(menu, "Level Up", ParadiseZ.lvlUp, "media/ui/Paradise/LvlContextIcon.png") end
     if ParadiseZ.die then ParadiseDev.Context.addOption(menu, "Suicide", ParadiseZ.die, "media/ui/Paradise/RIPContextIcon.png") end
 
@@ -229,12 +235,11 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     zombieRoot.iconTexture = getTexture("media/ui/Paradise/StopZedContextIcon.png")
     local zombieMenu = ISContextMenu:getNew(context)
     menu:addSubMenu(zombieRoot, zombieMenu)
-    ParadiseDev.Context.addOption(zombieMenu, "Prevent Zombie Attacks: " .. ParadiseDev.Context.onOrOff(pl:isZombiesDontAttack()), ParadiseDev.Context.toggleZombieAttacks, "media/ui/Paradise/StopZedContextIcon.png", pl)
+    local zombieAttackOption = ParadiseDev.Context.addOption(zombieMenu, "Prevent Zombie Attacks", ParadiseDev.Context.toggleZombieAttacks, "media/ui/Paradise/StopZedContextIcon.png", pl)
+    if zombieAttackOption then zombieAttackOption.checkMark = pl:isZombiesDontAttack() == true end
     ParadiseDev.Context.addOption(zombieMenu, "Kill Zeds", ParadiseDev.Context.killZeds, "media/ui/LootableMaps/map_cross.png")
     ParadiseDev.Context.addOption(zombieMenu, "Count Dead", ParadiseDev.Context.countDead, "media/ui/LootableMaps/map_question.png")
     ParadiseDev.Context.addOption(zombieMenu, "Count Zeds", ParadiseDev.Context.countZeds, "media/ui/LootableMaps/map_skull.png")
-    ParadiseDev.Context.addOption(zombieMenu, "Delete Corpses", ParadiseDev.Context.deleteCorpses, "media/ui/LootableMaps/map_cross.png")
-    ParadiseDev.Context.addOption(zombieMenu, "Delete Zeds", ParadiseDev.Context.deleteZeds, "media/ui/LootableMaps/map_facedead.png")
 
     local clearRoot = menu:addOption("Clear")
     clearRoot.iconTexture = getTexture("media/ui/Paradise/ClearContextIcon.png")

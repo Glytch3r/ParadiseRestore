@@ -940,7 +940,7 @@ function WaveCasterPanel:onRemoveBodies()
 	local radius = self:getCastRadius() + 1
 
 	if isClient() then
-		SendCommandToServer(string.format("/removezombies -x %d -y %d -z %d -radius %d -clear true", self.selectX, self.selectY, self.selectZ, radius))
+		SendCommandToServer("/remove corpses")
 	else
 		local cell = getCell()
 		for x = self.selectX - radius, self.selectX + radius+1 do

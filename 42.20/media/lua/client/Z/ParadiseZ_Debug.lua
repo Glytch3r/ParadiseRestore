@@ -252,7 +252,7 @@ function ParadiseZ.delBodies(x, y, z, radius)
 
 	local r = radius + 1
 	if isClient() then
-		SendCommandToServer(string.format("/removezombies -x %d -y %d -z %d -radius %d -clear true", x, y, z, r))
+		SendCommandToServer("/remove corpses")
 		return
 	end
 	for sx = x - r, x + r + 1 do

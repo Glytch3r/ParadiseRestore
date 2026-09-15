@@ -81,25 +81,33 @@ function ParadiseDev.Map.drawCoordinates(self)
         mx + 14, my + 38, 1, 1, 1, 1, UIFont.Small)
 end
 
-local vanillaMapRender = ISWorldMap.render
-ISWorldMap.render = function(self, ...)
-    vanillaMapRender(self, ...)
-    ParadiseDev.Map.drawZoneBorders(self)
-    ParadiseDev.Map.drawCoordinates(self)
+function ParadiseDev.Map.hookWorldMap()
+    if ParadiseDev.Map.worldMapHooked then return end
+    ParadiseDev.Map.worldMapHooked = true
+
+    local vanillaMapRender = ISWorldMap.render
+    ISWorldMap.render = function(self, ...)
+        vanillaMapRender(self, ...)
+        ParadiseDev.Map.drawZoneBorders(self)
+        ParadiseDev.Map.drawCoordinates(self)
+    end
+
+    local vanillaMapRightMouseUp = ISWorldMap.onRightMouseUp
+    function ISWorldMap:onRightMouseUp(x, y)
+        if vanillaMapRightMouseUp and vanillaMapRightMouseUp(self, x, y) == true then return true end
+        local context = ISContextMenu.get(0, x + self:getAbsoluteX(), y + self:getAbsoluteY())
+        if not context then return true end
+        local option = context:addOption("Hide Zone Visuals", self, function()
+            ParadiseDev.Map.zoneVisuals = not ParadiseDev.Map.zoneVisuals
+        end)
+        context:setOptionChecked(option, not ParadiseDev.Map.zoneVisuals)
+        option = context:addOption("Hide Coordinates", self, function()
+            ParadiseDev.Map.coordinates = not ParadiseDev.Map.coordinates
+        end)
+        context:setOptionChecked(option, not ParadiseDev.Map.coordinates)
+        return true
+    end
 end
 
-local vanillaMapRightMouseUp = ISWorldMap.onRightMouseUp
-function ISWorldMap:onRightMouseUp(x, y)
-    if vanillaMapRightMouseUp and vanillaMapRightMouseUp(self, x, y) == true then return true end
-    local context = ISContextMenu.get(0, x + self:getAbsoluteX(), y + self:getAbsoluteY())
-    if not context then return true end
-    local option = context:addOption("Hide Zone Visuals", self, function()
-        ParadiseDev.Map.zoneVisuals = not ParadiseDev.Map.zoneVisuals
-    end)
-    context:setOptionChecked(option, not ParadiseDev.Map.zoneVisuals)
-    option = context:addOption("Hide Coordinates", self, function()
-        ParadiseDev.Map.coordinates = not ParadiseDev.Map.coordinates
-    end)
-    context:setOptionChecked(option, not ParadiseDev.Map.coordinates)
-    return true
-end
+Events.OnCreatePlayer.Remove(ParadiseDev.Map.hookWorldMap)
+Events.OnCreatePlayer.Add(ParadiseDev.Map.hookWorldMap)

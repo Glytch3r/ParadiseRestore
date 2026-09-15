@@ -329,13 +329,13 @@ function Paradise_POI_Manager:updateButtonStates()
 end
 
 function Paradise_POI_Manager:onButtonClick(button)
-    local player = getSpecificPlayer(0)
-    if not player then return end
+    local pl = getPlayer() 
+    if not pl then return end
 
     if button.internal == "UPDATE_COORD" then
-        self.coordX:setText(tostring(math.floor(player:getX())))
-        self.coordY:setText(tostring(math.floor(player:getY())))
-        self.coordZ:setText(tostring(math.floor(player:getZ())))
+        self.coordX:setText(tostring(math.floor(pl:getX())))
+        self.coordY:setText(tostring(math.floor(pl:getY())))
+        self.coordZ:setText(tostring(math.floor(pl:getZ())))
         self:updateButtonStates()
 
 
@@ -343,9 +343,12 @@ function Paradise_POI_Manager:onButtonClick(button)
         --self:updateButtonStates()
 
     elseif button.internal == "Z_PLUS" then
-        local x = tonumber(self.coordX:getText())
-        local y = tonumber(self.coordY:getText())
-        local z = tonumber(self.coordZ:getText()) or 0
+
+
+        local x = tostring(math.floor(pl:getX()))
+        local y = tostring(math.floor(pl:getY()))
+        local z = tostring(math.floor(pl:getZ()))
+
         if x and y then
             z = z + 1
             sendClientCommand(player, ParadiseDev.TP.module, "teleportWithVehicle", {
@@ -356,8 +359,9 @@ function Paradise_POI_Manager:onButtonClick(button)
             self.coordZ:setText(tostring(z))
         end
     elseif button.internal == "Z_ZERO" then
-        local x = tonumber(self.coordX:getText())
-        local y = tonumber(self.coordY:getText())
+        local x = tostring(math.floor(pl:getX()))
+        local y = tostring(math.floor(pl:getY()))
+        local z = tostring(math.floor(pl:getZ()))
         if x and y then
             sendClientCommand(player, ParadiseDev.TP.module, "teleportWithVehicle", {
                 x = x,
@@ -367,9 +371,9 @@ function Paradise_POI_Manager:onButtonClick(button)
             self.coordZ:setText("0")
         end
     elseif button.internal == "Z_MINUS" then
-        local x = tonumber(self.coordX:getText())
-        local y = tonumber(self.coordY:getText())
-        local z = tonumber(self.coordZ:getText()) or 0
+        local x = tostring(math.floor(pl:getX()))
+        local y = tostring(math.floor(pl:getY()))
+        local z = tostring(math.floor(pl:getZ()))
         if x and y then
             z = z - 1
             sendClientCommand(player, ParadiseDev.TP.module, "teleportWithVehicle", {

@@ -31,7 +31,19 @@ if isServer and isServer() then return end
 local function isPvE(targ)
     if not targ then return false end
     if ParadiseZ.isPvE then return ParadiseZ.isPvE(targ) == true end
-    return targ.HasTrait and targ:HasTrait("PvE") == true or false
+    if targ.HasTrait and targ:HasTrait("PvE") == true then return true end
+    local traits = targ.getCharacterTraits and targ:getCharacterTraits() or nil
+    return traits and traits.contains and traits:contains("PvE") == true or false
+end
+
+local function isCaged(targ)
+    if not targ then return false end
+    if ParadiseDev and ParadiseDev.Cage and ParadiseDev.Cage.isTargetCaged then
+        return ParadiseDev.Cage.isTargetCaged(targ) == true
+    end
+    if targ.HasTrait and targ:HasTrait("ParadiseDev:Caged") == true then return true end
+    local traits = targ.getCharacterTraits and targ:getCharacterTraits() or nil
+    return traits and traits.contains and traits:contains("ParadiseDev:Caged") == true or false
 end
 
 local function hasScareCrow(targ)
@@ -51,6 +63,20 @@ end
 function ParadiseZ.isShowTag()
     local settings = SandboxVars and SandboxVars.ParadiseZ
     return (settings and settings.ShowPvETag) or (getCore and getCore():getDebug()) or false
+end
+
+function ParadiseZ.isShowAdminTag(targ)
+    if not ParadiseDev.isAdm(targ) then return false end
+    local modData = targ:getModData()
+    if modData.ParadiseZShowAdminTag == nil then modData.ParadiseZShowAdminTag = true end
+    return modData.ParadiseZShowAdminTag == true
+end
+
+function ParadiseZ.toggleShowAdminTag(targ)
+    if not ParadiseDev.isAdm(targ) then return end
+    local modData = targ:getModData()
+    modData.ParadiseZShowAdminTag = not ParadiseZ.isShowAdminTag(targ)
+    if targ.transmitModData then targ:transmitModData() end
 end
 
 local function isAdminViewer()
@@ -125,22 +151,27 @@ function ParadiseZ.isTagEmpty(targ)
 end
 
 function ParadiseZ.setTag(targ)
-    if not ParadiseZ.isShowTag() then return end
+    if not ParadiseZ.isShowTag() and not ParadiseZ.isShowAdminTag(targ) then return end
     if not targ then targ = getPlayer() end
     --ParadiseZ.removeTag(targ)
-    local spr
+    local sprites = ArrayList.new()
     local user = targ:getUsername() 
+    if ParadiseZ.isShowAdminTag(targ) then
+        sprites:add(getSprite("media/ui/Tags/Adm_Tag.png"):newInstance())
+    end
     if isPvE(targ) then
-        spr = getSprite("media/ui/Tags/PvE_Tag.png"):newInstance()
+        sprites:add(getSprite("media/ui/Tags/PvE_Tag.png"):newInstance())
+    end
+    if isCaged(targ) then
+        sprites:add(getSprite("media/ui/Tags/Caged_Tag.png"):newInstance())
     end
     if user and user == "Glytch3r" then
         local scareCrow = hasScareCrow(targ)
         targ:setVariable("isScareCrow", scareCrow)
-        spr = getSprite("media/ui/Tags/Glytch3r_Tag.png"):newInstance()
+        sprites:add(getSprite("media/ui/Tags/Glytch3r_Tag.png"):newInstance())
     end
-    if spr then
-        targ:setAttachedAnimSprite(ArrayList.new())
-        targ:getAttachedAnimSprite():add(spr)
+    if not sprites:isEmpty() then
+        targ:setAttachedAnimSprite(sprites)
     end
 end
 
