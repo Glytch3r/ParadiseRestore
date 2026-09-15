@@ -157,11 +157,12 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     if ParadiseDev.Panels then
             ParadiseDev.Context.addOption(panelsMenu, "WaveCaster", ParadiseDev.Panels.openWaveCaster, "media/ui/Paradise/ContextIcon.png")
             ParadiseDev.Context.addOption(panelsMenu, "Media Spawner", ParadiseDev.Panels.openMediaSpawner, "media/ui/Paradise/ContextIcon.png")
+--[[ 
             if ParadiseDev.Tiles and ParadiseDev.Tiles.openBrushTool then ParadiseDev.Context.addOption(panelsMenu, "Brush Tool", ParadiseDev.Tiles.openBrushTool, "media/ui/Paradise/ContextIcon.png") end
             ParadiseDev.Context.addOption(panelsMenu, "Promo Manager", function() 
                 ParadisePromo.openAdminPanel()
             end, "media/ui/Paradise/ContextIcon.png")
-
+]]
             ParadiseDev.Context.addOption(panelsMenu, "Mini Scoreboard", function() 
                 if ISMiniScoreboardUI.instance then
                     ISMiniScoreboardUI.instance:close()

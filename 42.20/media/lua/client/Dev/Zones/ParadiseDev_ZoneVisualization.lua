@@ -121,8 +121,7 @@ function ParadiseDev.Zones.Visualization.refreshHighlights(force)
         if ParadiseDev.Zones.Visualization.zoneOnLevel(zone, pz) then
             for _, region in ipairs(zone.regions or {}) do
                 if ParadiseDev.Zones.Visualization.regionNearPlayer(region, pl, ParadiseDev.Zones.Visualization.VISIBLE_RADIUS) then
-                    local insideColor, outsideColor = ParadiseDev.Zones.Visualization.getRegionColors(zone, region, pl)
-                    ParadiseDev.Zones.Visualization.highlightRegion(region, pz, insideColor, outsideColor)
+                    ParadiseDev.Zones.Visualization.getRegionColors(zone, region, pl)
                 end
             end
         end

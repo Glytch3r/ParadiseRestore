@@ -55,38 +55,7 @@ function ParadiseDev.Zones.MapText.drawZone(map, zone, region, worldX, worldY)
     local xMin, yMin = tonumber(region.xMin), tonumber(region.yMin)
     local xMax, yMax = tonumber(region.xMax), tonumber(region.yMax)
     if not xMin or not yMin or not xMax or not yMax or xMax <= xMin or yMax <= yMin then return end
-    local color = ParadiseDev.Zones.MapText.getZoneColor(zone)
     local hovered = worldX and worldY and worldX >= xMin and worldX < xMax and worldY >= yMin and worldY < yMax
-    if hovered then color = ParadiseDev.Zones.MapText.hoverColor end
-    local fillAlpha = 0.05
-    local borderAlpha = 0.4
-    local borderWidth = 1
-    if map.mapAPI:getBoolean("Isometric") then
-        local x1y1x = map.mapAPI:worldToUIX(xMin, yMin)
-        local x1y1y = map.mapAPI:worldToUIY(xMin, yMin)
-        local x2y1x = map.mapAPI:worldToUIX(xMax, yMin)
-        local x2y1y = map.mapAPI:worldToUIY(xMax, yMin)
-        local x1y2x = map.mapAPI:worldToUIX(xMin, yMax)
-        local x1y2y = map.mapAPI:worldToUIY(xMin, yMax)
-        local x2y2x = map.mapAPI:worldToUIX(xMax, yMax)
-        local x2y2y = map.mapAPI:worldToUIY(xMax, yMax)
-        if not x1y1x or not x1y1y or not x2y1x or not x2y1y or not x1y2x or not x1y2y or not x2y2x or not x2y2y then return end
-        getRenderer():renderPoly(x1y1x, x1y1y, x2y1x, x2y1y, x2y2x, x2y2y, x1y2x, x1y2y, color.r, color.g, color.b, fillAlpha)
-        for index = 1, borderWidth do
-            local offset = index * 0.5
-            getRenderer():renderPoly(x1y1x - offset, x1y1y - offset, x2y1x + offset, x2y1y - offset, x2y2x + offset, x2y2y + offset, x1y2x - offset, x1y2y + offset, color.r, color.g, color.b, borderAlpha)
-        end
-    else
-        local x1 = map.mapAPI:worldToUIX(xMin, yMin)
-        local y1 = map.mapAPI:worldToUIY(xMin, yMin)
-        local x2 = map.mapAPI:worldToUIX(xMax, yMax)
-        local y2 = map.mapAPI:worldToUIY(xMax, yMax)
-        if not x1 or not y1 or not x2 or not y2 then return end
-        map:drawRect(x1, y1, x2 - x1, y2 - y1, fillAlpha, color.r, color.g, color.b)
-        for index = 1, borderWidth do
-            map:drawRectBorder(x1 - index, y1 - index, x2 - x1 + index * 2, y2 - y1 + index * 2, borderAlpha, color.r, color.g, color.b)
-        end
-    end
     if hovered then ParadiseDev.Zones.MapText.hoveredZone = zone.name or zone.id end
 end
 
@@ -102,7 +71,7 @@ function ParadiseDev.Zones.MapText.drawWorldMap(map)
         end
     end
     if ParadiseDev.Zones.MapText.hoveredZone then
-        map:drawText(ParadiseDev.Zones.MapText.hoveredZone, mouseX + 12, mouseY + 12, 1, 1, 1, 1, UIFont.Medium)
+        map:drawText(ParadiseDev.Zones.MapText.hoveredZone, mouseX + 14, mouseY + 14, 1, 1, 1, 1, UIFont.Medium)
     end
 end
 

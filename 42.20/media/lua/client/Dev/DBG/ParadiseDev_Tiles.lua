@@ -81,8 +81,8 @@ function ParadiseDev.Tiles.installServerBrushCursor()
     ISBrushToolTileCursor.create = ParadiseDev.Tiles.serverBrushCreate
 end
 
-ParadiseDev.Tiles.installServerBrushCursor()
-
+--ParadiseDev.Tiles.installServerBrushCursor()
+-----------------------            ---------------------------
 
 function ParadiseDev.Tiles.getSpriteName(spr)
     if not spr or not spr.getName then return nil end
@@ -238,4 +238,4 @@ function ParadiseDev.Tiles.addContext(plNum, context, worldobjects, test)
 end
 
 --Events.OnFillWorldObjectContextMenu.Remove(ParadiseDev.Tiles.addContext)
-Events.OnFillWorldObjectContextMenu.Add(ParadiseDev.Tiles.addContext)
+--Events.OnFillWorldObjectContextMenu.Add(ParadiseDev.Tiles.addContext)
