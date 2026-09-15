@@ -20,16 +20,17 @@ function ISWorldMap:instantiate()
 end
 
 local function mapZoneColor(zone)
-    if zone.features and zone.features.isKos then return 1.0, 0.15, 0.10 end
-    if zone.restricted then return 1.0, 0.9, 0.10 end
-    return 0.20, 1.0, 0.20
+    local mapText = ParadiseDev.Zones and ParadiseDev.Zones.MapText
+    local color = mapText and mapText.getZoneColor and mapText.getZoneColor(zone)
+    if color then return color.r, color.g, color.b end
+    return 0.03, 0.55, 0.03
 end
 
 local function drawMapLine(self, x1, y1, x2, y2, r, g, b, a)
     local dx, dy = x2 - x1, y2 - y1
     local length = math.sqrt(dx * dx + dy * dy)
     if length <= 0 then return end
-    local half = 1.0
+    local half = 1.5
     local nx, ny = -dy / length * half, dx / length * half
     getRenderer():renderPoly(x1 + nx, y1 + ny, x2 + nx, y2 + ny,
         x2 - nx, y2 - ny, x1 - nx, y1 - ny, r, g, b, a)
@@ -52,7 +53,7 @@ function ParadiseDev.Map.drawZoneBorders(self)
     for _, zone in ipairs(visuals.zones or {}) do
         for _, region in ipairs(zone.regions or {}) do
             local r, g, b = mapZoneColor(zone)
-            local a = (zone == hoveredZone) and 0.85 or 0.30
+            local a = (zone == hoveredZone) and 0.95 or 0.50
             local x1 = self.mapAPI:worldToUIX(region.xMin, region.yMin)
             local y1 = self.mapAPI:worldToUIY(region.xMin, region.yMin)
             local x2 = self.mapAPI:worldToUIX(region.xMax, region.yMin)
@@ -89,7 +90,6 @@ end
 
 local vanillaMapRightMouseUp = ISWorldMap.onRightMouseUp
 function ISWorldMap:onRightMouseUp(x, y)
-    if self.symbolsUI and self.symbolsUI:onRightMouseUpMap(x, y) then return true end
     if vanillaMapRightMouseUp and vanillaMapRightMouseUp(self, x, y) == true then return true end
     local context = ISContextMenu.get(0, x + self:getAbsoluteX(), y + self:getAbsoluteY())
     if not context then return true end
