@@ -255,6 +255,7 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     ParadiseDev.Context.addOption(clearMenu, "Clear Weather", ParadiseZ.clearWeather, "media/ui/Paradise/WeatherContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "Clear Fog", ParadiseZ.clearFog, "media/ui/Paradise/WeatherContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "Clear Worn Items", ParadiseZ.ClearWornItems, "media/ui/Paradise/WornItemsContextIcon.png")
+    ParadiseDev.Context.addOption(clearMenu, "Clear Traits", ParadiseZ.ClearTraits, "media/ui/Paradise/TraitsContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "Clear Perks", ParadiseZ.ClearPerks, "media/ui/Paradise/MemoryContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "Clear Learned Recipes", ParadiseZ.ClearLearned, "media/ui/Paradise/LearnContextIcon.png")
 end

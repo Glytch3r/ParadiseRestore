@@ -295,14 +295,18 @@ function Paradise_POI_Manager:refreshPOIList()
     self:updateButtonStates()
 end
 
-function Paradise_POI_Manager:onSelectPOI(item)
-    if not item then
-        self.poiList.selected = 0
+function Paradise_POI_Manager:onSelectPOI(x, y)
+    local list = self.poiList
+    local row = list:rowAt(x, y)
+    if row <= 0 or row > #list.items then
+        list.selected = 0
         self:updateButtonStates()
         return
     end
+    list.selected = row
+    local item = list.items[row]
     local data = item.item or item
-    self.key:setText(item.text or "")
+    self.key:setText(tostring(item.text or ""))
     self.coordX:setText(tostring(data.x or 0))
     self.coordY:setText(tostring(data.y or 0))
     self.coordZ:setText(tostring(data.z or 0))

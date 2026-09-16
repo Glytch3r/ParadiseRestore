@@ -32,8 +32,8 @@ Events.OnFillWorldObjectContextMenu.Remove(ParadiseDev.TradePrivacy.removeProtec
 Events.OnFillWorldObjectContextMenu.Add(ParadiseDev.TradePrivacy.removeProtectedTradeOption)
 
 local function ParadiseDev_disableDebugContextOptions(functionName, disabledTextKeys)
-    local original = DebugContextMenu and DebugContextMenu[functionName]
-    if not original or original._ParadiseDevDisabledOptions then return end
+    local hook = DebugContextMenu and DebugContextMenu[functionName]
+    if not hook or hook._ParadiseDevDisabledOptions then return end
 
     local disabledNames = {}
     for _, textKey in ipairs(disabledTextKeys) do
@@ -41,14 +41,14 @@ local function ParadiseDev_disableDebugContextOptions(functionName, disabledText
     end
 
     local wrapped = function(...)
-        local originalAddOption = ISContextMenu.addOption
+        local hookAddOption = ISContextMenu.addOption
         ISContextMenu.addOption = function(self, name, ...)
             if disabledNames[name] then return nil end
-            return originalAddOption(self, name, ...)
+            return hookAddOption(self, name, ...)
         end
 
-        original(...)
-        ISContextMenu.addOption = originalAddOption
+        hook(...)
+        ISContextMenu.addOption = hookAddOption
     end
     wrapped._ParadiseDevDisabledOptions = true
     DebugContextMenu[functionName] = wrapped

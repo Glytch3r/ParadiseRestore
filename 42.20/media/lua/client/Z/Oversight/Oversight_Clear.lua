@@ -578,7 +578,6 @@ function ParadiseZ.ClearLearned()
 end
 
 function ParadiseZ.ClearTraits()
---[[ 
     local pl = getPlayer() 
     if not pl then return end
     for i = TraitFactory.getTraits():size()-1, 0, -1 do
@@ -590,17 +589,16 @@ function ParadiseZ.ClearTraits()
     end
     pl:addLineChatElement("All Traits Removed")
     sendPlayerExtraInfo(pl)
- ]]
 end
 
 function ParadiseZ.ClearPerks()
     local pl = getPlayer() 
     if not pl then return end
-    for _ = 1, 10 do
-        for i = 0, Perks.getMaxIndex() - 1 do
-            local perkType = PerkFactory.getPerk(Perks.fromIndex(i))
+    for i = 0, Perks.getMaxIndex() - 1 do
+        local perkType = Perks.fromIndex(i)
+        if perkType and perkType ~= Perks.None then
+            pl:setPerkLevelDebug(perkType, 0)
             pl:getXp():setXPToLevel(perkType, 0)
-            pl:LoseLevel(perkType)
         end
     end
     pl:addLineChatElement("All Experience set to 0")
@@ -622,20 +620,11 @@ end
 function ParadiseZ.lvlUp()
     local pl = getPlayer()
     if not pl then return end
-    for _ = 0, 10 do
-        for i = 0, Perks.getMaxIndex() - 1 do
-            local perkType = PerkFactory.getPerk(Perks.fromIndex(i))
-            local perkLevel = pl:getPerkLevel(perkType)
-            if perkLevel < 10 then
-                pl:LevelPerk(perkType, false)
-                if pl.getXp and pl.getXp.setXPToLevel then
-                    pl:getXp():setXPToLevel(perkType, pl:getPerkLevel(perkType))
-                else
-                    pl:setPerkLevelDebug(perkType, pl:getPerkLevel(perkType))
-                end
-            --		
-                SyncXp(pl)
-            end
+    for i = 0, Perks.getMaxIndex() - 1 do
+        local perkType = Perks.fromIndex(i)
+        if perkType and perkType ~= Perks.None then
+            pl:setPerkLevelDebug(perkType, 10)
+            pl:getXp():setXPToLevel(perkType, 10)
         end
     end
     local traits = CharacterTraitDefinition.getTraits()
