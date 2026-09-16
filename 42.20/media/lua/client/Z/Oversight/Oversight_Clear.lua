@@ -618,6 +618,7 @@ function ParadiseZ.ClearWornItems()
     getPlayerLoot(plNum):refreshBackpacks()
 end
 
+
 function ParadiseZ.lvlUp()
     local pl = getPlayer()
     if not pl then return end
@@ -627,7 +628,12 @@ function ParadiseZ.lvlUp()
             local perkLevel = pl:getPerkLevel(perkType)
             if perkLevel < 10 then
                 pl:LevelPerk(perkType, false)
-                pl:getXp():setXPToLevel(perkType, pl:getPerkLevel(perkType))
+                if pl.getXp and pl.getXp.setXPToLevel then
+                    pl:getXp():setXPToLevel(perkType, pl:getPerkLevel(perkType))
+                else
+                    pl:setPerkLevelDebug(perkType, pl:getPerkLevel(perkType))
+                end
+            --		
                 SyncXp(pl)
             end
         end

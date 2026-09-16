@@ -321,9 +321,9 @@ function Paradise_POI_Manager:updateButtonStates()
     local y = tonumber(self.coordY:getText())
     local label = tostring(self.key:getText() or ""):gsub("^%s*(.-)%s*$", "%1")
     local selected = self.poiList.selected and self.poiList.selected > 0 and self.poiList.items[self.poiList.selected]
-    local hasCoordinates = x and y and x ~= 0 and y ~= 0
-    self.btnTPCoord.enable = hasCoordinates == true
-    self.btnSave.enable = hasCoordinates == true and label ~= ""
+    local hasCoordinates = x ~= nil and y ~= nil
+    self.btnTPCoord.enable = hasCoordinates
+    self.btnSave.enable = hasCoordinates and label ~= ""
     self.btnTPPOI.enable = selected ~= nil
     self.btnDelete.enable = selected ~= nil
 end
@@ -351,7 +351,7 @@ function Paradise_POI_Manager:onButtonClick(button)
 
         if x and y then
             z = z + 1
-            sendClientCommand(player, ParadiseDev.TP.module, "teleportWithVehicle", {
+            sendClientCommand(pl, ParadiseDev.TP.module, "teleportWithVehicle", {
                 x = x,
                 y = y,
                 z = z
@@ -363,7 +363,7 @@ function Paradise_POI_Manager:onButtonClick(button)
         local y = tostring(math.floor(pl:getY()))
         local z = tostring(math.floor(pl:getZ()))
         if x and y then
-            sendClientCommand(player, ParadiseDev.TP.module, "teleportWithVehicle", {
+            sendClientCommand(pl, ParadiseDev.TP.module, "teleportWithVehicle", {
                 x = x,
                 y = y,
                 z = 0
@@ -376,7 +376,7 @@ function Paradise_POI_Manager:onButtonClick(button)
         local z = tostring(math.floor(pl:getZ()))
         if x and y then
             z = z - 1
-            sendClientCommand(player, ParadiseDev.TP.module, "teleportWithVehicle", {
+            sendClientCommand(pl, ParadiseDev.TP.module, "teleportWithVehicle", {
                 x = x,
                 y = y,
                 z = z
@@ -388,7 +388,7 @@ function Paradise_POI_Manager:onButtonClick(button)
         local y = tonumber(self.coordY:getText())
         local z = tonumber(self.coordZ:getText()) or 0
         if x and y then
-            sendClientCommand(player, ParadiseDev.TP.module, "teleportWithVehicle", {
+            sendClientCommand(pl, ParadiseDev.TP.module, "teleportWithVehicle", {
                 x = x,
                 y = y,
                 z = z
@@ -404,7 +404,7 @@ function Paradise_POI_Manager:onButtonClick(button)
                 z = tonumber(self.coordZ:getText()) or 0,
                 desc = self.descriptionBox:getText()
             }
-            sendClientCommand(player, "ParadisePOI", "save", args)
+            sendClientCommand(pl, "ParadisePOI", "save", args)
         end
 
     elseif button.internal == "DELETE" then
@@ -412,7 +412,7 @@ function Paradise_POI_Manager:onButtonClick(button)
         if selectedIndex and selectedIndex > 0 then
             local item = self.poiList.items[selectedIndex]
             if item then
-                sendClientCommand(player, "ParadisePOI", "delete", {label = item.text})
+                sendClientCommand(pl, "ParadisePOI", "delete", {label = item.text})
                 self.poiList.selected = 0
                 self:updateButtonStates()
             end
@@ -423,7 +423,7 @@ function Paradise_POI_Manager:onButtonClick(button)
         if selectedIndex and selectedIndex > 0 then
             local item = self.poiList.items[selectedIndex]
             if item and item.item then
-                sendClientCommand(player, ParadiseDev.TP.module, "teleportWithVehicle", {
+                sendClientCommand(pl, ParadiseDev.TP.module, "teleportWithVehicle", {
                     x = item.item.x,
                     y = item.item.y,
                     z = item.item.z
