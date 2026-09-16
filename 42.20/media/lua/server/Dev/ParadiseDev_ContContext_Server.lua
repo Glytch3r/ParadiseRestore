@@ -35,12 +35,14 @@ end
 
 function loot.fill(entry, container)
     if not container then return false end
-    container:setType(entry.containerType)
+    if type(entry.lootType) ~= "string" or not ItemPickerJava.containers[entry.lootType] then return false end
+    container:setType(entry.lootType)
     local items = container:getItems()
     if container:isExplored() and items and items:size() > 0 then return false end
     container:setExplored(false)
     container:setHasBeenLooted(false)
-    ItemPickerJava.fillContainer(container, nil)
+    local distribution = ItemPickerJava.containers[entry.lootType]
+    ItemPickerJava.rollItem(distribution, container, false, nil, nil)
     container:setExplored(true)
     container:setHasBeenLooted(true)
     container:requestSync()
@@ -75,7 +77,8 @@ end
 
 function loot.register(player, args)
     if not player or not ParadiseDev.isAdm(player) or type(args) ~= "table" then return end
-    if not validNumber(args.x) or not validNumber(args.y) or not validNumber(args.z) or type(args.containerType) ~= "string" then return end
+    if not validNumber(args.x) or not validNumber(args.y) or not validNumber(args.z) or type(args.containerType) ~= "string" or type(args.lootType) ~= "string" then return end
+    if not ItemPickerJava.containers[args.lootType] then return end
     local data = loot.getData()
     local id = key(args.x, args.y, args.z)
     data.entries[id] = {
@@ -83,6 +86,7 @@ function loot.register(player, args)
         y = args.y,
         z = args.z,
         containerType = args.containerType,
+        lootType = args.lootType,
         nextFill = 0,
     }
     ModData.transmit(loot.dataName)
@@ -95,9 +99,21 @@ function loot.forceRefill(player, args)
     if not validNumber(args.x) or not validNumber(args.y) or not validNumber(args.z) then return end
     local data = loot.getData()
     local entry = data.entries[key(args.x, args.y, args.z)]
-    if not entry then return end
+    if not entry then
+        entry = {
+            x = args.x,
+            y = args.y,
+            z = args.z,
+            containerType = "",
+            lootType = args.lootType,
+        }
+    elseif type(args.lootType) == "string" then
+        entry.lootType = args.lootType
+    end
     local container = loot.findContainer(entry)
     if not container or not container.getType or type(container:getType()) ~= "string" or container:getType() == "" then return end
+    entry.containerType = container:getType()
+    if type(entry.lootType) ~= "string" or not ItemPickerJava.containers[entry.lootType] then return end
     container:setExplored(false)
     container:setHasBeenLooted(false)
     if loot.fill(entry, container) then

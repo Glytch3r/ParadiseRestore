@@ -966,23 +966,24 @@ function WaveCasterPanel:onRemoveZombies()
 	--local radius = self:getRadius() + 1
 	if not self:applyTypedSquare() then return end
 	local radius = self:getCastRadius() + 1
+	local x, y, z = tonumber(self.selectX), tonumber(self.selectY), tonumber(self.selectZ)
 
-	if not (self.selectX and self.selectY) then return end
+	if not (x and y and z) then return end
 	if isClient() then
 		if self.isShiftDown then
 			AdminContextMenu.OnRemoveAllZombiesClient()
 			return
 		end
-		SendCommandToServer(string.format("/removezombies -x %d -y %d -z %d -radius %d", self.selectX, self.selectY, self.selectZ, radius))
+		SendCommandToServer(string.format("/removezombies -x %d -y %d -z %d -radius %d", x, y, z, radius))
 		return
 	end
 	if self.isShiftDown then
 		DebugContextMenu.OnRemoveAllZombies()
 		return
 	end
-	for x=self.selectX-radius, self.selectX + radius do
-		for y=self.selectY-radius, self.selectY + radius do
-			local sq = getCell():getGridSquare(x,y,self.selectZ);
+	for sx=x-radius, x + radius do
+		for sy=y-radius, y + radius do
+			local sq = getCell():getGridSquare(sx, sy, z);
 			if sq then
 				for i=sq:getMovingObjects():size(),1,-1 do
 					local testZed = sq:getMovingObjects():get(i-1);
