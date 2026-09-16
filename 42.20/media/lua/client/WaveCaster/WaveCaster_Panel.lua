@@ -940,7 +940,7 @@ function WaveCasterPanel:onRemoveBodies()
 	local radius = self:getCastRadius() + 1
 
 	if isClient() then
-		SendCommandToServer("/remove corpses")
+		sendClientCommand("WaveCaster", "ClearCorpses", { x = self.selectX, y = self.selectY, z = self.selectZ, radius = radius })
 	else
 		local cell = getCell()
 		for x = self.selectX - radius, self.selectX + radius+1 do
@@ -949,8 +949,9 @@ function WaveCasterPanel:onRemoveBodies()
 					local sq = cell:getGridSquare(x, y, self.selectZ)
 					local bodies = {}
 					for i=0, sq:getStaticMovingObjects():size()-1 do
-						if instanceof(sq:getStaticMovingObjects():get(i), "IsoDeadBody") then
-							table.insert(bodies, sq:getStaticMovingObjects():get(i))
+						local body = sq:getStaticMovingObjects():get(i)
+						if instanceof(body, "IsoDeadBody") and not body:isPlayer() then
+							table.insert(bodies, body)
 						end
 					end
 					for i, body in ipairs(bodies) do

@@ -265,6 +265,31 @@ function WaveCaster.updateEvents(module, command, player, args)
         return
     end
 
+    if command == "ClearCorpses" then
+        if not player or string.lower(player:getAccessLevel()) ~= "admin" then return end
+        local x, y, z = tonumber(args and args.x), tonumber(args and args.y), tonumber(args and args.z)
+        local radius = tonumber(args and args.radius)
+        if not x or not y or not z or not radius then return end
+        local cell = getCell()
+        for sx = x - radius, x + radius + 1 do
+            for sy = y - radius, y + radius + 1 do
+                if IsoUtils.DistanceTo(x, y, sx + 0.5, sy + 0.5) <= radius then
+                    local square = cell:getGridSquare(sx, sy, z)
+                    if square then
+                        local bodies = {}
+                        local objects = square:getStaticMovingObjects()
+                        for i = 0, objects:size() - 1 do
+                            local body = objects:get(i)
+                            if instanceof(body, "IsoDeadBody") and not body:isPlayer() then bodies[#bodies + 1] = body end
+                        end
+                        for i = 1, #bodies do square:removeCorpse(bodies[i], false) end
+                    end
+                end
+            end
+        end
+        return
+    end
+
     if command == "Sync" and args.data then
         WaveCaster.Data = ModData.getOrCreate("WaveCaster_Data")
 

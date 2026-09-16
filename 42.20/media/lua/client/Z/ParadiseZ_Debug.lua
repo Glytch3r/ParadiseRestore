@@ -252,7 +252,7 @@ function ParadiseZ.delBodies(x, y, z, radius)
 
 	local r = radius + 1
 	if isClient() then
-		SendCommandToServer("/remove corpses")
+		sendClientCommand("WaveCaster", "ClearCorpses", { x = x, y = y, z = z, radius = r })
 		return
 	end
 	for sx = x - r, x + r + 1 do
@@ -264,7 +264,7 @@ function ParadiseZ.delBodies(x, y, z, radius)
 					local bodies = {}
 					for i = 0, list:size() - 1 do
 						local obj = list:get(i)
-						if instanceof(obj, "IsoDeadBody") then
+						if instanceof(obj, "IsoDeadBody") and not obj:isPlayer() then
 							bodies[#bodies + 1] = obj
 						end
 					end
