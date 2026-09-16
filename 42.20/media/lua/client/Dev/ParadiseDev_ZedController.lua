@@ -511,7 +511,7 @@ function ZedController.executeLocal(pl, command, args)
         call(obj, "resetModelNextFrame")
         return true, "Outfit applied."
     elseif command == "randomBlood" then
-        call(obj, "addRandomBloodDirtHolesEtc")
+        call(obj, "ddRandomBloodDirtHolesEtc")
         call(obj, "resetModelNextFrame")
         return true, "Blood and dirt applied."
     end

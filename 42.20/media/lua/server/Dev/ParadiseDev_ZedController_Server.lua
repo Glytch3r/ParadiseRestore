@@ -459,7 +459,7 @@ function Server.execute(pl, obj, kind, command, args)
         Server.sync(obj)
         return true, "Outfit applied."
     elseif command == "randomBlood" then
-        call(obj, "addRandomBloodDirtHolesEtc")
+        call(obj, "ddRandomBloodDirtHolesEtc")
         call(obj, "resetModelNextFrame")
         Server.sync(obj)
         return true, "Blood and dirt applied."

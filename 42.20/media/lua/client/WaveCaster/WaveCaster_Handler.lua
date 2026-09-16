@@ -83,6 +83,8 @@ function WaveCaster.spawnWave(castEvent, wave)
             isFallOnFront,
             isFakeDead,
             knockedDown,
+            isInvulnerable,
+            isSitting,
             health,
             isRecordingAnims,
             heightOffset,

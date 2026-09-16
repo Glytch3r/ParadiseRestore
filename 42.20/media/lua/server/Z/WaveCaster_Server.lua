@@ -164,7 +164,7 @@ function WaveCaster.spawn(player, args)
     end
 end
 
-function WaveCaster.processWave(castEvent)
+function WaveCaster.processServerWave(castEvent)
     if not castEvent or not castEvent.Waves or #castEvent.Waves == 0 then return false end
 
     local wave = castEvent.Waves[1]
@@ -243,7 +243,7 @@ function WaveCaster.processEvents()
                 castEvent.Countdown = 0
             end
             if castEvent.Countdown <= 0 then
-                WaveCaster.processWave(castEvent)
+                WaveCaster.processServerWave(castEvent)
             end
             changed = true
         end
