@@ -33,7 +33,7 @@ Events.OnFillWorldObjectContextMenu.Add(ParadiseDev.TradePrivacy.removeProtected
 
 local function ParadiseDev_disableDebugContextOptions(functionName, disabledTextKeys)
     local hook = DebugContextMenu and DebugContextMenu[functionName]
-    if not hook or hook._ParadiseDevDisabledOptions then return end
+    if not hook or ParadiseDev._DisabledDebugContextOptions and ParadiseDev._DisabledDebugContextOptions[functionName] then return end
 
     local disabledNames = {}
     for _, textKey in ipairs(disabledTextKeys) do
@@ -50,7 +50,8 @@ local function ParadiseDev_disableDebugContextOptions(functionName, disabledText
         hook(...)
         ISContextMenu.addOption = hookAddOption
     end
-    wrapped._ParadiseDevDisabledOptions = true
+    ParadiseDev._DisabledDebugContextOptions = ParadiseDev._DisabledDebugContextOptions or {}
+    ParadiseDev._DisabledDebugContextOptions[functionName] = true
     DebugContextMenu[functionName] = wrapped
 end
 

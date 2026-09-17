@@ -8,7 +8,7 @@ require "ISUI/ISLabel"
 require "ISUI/ISComboBox"
 require "ISUI/ISTextEntryBox"
 require "RadioCom/ISUIRadio/ISSliderPanel"
-require "ISUI/ISSelectCursor"
+require "BuildingObjects/ISSelectCursor"
 
 local ZedController = ParadiseDev.ZedController
 local previousOnServerCommand = ZedController.onServerCommand
