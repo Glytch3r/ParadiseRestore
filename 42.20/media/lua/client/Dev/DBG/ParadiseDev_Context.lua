@@ -8,6 +8,10 @@ require "Dev/ParadiseDev_TargContext"
 require "Dev/ParadiseDev_POI"
 require "Dev/DBG/ParadiseDev_VisualDebug"
 require "Dev/ParadiseDev_ZedController"
+require "ISUI/ISCollapsableWindow"
+require "ISUI/ISButton"
+require "ISUI/ISLabel"
+require "RadioCom/ISUIRadio/ISSliderPanel"
 
 
 function ParadiseDev.Context.onOrOff(value)
@@ -106,6 +110,67 @@ function ParadiseDev.Context.deleteZeds()
     ParadiseZ.delZeds(nil, nil, nil, ParadiseDev.Context.getClearRadius())
 end
 
+function ParadiseDev.Context.clearScanned(pl, radius, predicate)
+    local cell, sq = pl and pl:getCell(), pl and pl:getCurrentSquare()
+    if not cell or not sq then return end
+    local x, y, z, rad = sq:getX(), sq:getY(), sq:getZ(), math.floor(radius or 15)
+    for dx = -rad, rad do for dy = -rad, rad do
+        local target = cell:getGridSquare(x + dx, y + dy, z)
+        local objects = target and target:getObjects()
+        if objects then for i = objects:size() - 1, 0, -1 do
+            local obj = objects:get(i)
+            if obj and predicate(obj, target) then target:transmitRemoveItemFromSquare(obj) end
+        end end
+    end end
+end
+
+function ParadiseDev.Context.clearAnimals(pl, radius)
+    ParadiseDev.Context.clearScanned(pl, radius, function(obj) return instanceof(obj, "IsoAnimal") end)
+end
+
+function ParadiseDev.Context.clearWorldObjects(pl, radius)
+    ParadiseDev.Context.clearScanned(pl, radius, function(obj)
+        return not instanceof(obj, "IsoFloor") and not instanceof(obj, "IsoTree") and not instanceof(obj, "IsoZombie") and not instanceof(obj, "IsoDeadBody") and not instanceof(obj, "IsoAnimal")
+    end)
+end
+
+function ParadiseDev.Context.clearPuddles(pl, radius)
+    if setPuddles then setPuddles(0) end
+end
+
+function ParadiseDev.Context.clearContainerItems(pl, radius)
+    ParadiseDev.Context.clearScanned(pl, radius, function(obj)
+        local container = obj.getContainer and obj:getContainer() or nil
+        if not container then return false end
+        local items = container:getItems()
+        if items then for i = items:size() - 1, 0, -1 do container:DoRemoveItem(items:get(i)) end end
+        return false
+    end)
+end
+
+function ParadiseDev.Context.clearSelected(pl, radius, selected)
+    pl = pl or getPlayer()
+    if not pl or not selected then return end
+    for _, entry in ipairs(selected) do
+        local fn = ParadiseDev.Context.clearHandlers[entry.name]
+        if fn then fn(pl, radius) end
+    end
+end
+
+ParadiseDev.Context.clearHandlers = {
+    floorItems = ParadiseZ.ClearFloorItems2,
+    trees = ParadiseZ.ClearTrees,
+    plants = ParadiseZ.DespawnPlants,
+    cars = ParadiseZ.DespawnCars,
+    corpses = function(_, radius) ParadiseZ.delBodies(nil, nil, nil, radius) end,
+    zombies = function(_, radius) ParadiseZ.delZeds(nil, nil, nil, radius) end,
+    fire = ParadiseZ.StopFire,
+    animals = ParadiseDev.Context.clearAnimals,
+    worldobjects = ParadiseDev.Context.clearWorldObjects,
+    puddle = ParadiseDev.Context.clearPuddles,
+    containerItems = ParadiseDev.Context.clearContainerItems,
+}
+
 function ParadiseDev.Context.clearAndSave(pl)
     if not pl or not ParadiseDev.Save or not sendClientCommand then return end
     sendClientCommand(ParadiseDev.Save.module, "clearAndSave", {})
@@ -118,14 +183,89 @@ function ParadiseDev.Context.getClearRadius()
     return SandboxVars.ParadiseZ and SandboxVars.ParadiseZ.ClearRadius or 15
 end
 
+ParadiseDev.Context.ClearPanel = ISCollapsableWindow:derive("ParadiseDev.Context.ClearPanel")
+
+function ParadiseDev.Context.ClearPanel:new(pl)
+    local width, height = 430, 360
+    local panel = ISCollapsableWindow:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height)
+    setmetatable(panel, self)
+    self.__index = self
+    panel.player = pl or getPlayer()
+    panel.radius = ParadiseDev.Context.getClearRadius()
+    panel.moveWithMouse = true
+    panel:setTitle("Paradise Clear Panel")
+    return panel
+end
+
+function ParadiseDev.Context.ClearPanel:createChildren()
+    ISCollapsableWindow.createChildren(self)
+    local entries = ParadiseDev.Context.clearOptions
+    self.checks = {}
+    local title = ISLabel:new(16, 42, 20, "Select what to clear:", 1, 1, 1, 1, UIFont.Medium, true)
+    title:initialise(); title:instantiate(); self:addChild(title)
+    for index, entry in ipairs(entries) do
+        local y = 72 + (index - 1) * 30
+        local button = ISButton:new(16, y, 260, 25, entry.label, self, ParadiseDev.Context.ClearPanel.onToggle)
+        button:initialise(); button:instantiate(); button.entry = entry; button.checkMark = false; self:addChild(button)
+        self.checks[#self.checks + 1] = button
+    end
+    local radiusY = 72 + #entries * 30 + 8
+    self.radiusLabel = ISLabel:new(16, radiusY, 20, "Radius: " .. tostring(self.radius), 1, 1, 1, 1, UIFont.Small, true)
+    self.radiusLabel:initialise(); self.radiusLabel:instantiate(); self:addChild(self.radiusLabel)
+    self.radiusSlider = ISSliderPanel:new(16, radiusY + 24, 390, 20, self, ParadiseDev.Context.ClearPanel.onRadiusChanged)
+    self.radiusSlider:initialise(); self.radiusSlider:instantiate(); self.radiusSlider:setValues(1, 50, 1, 5, true); self.radiusSlider:setCurrentValue(self.radius, true); self:addChild(self.radiusSlider)
+    local clear = ISButton:new(16, radiusY + 58, 185, 28, "Clear Selected", self, ParadiseDev.Context.ClearPanel.onClear)
+    clear:initialise(); clear:instantiate(); self:addChild(clear)
+    local close = ISButton:new(220, radiusY + 58, 185, 28, "Close", self, ParadiseDev.Context.ClearPanel.onClose)
+    close:initialise(); close:instantiate(); self:addChild(close)
+end
+
+function ParadiseDev.Context.ClearPanel:onToggle(button)
+    button.checkMark = not (button.checkMark == true)
+end
+
+function ParadiseDev.Context.ClearPanel:onRadiusChanged(value)
+    self.radius = math.floor(tonumber(value) or self.radius or 15)
+    if self.radiusLabel then self.radiusLabel:setName("Radius: " .. tostring(self.radius)) end
+end
+
+function ParadiseDev.Context.ClearPanel:onClear()
+    local selected = {}
+    for _, button in ipairs(self.checks or {}) do
+        if button.checkMark == true and ParadiseDev.Context.clearHandlers[button.entry.name] then selected[#selected + 1] = button.entry end
+    end
+    if #selected == 0 then return end
+    local radius = self.radius
+    self:onClose()
+    ParadiseZ.popup("ParadiseZ Clear", "Clear " .. tostring(#selected) .. " selected item types in radius " .. tostring(radius) .. "?", function(pl)
+        ParadiseDev.Context.clearSelected(pl, radius, selected)
+    end, "Clear")
+end
+
+function ParadiseDev.Context.ClearPanel:onClose()
+    self:removeFromUIManager()
+    if ParadiseDev.Context.clearPanel == self then ParadiseDev.Context.clearPanel = nil end
+end
+
+function ParadiseDev.Context.openClearPanel(pl)
+    if ParadiseDev.Context.clearPanel then ParadiseDev.Context.clearPanel:onClose() end
+    local panel = ParadiseDev.Context.ClearPanel:new(pl or getPlayer())
+    panel:initialise(); panel:addToUIManager()
+    ParadiseDev.Context.clearPanel = panel
+end
+
 ParadiseDev.Context.clearOptions = {
-    { label = "Clear Trees", name = "ClearTrees", icon = "media/ui/Paradise/TreesContextIcon.png" },
-    { label = "Clear Plants", name = "DespawnPlants", icon = "media/ui/Paradise/PlantsContextIcon.png" },
-    { label = "Clear Cars", name = "DespawnCars", icon = "media/ui/Paradise/CarsContextIcon.png" },
-    { label = "Clear Fire", name = "StopFire", icon = "media/ui/Paradise/NoFireContextIcon.png" },
-    { label = "Clear Floor Items", name = "ClearFloorItems2", icon = "media/ui/Paradise/NoItemsContextIcon.png" },
-    { label = "Clear Zombies", name = "delZeds", icon = "media/ui/LootableMaps/map_facedead.png" },
-    { label = "Clear Corpses", name = "delBodies", icon = "media/ui/LootableMaps/map_cross.png" },
+    { label = "Floor Items", name = "floorItems" },
+    { label = "Trees", name = "trees" },
+    { label = "Plants", name = "plants" },
+    { label = "Cars", name = "cars" },
+    { label = "Corpses", name = "corpses" },
+    { label = "Zombies", name = "zombies" },
+    { label = "Animals", name = "animals" },
+    { label = "Fire", name = "fire" },
+    { label = "Worldobjects", name = "worldobjects" },
+    { label = "Puddle", name = "puddle" },
+    { label = "Container Items", name = "containerItems" },
 }
 
 function ParadiseDev.Context.confirmClear(entry, context)
@@ -245,10 +385,8 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     clearRoot.iconTexture = getTexture("media/ui/Paradise/ClearContextIcon.png")
     local clearMenu = ISContextMenu:getNew(context)
     menu:addSubMenu(clearRoot, clearMenu)
-    for _, entry in ipairs(ParadiseDev.Context.clearOptions) do ParadiseDev.Context.addClearOption(clearMenu, entry, context) end
-    local despawnCar = ParadiseDev.Context.addOption(clearMenu, "Clear Vehicle", ParadiseZ.DespawnCar, "media/ui/Paradise/CarsContextIcon.png", pl)
-    if despawnCar then despawnCar.notAvailable = not ParadiseZ.getCar() end
-    local clearAndSave = ParadiseDev.Context.addOption(clearMenu, "Clear and Save", ParadiseDev.Context.clearAndSave, "media/ui/Paradise/ClearContextIcon.png", pl)
+    ParadiseDev.Context.addOption(clearMenu, "OpenClearPanel", ParadiseDev.Context.openClearPanel, "media/ui/Paradise/ClearContextIcon.png", pl)
+    ParadiseDev.Context.addOption(clearMenu, "Clear Vehicle", ParadiseZ.DespawnCar, "media/ui/Paradise/CarsContextIcon.png", pl)
     ParadiseDev.Context.addOption(clearMenu, "Clean Character", ParadiseZ.washChar, "media/ui/Paradise/WashContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "Clear Map Record", ParadiseZ.ClearMap, "media/ui/Paradise/MapContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "Clear WorldMapVisited", ParadiseDev.Context.resetMapVisited, "media/ui/Paradise/MapContextIcon.png")
@@ -257,7 +395,8 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     ParadiseDev.Context.addOption(clearMenu, "Clear Worn Items", ParadiseZ.ClearWornItems, "media/ui/Paradise/WornItemsContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "Clear Traits", ParadiseZ.ClearTraits, "media/ui/Paradise/TraitsContextIcon.png")
     ParadiseDev.Context.addOption(clearMenu, "Clear Perks", ParadiseZ.ClearPerks, "media/ui/Paradise/MemoryContextIcon.png")
-    ParadiseDev.Context.addOption(clearMenu, "Clear Learned Recipes", ParadiseZ.ClearLearned, "media/ui/Paradise/LearnContextIcon.png")
+    ParadiseDev.Context.addOption(clearMenu, "Clear Learned", ParadiseZ.ClearLearned, "media/ui/Paradise/LearnContextIcon.png")
+    ParadiseDev.Context.addOption(clearMenu, "Clear and Save", ParadiseDev.Context.clearAndSave, "media/ui/Paradise/ClearContextIcon.png", pl)
 end
 
 ParadiseZ.dbgSoundHandler = ParadiseDev.Context.dbgSoundHandler
