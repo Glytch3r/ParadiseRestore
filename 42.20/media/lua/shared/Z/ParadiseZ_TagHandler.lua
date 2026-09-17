@@ -25,6 +25,7 @@
 
 ParadiseZ = ParadiseZ or {}
 ParadiseZ.suspectTags = ParadiseZ.suspectTags or {}
+ParadiseZ.ownTagTextures = ParadiseZ.ownTagTextures or {}
 
 if isServer and isServer() then return end
 
@@ -141,6 +142,7 @@ Events.OnPostRender.Add(ParadiseZ.renderSuspectTags)
 function ParadiseZ.removeTag(targ)
     if targ then
         targ:clearAttachedAnimSprite()
+        if targ == getPlayer() then ParadiseZ.ownTagTextures = {} end
     end
 end
 
@@ -170,10 +172,33 @@ function ParadiseZ.setTag(targ)
         targ:setVariable("isScareCrow", scareCrow)
         sprites:add(getSprite("media/ui/Tags/Glytch3r_Tag.png"):newInstance())
     end
+    if targ == getPlayer() then
+        targ:clearAttachedAnimSprite()
+        ParadiseZ.ownTagTextures = {}
+        if ParadiseZ.isShowAdminTag(targ) then ParadiseZ.ownTagTextures[#ParadiseZ.ownTagTextures + 1] = getTexture("media/ui/Tags/Adm_Tag.png") end
+        if isPvE(targ) then ParadiseZ.ownTagTextures[#ParadiseZ.ownTagTextures + 1] = getTexture("media/ui/Tags/PvE_Tag.png") end
+        if isCaged(targ) then ParadiseZ.ownTagTextures[#ParadiseZ.ownTagTextures + 1] = getTexture("media/ui/Tags/Caged_Tag.png") end
+        if user and user == "Glytch3r" then ParadiseZ.ownTagTextures[#ParadiseZ.ownTagTextures + 1] = getTexture("media/ui/Tags/Glytch3r_Tag.png") end
+        return
+    end
     if not sprites:isEmpty() then
         targ:setAttachedAnimSprite(sprites)
     end
 end
+
+function ParadiseZ.renderOwnTag()
+    if not isIngameState() then return end
+    local pl = getPlayer()
+    if not pl or not ParadiseZ.isShouldShow(pl) then return end
+    local zoom = getCore():getZoom(0)
+    local screenX = (IsoUtils.XToScreen(pl:getX(), pl:getY(), pl:getZ(), 0) - IsoCamera.getOffX()) / zoom
+    local screenY = (IsoUtils.YToScreen(pl:getX(), pl:getY(), pl:getZ(), 0) - IsoCamera.getOffY()) / zoom - 56
+    for index, texture in ipairs(ParadiseZ.ownTagTextures) do
+        if texture then UIManager.DrawTexture(texture, screenX - 16, screenY - (index * 32), 32, 32, 1) end
+    end
+end
+Events.OnPostRender.Remove(ParadiseZ.renderOwnTag)
+Events.OnPostRender.Add(ParadiseZ.renderOwnTag)
 
 function ParadiseZ.setTempTag(targ)
     if not targ then targ = getPlayer() end
