@@ -174,7 +174,7 @@ function ParadiseZ.delZeds(x, y, z, radius)
 	local r = radius + 1
 
 	if isClient() then
-		SendCommandToServer(string.format("/removezombies -x %d -y %d -z %d -radius %d", x, y, z, r))
+		sendClientCommand("WaveCaster", "ClearZombies", { x = x, y = y, z = z, radius = r })
 		return
 	end
 	for sx = x - r, x + r do
@@ -183,7 +183,7 @@ function ParadiseZ.delZeds(x, y, z, radius)
 			if sq then
 				for i = sq:getMovingObjects():size(), 1, -1 do
 					local obj = sq:getMovingObjects():get(i - 1)
-					if instanceof(obj, "IsoZombie") then
+					if instanceof(obj, "IsoZombie") and not obj:isReanimatedPlayer() then
 						obj:removeFromWorld()
 						obj:removeFromSquare()
 					end

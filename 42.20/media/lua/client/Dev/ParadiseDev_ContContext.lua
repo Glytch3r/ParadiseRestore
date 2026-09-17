@@ -1,3 +1,4 @@
+--[[ 
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.ContContext = ParadiseDev.ContContext or {}
 
@@ -104,3 +105,4 @@ end
 
 Events.OnFillWorldObjectContextMenu.Remove(contContext.addWorldContext)
 Events.OnFillWorldObjectContextMenu.Add(contContext.addWorldContext)
+]]

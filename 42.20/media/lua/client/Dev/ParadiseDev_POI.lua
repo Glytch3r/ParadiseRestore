@@ -1,5 +1,5 @@
 ParadisePOI = ParadisePOI or {}
-Paradise_POI_Manager = ISPanel:derive("Paradise_POI_Manager")
+Paradise_POI_Manager = ISCollapsableWindow:derive("Paradise_POI_Manager")
 local FONT_HGT_SMALL = getTextManager():getFontHeight(UIFont.Small)
 ParadisePOI.refreshDelay = 1000
 ParadisePOI.pendingRefresh = false
@@ -68,7 +68,7 @@ Events.OnTick.Add(function()
 end)
 
 function Paradise_POI_Manager:new(x, y, width, height)
-    local o = ISPanel.new(self, x, y, width, height)
+    local o = ISCollapsableWindow.new(self, x, y, width, height)
     o.backgroundColor = {r=0, g=0, b=0, a=0.8}
     o.borderColor = {r=0.35, g=0.35, b=0.35, a=1}
     o.moveWithMouse = true
@@ -84,7 +84,7 @@ function Paradise_POI_Manager:close()
 end
 
 function Paradise_POI_Manager:initialise()
-    ISPanel.initialise(self)
+    ISCollapsableWindow.initialise(self)
     self.anchorLeft = true
     self.anchorRight = false
     self.anchorTop = true
@@ -95,7 +95,7 @@ function Paradise_POI_Manager:initialise()
 end
 
 function Paradise_POI_Manager:createChildren()
-    ISPanel.createChildren(self)
+    ISCollapsableWindow.createChildren(self)
 
     self.titleLabel = ISLabel:new(16, 10, 20, "Paradise POI Manager", 1, 1, 1, 1, UIFont.Medium, true)
     self.titleLabel:initialise()
@@ -449,7 +449,7 @@ function Paradise_POI_Manager:onButtonClick(button)
 end
 
 function Paradise_POI_Manager:prerender()
-    ISPanel.prerender(self)
+    ISCollapsableWindow.prerender(self)
     local now = getTimestampMs and getTimestampMs() or (os.time() * 1000)
     if now - (self.lastLiveCoordinateUpdate or 0) < ParadisePOI.liveCoordinateDelay then return end
     self.lastLiveCoordinateUpdate = now
@@ -464,5 +464,6 @@ function Paradise_POI_Manager:prerender()
 end
 
 function Paradise_POI_Manager:render()
-    ISPanel.render(self)
+    ISCollapsableWindow.render(self)
 end
+

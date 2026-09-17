@@ -290,6 +290,28 @@ function WaveCaster.updateEvents(module, command, player, args)
         return
     end
 
+    if command == "ClearZombies" then
+        if not player or string.lower(player:getAccessLevel()) ~= "admin" then return end
+        local x, y, z = tonumber(args and args.x), tonumber(args and args.y), tonumber(args and args.z)
+        local radius = tonumber(args and args.radius)
+        if not x or not y or not z or not radius then return end
+        for sx = x - radius, x + radius do
+            for sy = y - radius, y + radius do
+                local square = getCell():getGridSquare(sx, sy, z)
+                if square then
+                    for i = square:getMovingObjects():size(), 1, -1 do
+                        local zed = square:getMovingObjects():get(i - 1)
+                        if instanceof(zed, "IsoZombie") and not zed:isReanimatedPlayer() then
+                            zed:removeFromWorld()
+                            zed:removeFromSquare()
+                        end
+                    end
+                end
+            end
+        end
+        return
+    end
+
     if command == "Sync" and args.data then
         WaveCaster.Data = ModData.getOrCreate("WaveCaster_Data")
 

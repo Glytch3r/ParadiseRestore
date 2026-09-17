@@ -947,15 +947,17 @@ function WaveCasterPanel:onRemoveBodies()
 			for y = self.selectY - radius, self.selectY + radius+1 do
 				if IsoUtils.DistanceTo(self.selectX, self.selectY, x+0.5, y+0.5) <= radius then
 					local sq = cell:getGridSquare(x, y, self.selectZ)
-					local bodies = {}
-					for i=0, sq:getStaticMovingObjects():size()-1 do
-						local body = sq:getStaticMovingObjects():get(i)
-						if instanceof(body, "IsoDeadBody") and not body:isPlayer() then
-							table.insert(bodies, body)
+					if sq then
+						local bodies = {}
+						for i=0, sq:getStaticMovingObjects():size()-1 do
+							local body = sq:getStaticMovingObjects():get(i)
+							if instanceof(body, "IsoDeadBody") and not body:isPlayer() then
+								table.insert(bodies, body)
+							end
 						end
-					end
-					for i, body in ipairs(bodies) do
-						sq:removeCorpse(body, false);
+						for i, body in ipairs(bodies) do
+							sq:removeCorpse(body, false);
+						end
 					end
 				end
 			end
@@ -975,7 +977,7 @@ function WaveCasterPanel:onRemoveZombies()
 			AdminContextMenu.OnRemoveAllZombiesClient()
 			return
 		end
-		SendCommandToServer(string.format("/removezombies -x %d -y %d -z %d -radius %d", x, y, z, radius))
+		sendClientCommand("WaveCaster", "ClearZombies", { x = x, y = y, z = z, radius = radius })
 		return
 	end
 	if self.isShiftDown then
@@ -988,7 +990,7 @@ function WaveCasterPanel:onRemoveZombies()
 			if sq then
 				for i=sq:getMovingObjects():size(),1,-1 do
 					local testZed = sq:getMovingObjects():get(i-1);
-					if instanceof(testZed, "IsoZombie") then
+					if instanceof(testZed, "IsoZombie") and not testZed:isReanimatedPlayer() then
 						testZed:removeFromWorld();
 						testZed:removeFromSquare();
 					end
