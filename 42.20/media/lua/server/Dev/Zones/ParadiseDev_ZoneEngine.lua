@@ -54,17 +54,11 @@ function ParadiseDev.Zones.Engine.userName(pl)
 end
 
 function ParadiseDev.Zones.Engine.playerCageKey(pl)
-    if ParadiseDev and ParadiseDev.Cage and ParadiseDev.Cage.getKey then
-        return ParadiseDev.Cage.getKey(pl)
+    if not pl then return nil end
+    if getSteamModeActive and getSteamModeActive() then
+        return ParadiseDev.Cage and ParadiseDev.Cage.getSteamId and ParadiseDev.Cage.getSteamId(pl) or nil
     end
-    if ParadiseDev and ParadiseDev.Cage and ParadiseDev.Cage.getSteamId then
-        return ParadiseDev.Cage.getSteamId(pl)
-    end
-    return nil
-end
-
-function ParadiseDev.Zones.Engine.playerSteamId(pl)
-    return ParadiseDev.Zones.Engine.playerCageKey(pl)
+    return ParadiseDev.Cage and ParadiseDev.Cage.getUsername and ParadiseDev.Cage.getUsername(pl) or pl:getUsername()
 end
 
 function ParadiseDev.Zones.Engine.cellCoord(value)
@@ -359,7 +353,7 @@ function ParadiseDev.Zones.Engine.syncBoundaryState(pl)
     sendServerCommand(pl, "PZZoneEngine", "boundaryState", {
         borderWidth = ParadiseDev.Zones.Engine.BORDER_WIDTH,
         vehicleMode = ParadiseDev.Zones.Engine.vehicleMode,
-        cagedZoneId = ParadiseDev.Zones.Engine.cageAssignments[ParadiseDev.Zones.Engine.playerSteamId(pl)],
+        cagedZoneId = ParadiseDev.Zones.Engine.cageAssignments[ParadiseDev.Zones.Engine.playerCageKey(pl)],
         zones = zones,
     })
 end
@@ -498,7 +492,7 @@ function ParadiseDev.Zones.Engine.assignCage(pl, zone)
     if not pl or not zone or not zone.features or not zone.features.isCage then
         return false, "A valid Cage zone is required."
     end
-    local steamId = ParadiseDev.Zones.Engine.playerSteamId(pl)
+    local steamId = ParadiseDev.Zones.Engine.playerCageKey(pl)
     if not steamId then return false, "The target player has no Steam ID." end
     local region = ParadiseDev.Zones.Engine.nearestRegion(zone, pl:getX(), pl:getY())
     if not region then return false, "The Cage zone has no segments." end
@@ -515,7 +509,7 @@ function ParadiseDev.Zones.Engine.assignCage(pl, zone)
 end
 
 function ParadiseDev.Zones.Engine.releaseCage(pl)
-    local steamId = ParadiseDev.Zones.Engine.playerSteamId(pl)
+    local steamId = ParadiseDev.Zones.Engine.playerCageKey(pl)
     if not steamId or not ParadiseDev.Zones.Engine.cageAssignments[steamId] then return false end
     local zone = ParadiseDev.Zones.Engine.zones[ParadiseDev.Zones.Engine.cageAssignments[steamId]]
     ParadiseDev.Zones.Engine.cageAssignments[steamId] = nil
@@ -575,7 +569,7 @@ function ParadiseDev.Zones.Engine.onPlayerMove(pl)
     if vehicle then x, y = vehicle:getX(), vehicle:getY() end
     local z = pl:getZ()
 
-    local steamId = ParadiseDev.Zones.Engine.playerSteamId(pl)
+    local steamId = ParadiseDev.Zones.Engine.playerCageKey(pl)
     local cageId = steamId and ParadiseDev.Zones.Engine.cageAssignments[steamId] or nil
     local isCaged = ParadiseDev and ParadiseDev.Cage and ParadiseDev.Cage.isCaged(pl)
     if isCaged and not cageId then
@@ -583,7 +577,7 @@ function ParadiseDev.Zones.Engine.onPlayerMove(pl)
         if nearestCage then
             ParadiseDev.Zones.Engine.captureCageReturn(pl)
             ParadiseDev.Zones.Engine.assignCage(pl, nearestCage)
-            return
+            cageId = steamId and ParadiseDev.Zones.Engine.cageAssignments[steamId] or nil
         end
     end
     if cageId and ParadiseDev.Cage.isCaged(pl) then

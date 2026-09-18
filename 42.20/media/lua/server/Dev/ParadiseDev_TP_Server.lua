@@ -143,13 +143,14 @@ function ParadiseDev.TP.cagedTp(pl, x, y, z)
     local vehicle = pl:getVehicle()
     if not vehicle then return ParadiseDev.TP.teleportPlayer(pl, x, y, z) end
 
-    local seat = vehicle:getSeat(pl)
-    vehicle:exit(pl)
+    local seat = -1
+    pcall(function() seat = vehicle:getSeat(pl) end)
+    pcall(function() vehicle:exit(pl) end)
     if seat and seat >= 0 then
-        vehicle:setCharacterPosition(pl, seat, "outside")
-        vehicle:transmitCharacterPosition(seat, "outside")
+        pcall(function() vehicle:setCharacterPosition(pl, seat, "outside") end)
+        pcall(function() vehicle:transmitCharacterPosition(seat, "outside") end)
     end
-    triggerEvent("OnExitVehicle", pl)
+    pcall(triggerEvent, "OnExitVehicle", pl)
     return ParadiseDev.TP.teleportPlayer(pl, x, y, z)
 end
 
