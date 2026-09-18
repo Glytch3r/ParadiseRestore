@@ -67,6 +67,7 @@ function ParadiseZ.isShowTag()
 end
 
 function ParadiseZ.isShowAdminTag(targ)
+    if not targ or not ParadiseDev or not ParadiseDev.isAdm then return false end
     if not ParadiseDev.isAdm(targ) then return false end
     local modData = targ:getModData()
     if modData.ParadiseZShowAdminTag == nil then modData.ParadiseZShowAdminTag = true end
@@ -153,8 +154,9 @@ function ParadiseZ.isTagEmpty(targ)
 end
 
 function ParadiseZ.setTag(targ)
-    if not ParadiseZ.isShowTag() and not ParadiseZ.isShowAdminTag(targ) then return end
     if not targ then targ = getPlayer() end
+    if not targ then return end
+    if not ParadiseZ.isShowTag() and not ParadiseZ.isShowAdminTag(targ) then return end
     --ParadiseZ.removeTag(targ)
     local sprites = ArrayList.new()
     local user = targ:getUsername() 

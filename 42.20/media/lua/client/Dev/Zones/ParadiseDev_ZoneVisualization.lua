@@ -8,6 +8,8 @@ ParadiseDev.Zones.Visualization.highlightedFloors = ParadiseDev.Zones.Visualizat
 ParadiseDev.Zones.Visualization.lastRefreshX = ParadiseDev.Zones.Visualization.lastRefreshX or nil
 ParadiseDev.Zones.Visualization.lastRefreshY = ParadiseDev.Zones.Visualization.lastRefreshY or nil
 ParadiseDev.Zones.Visualization.lastRefreshZ = ParadiseDev.Zones.Visualization.lastRefreshZ or nil
+ParadiseDev.Zones.Visualization.boundaryStateReceived = ParadiseDev.Zones.Visualization.boundaryStateReceived or false
+ParadiseDev.Zones.Visualization.boundaryStateRequestTick = 0
 ParadiseDev.Zones.Visualization.VISIBLE_RADIUS = 80
 ParadiseDev.Zones.Visualization.BAND_WIDTH = 2
 ParadiseDev.Zones.Visualization.cagedZoneId = ParadiseDev.Zones.Visualization.cagedZoneId or nil
@@ -20,7 +22,17 @@ ParadiseDev.Zones.Visualization.BORDER_COLOR = { r = 1.0, g = 0.9, b = 0.10, a =
 ParadiseDev.Zones.Visualization.INSIDE_BORDER_COLOR = { r = 0.20, g = 1.0, b = 0.20, a = 0.95 }
 ParadiseDev.Zones.Visualization.KOS_BORDER_COLOR = { r = 1.0, g = 0.15, b = 0.10, a = 0.95 }
 
+ParadiseDev.Zones.Visualization.MODDATA_KEY = "ParadiseZShowWorldZoneVisuals"
+
+function ParadiseDev.Zones.Visualization.isEnabledForPlayer(pl)
+    if not pl or not pl.getModData then return false end
+    local value = pl:getModData()[ParadiseDev.Zones.Visualization.MODDATA_KEY]
+    if value == nil then return true end
+    return value == true
+end
+
 function ParadiseDev.Zones.Visualization.canRender(pl)
+    if not ParadiseDev.Zones.Visualization.isEnabledForPlayer(pl) then return false end
     if ParadiseDev.isAdm and ParadiseDev.isAdm(pl) then return true end
     return SandboxVars and SandboxVars.ParadiseZ and SandboxVars.ParadiseZ.ShowZoneDrawToNonAdmins == true
 end
@@ -121,7 +133,8 @@ function ParadiseDev.Zones.Visualization.refreshHighlights(force)
         if ParadiseDev.Zones.Visualization.zoneOnLevel(zone, pz) then
             for _, region in ipairs(zone.regions or {}) do
                 if ParadiseDev.Zones.Visualization.regionNearPlayer(region, pl, ParadiseDev.Zones.Visualization.VISIBLE_RADIUS) then
-                    ParadiseDev.Zones.Visualization.getRegionColors(zone, region, pl)
+                    local insideColor, outsideColor = ParadiseDev.Zones.Visualization.getRegionColors(zone, region, pl)
+                    ParadiseDev.Zones.Visualization.highlightRegion(region, pz, insideColor, outsideColor)
                 end
             end
         end
@@ -130,6 +143,14 @@ end
 
 function ParadiseDev.Zones.Visualization.setEnabled(enabled)
     ParadiseDev.Zones.Visualization.enabled = enabled == true
+    ParadiseDev.Zones.Visualization.refreshHighlights(true)
+end
+
+function ParadiseDev.Zones.Visualization.setPlayerEnabled(pl, enabled)
+    if not pl or not ParadiseDev.isAdm or not ParadiseDev.isAdm(pl) then return end
+    local modData = pl:getModData()
+    modData[ParadiseDev.Zones.Visualization.MODDATA_KEY] = enabled == true
+    if pl.transmitModData then pl:transmitModData() end
     ParadiseDev.Zones.Visualization.refreshHighlights(true)
 end
 
@@ -183,6 +204,7 @@ end
 
 function ParadiseDev.Zones.Visualization.onServerCommand(module, command, args)
     if module ~= "PZZoneEngine" or command ~= "boundaryState" or not args then return end
+    ParadiseDev.Zones.Visualization.boundaryStateReceived = true
     ParadiseDev.Zones.Visualization.zones = args.zones or {}
     ParadiseDev.Zones.Visualization.BAND_WIDTH = tonumber(args.borderWidth) or 2
     ParadiseDev.Zones.Visualization.cagedZoneId = args.cagedZoneId
@@ -190,10 +212,26 @@ function ParadiseDev.Zones.Visualization.onServerCommand(module, command, args)
 end
 
 function ParadiseDev.Zones.Visualization.onPlayerMove(pl)
-    if pl == getPlayer() then ParadiseDev.Zones.Visualization.refreshHighlights(false) end
+    if pl ~= getPlayer() then return end
+    if isClient() and not ParadiseDev.Zones.Visualization.boundaryStateReceived then
+        ParadiseDev.Zones.Visualization.boundaryStateRequestTick = ParadiseDev.Zones.Visualization.boundaryStateRequestTick + 1
+        if ParadiseDev.Zones.Visualization.boundaryStateRequestTick >= 30 then
+            ParadiseDev.Zones.Visualization.boundaryStateRequestTick = 0
+            sendClientCommand("PZZoneEngine", "requestBoundaryState", {})
+        end
+    end
+    ParadiseDev.Zones.Visualization.refreshHighlights(false)
 end
 
 function ParadiseDev.Zones.Visualization.onGameStart()
+    local pl = getPlayer()
+    if pl then
+        local modData = pl:getModData()
+        if modData[ParadiseDev.Zones.Visualization.MODDATA_KEY] == nil then
+            modData[ParadiseDev.Zones.Visualization.MODDATA_KEY] = true
+            if pl.transmitModData then pl:transmitModData() end
+        end
+    end
     if isClient() then sendClientCommand("PZZoneEngine", "requestBoundaryState", {}) end
 end
 

@@ -275,6 +275,12 @@ function ParadiseDev.Context.clearUniversal(pl, radius, selected)
     end
 end
 
+function ParadiseDev.Context.toggleWorldZoneVisuals(pl)
+    if not pl or not ParadiseDev.Zones or not ParadiseDev.Zones.Visualization then return end
+    local visualization = ParadiseDev.Zones.Visualization
+    visualization.setPlayerEnabled(pl, not visualization.isEnabledForPlayer(pl))
+end
+
 function ParadiseDev.Context.clearHighlight()
     for _, floor in pairs(ParadiseDev.Context.highlightedFloors or {}) do
         if floor then
@@ -518,11 +524,22 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     local menu = ISContextMenu:getNew(context)
     context:addSubMenu(main, menu)
 
+    if ParadiseDev.Zones and ParadiseDev.Zones.Visualization then
+        local zoneVisuals = menu:addOption(
+            (ParadiseDev.Zones.Visualization.isEnabledForPlayer(pl) and "Hide Zone Draw" or "Show Zone Draw"),
+            ParadiseDev.Context.toggleWorldZoneVisuals,
+            ParadiseDev.Context.runOption,
+            menu,
+            pl
+        )
+        zoneVisuals.iconTexture = getTexture("media/ui/Paradise/ZoneContextIcon.png")
+    end
+
     if ParadiseDev.SkillRecovery and ParadiseDev.SkillRecovery.addParadiseOptions then
         ParadiseDev.SkillRecovery.addParadiseOptions(menu, pl, worldobjects)
     end
 
-    local panelsRoot = menu:addOption("Panels")
+    local panelsRoot = menu:addOptionOnTop("Panels")
     panelsRoot.iconTexture = getTexture("media/ui/Paradise/ContextIcon.png")
     local panelsMenu = ISContextMenu:getNew(context)
     menu:addSubMenu(panelsRoot, panelsMenu)
@@ -818,7 +835,7 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
         "media/ui/LootableMaps/map_skull.png"
     )
 
-    local clearRoot = menu:addOption("Clear")
+    local clearRoot = menu:addOptionOnTop("Clear")
     clearRoot.iconTexture = getTexture("media/ui/Paradise/ClearContextIcon.png")
     local clearMenu = ISContextMenu:getNew(context)
     menu:addSubMenu(clearRoot, clearMenu)

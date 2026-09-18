@@ -52,7 +52,7 @@ function ParadiseDev.Save.countdown(initiator)
     local pl = getPlayer()
     if not pl then return end
     ParadiseDev.Save.showSavingMessage()
-    timer:Create("ParadiseSaveCountdown", 1, 10, function()
+    timer:Create("ParadiseSaveCountdown", 1, 60, function()
         local remaining = timer:RepsLeft("ParadiseSaveCountdown")
         if remaining and remaining > 0 then
             pl:setHaloNote("Server save: " .. tostring(remaining), 250, 200, 0, 180)

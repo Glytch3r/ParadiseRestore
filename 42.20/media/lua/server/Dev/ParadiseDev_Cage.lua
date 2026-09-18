@@ -107,7 +107,7 @@ end
 function ParadiseDev.Cage.setTrait(pl, isCaged)
     if not pl then return end
     local trait = ParadiseDev.getTrait(ParadiseDev.Cage.trait)
-    if not trait then return end
+    if not trait then return false end
     local changed = false
     if isCaged then
         if not ParadiseDev.hasTrait(pl, trait) then
@@ -119,11 +119,6 @@ function ParadiseDev.Cage.setTrait(pl, isCaged)
         changed = true
     end
     if changed and sendSyncPlayerFields then sendSyncPlayerFields(pl, 2) end
-    local key = ParadiseDev.Cage.getKey(pl) or ParadiseDev.Cage.getUsername(pl)
-    if key then
-        ParadiseDev.Cage.traitStates = ParadiseDev.Cage.traitStates or {}
-        ParadiseDev.Cage.traitStates[key] = isCaged == true
-    end
     return changed
 end
 
@@ -133,30 +128,18 @@ function ParadiseDev.Cage.syncPlayer(pl)
     local usernameKey = ParadiseDev.Cage.getUsernameKey(username)
     local key = ParadiseDev.Cage.getKey(pl)
     local store = ParadiseDev.Cage.getStore()
-    ParadiseDev.Cage.traitStates = ParadiseDev.Cage.traitStates or {}
     if usernameKey and key and store.pending[usernameKey] == true then
         ParadiseDev.Cage.setStored(key, username, true)
         ParadiseDev.Cage.setPending(username, false)
+        ParadiseDev.Cage.setTrait(pl, true)
     end
     local isCaged = ParadiseDev.Cage.isCaged(pl)
-    local trait = ParadiseDev.getTrait(ParadiseDev.Cage.trait)
-    local hasTrait = trait and ParadiseDev.hasTrait(pl, trait) or false
-    local tracked = key and ParadiseDev.Cage.traitStates[key] or nil
     if usernameKey and store.released[usernameKey] then
         ParadiseDev.Cage.setTrait(pl, false)
         store.released[usernameKey] = nil
         ModData.transmit("ParadiseDev_IsCaged")
         return false
     end
-    if tracked == nil and hasTrait and not isCaged then
-        ParadiseDev.Cage.set(pl, true)
-        return true
-    end
-    if tracked ~= nil and hasTrait ~= tracked then
-        ParadiseDev.Cage.set(pl, hasTrait)
-        return hasTrait
-    end
-    ParadiseDev.Cage.setTrait(pl, isCaged)
     return isCaged
 end
 
@@ -250,7 +233,6 @@ function ParadiseDev.Cage.set(pl, isCaged)
     local usernameKey = ParadiseDev.Cage.getUsernameKey(username)
     if usernameKey then ParadiseDev.Cage.getStore().released[usernameKey] = nil end
     ParadiseDev.Cage.setTrait(pl, isCaged)
-
     local engine = ParadiseDev.Zones and ParadiseDev.Zones.Engine or nil
     if not engine then return true end
     if isCaged then
