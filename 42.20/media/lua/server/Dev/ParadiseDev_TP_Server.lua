@@ -133,6 +133,10 @@ function ParadiseDev.TP.exitVehicleAndTeleport(pl, x, y, z, passengerOnly)
     return ParadiseDev.TP.teleportPlayer(pl, x, y, z)
 end
 
+function ParadiseDev.TP.cagedTp(pl, x, y, z)
+    return ParadiseDev.TP.exitVehicleAndTeleport(pl, x, y, z, false)
+end
+
 function ParadiseDev.TP.parseFallbackRebound()
     local options = SandboxVars and SandboxVars.ParadiseZ
     local value = options and options.Coords

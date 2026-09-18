@@ -455,7 +455,7 @@ function ParadiseDev.Zones.Engine.forcePassengerOut(pl, x, y, z)
 end
 
 function ParadiseDev.Zones.Engine.forceVehicleExit(pl, x, y, z)
-    return ParadiseDev and ParadiseDev.TP and ParadiseDev.TP.exitVehicleAndTeleport(pl, x, y, z, false) or false
+    return ParadiseDev and ParadiseDev.TP and ParadiseDev.TP.cagedTp(pl, x, y, z) or false
 end
 
 function ParadiseDev.Zones.Engine.captureCageReturn(pl)
@@ -489,7 +489,7 @@ function ParadiseDev.Zones.Engine.restoreCageReturn(pl)
     local modData = pl:getModData()
     local returnPoint = modData.ParadiseDevCageReturn
     if not returnPoint then return false end
-    local restored = ParadiseDev.Zones.Engine.teleportPlayer(pl, returnPoint.x, returnPoint.y, returnPoint.z)
+    local restored = ParadiseDev.TP.cagedTp(pl, returnPoint.x, returnPoint.y, returnPoint.z)
     if restored then modData.ParadiseDevCageReturn = nil end
     return restored
 end
@@ -544,19 +544,24 @@ function ParadiseDev.Zones.Engine.enforceCage(pl, zone, x, y, z)
 
     local vehicle = pl:getVehicle()
     if not vehicle then
-        ParadiseDev.Zones.Engine.teleportPlayer(pl, point.x, point.y, point.z)
+        ParadiseDev.TP.cagedTp(pl, point.x, point.y, point.z)
         ParadiseDev.Zones.Engine.log("cage-teleport", pl, zone)
         return true
     end
 
-    if vehicle:getCharacter(0) == pl then
-        if ParadiseDev.Zones.Engine.forceVehicleExit(pl, point.x, point.y, point.z) then
-            ParadiseDev.Zones.Engine.log("cage-driver-ejected", pl, zone)
+    local driver = vehicle:getCharacter(0)
+    if driver == pl then
+        if ParadiseDev.Zones.Engine.reboundVehicle(vehicle, x, y, point.x, point.y, pl) then
+            ParadiseDev.Zones.Engine.log("cage-vehicle-rebounded-inward", pl, zone)
         end
         return true
     end
 
-    if ParadiseDev.Zones.Engine.forcePassengerOut(pl, point.x, point.y, point.z) then
+    if driver and ParadiseDev.Cage.isCaged(driver) then
+        return true
+    end
+
+    if ParadiseDev.TP.cagedTp(pl, point.x, point.y, point.z) then
         ParadiseDev.Zones.Engine.log("cage-passenger-ejected", pl, zone)
     end
     return true
@@ -605,6 +610,9 @@ function ParadiseDev.Zones.Engine.onPlayerMove(pl)
 
     local driver = vehicle:getCharacter(0)
     if driver ~= pl then
+        if driver and not ParadiseDev.Zones.Engine.isAllowed(zone, driver) then
+            return true
+        end
         local outX, outY = ParadiseDev.Zones.Engine.nearestOutside(region, x, y, 2.0)
         if ParadiseDev.Zones.Engine.forcePassengerOut(pl, outX, outY, z) then
             ParadiseDev.Zones.Engine.log("passenger-ejected", pl, zone)
