@@ -75,18 +75,13 @@ function ParadiseDev.TP.saveRebound(pl, name)
 end
 
 function ParadiseDev.TP.reboundVehicle(vehicle, fromX, fromY, toX, toY, pl)
-    if not vehicle or not toX or not toY then return false end
-    fromX, fromY = vehicle:getX(), vehicle:getY()
-    if not fromX or not fromY then return false end
+    if not vehicle or not fromX or not fromY or not toX or not toY then return false end
     local transform = BaseVehicle.allocTransform()
     vehicle:getWorldTransform(transform)
     local origin = transform:getOrigin()
     origin:set(origin:x() + (tonumber(toX) - tonumber(fromX)), origin:y(), origin:z() + (tonumber(toY) - tonumber(fromY)))
     vehicle:setWorldTransform(transform)
     BaseVehicle.releaseTransform(transform)
-    pcall(vehicle.update, vehicle)
-    pcall(vehicle.updatePhysics, vehicle)
-    pcall(vehicle.updatePhysicsNetwork, vehicle)
     if pl then sendServerCommand(pl, ParadiseDev.TP.module, "vehicleTeleport", {
         id = vehicle:getId(), x = tonumber(toX), y = tonumber(toY),
     }) end
