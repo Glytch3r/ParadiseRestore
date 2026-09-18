@@ -23,9 +23,9 @@ function ParadiseDev.Cage.setLocal(username, key, isCaged)
     local pl = getPlayer and getPlayer() or nil
     if not key and pl and pl.getUsername and pl:getUsername() == username then
         if ParadiseDev.Cage.isSteamMode() then
+            key = pl.getSteamID and tostring(pl:getSteamID()) or nil
+        else
             key = username
-        elseif pl.getSteamID then
-            key = tostring(pl:getSteamID())
         end
     end
     if not key or tostring(key) == "" or tostring(key) == "0" then return false end

@@ -35,8 +35,8 @@ function ParadiseDev.Cage.getSteamId(pl)
 end
 
 function ParadiseDev.Cage.getKey(pl)
-    if ParadiseDev.Cage.isSteamMode() then return ParadiseDev.Cage.getUsername(pl) end
-    return ParadiseDev.Cage.getSteamId(pl) or ParadiseDev.Cage.getUsername(pl)
+    if ParadiseDev.Cage.isSteamMode() then return ParadiseDev.Cage.getSteamId(pl) end
+    return ParadiseDev.Cage.getUsername(pl)
 end
 
 function ParadiseDev.Cage.getUsernameKey(username)
@@ -84,10 +84,15 @@ function ParadiseDev.Cage.findPlayer(username)
     if not username or username == "" then return nil end
     local usernameKey = ParadiseDev.Cage.getUsernameKey(username)
     local players = getOnlinePlayers and getOnlinePlayers() or nil
-    if not players then return nil end
-    for index = 0, players:size() - 1 do
-        local pl = players:get(index)
-        if pl and ParadiseDev.Cage.getUsernameKey(pl:getUsername()) == usernameKey then return pl end
+    if players then
+        for index = 0, players:size() - 1 do
+            local pl = players:get(index)
+            if pl and ParadiseDev.Cage.getUsernameKey(pl:getUsername()) == usernameKey then return pl end
+        end
+    end
+    local host = getPlayer and getPlayer() or nil
+    if host and ParadiseDev.Cage.getUsernameKey(host:getUsername()) == usernameKey then
+        return host
     end
     return nil
 end
@@ -222,7 +227,25 @@ function ParadiseDev.Cage.set(pl, isCaged)
     local key = ParadiseDev.Cage.getKey(pl)
     if not key then return false, "The target player has no cage identity." end
     local username = ParadiseDev.Cage.getUsername(pl)
-    ParadiseDev.Cage.setStored(key, username, isCaged)
+    if isCaged then
+        ParadiseDev.Cage.setStored(key, username, true)
+    else
+        local store = ParadiseDev.Cage.getStore()
+        store.players[key] = nil
+        store.names[key] = nil
+        if username then
+            local usernameKey = ParadiseDev.Cage.getUsernameKey(username)
+            store.players[usernameKey] = nil
+            store.names[usernameKey] = nil
+            store.released[usernameKey] = true
+        end
+        local steamId = ParadiseDev.Cage.getSteamId(pl)
+        if steamId then
+            store.players[steamId] = nil
+            store.names[steamId] = nil
+        end
+        ModData.transmit("ParadiseDev_IsCaged")
+    end
     ParadiseDev.Cage.setPending(username, false)
     local usernameKey = ParadiseDev.Cage.getUsernameKey(username)
     if usernameKey then ParadiseDev.Cage.getStore().released[usernameKey] = nil end
