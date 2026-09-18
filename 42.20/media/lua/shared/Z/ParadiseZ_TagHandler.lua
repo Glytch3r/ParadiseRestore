@@ -27,6 +27,7 @@ ParadiseZ = ParadiseZ or {}
 ParadiseZ.suspectTags = ParadiseZ.suspectTags or {}
 ParadiseZ.publicTextTags = ParadiseZ.publicTextTags or {}
 ParadiseZ.ownTagTextures = ParadiseZ.ownTagTextures or {}
+ParadiseZ.tagHeadOffset = 420
 
 if isServer and isServer() then return end
 
@@ -139,7 +140,7 @@ function ParadiseZ.renderSuspectTags()
         else
             local screenX = (IsoUtils.XToScreen(targ:getX(), targ:getY(), targ:getZ(), 0) - IsoCamera.getOffX()) / zoom
             local screenY = (IsoUtils.YToScreen(targ:getX(), targ:getY(), targ:getZ(), 0) - IsoCamera.getOffY()) / zoom - 56
-            data.tag:AddBatchedDraw(screenX, screenY, 1, 0, 0, 1, false)
+            data.tag:AddBatchedDraw(screenX, screenY - ParadiseZ.tagHeadOffset, 1, 0, 0, 1, false)
         end
     end
 end
@@ -156,7 +157,7 @@ function ParadiseZ.renderPublicTextTags()
         else
             local screenX = (IsoUtils.XToScreen(targ:getX(), targ:getY(), targ:getZ(), 0) - IsoCamera.getOffX()) / zoom
             local screenY = (IsoUtils.YToScreen(targ:getX(), targ:getY(), targ:getZ(), 0) - IsoCamera.getOffY()) / zoom - 56
-            data.tag:AddBatchedDraw(screenX, screenY, 1, 1, 1, 1, false)
+            data.tag:AddBatchedDraw(screenX, screenY - ParadiseZ.tagHeadOffset, data.r or 1, data.g or 1, data.b or 1, 1, false)
         end
     end
 end
@@ -208,26 +209,17 @@ function ParadiseZ.setTag(targ)
             tag:ReadString(UIFont.NewLarge, "CAGED", -1)
             tag:setDefaultColors(1, 0.75, 0)
             tag:setVisibleRadius(360)
-            ParadiseZ.publicTextTags[tostring(key) .. ":caged"] = { tag = tag, target = targ }
+            ParadiseZ.publicTextTags[tostring(key) .. ":caged"] = { tag = tag, target = targ, r = 1, g = 0.75, b = 0 }
         end
     end
-    if ParadiseZ.isShowAdminTag(targ) and isOfficer(targ) then
-        if key then
-            local tag = TextDrawObject.new()
-            tag:setDefaultFont(UIFont.NewLarge)
-            tag:ReadString(UIFont.NewLarge, "OFFICER", -1)
-            tag:setDefaultColors(0.3, 0.8, 1)
-            tag:setVisibleRadius(360)
-            ParadiseZ.publicTextTags[tostring(key) .. ":officer"] = { tag = tag, target = targ }
-        end
-    elseif ParadiseZ.isShowAdminTag(targ) and targ.getAccessLevel and string.lower(tostring(targ:getAccessLevel())) == "admin" then
+    if ParadiseZ.isShowAdminTag(targ) and (isOfficer(targ) or targ.getAccessLevel and string.lower(tostring(targ:getAccessLevel())) == "admin") then
         if key then
             local tag = TextDrawObject.new()
             tag:setDefaultFont(UIFont.NewLarge)
             tag:ReadString(UIFont.NewLarge, "ADMIN", -1)
-            tag:setDefaultColors(1, 0.25, 0.25)
+            tag:setDefaultColors(1, 0, 0)
             tag:setVisibleRadius(360)
-            ParadiseZ.publicTextTags[tostring(key) .. ":admin"] = { tag = tag, target = targ }
+            ParadiseZ.publicTextTags[tostring(key) .. ":ADMIN"] = { tag = tag, target = targ, r = 1, g = 0, b = 0 }
         end
     end
     if user and user == "Glytch3r" then
