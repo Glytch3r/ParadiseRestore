@@ -60,8 +60,46 @@ local function setupSuspectRole()
     end
 end
 
+local function setupOfficersRole()
+    if not addRole or not getRoles or not setupRole or not getCapabilities then return end
+    local roles = getRoles()
+    local officers = nil
+    local admin = nil
+    for index = 0, roles:size() - 1 do
+        local role = roles:get(index)
+        local name = role and string.lower(tostring(role:getName())) or ""
+        if name == "officers" then officers = role end
+        if name == "admin" then admin = role end
+    end
+    if not admin then return end
+    if not officers then
+        addRole("Officers")
+        roles = getRoles()
+        for index = 0, roles:size() - 1 do
+            local role = roles:get(index)
+            if role and string.lower(tostring(role:getName())) == "officers" then
+                officers = role
+                break
+            end
+        end
+    end
+    if not officers then return end
+    local capabilities = {}
+    local allCapabilities = getCapabilities()
+    for index = 0, allCapabilities:size() - 1 do
+        local capability = allCapabilities:get(index)
+        if admin:hasCapability(capability) then
+            capabilities[capability] = true
+        end
+    end
+    capabilities[Capability.ToggleWriteRoleNameAbove] = nil
+    setupRole(officers, admin:getDescription(), admin:getColor(), capabilities)
+end
+
 Events.OnServerStarted.Remove(setupSuspectRole)
 Events.OnServerStarted.Add(setupSuspectRole)
+Events.OnServerStarted.Remove(setupOfficersRole)
+Events.OnServerStarted.Add(setupOfficersRole)
 
 local function canSpectate(player)
     local role = player and player:getRole()

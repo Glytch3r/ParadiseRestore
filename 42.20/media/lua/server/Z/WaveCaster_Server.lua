@@ -149,7 +149,7 @@ function WaveCaster.applyZedData(zed, zd, pl, soundX, soundY)
 end
 
 function WaveCaster.spawn(player, args)
-    if not player or string.lower(player:getAccessLevel()) ~= "admin" then return end
+    if not player or not ParadiseDev.isAdm(player) then return end
     local zd = args.zedData
     if not zd or not args.x or not args.y then return end
     local count = math.min(math.max(tonumber(zd.count) or 1, 1), 500)
@@ -266,7 +266,7 @@ function WaveCaster.updateEvents(module, command, player, args)
     end
 
     if command == "ClearCorpses" then
-        if not player or string.lower(player:getAccessLevel()) ~= "admin" then return end
+    if not player or not ParadiseDev.isAdm(player) then return end
         local x, y, z = tonumber(args and args.x), tonumber(args and args.y), tonumber(args and args.z)
         local radius = tonumber(args and args.radius)
         if not x or not y or not z or not radius then return end
@@ -291,7 +291,7 @@ function WaveCaster.updateEvents(module, command, player, args)
     end
 
     if command == "ClearZombies" then
-        if not player or string.lower(player:getAccessLevel()) ~= "admin" then return end
+    if not player or not ParadiseDev.isAdm(player) then return end
         local x, y, z = tonumber(args and args.x), tonumber(args and args.y), tonumber(args and args.z)
         local radius = tonumber(args and args.radius)
         if not x or not y or not z or not radius then return end

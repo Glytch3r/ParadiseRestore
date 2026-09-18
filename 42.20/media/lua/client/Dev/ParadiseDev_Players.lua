@@ -1,5 +1,6 @@
 
 ParadiseDev = ParadiseDev or {}
+ParadiseRestore = ParadiseRestore or {}
 
 
 function ParadiseDev.getTarg(targ)
@@ -33,5 +34,10 @@ function ParadiseDev.getSteamId(targ)
 end
 function ParadiseDev.isAdm(targ)
     targ = ParadiseDev.getTarg(targ) or getPlayer()
-    return ((targ and string.lower(targ:getAccessLevel()) == "admin") or (isClient() and isAdmin()))
+    if not targ then return false end
+    if targ.getAccessLevel and string.lower(tostring(targ:getAccessLevel())) == "admin" then return true end
+    local role = targ.getRole and targ:getRole() or nil
+    return role and string.lower(tostring(role:getName())) == "officers" or false
 end
+
+ParadiseRestore.isAdm = ParadiseDev.isAdm

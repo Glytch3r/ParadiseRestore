@@ -19,9 +19,10 @@ ParadiseDev.Zones.MapText.hoveredZone = nil
 
 ParadiseDev.Zones.MapText.featureColors = {
     isKos = { r = 0.9, g = 0.2, b = 0.2 },
-    isPvE = { r = 0.0, g = 1.0, b = 0.0 },
-    isBlocked = { r = 0.13, g = 0.13, b = 0.13 },
-    isSafe = { r = 0.84, g = 0.76, b = 0.67 },
+    isBlocked = { r = 0.9, g = 0.2, b = 0.2 },
+    isCage = { r = 0.45, g = 0.2, b = 0.75 },
+    isSafe = { r = 0.15, g = 0.45, b = 0.95 },
+    isPvE = { r = 0.1, g = 0.8, b = 0.25 },
     isRad = { r = 1.0, g = 1.0, b = 1.0 },
     isHunt = { r = 1.0, g = 0.0, b = 0.0 },
     isBlaze = { r = 1.0, g = 0.0, b = 0.0 },
@@ -30,7 +31,6 @@ ParadiseDev.Zones.MapText.featureColors = {
     isMine = { r = 1.0, g = 0.0, b = 0.0 },
     isNoCamp = { r = 0.7, g = 0.7, b = 0.7 },
     isNoFire = { r = 0.8, g = 0.8, b = 0.8 },
-    isCage = { r = 0.7, g = 0.7, b = 0.7 },
     isParty = { r = 1.0, g = 1.0, b = 0.6 },
     isRally = { r = 0.0, g = 1.0, b = 0.0 },
     isSpecial = { r = 0.9, g = 0.4, b = 0.9 },
@@ -40,8 +40,8 @@ ParadiseDev.Zones.MapText.featureColors = {
 ParadiseDev.Zones.MapText.hoverColor = { r = 0.2, g = 0.85, b = 1.0 }
 
 ParadiseDev.Zones.MapText.featureOrder = {
-    "isKos", "isPvE", "isBlocked", "isSafe", "isRad", "isHunt", "isBlaze", "isFrost", "isBomb", "isMine",
-    "isNoCamp", "isNoFire", "isCage", "isParty", "isRally", "isSpecial", "isTrade", "isSprint",
+    "isKos", "isBlocked", "isCage", "isSafe", "isPvE", "isRad", "isHunt", "isBlaze", "isFrost", "isBomb", "isMine",
+    "isNoCamp", "isNoFire", "isParty", "isRally", "isSpecial", "isTrade", "isSprint",
 }
 
 function ParadiseDev.Zones.MapText.getZoneColor(zone)

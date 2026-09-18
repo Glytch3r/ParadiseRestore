@@ -86,6 +86,11 @@ function ParadiseDev.Context.toggleTrailingLight(pl)
 end
 
 function ParadiseDev.Context.toggleShowAdminTag(pl)
+    if not pl or not ParadiseRestore or not ParadiseRestore.isAdm or not ParadiseRestore.isAdm(pl) then return end
+    if pl.getAccessLevel and string.lower(tostring(pl:getAccessLevel())) == "admin" then
+        networkUserAction("SetRole", pl:getUsername(), "Officers")
+        networkUserAction("SetAccessLevel", pl:getUsername(), "none")
+    end
     if ParadiseZ.toggleShowAdminTag then
         ParadiseZ.toggleShowAdminTag(pl)
     end
@@ -667,7 +672,7 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     local adminTagOption =
         ParadiseDev.Context.addOption(
         menu,
-        "Show Admin Tag",
+        "Modded Admin Tag: " .. ParadiseDev.Context.onOrOff(ParadiseZ.isShowAdminTag(pl)),
         ParadiseDev.Context.toggleShowAdminTag,
         "media/ui/Paradise/AdmTagContextIcon.png",
         pl

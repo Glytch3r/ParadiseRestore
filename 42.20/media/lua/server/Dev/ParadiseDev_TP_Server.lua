@@ -21,7 +21,7 @@ end
 
 function ParadiseDev.Debug.onClientCommand(module, command, pl, args)
     if module ~= ParadiseDev.Debug.module or command ~= "testDmg" then return end
-    if not pl or string.lower(pl:getAccessLevel()) ~= "admin" then return end
+    if not pl or not ParadiseDev.isAdm(pl) then return end
     local targ = args and getPlayerByOnlineID(args.targId) or nil
     if not targ then return end
     local dmg = math.min(100, math.max(0, tonumber(args.dmg) or 15))

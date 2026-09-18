@@ -25,6 +25,7 @@
 
 ParadiseZ = ParadiseZ or {}
 ParadiseZ.suspectTags = ParadiseZ.suspectTags or {}
+ParadiseZ.publicTextTags = ParadiseZ.publicTextTags or {}
 ParadiseZ.ownTagTextures = ParadiseZ.ownTagTextures or {}
 
 if isServer and isServer() then return end
@@ -67,8 +68,8 @@ function ParadiseZ.isShowTag()
 end
 
 function ParadiseZ.isShowAdminTag(targ)
-    if not targ or not ParadiseDev or not ParadiseDev.isAdm then return false end
-    if not ParadiseDev.isAdm(targ) then return false end
+    if not targ or not ParadiseRestore or not ParadiseRestore.isAdm then return false end
+    if not ParadiseRestore.isAdm(targ) then return false end
     local modData = targ:getModData()
     if modData.ParadiseZShowAdminTag == nil then modData.ParadiseZShowAdminTag = true end
     return modData.ParadiseZShowAdminTag == true
@@ -83,7 +84,12 @@ end
 
 local function isAdminViewer()
     local pl = getPlayer and getPlayer() or nil
-    return pl and pl.getAccessLevel and string.lower(tostring(pl:getAccessLevel())) == "admin" or false
+    return ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) or false
+end
+
+local function isOfficer(targ)
+    local role = targ and targ.getRole and targ:getRole() or nil
+    return role and string.lower(tostring(role:getName())) == "officers" or false
 end
 
 local function isSuspect(targ)
@@ -93,7 +99,7 @@ end
 
 function ParadiseZ.setSuspectTag(targ)
     local key = targ and targ.getOnlineID and targ:getOnlineID() or nil
-    if not key or not isAdminViewer() or not isSuspect(targ) then
+    if not key or not isAdminViewer() or targ == getPlayer() or not isSuspect(targ) or not ParadiseZ.isShouldShow(targ) then
         if key then ParadiseZ.suspectTags[key] = nil end
         return
     end
@@ -140,9 +146,35 @@ end
 Events.OnPostRender.Remove(ParadiseZ.renderSuspectTags)
 Events.OnPostRender.Add(ParadiseZ.renderSuspectTags)
 
+function ParadiseZ.renderPublicTextTags()
+    if not isIngameState() then return end
+    local zoom = getCore():getZoom(0)
+    for key, data in pairs(ParadiseZ.publicTextTags) do
+        local targ = data.target
+        if not targ or not ParadiseZ.isShouldShow(targ) then
+            ParadiseZ.publicTextTags[key] = nil
+        else
+            local screenX = (IsoUtils.XToScreen(targ:getX(), targ:getY(), targ:getZ(), 0) - IsoCamera.getOffX()) / zoom
+            local screenY = (IsoUtils.YToScreen(targ:getX(), targ:getY(), targ:getZ(), 0) - IsoCamera.getOffY()) / zoom - 56
+            data.tag:AddBatchedDraw(screenX, screenY, 1, 1, 1, 1, false)
+        end
+    end
+end
+Events.OnPostRender.Remove(ParadiseZ.renderPublicTextTags)
+Events.OnPostRender.Add(ParadiseZ.renderPublicTextTags)
+
 function ParadiseZ.removeTag(targ)
     if targ then
         targ:clearAttachedAnimSprite()
+        local key = targ.getOnlineID and targ:getOnlineID() or nil
+        if key then
+            for tagKey in pairs(ParadiseZ.publicTextTags) do
+                if tostring(tagKey):sub(1, #tostring(key) + 1) == tostring(key) .. ":" then
+                    ParadiseZ.publicTextTags[tagKey] = nil
+                end
+            end
+            ParadiseZ.suspectTags[key] = nil
+        end
         if targ == getPlayer() then ParadiseZ.ownTagTextures = {} end
     end
 end
@@ -156,18 +188,47 @@ end
 function ParadiseZ.setTag(targ)
     if not targ then targ = getPlayer() end
     if not targ then return end
-    if not ParadiseZ.isShowTag() and not ParadiseZ.isShowAdminTag(targ) then return end
-    --ParadiseZ.removeTag(targ)
+    local key = targ.getOnlineID and targ:getOnlineID() or nil
+    if key then
+        for tagKey in pairs(ParadiseZ.publicTextTags) do
+            if tostring(tagKey):sub(1, #tostring(key) + 1) == tostring(key) .. ":" then
+                ParadiseZ.publicTextTags[tagKey] = nil
+            end
+        end
+    end
     local sprites = ArrayList.new()
     local user = targ:getUsername() 
-    if ParadiseZ.isShowAdminTag(targ) then
-        sprites:add(getSprite("media/ui/Tags/Adm_Tag.png"):newInstance())
-    end
     if isPvE(targ) then
         sprites:add(getSprite("media/ui/Tags/PvE_Tag.png"):newInstance())
     end
     if isCaged(targ) then
-        sprites:add(getSprite("media/ui/Tags/Caged_Tag.png"):newInstance())
+        if key then
+            local tag = TextDrawObject.new()
+            tag:setDefaultFont(UIFont.NewLarge)
+            tag:ReadString(UIFont.NewLarge, "CAGED", -1)
+            tag:setDefaultColors(1, 0.75, 0)
+            tag:setVisibleRadius(360)
+            ParadiseZ.publicTextTags[tostring(key) .. ":caged"] = { tag = tag, target = targ }
+        end
+    end
+    if ParadiseZ.isShowAdminTag(targ) and isOfficer(targ) then
+        if key then
+            local tag = TextDrawObject.new()
+            tag:setDefaultFont(UIFont.NewLarge)
+            tag:ReadString(UIFont.NewLarge, "OFFICER", -1)
+            tag:setDefaultColors(0.3, 0.8, 1)
+            tag:setVisibleRadius(360)
+            ParadiseZ.publicTextTags[tostring(key) .. ":officer"] = { tag = tag, target = targ }
+        end
+    elseif ParadiseZ.isShowAdminTag(targ) and targ.getAccessLevel and string.lower(tostring(targ:getAccessLevel())) == "admin" then
+        if key then
+            local tag = TextDrawObject.new()
+            tag:setDefaultFont(UIFont.NewLarge)
+            tag:ReadString(UIFont.NewLarge, "ADMIN", -1)
+            tag:setDefaultColors(1, 0.25, 0.25)
+            tag:setVisibleRadius(360)
+            ParadiseZ.publicTextTags[tostring(key) .. ":admin"] = { tag = tag, target = targ }
+        end
     end
     if user and user == "Glytch3r" then
         local scareCrow = hasScareCrow(targ)
@@ -177,15 +238,12 @@ function ParadiseZ.setTag(targ)
     if targ == getPlayer() then
         targ:clearAttachedAnimSprite()
         ParadiseZ.ownTagTextures = {}
-        if ParadiseZ.isShowAdminTag(targ) then ParadiseZ.ownTagTextures[#ParadiseZ.ownTagTextures + 1] = getTexture("media/ui/Tags/Adm_Tag.png") end
         if isPvE(targ) then ParadiseZ.ownTagTextures[#ParadiseZ.ownTagTextures + 1] = getTexture("media/ui/Tags/PvE_Tag.png") end
-        if isCaged(targ) then ParadiseZ.ownTagTextures[#ParadiseZ.ownTagTextures + 1] = getTexture("media/ui/Tags/Caged_Tag.png") end
         if user and user == "Glytch3r" then ParadiseZ.ownTagTextures[#ParadiseZ.ownTagTextures + 1] = getTexture("media/ui/Tags/Glytch3r_Tag.png") end
         return
     end
-    if not sprites:isEmpty() then
-        targ:setAttachedAnimSprite(sprites)
-    end
+    targ:clearAttachedAnimSprite()
+    if not sprites:isEmpty() then targ:setAttachedAnimSprite(sprites) end
 end
 
 function ParadiseZ.renderOwnTag()
@@ -257,6 +315,8 @@ end
 
 Events.EveryOneMinute.Remove(ParadiseZ.tagHandler)
 Events.EveryOneMinute.Add(ParadiseZ.tagHandler)
+Events.OnPlayerUpdate.Remove(ParadiseZ.doTagCheck)
+Events.OnPlayerUpdate.Add(ParadiseZ.doTagCheck)
 
 
 function ParadiseZ.init()
