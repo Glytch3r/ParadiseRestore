@@ -46,8 +46,9 @@ ParadiseDev.Zones.MapText.featureOrder = {
 }
 
 function ParadiseDev.Zones.MapText.getZoneColor(zone)
+    local features = zone and type(zone.features) == "table" and zone.features or nil
     for _, key in ipairs(ParadiseDev.Zones.MapText.featureOrder) do
-        if zone.features and zone.features[key] then return ParadiseDev.Zones.MapText.featureColors[key] end
+        if features and features[key] then return ParadiseDev.Zones.MapText.featureColors[key] end
     end
     return { r = 1.0, g = 0.9, b = 0.1 }
 end

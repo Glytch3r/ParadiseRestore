@@ -26,9 +26,10 @@
 ParadiseZ = ParadiseZ or {}
 ParadiseZ.suspectTags = ParadiseZ.suspectTags or {}
 ParadiseZ.publicTextTags = ParadiseZ.publicTextTags or {}
+ParadiseZ.publicImageTags = ParadiseZ.publicImageTags or {}
 ParadiseZ.survivorTags = ParadiseZ.survivorTags or {}
 ParadiseZ.ownTagTextures = ParadiseZ.ownTagTextures or {}
-ParadiseZ.tagHeadOffset = 420
+ParadiseZ.tagHeadOffset = 0
 
 if isServer and isServer() then return end
 
@@ -99,6 +100,11 @@ local function isSuspect(targ)
     return role and role:getName() == "Suspect" or false
 end
 
+local function hasRole(targ, wanted)
+    local role = targ and targ.getRole and targ:getRole() or nil
+    return role and string.lower(tostring(role:getName())) == string.lower(wanted) or false
+end
+
 local function getSurvivorName(target)
     local name = target and target.getUsername and target:getUsername() or nil
     if not name or name == "" then name = target and target.getPlayerName and target:getPlayerName() or nil end
@@ -154,8 +160,8 @@ function ParadiseZ.renderSurvivorTags()
         local target = data.target
         if target and ParadiseZ.isShouldShow(target) then
             local screenX = (IsoUtils.XToScreen(target:getX(), target:getY(), target:getZ(), 0) - IsoCamera.getOffX()) / zoom
-            local screenY = (IsoUtils.YToScreen(target:getX(), target:getY(), target:getZ(), 0) - IsoCamera.getOffY()) / zoom - 56
-            data.tag:AddBatchedDraw(screenX, screenY - ParadiseZ.tagHeadOffset, 1, 0.2, 0.2, 1, false)
+            local screenY = (IsoUtils.YToScreen(target:getX(), target:getY(), target:getZ(), 0) - IsoCamera.getOffY()) / zoom - ((56 + ParadiseZ.tagHeadOffset) / zoom)
+            data.tag:AddBatchedDraw(screenX, screenY, 1, 0.2, 0.2, 1, false)
         end
     end
 end
@@ -203,8 +209,8 @@ function ParadiseZ.renderSuspectTags()
             ParadiseZ.suspectTags[key] = nil
         else
             local screenX = (IsoUtils.XToScreen(targ:getX(), targ:getY(), targ:getZ(), 0) - IsoCamera.getOffX()) / zoom
-            local screenY = (IsoUtils.YToScreen(targ:getX(), targ:getY(), targ:getZ(), 0) - IsoCamera.getOffY()) / zoom - 56
-            data.tag:AddBatchedDraw(screenX, screenY - ParadiseZ.tagHeadOffset, 1, 0, 0, 1, false)
+            local screenY = (IsoUtils.YToScreen(targ:getX(), targ:getY(), targ:getZ(), 0) - IsoCamera.getOffY()) / zoom - ((56 + ParadiseZ.tagHeadOffset + (data.offsetY or 0)) / zoom)
+            data.tag:AddBatchedDraw(screenX, screenY, 1, 0, 0, 1, false)
         end
     end
 end
@@ -220,8 +226,8 @@ function ParadiseZ.renderPublicTextTags()
             ParadiseZ.publicTextTags[key] = nil
         else
             local screenX = (IsoUtils.XToScreen(targ:getX(), targ:getY(), targ:getZ(), 0) - IsoCamera.getOffX()) / zoom
-            local screenY = (IsoUtils.YToScreen(targ:getX(), targ:getY(), targ:getZ(), 0) - IsoCamera.getOffY()) / zoom - 56
-            data.tag:AddBatchedDraw(screenX, screenY - ParadiseZ.tagHeadOffset, data.r or 1, data.g or 1, data.b or 1, 1, false)
+            local screenY = (IsoUtils.YToScreen(targ:getX(), targ:getY(), targ:getZ(), 0) - IsoCamera.getOffY()) / zoom - ((56 + ParadiseZ.tagHeadOffset) / zoom)
+            data.tag:AddBatchedDraw(screenX, screenY, data.r or 1, data.g or 1, data.b or 1, 1, false)
         end
     end
 end
@@ -236,6 +242,11 @@ function ParadiseZ.removeTag(targ)
             for tagKey in pairs(ParadiseZ.publicTextTags) do
                 if tostring(tagKey):sub(1, #tostring(key) + 1) == tostring(key) .. ":" then
                     ParadiseZ.publicTextTags[tagKey] = nil
+                end
+            end
+            for tagKey in pairs(ParadiseZ.publicImageTags) do
+                if tostring(tagKey):sub(1, #tostring(key) + 1) == tostring(key) .. ":" then
+                    ParadiseZ.publicImageTags[tagKey] = nil
                 end
             end
             ParadiseZ.suspectTags[key] = nil
@@ -263,33 +274,50 @@ function ParadiseZ.setTag(targ)
     end
     local sprites = ArrayList.new()
     local user = targ:getUsername() 
-    if isPvE(targ) then
+    if key and isPvE(targ) then
         sprites:add(getSprite("media/ui/Tags/PvE_Tag.png"):newInstance())
+        ParadiseZ.publicImageTags[tostring(key) .. ":pve"] = { texture = getTexture("media/ui/Tags/PvE_Tag.png"), target = targ, offsetY = 0 }
     end
-    if isCaged(targ) then
-        if key then
-            local tag = TextDrawObject.new()
-            tag:setDefaultFont(UIFont.NewLarge)
-            tag:ReadString(UIFont.NewLarge, "CAGED", -1)
-            tag:setDefaultColors(1, 0.75, 0)
-            tag:setVisibleRadius(360)
-            ParadiseZ.publicTextTags[tostring(key) .. ":caged"] = { tag = tag, target = targ, r = 1, g = 0.75, b = 0 }
-        end
+    if key and isCaged(targ) then
+        local tag = TextDrawObject.new()
+        tag:setDefaultFont(UIFont.Small)
+        tag:ReadString(UIFont.Small, "CAGED", -1)
+        tag:setDefaultColors(1, 0.75, 0)
+        tag:setVisibleRadius(360)
+        ParadiseZ.publicTextTags[tostring(key) .. ":caged"] = { tag = tag, target = targ, r = 1, g = 0.75, b = 0, offsetY = 0 }
     end
-    if ParadiseZ.isShowAdminTag(targ) and (isOfficer(targ) or targ.getAccessLevel and string.lower(tostring(targ:getAccessLevel())) == "admin") then
-        if key then
-            local tag = TextDrawObject.new()
-            tag:setDefaultFont(UIFont.NewLarge)
-            tag:ReadString(UIFont.NewLarge, "ADMIN", -1)
-            tag:setDefaultColors(1, 0, 0)
-            tag:setVisibleRadius(360)
-            ParadiseZ.publicTextTags[tostring(key) .. ":ADMIN"] = { tag = tag, target = targ, r = 1, g = 0, b = 0 }
-        end
+    if key and hasRole(targ, "Staff") then
+        local tag = TextDrawObject.new()
+        tag:setDefaultFont(UIFont.Small)
+        tag:ReadString(UIFont.Small, "STAFF", -1)
+        tag:setDefaultColors(0.95, 0.55, 0.15)
+        tag:setVisibleRadius(360)
+        ParadiseZ.publicTextTags[tostring(key) .. ":staff"] = { tag = tag, target = targ, r = 0.95, g = 0.55, b = 0.15, offsetY = isCaged(targ) and 20 or 0 }
     end
-    if user and user == "Glytch3r" then
+    if key and hasRole(targ, "Press") then
+        local tag = TextDrawObject.new()
+        tag:setDefaultFont(UIFont.Small)
+        tag:ReadString(UIFont.Small, "PRESS", -1)
+        tag:setDefaultColors(0.35, 0.75, 1)
+        tag:setVisibleRadius(360)
+        ParadiseZ.publicTextTags[tostring(key) .. ":press"] = { tag = tag, target = targ, r = 0.35, g = 0.75, b = 1, offsetY = (isCaged(targ) and 20 or 0) + (hasRole(targ, "Staff") and 20 or 0) }
+    end
+    if key and ParadiseZ.isShowAdminTag(targ) and (isOfficer(targ) or targ.getAccessLevel and string.lower(tostring(targ:getAccessLevel())) == "admin") then
+        local tag = TextDrawObject.new()
+        tag:setDefaultFont(UIFont.NewLarge)
+        tag:ReadString(UIFont.NewLarge, "ADMIN", -1)
+        tag:setDefaultColors(1, 0, 0)
+        tag:setVisibleRadius(360)
+        ParadiseZ.publicTextTags[tostring(key) .. ":ADMIN"] = {
+            tag = tag, target = targ, r = 1, g = 0, b = 0,
+            offsetY = (isCaged(targ) and 20 or 0) + (hasRole(targ, "Staff") and 20 or 0) + (hasRole(targ, "Press") and 20 or 0)
+        }
+    end
+    if key and user and user == "Glytch3r" then
         local scareCrow = hasScareCrow(targ)
         targ:setVariable("isScareCrow", scareCrow)
         sprites:add(getSprite("media/ui/Tags/Glytch3r_Tag.png"):newInstance())
+        ParadiseZ.publicImageTags[tostring(key) .. ":glytch3r"] = { texture = getTexture("media/ui/Tags/Glytch3r_Tag.png"), target = targ, offsetY = isPvE(targ) and 32 or 0 }
     end
     if targ == getPlayer() then
         targ:clearAttachedAnimSprite()
@@ -308,7 +336,7 @@ function ParadiseZ.renderOwnTag()
     if not pl or not ParadiseZ.isShouldShow(pl) then return end
     local zoom = getCore():getZoom(0)
     local screenX = (IsoUtils.XToScreen(pl:getX(), pl:getY(), pl:getZ(), 0) - IsoCamera.getOffX()) / zoom
-    local screenY = (IsoUtils.YToScreen(pl:getX(), pl:getY(), pl:getZ(), 0) - IsoCamera.getOffY()) / zoom - 56
+    local screenY = (IsoUtils.YToScreen(pl:getX(), pl:getY(), pl:getZ(), 0) - IsoCamera.getOffY()) / zoom - ((56 + ParadiseZ.tagHeadOffset) / zoom)
     for index, texture in ipairs(ParadiseZ.ownTagTextures) do
         if texture then UIManager.DrawTexture(texture, screenX - 16, screenY - (index * 32), 32, 32, 1) end
     end
