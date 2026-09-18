@@ -1,5 +1,6 @@
 
 ParadiseZ = ParadiseZ or {}
+ParadiseRestore = ParadiseRestore or {}
 ParadiseZ.rateOfFireTestMode = ParadiseZ.rateOfFireTestMode or "Disable"
 -----------------------            ---------------------------
 
@@ -7,6 +8,39 @@ function ParadiseZ.coinFlip()
 	return ZombRand(2) == 0
 end
 
+function ParadiseRestore.getRoleCapabilities(roleName)
+    local roles = getRoles()
+    local capabilities = getCapabilities()
+    local role = nil
+    local wanted = string.lower(tostring(roleName))
+
+    for i = 0, roles:size() - 1 do
+        local candidate = roles:get(i)
+        if candidate and string.lower(tostring(candidate:getName())) == wanted then
+            role = candidate
+            break
+        end
+    end
+
+    if not role then
+        return "Role not found: " .. tostring(roleName)
+    end
+
+    local output = {}
+    output[#output + 1] = "Role = " .. tostring(role:getName())
+    output[#output + 1] = "Description = " .. tostring(role:getDescription())
+    output[#output + 1] = ""
+
+    for i = 0, capabilities:size() - 1 do
+        local capability = capabilities:get(i)
+        local name = capability.getName and capability:getName() or tostring(capability)
+        local enabled = role:hasCapability(capability) == true
+        output[#output + 1] = name .. " = " .. tostring(enabled)
+    end
+
+    return table.concat(output, "\n")
+end
+--Clipboard.setClipboard(ParadiseRestore.getRoleCapabilities("Staff"))
 
 function ParadiseZ.zedRPM(zed)
     if ParadiseZ.rateOfFireTestMode == "Disable" then

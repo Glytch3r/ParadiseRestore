@@ -4,6 +4,7 @@ ParadiseDev.Map = ParadiseDev.Map or {}
 ParadiseDev.Map.zoneVisuals = ParadiseDev.Map.zoneVisuals ~= false
 ParadiseDev.Map.coordinates = ParadiseDev.Map.coordinates ~= false
 
+require "ISUI/Maps/ISMiniMap"
 
 ParadiseDev.Map.vanillaInstantiate = ParadiseDev.Map.vanillaInstantiate or ISWorldMap.instantiate
 
@@ -24,6 +25,105 @@ local function mapZoneColor(zone)
     local color = mapText and mapText.getZoneColor and mapText.getZoneColor(zone)
     if color then return color.r, color.g, color.b end
     return 0.03, 0.55, 0.03
+end
+
+local function drawMinimapZoneBorders(minimap)
+    if not minimap or not minimap.mapAPI then return end
+    local visuals = ParadiseDev.Zones and ParadiseDev.Zones.Visualization
+    if not visuals or not visuals.zones then return end
+    local pl = getSpecificPlayer and getSpecificPlayer(minimap.playerNum) or getPlayer()
+    if not pl then return end
+    local z = math.floor(pl:getZ())
+    for _, zone in ipairs(visuals.zones) do
+        if visuals.zoneOnLevel(zone, z) then
+            for _, region in ipairs(zone.regions or {}) do
+                if visuals.regionNearPlayer(region, pl, visuals.VISIBLE_RADIUS) then
+                    local r, g, b = mapZoneColor(zone)
+                    local function line(x1, y1, x2, y2)
+                        local sx1, sy1 = minimap.mapAPI:worldToUIX(x1, y1), minimap.mapAPI:worldToUIY(x1, y1)
+                        local sx2, sy2 = minimap.mapAPI:worldToUIX(x2, y2), minimap.mapAPI:worldToUIY(x2, y2)
+                        if sx1 and sy1 and sx2 and sy2 then
+                            local dx, dy = sx2 - sx1, sy2 - sy1
+                            local length = math.sqrt(dx * dx + dy * dy)
+                            if length > 0 then
+                                local half = 1.0
+                                local nx, ny = -dy / length * half, dx / length * half
+                                getRenderer():renderPoly(sx1 + nx, sy1 + ny, sx2 + nx, sy2 + ny,
+                                    sx2 - nx, sy2 - ny, sx1 - nx, sy1 - ny, r, g, b, 0.75)
+                            end
+                        end
+                    end
+                    line(region.xMin, region.yMin, region.xMax, region.yMin)
+                    line(region.xMax, region.yMin, region.xMax, region.yMax)
+                    line(region.xMax, region.yMax, region.xMin, region.yMax)
+                    line(region.xMin, region.yMax, region.xMin, region.yMin)
+                end
+            end
+        end
+    end
+end
+
+local function isSuspectMarkerViewer()
+    local pl = getPlayer and getPlayer() or nil
+    return ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) or false
+end
+
+local function getSuspectPlayers()
+    local result = {}
+    local cell = getCell and getCell() or nil
+    local objects = cell and cell:getObjectListForLua() or nil
+    if not objects then return result end
+    for index = 0, objects:size() - 1 do
+        local target = objects:get(index)
+        local role = target and target.getRole and target:getRole() or nil
+        if target and instanceof(target, "IsoPlayer") and role and string.lower(tostring(role:getName())) == "suspect" then
+            result[#result + 1] = target
+        end
+    end
+    return result
+end
+
+local function drawSuspectCircle(api, target, radius, alpha)
+    local function line(x1, y1, x2, y2)
+        local dx, dy = x2 - x1, y2 - y1
+        local length = math.sqrt(dx * dx + dy * dy)
+        if length <= 0 then return end
+        local half = 1.5
+        local nx, ny = -dy / length * half, dx / length * half
+        getRenderer():renderPoly(x1 + nx, y1 + ny, x2 + nx, y2 + ny,
+            x2 - nx, y2 - ny, x1 - nx, y1 - ny, 1, 0, 0, alpha)
+    end
+    local x, y = target:getX(), target:getY()
+    local cx, cy = api:worldToUIX(x, y), api:worldToUIY(x, y)
+    local px = api:worldToUIX(x + radius, y)
+    if not cx or not cy or not px then return end
+    local screenRadius = math.abs(px - cx)
+    if screenRadius < 2 then screenRadius = 2 end
+    local lastX, lastY = cx + screenRadius, cy
+    for index = 1, 24 do
+        local angle = (math.pi * 2 * index) / 24
+        local nextX = cx + math.cos(angle) * screenRadius
+        local nextY = cy + math.sin(angle) * screenRadius
+        line(lastX, lastY, nextX, nextY)
+        lastX, lastY = nextX, nextY
+    end
+end
+
+local function drawSuspectMarkers(map)
+    if not map or not map.mapAPI or not isSuspectMarkerViewer() then return end
+    for _, target in ipairs(getSuspectPlayers()) do
+        drawSuspectCircle(map.mapAPI, target, 4, 0.9)
+    end
+end
+
+if ISMiniMapOuter and not ParadiseDev.Map.miniMapHooked then
+    ParadiseDev.Map.miniMapHooked = true
+    ParadiseDev.Map.miniMapRender = ISMiniMapOuter.render
+    function ISMiniMapOuter:render(...)
+        ParadiseDev.Map.miniMapRender(self, ...)
+        drawMinimapZoneBorders(self)
+        drawSuspectMarkers(self)
+    end
 end
 
 local function drawMapLine(self, x1, y1, x2, y2, r, g, b, a)
@@ -90,6 +190,7 @@ function ParadiseDev.Map.hookWorldMap()
         vanillaMapRender(self, ...)
         ParadiseDev.Map.drawZoneBorders(self)
         ParadiseDev.Map.drawCoordinates(self)
+        drawSuspectMarkers(self)
     end
 
     local vanillaMapRightMouseUp = ISWorldMap.onRightMouseUp

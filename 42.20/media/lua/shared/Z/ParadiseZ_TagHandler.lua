@@ -26,6 +26,7 @@
 ParadiseZ = ParadiseZ or {}
 ParadiseZ.suspectTags = ParadiseZ.suspectTags or {}
 ParadiseZ.publicTextTags = ParadiseZ.publicTextTags or {}
+ParadiseZ.survivorTags = ParadiseZ.survivorTags or {}
 ParadiseZ.ownTagTextures = ParadiseZ.ownTagTextures or {}
 ParadiseZ.tagHeadOffset = 420
 
@@ -97,6 +98,69 @@ local function isSuspect(targ)
     local role = targ and targ.getRole and targ:getRole() or nil
     return role and role:getName() == "Suspect" or false
 end
+
+local function getSurvivorName(target)
+    local name = target and target.getUsername and target:getUsername() or nil
+    if not name or name == "" then name = target and target.getPlayerName and target:getPlayerName() or nil end
+    if not name or name == "" then name = target and target.getName and target:getName() or nil end
+    local modData = target and target.getModData and target:getModData() or nil
+    if (not name or name == "") and modData then name = modData.username or modData.Username or modData.playerName end
+    return name and tostring(name) or "Unknown"
+end
+
+local function setSurvivorTag(target)
+    local tag = TextDrawObject.new()
+    tag:setDefaultFont(UIFont.NewLarge)
+    tag:ReadString(UIFont.NewLarge, "SURVIVOR: " .. getSurvivorName(target), -1)
+    tag:setDefaultColors(1, 0.2, 0.2)
+    tag:setVisibleRadius(360)
+    ParadiseZ.survivorTags[target] = { tag = tag, target = target }
+end
+
+function ParadiseZ.updateSurvivorTags()
+    if not isAdminViewer() then
+        ParadiseZ.survivorTags = {}
+        return
+    end
+    local cell = getCell and getCell() or nil
+    local objects = cell and cell:getObjectListForLua() or nil
+    if not objects then return end
+    local seen = {}
+    for index = 0, objects:size() - 1 do
+        local target = objects:get(index)
+        local isSurvivor = (target and instanceof(target, "IsoDeadBody") and target:isPlayer()) or
+            (target and instanceof(target, "IsoZombie") and target:isReanimatedPlayer())
+        if isSurvivor then
+            seen[target] = true
+            if not ParadiseZ.survivorTags[target] then setSurvivorTag(target) end
+        end
+    end
+    for target in pairs(ParadiseZ.survivorTags) do
+        if not seen[target] or not target:getSquare() or not ParadiseZ.isShouldShow(target) then
+            ParadiseZ.survivorTags[target] = nil
+        end
+    end
+end
+
+function ParadiseZ.renderSurvivorTags()
+    if not isIngameState() or not isAdminViewer() then return end
+    local now = getTimestampMs()
+    if not ParadiseZ.survivorTagCheckAt or now - ParadiseZ.survivorTagCheckAt >= 500 then
+        ParadiseZ.survivorTagCheckAt = now
+        ParadiseZ.updateSurvivorTags()
+    end
+    local zoom = getCore():getZoom(0)
+    for _, data in pairs(ParadiseZ.survivorTags) do
+        local target = data.target
+        if target and ParadiseZ.isShouldShow(target) then
+            local screenX = (IsoUtils.XToScreen(target:getX(), target:getY(), target:getZ(), 0) - IsoCamera.getOffX()) / zoom
+            local screenY = (IsoUtils.YToScreen(target:getX(), target:getY(), target:getZ(), 0) - IsoCamera.getOffY()) / zoom - 56
+            data.tag:AddBatchedDraw(screenX, screenY - ParadiseZ.tagHeadOffset, 1, 0.2, 0.2, 1, false)
+        end
+    end
+end
+Events.OnPostRender.Remove(ParadiseZ.renderSurvivorTags)
+Events.OnPostRender.Add(ParadiseZ.renderSurvivorTags)
 
 function ParadiseZ.setSuspectTag(targ)
     local key = targ and targ.getOnlineID and targ:getOnlineID() or nil

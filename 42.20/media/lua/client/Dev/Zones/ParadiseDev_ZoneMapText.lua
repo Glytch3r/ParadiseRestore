@@ -16,6 +16,7 @@ ParadiseDev.Zones.MapText.api = ParadiseDev.Zones.MapText.api or nil
 ParadiseDev.Zones.MapText.dirty = true
 ParadiseDev.Zones.MapText.tick = 0
 ParadiseDev.Zones.MapText.hoveredZone = nil
+ParadiseDev.Zones.MapText.hoveredZoneColor = nil
 
 ParadiseDev.Zones.MapText.featureColors = {
     isKos = { r = 0.9, g = 0.2, b = 0.2 },
@@ -56,7 +57,10 @@ function ParadiseDev.Zones.MapText.drawZone(map, zone, region, worldX, worldY)
     local xMax, yMax = tonumber(region.xMax), tonumber(region.yMax)
     if not xMin or not yMin or not xMax or not yMax or xMax <= xMin or yMax <= yMin then return end
     local hovered = worldX and worldY and worldX >= xMin and worldX < xMax and worldY >= yMin and worldY < yMax
-    if hovered then ParadiseDev.Zones.MapText.hoveredZone = zone.name or zone.id end
+    if hovered then
+        ParadiseDev.Zones.MapText.hoveredZone = zone.name or zone.id
+        ParadiseDev.Zones.MapText.hoveredZoneColor = ParadiseDev.Zones.MapText.getZoneColor(zone)
+    end
 end
 
 function ParadiseDev.Zones.MapText.drawWorldMap(map)
@@ -65,13 +69,16 @@ function ParadiseDev.Zones.MapText.drawWorldMap(map)
     local worldX = map.mapAPI:uiToWorldX(mouseX, mouseY)
     local worldY = map.mapAPI:uiToWorldY(mouseX, mouseY)
     ParadiseDev.Zones.MapText.hoveredZone = nil
+    ParadiseDev.Zones.MapText.hoveredZoneColor = nil
     for _, zone in ipairs(ParadiseDev.Zones.MapText.zones) do
         for _, region in ipairs(zone.regions or {}) do
             ParadiseDev.Zones.MapText.drawZone(map, zone, region, worldX, worldY)
         end
     end
     if ParadiseDev.Zones.MapText.hoveredZone then
-        map:drawText(ParadiseDev.Zones.MapText.hoveredZone, mouseX + 14, mouseY + 14, 1, 1, 1, 1, UIFont.Medium)
+        local hoveredColor = ParadiseDev.Zones.MapText.hoveredZoneColor or ParadiseDev.Zones.MapText.hoveredColor
+        map:drawText(ParadiseDev.Zones.MapText.hoveredZone, mouseX + 14, mouseY + 14,
+            hoveredColor.r, hoveredColor.g, hoveredColor.b, 1, UIFont.Medium)
     end
 end
 

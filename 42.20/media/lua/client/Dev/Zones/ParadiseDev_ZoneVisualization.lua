@@ -13,14 +13,9 @@ ParadiseDev.Zones.Visualization.boundaryStateRequestTick = 0
 ParadiseDev.Zones.Visualization.VISIBLE_RADIUS = 80
 ParadiseDev.Zones.Visualization.BAND_WIDTH = 2
 ParadiseDev.Zones.Visualization.cagedZoneId = ParadiseDev.Zones.Visualization.cagedZoneId or nil
-ParadiseDev.Zones.Visualization.OUTSIDE_COLOR = { r = 1.0, g = 0.9, b = 0.10, a = 0.35 }
-ParadiseDev.Zones.Visualization.INSIDE_COLOR = { r = 1.0, g = 1.0, b = 1.0, a = 0.35 }
-ParadiseDev.Zones.Visualization.RESTRICTED_OUTSIDE_COLOR = { r = 1.0, g = 1.0, b = 1.0, a = 0.35 }
-ParadiseDev.Zones.Visualization.RESTRICTED_INSIDE_COLOR = { r = 1.0, g = 0.15, b = 0.10, a = 0.35 }
-ParadiseDev.Zones.Visualization.CAGED_OUTSIDE_COLOR = { r = 1.0, g = 0.15, b = 0.10, a = 0.35 }
+ParadiseDev.Zones.Visualization.OUTSIDE_COLOR = { r = 1.0, g = 0.9, b = 0.10, a = 0.25 }
+ParadiseDev.Zones.Visualization.INSIDE_COLOR = { r = 1.0, g = 0.9, b = 0.10, a = 0.35 }
 ParadiseDev.Zones.Visualization.BORDER_COLOR = { r = 1.0, g = 0.9, b = 0.10, a = 0.95 }
-ParadiseDev.Zones.Visualization.INSIDE_BORDER_COLOR = { r = 0.20, g = 1.0, b = 0.20, a = 0.95 }
-ParadiseDev.Zones.Visualization.KOS_BORDER_COLOR = { r = 1.0, g = 0.15, b = 0.10, a = 0.95 }
 
 ParadiseDev.Zones.Visualization.MODDATA_KEY = "ParadiseZShowWorldZoneVisuals"
 
@@ -85,17 +80,12 @@ end
 
 function ParadiseDev.Zones.Visualization.getRegionColors(zone, region, pl)
     local inside = ParadiseDev.Zones.Visualization.regionContains(region, pl:getX(), pl:getY())
-    if zone.id == ParadiseDev.Zones.Visualization.cagedZoneId then
-        return ParadiseDev.Zones.Visualization.INSIDE_COLOR, ParadiseDev.Zones.Visualization.CAGED_OUTSIDE_COLOR,
-            inside and ParadiseDev.Zones.Visualization.INSIDE_BORDER_COLOR or ParadiseDev.Zones.Visualization.BORDER_COLOR
-    end
-    if zone.restricted == true and not inside then
-        return ParadiseDev.Zones.Visualization.RESTRICTED_INSIDE_COLOR, ParadiseDev.Zones.Visualization.RESTRICTED_OUTSIDE_COLOR,
-            (zone.features and zone.features.isKos) and ParadiseDev.Zones.Visualization.KOS_BORDER_COLOR or ParadiseDev.Zones.Visualization.BORDER_COLOR
-    end
-    local borderColor = (zone.features and zone.features.isKos) and ParadiseDev.Zones.Visualization.KOS_BORDER_COLOR or
-        (inside and ParadiseDev.Zones.Visualization.INSIDE_BORDER_COLOR or ParadiseDev.Zones.Visualization.BORDER_COLOR)
-    return ParadiseDev.Zones.Visualization.INSIDE_COLOR, ParadiseDev.Zones.Visualization.OUTSIDE_COLOR, borderColor
+    local mapText = ParadiseDev.Zones.MapText
+    local base = mapText and mapText.getZoneColor and mapText.getZoneColor(zone) or { r = 1.0, g = 0.9, b = 0.10 }
+    local insideColor = { r = base.r, g = base.g, b = base.b, a = 0.35 }
+    local outsideColor = { r = base.r, g = base.g, b = base.b, a = 0.25 }
+    local borderColor = { r = base.r, g = base.g, b = base.b, a = 0.95 }
+    return insideColor, outsideColor, borderColor
 end
 
 function ParadiseDev.Zones.Visualization.highlightRegion(region, z, insideColor, outsideColor)

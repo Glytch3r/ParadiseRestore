@@ -49,8 +49,8 @@ ParadiseDev.ZoneHUD.featureVisuals = {
 }
 
 ParadiseDev.ZoneHUD.featureOrder = {
-    "isKos", "isPvE", "isBlocked", "isSafe", "isRad", "isHunt", "isBlaze", "isFrost", "isBomb", "isMine",
-    "isNoCamp", "isNoFire", "isCage", "isParty", "isRally", "isSpecial", "isTrade", "isSprint",
+    "isKos", "isBlocked", "isCage", "isSafe", "isPvE", "isRad", "isHunt", "isBlaze", "isFrost", "isBomb", "isMine",
+    "isNoCamp", "isNoFire", "isParty", "isRally", "isSpecial", "isTrade", "isSprint",
 }
 
 ParadiseDev.ZoneHUD.fonts = {
@@ -163,7 +163,9 @@ function ParadiseDev.ZoneHUD.draw()
     local header = (mapLabel and mapLabel .. "\n" or "") .. zoneName .. "\nX: " .. tostring(math.floor(pl:getX() + 0.5)) .. "    Y: " .. tostring(math.floor(pl:getY() + 0.5)) .. "    Z: " .. tostring(math.floor(pl:getZ() + 0.5))
     local allowed = not zone or zone.allowed ~= false
     local alpha = zone and 0.8 or (ParadiseDev.isAdm and ParadiseDev.isAdm(pl) and 1 or 0.4)
-    local r, g, b = allowed and 1 or 1, allowed and 1 or 0.35, allowed and 1 or 0.35
+    local zoneColor = ParadiseDev.Zones and ParadiseDev.Zones.MapText and ParadiseDev.Zones.MapText.getZoneColor and
+        ParadiseDev.Zones.MapText.getZoneColor(zone) or { r = 1.0, g = 0.9, b = 0.1 }
+    local r, g, b = zoneColor.r, zoneColor.g, zoneColor.b
     if settings.zoneVisible then getTextManager():DrawString(fonts.header, baseX, baseY, header, r, g, b, alpha) end
 
     if not settings.zoneVisible then
