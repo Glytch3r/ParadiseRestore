@@ -134,7 +134,18 @@ function ParadiseDev.TP.exitVehicleAndTeleport(pl, x, y, z, passengerOnly)
 end
 
 function ParadiseDev.TP.cagedTp(pl, x, y, z)
-    return ParadiseDev.TP.exitVehicleAndTeleport(pl, x, y, z, false)
+    if not pl then return false end
+    local vehicle = pl:getVehicle()
+    if not vehicle then return ParadiseDev.TP.teleportPlayer(pl, x, y, z) end
+
+    local seat = vehicle:getSeat(pl)
+    vehicle:exit(pl)
+    if seat and seat >= 0 then
+        vehicle:setCharacterPosition(pl, seat, "outside")
+        vehicle:transmitCharacterPosition(seat, "outside")
+    end
+    triggerEvent("OnExitVehicle", pl)
+    return ParadiseDev.TP.teleportPlayer(pl, x, y, z)
 end
 
 function ParadiseDev.TP.parseFallbackRebound()
