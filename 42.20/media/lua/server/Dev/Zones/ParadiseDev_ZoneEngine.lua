@@ -625,8 +625,8 @@ function ParadiseDev.Zones.Engine.onPlayerMove(pl)
     ParadiseDev.Zones.Engine.log("vehicle-rebounded", pl, zone)
 end
 
-Events.OnPlayerMove.Remove(ParadiseDev.Zones.Engine.onPlayerMove)
-Events.OnPlayerMove.Add(ParadiseDev.Zones.Engine.onPlayerMove)
+Events.OnPlayerUpdate.Remove(ParadiseDev.Zones.Engine.onPlayerMove)
+Events.OnPlayerUpdate.Add(ParadiseDev.Zones.Engine.onPlayerMove)
 
 function ParadiseDev.Zones.Engine.onClientCommand(module, command, pl)
     if module == "PZZoneEngine" and command == "requestBoundaryState" then
