@@ -112,6 +112,12 @@ function ParadiseDev.TargContext.addPlayerMenu(context, target, localPlayer)
     if networkUserAction then
         menu:addOption("Set Suspect Role", nil, ParadiseDev.TargContext.setSuspect, target)
     end
+
+    if ParadiseCloner and ParadiseCloner.addTargetOption then ParadiseCloner.addTargetOption(menu, target) end
+
+    if ParadiseBan and ParadiseBan.addTargetMenu then
+        ParadiseBan.addTargetMenu(menu, target, localPlayer)
+    end
 end
 
 function ParadiseDev.TargContext.addWorldContext(plNum, context, worldobjects, test)

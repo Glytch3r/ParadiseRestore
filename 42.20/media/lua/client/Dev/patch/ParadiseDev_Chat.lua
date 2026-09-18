@@ -178,11 +178,21 @@ function ISChat:logChatCommand(command)
     ParadiseDev.hook.ISChat_logChatCommand(self, command)
 end
 
+function ParadiseDev.Chat.isHandledCommand(command)
+    if type(command) ~= "string" then return false end
+    local keyword = command:match("^%s*(/%S+)")
+    if not keyword then return false end
+    keyword = string.lower(keyword)
+    return keyword == "/stuck" or keyword == "/unstuck" or keyword == "/promo"
+        or keyword == "/rebound" or keyword == "/cage" or keyword == "/die"
+        or keyword == "/glytch" or keyword == "/glytch3r" or keyword == "/scare"
+end
+
 function ISChat:onCommandEntered()
     local chat = ISChat.instance
     local command = chat and chat.textEntry and chat.textEntry:getText() or nil
     local keyword = type(command) == "string" and command:match("^%s*(/%S+)") or nil
-    if keyword and string.lower(keyword) == "/cage" then
+    if ParadiseDev.Chat.isHandledCommand(command) then
         ParadiseDev.chatCmd(command)
         ParadiseDev.hook.ISChat_logChatCommand(chat, command)
         chat:unfocus()

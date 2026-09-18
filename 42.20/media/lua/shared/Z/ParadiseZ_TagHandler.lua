@@ -29,7 +29,8 @@ ParadiseZ.publicTextTags = ParadiseZ.publicTextTags or {}
 ParadiseZ.publicImageTags = ParadiseZ.publicImageTags or {}
 ParadiseZ.survivorTags = ParadiseZ.survivorTags or {}
 ParadiseZ.ownTagTextures = ParadiseZ.ownTagTextures or {}
-ParadiseZ.tagHeadOffset = 0
+ParadiseZ.tagHeadOffset = 80
+local TAG_LINE_SPACING = 28
 
 if isServer and isServer() then return end
 
@@ -43,10 +44,10 @@ end
 
 local function isCaged(targ)
     if not targ then return false end
+    if targ.HasTrait then return targ:HasTrait("ParadiseDev:Caged") == true end
     if ParadiseDev and ParadiseDev.Cage and ParadiseDev.Cage.isTargetCaged then
         return ParadiseDev.Cage.isTargetCaged(targ) == true
     end
-    if targ.HasTrait and targ:HasTrait("ParadiseDev:Caged") == true then return true end
     local traits = targ.getCharacterTraits and targ:getCharacterTraits() or nil
     return traits and traits.contains and traits:contains("ParadiseDev:Caged") == true or false
 end
@@ -292,7 +293,7 @@ function ParadiseZ.setTag(targ)
         tag:ReadString(UIFont.Small, "STAFF", -1)
         tag:setDefaultColors(0.95, 0.55, 0.15)
         tag:setVisibleRadius(360)
-        ParadiseZ.publicTextTags[tostring(key) .. ":staff"] = { tag = tag, target = targ, r = 0.95, g = 0.55, b = 0.15, offsetY = isCaged(targ) and 20 or 0 }
+        ParadiseZ.publicTextTags[tostring(key) .. ":staff"] = { tag = tag, target = targ, r = 0.95, g = 0.55, b = 0.15, offsetY = isCaged(targ) and TAG_LINE_SPACING or 0 }
     end
     if key and hasRole(targ, "Press") then
         local tag = TextDrawObject.new()
@@ -300,7 +301,7 @@ function ParadiseZ.setTag(targ)
         tag:ReadString(UIFont.Small, "PRESS", -1)
         tag:setDefaultColors(0.35, 0.75, 1)
         tag:setVisibleRadius(360)
-        ParadiseZ.publicTextTags[tostring(key) .. ":press"] = { tag = tag, target = targ, r = 0.35, g = 0.75, b = 1, offsetY = (isCaged(targ) and 20 or 0) + (hasRole(targ, "Staff") and 20 or 0) }
+        ParadiseZ.publicTextTags[tostring(key) .. ":press"] = { tag = tag, target = targ, r = 0.35, g = 0.75, b = 1, offsetY = (isCaged(targ) and TAG_LINE_SPACING or 0) + (hasRole(targ, "Staff") and TAG_LINE_SPACING or 0) }
     end
     if key and ParadiseZ.isShowAdminTag(targ) and (isOfficer(targ) or targ.getAccessLevel and string.lower(tostring(targ:getAccessLevel())) == "admin") then
         local tag = TextDrawObject.new()
@@ -310,7 +311,7 @@ function ParadiseZ.setTag(targ)
         tag:setVisibleRadius(360)
         ParadiseZ.publicTextTags[tostring(key) .. ":ADMIN"] = {
             tag = tag, target = targ, r = 1, g = 0, b = 0,
-            offsetY = (isCaged(targ) and 20 or 0) + (hasRole(targ, "Staff") and 20 or 0) + (hasRole(targ, "Press") and 20 or 0)
+            offsetY = (isCaged(targ) and TAG_LINE_SPACING or 0) + (hasRole(targ, "Staff") and TAG_LINE_SPACING or 0) + (hasRole(targ, "Press") and TAG_LINE_SPACING or 0)
         }
     end
     if key and user and user == "Glytch3r" then

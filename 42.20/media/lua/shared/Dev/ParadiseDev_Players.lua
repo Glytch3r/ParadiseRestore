@@ -21,7 +21,10 @@ function ParadiseDev.isAdm(targ)
     if not targ then return false end
     if targ.getAccessLevel and string.lower(tostring(targ:getAccessLevel())) == "admin" then return true end
     local role = targ.getRole and targ:getRole() or nil
-    return role and string.lower(tostring(role:getName())) == "officers" or false
+    if not role then return false end
+    local roleName = role.getName and role:getName() or role
+    roleName = string.lower(tostring(roleName))
+    return roleName == "officer" or roleName == "officers"
 end
 
 ParadiseRestore.isAdm = ParadiseDev.isAdm

@@ -94,6 +94,20 @@ if isServer and isServer() then
             end
         end
         if not officers then return end
+        if moveRole and officers.getPosition and admin.getPosition then
+            local guard = 0
+            while officers:getPosition() < admin:getPosition() and guard < 32 do
+                moveRole(1, officers:getName())
+                guard = guard + 1
+                roles = getRoles()
+                for index = 0, roles:size() - 1 do
+                    local role = roles:get(index)
+                    local name = role and string.lower(tostring(role:getName())) or ""
+                    if name == "officers" then officers = role end
+                    if name == "admin" then admin = role end
+                end
+            end
+        end
         local capabilities = {}
         local allCapabilities = getCapabilities()
         for index = 0, allCapabilities:size() - 1 do
