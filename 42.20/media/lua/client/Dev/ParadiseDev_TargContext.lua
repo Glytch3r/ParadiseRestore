@@ -50,6 +50,13 @@ function ParadiseDev.TargContext.setSuspect(target)
     networkUserAction("SetRole", target:getUsername(), "Suspect")
 end
 
+function ParadiseDev.TargContext.setOfficer(target)
+    if not target or not target.getUsername or not target.getAccessLevel or not networkUserAction then return end
+    if string.lower(tostring(target:getAccessLevel())) ~= "admin" then return end
+    networkUserAction("SetRole", target:getUsername(), "Officers")
+    networkUserAction("SetAccessLevel", target:getUsername(), "none")
+end
+
 function ParadiseDev.TargContext.setCage(_, target, isCaged)
     if not target or not target.getUsername then return end
     local username = target:getUsername()
@@ -110,6 +117,9 @@ function ParadiseDev.TargContext.addPlayerMenu(context, target, localPlayer)
     end
 
     if networkUserAction then
+        if target.getAccessLevel and string.lower(tostring(target:getAccessLevel())) == "admin" then
+            menu:addOption("Set Officer Role", nil, ParadiseDev.TargContext.setOfficer, target)
+        end
         menu:addOption("Set Suspect Role", nil, ParadiseDev.TargContext.setSuspect, target)
     end
 

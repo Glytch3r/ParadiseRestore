@@ -87,10 +87,6 @@ end
 
 function ParadiseDev.Context.toggleShowAdminTag(pl)
     if not pl or not ParadiseRestore or not ParadiseRestore.isAdm or not ParadiseRestore.isAdm(pl) then return end
-    if pl.getAccessLevel and string.lower(tostring(pl:getAccessLevel())) == "admin" then
-        networkUserAction("SetRole", pl:getUsername(), "Officers")
-        networkUserAction("SetAccessLevel", pl:getUsername(), "none")
-    end
     if ParadiseZ.toggleShowAdminTag then
         ParadiseZ.toggleShowAdminTag(pl)
     end
@@ -636,6 +632,14 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
             ParadiseDev.Panels.openPlaytimeCheck,
             "media/ui/Paradise/ContextIcon.png"
         )
+
+        ParadiseDev.Context.addOption(
+            panelsMenu,
+            "Lua Reset Tool",
+            function() LuaResetTool.open() end,
+            "media/ui/Paradise/ContextIcon.png"
+        )
+
         if getCore():getDebug() then
             ParadiseDev.Context.addOption(
                 panelsMenu,
