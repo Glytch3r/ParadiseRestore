@@ -126,6 +126,21 @@ function ParadiseDev.Context.toggleZombieAttacks(pl)
     pl:setZombiesDontAttack(not (pl:isZombiesDontAttack() == true))
 end
 
+function ParadiseDev.Context.clearPlayerInventory(pl)
+    pl = pl or getPlayer()
+    if not pl then
+        return
+    end
+    local inventory = pl:getInventory()
+    if inventory then
+        inventory:removeAllItems()
+        pl:clearWornItems()
+        pl:resetModelNextFrame()
+        ISInventoryPage.dirtyUI()
+        getPlayerLoot(pl:getPlayerNum()):refreshBackpacks()
+    end
+end
+
 function ParadiseDev.Context.killZeds()
     ParadiseZ.killZeds(nil, nil, nil, ParadiseDev.Context.getClearRadius())
 end
@@ -897,6 +912,13 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
         "Clear Worn Items",
         ParadiseZ.ClearWornItems,
         "media/ui/Paradise/WornItemsContextIcon.png"
+    )
+    ParadiseDev.Context.addOption(
+        clearMenu,
+        "Clear Player Inventory",
+        ParadiseDev.Context.clearPlayerInventory,
+        "media/ui/Paradise/ClearContextIcon.png",
+        pl
     )
     ParadiseDev.Context.addOption(
         clearMenu,

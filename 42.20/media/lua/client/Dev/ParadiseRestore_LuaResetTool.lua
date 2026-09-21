@@ -102,17 +102,17 @@ function LuaResetWindow:createChildren()
 
     listY = listY - 25
 
-    self.resetButton = ISButton:new(10, self.height - 55, 70, 25, "Reset", self, LuaResetWindow.resetSelected)
+    self.resetButton = ISButton:new(self.width - 265, self.height - 55, 70, 25, "Reset", self, LuaResetWindow.resetSelected)
     self.resetButton:initialise()
     self.resetButton:instantiate()
     self:addChild(self.resetButton)
 
-    self.resetAllButton = ISButton:new(85, self.height - 55, 80, 25, "Reset All", self, LuaResetWindow.resetAll)
+    self.resetAllButton = ISButton:new(self.width - 190, self.height - 55, 80, 25, "Reset All", self, LuaResetWindow.resetAll)
     self.resetAllButton:initialise()
     self.resetAllButton:instantiate()
     self:addChild(self.resetAllButton)
 
-    self.refreshButton = ISButton:new(self.width - 175, self.height - 55, 75, 25, "Refresh", self, LuaResetWindow.refresh)
+    self.refreshButton = ISButton:new(10, self.height - 55, 75, 25, "Refresh", self, LuaResetWindow.refresh)
     self.refreshButton:initialise()
     self.refreshButton:instantiate()
     self:addChild(self.refreshButton)
@@ -327,16 +327,15 @@ function LuaResetTool.reset(path)
     if not path or path == "" then
         return
     end
+    print(tostring(path))
+    SendCommandToServer('/reloadlua "' .. tostring(path) .. '"')
+    
+    local resolvedPath = resolveLoadedPath(path)
 
-    if isClient and isClient() and not (isServer and isServer()) then
-        if processSayMessage then
-            processSayMessage("/reloadlua " .. path)
-        end
-
+    if SourceWindow and SourceWindow.map and SourceWindow.map[resolvedPath] then
+        SourceWindow.map[resolvedPath]:reloadFile()
         return
     end
-
-    local resolvedPath = resolveLoadedPath(path)
 
     if reloadLuaFile then
         reloadLuaFile(resolvedPath)
