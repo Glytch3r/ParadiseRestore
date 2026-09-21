@@ -1,4 +1,5 @@
 ParadiseDev = ParadiseDev or {}
+ParadiseRestore = ParadiseRestore or {}
 
 require "Dev/ParadiseDev_TraitUtils"
 
@@ -17,5 +18,13 @@ end
 function ParadiseDev.isAdm(targ)
     targ = targ or (getPlayer and getPlayer() or nil)
     targ = ParadiseDev.getTarg(targ)
-    return targ and targ.getAccessLevel and string.lower(tostring(targ:getAccessLevel())) == "admin" or false
+    if not targ then return false end
+    if targ.getAccessLevel and string.lower(tostring(targ:getAccessLevel())) == "admin" then return true end
+    local role = targ.getRole and targ:getRole() or nil
+    if not role then return false end
+    local roleName = role.getName and role:getName() or role
+    roleName = string.lower(tostring(roleName))
+    return roleName == "officer" or roleName == "officers"
 end
+
+ParadiseRestore.isAdm = ParadiseDev.isAdm

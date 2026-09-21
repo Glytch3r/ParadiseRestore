@@ -50,6 +50,50 @@ function ParadiseDev.TargContext.setSuspect(target)
     networkUserAction("SetRole", target:getUsername(), "Suspect")
 end
 
+function ParadiseDev.TargContext.setOfficer(target)
+    if not target or not target.getUsername or not target.getAccessLevel or not networkUserAction then return end
+    if string.lower(tostring(target:getAccessLevel())) ~= "admin" then return end
+    networkUserAction("SetRole", target:getUsername(), "Officers")
+    networkUserAction("SetAccessLevel", target:getUsername(), "none")
+end
+
+function ParadiseDev.TargContext.setCage(_, target, isCaged)
+    if not target or not target.getUsername then return end
+    local username = target:getUsername()
+    if ParadiseDev.Cage and ParadiseDev.Cage.requestSet then
+        ParadiseDev.Cage.requestSet(username, isCaged)
+    end
+end
+
+function ParadiseDev.TargContext.setPvE(_, target, enabled)
+    if not target or not target.getCharacterTraits then return end
+    local traitType = "ParadiseDev:PvE"
+    local trait = ParadiseDev.getTrait and ParadiseDev.getTrait(traitType) or nil
+    if not trait then return end
+    local traits = target:getCharacterTraits()
+    local hasTrait = ParadiseDev.hasTrait and ParadiseDev.hasTrait(target, traitType) or false
+    if enabled then
+        if not hasTrait then
+            traits:add(trait)
+        end
+    elseif hasTrait then
+        traits:remove(trait)
+    end
+    if SyncXp then SyncXp(target) end
+    if ISPlayerStatsUI and ISPlayerStatsUI.instance then
+        ISPlayerStatsUI.instance:loadTraits()
+    end
+end
+
+function ParadiseDev.TargContext.spectate(_, username)
+    if ParadiseZ and ParadiseZ.setSpectate then ParadiseZ.setSpectate(username) end
+end
+--[[ 
+        ISPlayerStatsUI.instance.char:getCharacterTraits():add(trait:getType());
+        ISPlayerStatsUI.instance.char:modifyTraitXPBoost(trait:getType(), false);
+        SyncXp(ISPlayerStatsUI.instance.char);
+        ISPlayerStatsUI.instance:loadTraits();
+ ]]
 function ParadiseDev.TargContext.addPlayerMenu(context, target, localPlayer)
     local username = target:getUsername()
     local root = context:addOption(username)
@@ -59,18 +103,30 @@ function ParadiseDev.TargContext.addPlayerMenu(context, target, localPlayer)
     if ParadiseDev.Cage then
         local isCaged = ParadiseDev.Cage.isTargetCaged and ParadiseDev.Cage.isTargetCaged(target)
         if ParadiseDev.Cage.requestSet then
-            menu:addOption(isCaged and "Uncage" or "Cage", nil, ParadiseDev.Cage.requestSet, username, not isCaged)
+            menu:addOption(isCaged and "Uncage" or "Cage", nil, ParadiseDev.TargContext.setCage, target, not isCaged)
         end
+        local isPvE = ParadiseDev.Cage.isTargetPvE and ParadiseDev.Cage.isTargetPvE(target) or false
+        menu:addOption(isPvE and "Remove PvE" or "Add PvE", nil, ParadiseDev.TargContext.setPvE, target, not isPvE)
     end
 
-    if username ~= localPlayer:getUsername() and ParadiseZ and ParadiseZ.setSpectate then
-        menu:addOption("Spectate", nil, ParadiseZ.setSpectate, username)
+    if ParadiseZ and ParadiseZ.setSpectate then
+        local spectate = menu:addOption("Spectate", nil, ParadiseDev.TargContext.spectate, username)
+        if username == localPlayer:getUsername() then spectate.notAvailable = true end
     elseif ParadiseZ and ParadiseZ.isSpectating and ParadiseZ.isSpectating(localPlayer) and ParadiseZ.stopSpectate then
         menu:addOption("Stop Spectating", nil, ParadiseZ.stopSpectate)
     end
 
     if networkUserAction then
+        if target.getAccessLevel and string.lower(tostring(target:getAccessLevel())) == "admin" then
+            menu:addOption("Set Officer Role", nil, ParadiseDev.TargContext.setOfficer, target)
+        end
         menu:addOption("Set Suspect Role", nil, ParadiseDev.TargContext.setSuspect, target)
+    end
+
+    if ParadiseCloner and ParadiseCloner.addTargetOption then ParadiseCloner.addTargetOption(menu, target) end
+
+    if ParadiseBan and ParadiseBan.addTargetMenu then
+        ParadiseBan.addTargetMenu(menu, target, localPlayer)
     end
 end
 

@@ -884,7 +884,8 @@ function ParadiseDev.Zones.TestRemote:createChildren()
     self.showBorders:initialise()
     self.showBorders:instantiate()
     self.showBorders:addOption("Show zone borders")
-    self.showBorders:setSelected(1, ParadiseDev.Zones.Visualization == nil or ParadiseDev.Zones.Visualization.enabled)
+    self.showBorders:setSelected(1, ParadiseDev.Zones.Visualization == nil or
+        ParadiseDev.Zones.Visualization.isEnabledForPlayer(getPlayer()))
     self:addChild(self.showBorders)
     self.borderLegend = ParadiseDev.Zones.addLabel(self, "Blue: 2 outside    Orange: 2 inside", x + 190, y + 2,
         { r = 0.55, g = 0.78, b = 1.0 })
@@ -961,7 +962,9 @@ function ParadiseDev.Zones.TestRemote:prerender()
 end
 
 function ParadiseDev.Zones.TestRemote:onShowBorders(index, selected)
-    if ParadiseDev.Zones.Visualization then ParadiseDev.Zones.Visualization.setEnabled(selected) end
+    if ParadiseDev.Zones.Visualization and ParadiseDev.Zones.Visualization.setPlayerEnabled then
+        ParadiseDev.Zones.Visualization.setPlayerEnabled(getPlayer(), selected)
+    end
 end
 
 function ParadiseDev.Zones.TestRemote:onApplyVehicle()

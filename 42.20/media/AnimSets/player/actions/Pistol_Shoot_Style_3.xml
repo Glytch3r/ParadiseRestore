@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animNode>
+    <m_Name>Pistol_Shoot_Style_3</m_Name>
+    <m_AnimName>Pistol_Shoot_Style_3</m_AnimName>
+    <m_deferredBoneAxis>Y</m_deferredBoneAxis>
+    <m_Looped>false</m_Looped>
+    <m_SpeedScale>1.0</m_SpeedScale>
+    <m_BlendTime>0.15</m_BlendTime>
+    <m_Conditions>
+        <m_Name>PerformingAction</m_Name>
+        <m_Type>STRING</m_Type>
+        <m_StringValue>Pistol_Shoot_Style_3</m_StringValue>
+    </m_Conditions>
+</animNode>

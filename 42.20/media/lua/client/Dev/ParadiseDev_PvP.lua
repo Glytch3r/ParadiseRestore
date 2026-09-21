@@ -23,8 +23,8 @@ end
 
 function ParadiseDev.PvP.updateSafety(pl)
     if not pl or not pl.getSafety or not ParadiseDev.LifeBar then return end
-    if ParadiseDev.LifeBar.isPvE(pl) then return end
-    local inPvE = ParadiseDev.LifeBar.isPvEZone(pl)
+    local hasPvETrait = ParadiseDev.LifeBar.isPvE(pl)
+    local inPvE = hasPvETrait or ParadiseDev.LifeBar.isPvEZone(pl)
     local border = ParadiseDev.Zones and ParadiseDev.Zones.Border
     local zone = border and border.getZoneFor and border.getZoneFor(pl) or nil
     local inKos = zone and zone.features and zone.features.isKos == true or false

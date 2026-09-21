@@ -17,7 +17,7 @@ if AdminContextMenu and AdminContextMenu.onHordeManager then
 	function AdminContextMenu.onHordeManager(sq, pl)
 		local pl = getPlayer()
 		if not pl then return end
-		if not (isAdmin() or string.lower(pl:getAccessLevel()) == "admin") then return end
+		if not ParadiseDev.isAdm(pl) then return end
 		WaveCaster.panel(true)
 	end
 end

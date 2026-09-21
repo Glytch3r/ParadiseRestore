@@ -16,12 +16,14 @@ ParadiseDev.Zones.MapText.api = ParadiseDev.Zones.MapText.api or nil
 ParadiseDev.Zones.MapText.dirty = true
 ParadiseDev.Zones.MapText.tick = 0
 ParadiseDev.Zones.MapText.hoveredZone = nil
+ParadiseDev.Zones.MapText.hoveredZoneColor = nil
 
 ParadiseDev.Zones.MapText.featureColors = {
     isKos = { r = 0.9, g = 0.2, b = 0.2 },
-    isPvE = { r = 0.0, g = 1.0, b = 0.0 },
-    isBlocked = { r = 0.13, g = 0.13, b = 0.13 },
-    isSafe = { r = 0.84, g = 0.76, b = 0.67 },
+    isBlocked = { r = 0.9, g = 0.2, b = 0.2 },
+    isCage = { r = 0.45, g = 0.2, b = 0.75 },
+    isSafe = { r = 0.15, g = 0.45, b = 0.95 },
+    isPvE = { r = 0.1, g = 0.8, b = 0.25 },
     isRad = { r = 1.0, g = 1.0, b = 1.0 },
     isHunt = { r = 1.0, g = 0.0, b = 0.0 },
     isBlaze = { r = 1.0, g = 0.0, b = 0.0 },
@@ -30,7 +32,6 @@ ParadiseDev.Zones.MapText.featureColors = {
     isMine = { r = 1.0, g = 0.0, b = 0.0 },
     isNoCamp = { r = 0.7, g = 0.7, b = 0.7 },
     isNoFire = { r = 0.8, g = 0.8, b = 0.8 },
-    isCage = { r = 0.7, g = 0.7, b = 0.7 },
     isParty = { r = 1.0, g = 1.0, b = 0.6 },
     isRally = { r = 0.0, g = 1.0, b = 0.0 },
     isSpecial = { r = 0.9, g = 0.4, b = 0.9 },
@@ -40,13 +41,14 @@ ParadiseDev.Zones.MapText.featureColors = {
 ParadiseDev.Zones.MapText.hoverColor = { r = 0.2, g = 0.85, b = 1.0 }
 
 ParadiseDev.Zones.MapText.featureOrder = {
-    "isKos", "isPvE", "isBlocked", "isSafe", "isRad", "isHunt", "isBlaze", "isFrost", "isBomb", "isMine",
-    "isNoCamp", "isNoFire", "isCage", "isParty", "isRally", "isSpecial", "isTrade", "isSprint",
+    "isKos", "isBlocked", "isCage", "isSafe", "isPvE", "isRad", "isHunt", "isBlaze", "isFrost", "isBomb", "isMine",
+    "isNoCamp", "isNoFire", "isParty", "isRally", "isSpecial", "isTrade", "isSprint",
 }
 
 function ParadiseDev.Zones.MapText.getZoneColor(zone)
+    local features = zone and type(zone.features) == "table" and zone.features or nil
     for _, key in ipairs(ParadiseDev.Zones.MapText.featureOrder) do
-        if zone.features and zone.features[key] then return ParadiseDev.Zones.MapText.featureColors[key] end
+        if features and features[key] then return ParadiseDev.Zones.MapText.featureColors[key] end
     end
     return { r = 1.0, g = 0.9, b = 0.1 }
 end
@@ -56,7 +58,10 @@ function ParadiseDev.Zones.MapText.drawZone(map, zone, region, worldX, worldY)
     local xMax, yMax = tonumber(region.xMax), tonumber(region.yMax)
     if not xMin or not yMin or not xMax or not yMax or xMax <= xMin or yMax <= yMin then return end
     local hovered = worldX and worldY and worldX >= xMin and worldX < xMax and worldY >= yMin and worldY < yMax
-    if hovered then ParadiseDev.Zones.MapText.hoveredZone = zone.name or zone.id end
+    if hovered then
+        ParadiseDev.Zones.MapText.hoveredZone = zone.name or zone.id
+        ParadiseDev.Zones.MapText.hoveredZoneColor = ParadiseDev.Zones.MapText.getZoneColor(zone)
+    end
 end
 
 function ParadiseDev.Zones.MapText.drawWorldMap(map)
@@ -65,13 +70,16 @@ function ParadiseDev.Zones.MapText.drawWorldMap(map)
     local worldX = map.mapAPI:uiToWorldX(mouseX, mouseY)
     local worldY = map.mapAPI:uiToWorldY(mouseX, mouseY)
     ParadiseDev.Zones.MapText.hoveredZone = nil
+    ParadiseDev.Zones.MapText.hoveredZoneColor = nil
     for _, zone in ipairs(ParadiseDev.Zones.MapText.zones) do
         for _, region in ipairs(zone.regions or {}) do
             ParadiseDev.Zones.MapText.drawZone(map, zone, region, worldX, worldY)
         end
     end
     if ParadiseDev.Zones.MapText.hoveredZone then
-        map:drawText(ParadiseDev.Zones.MapText.hoveredZone, mouseX + 14, mouseY + 14, 1, 1, 1, 1, UIFont.Medium)
+        local hoveredColor = ParadiseDev.Zones.MapText.hoveredZoneColor or ParadiseDev.Zones.MapText.hoveredColor
+        map:drawText(ParadiseDev.Zones.MapText.hoveredZone, mouseX + 14, mouseY + 14,
+            hoveredColor.r, hoveredColor.g, hoveredColor.b, 1, UIFont.Medium)
     end
 end
 

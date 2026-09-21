@@ -23,9 +23,9 @@ function ParadiseDev.Cage.setLocal(username, key, isCaged)
     local pl = getPlayer and getPlayer() or nil
     if not key and pl and pl.getUsername and pl:getUsername() == username then
         if ParadiseDev.Cage.isSteamMode() then
+            key = pl.getSteamID and tostring(pl:getSteamID()) or nil
+        else
             key = username
-        elseif pl.getSteamID then
-            key = tostring(pl:getSteamID())
         end
     end
     if not key or tostring(key) == "" or tostring(key) == "0" then return false end
@@ -52,7 +52,10 @@ function ParadiseDev.Cage.requestSet(username, isCaged)
     if not username or username == "" then return false end
     if isClient and isClient() then
         if not sendClientCommand then return false end
-        sendClientCommand("ParadiseDevCage", "set", { username = username, isCaged = isCaged == true })
+        sendClientCommand("ParadiseDevCage", "set", {
+            username = tostring(username),
+            isCaged = isCaged == true,
+        })
         return true
     end
     return ParadiseDev.Cage.setLocal(username, nil, isCaged == true)
@@ -89,6 +92,18 @@ function ParadiseDev.Cage.isTargetCaged(targ)
     return player and trait and ParadiseDev.hasTrait and ParadiseDev.hasTrait(player, trait) or false
 end
 
+function ParadiseDev.Cage.isTargetPvE(targ)
+    if not targ then return false end
+    local player = targ
+    if not player.getCharacterTraits then
+        local username = targ.username or (targ.getUsername and targ:getUsername())
+        player = username and getPlayerFromUsername(username) or nil
+    end
+    local trait = ParadiseDev.getTrait and ParadiseDev.getTrait("ParadiseDev:PvE") or nil
+    return player and trait and ParadiseDev.hasTrait and ParadiseDev.hasTrait(player, trait) or false
+end
+
+--[[ 
 function ParadiseDev.Cage.addTargetOptions(context, targ)
     if not ParadiseDev.isAdm() or not context or not targ then return end
     local user = targ.username or (targ.getUsername and targ:getUsername())
@@ -114,9 +129,10 @@ function ParadiseDev.Cage.addWorldContext(plNum, context, worldobjects, test)
     if test or not ParadiseDev.isAdm() then return end
     ParadiseDev.Cage.addTargetOptions(context, ParadiseDev.Cage.getWorldTarget(context))
 end
+Events.OnFillWorldObjectContex tMenu.Add(ParadiseDev.Cage.addWorldContext)
+]]
 
 ParadiseDev.Cage.Panel = ISCollapsableWindow:derive("ParadiseDev.Cage.Panel")
-
 function ParadiseDev.Cage.Panel:createChildren()
     ISCollapsableWindow.createChildren(self)
     local top = self:titleBarHeight() + 10
@@ -236,7 +252,9 @@ function ParadiseDev.Cage.onServerCommand(module, command, args)
     if module ~= "ParadiseDevCage" or command ~= "state" then return end
     ParadiseDev.Cage.entries = args and type(args.entries) == "table" and args.entries or {}
     ParadiseDev.Cage.refreshPanel()
+    if ISPlayerStatsUI and ISPlayerStatsUI.instance and ISPlayerStatsUI.instance.loadTraits then
+        ISPlayerStatsUI.instance:loadTraits()
+    end
 end
 
 Events.OnServerCommand.Add(ParadiseDev.Cage.onServerCommand)
-Events.OnFillWorldObjectContextMenu.Add(ParadiseDev.Cage.addWorldContext)

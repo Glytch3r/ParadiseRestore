@@ -86,6 +86,7 @@ function ParadiseDev.Context.toggleTrailingLight(pl)
 end
 
 function ParadiseDev.Context.toggleShowAdminTag(pl)
+    if not pl or not ParadiseRestore or not ParadiseRestore.isAdm or not ParadiseRestore.isAdm(pl) then return end
     if ParadiseZ.toggleShowAdminTag then
         ParadiseZ.toggleShowAdminTag(pl)
     end
@@ -273,6 +274,12 @@ function ParadiseDev.Context.clearUniversal(pl, radius, selected)
             end
         end
     end
+end
+
+function ParadiseDev.Context.toggleWorldZoneVisuals(pl)
+    if not pl or not ParadiseDev.Zones or not ParadiseDev.Zones.Visualization then return end
+    local visualization = ParadiseDev.Zones.Visualization
+    visualization.setPlayerEnabled(pl, not visualization.isEnabledForPlayer(pl))
 end
 
 function ParadiseDev.Context.clearHighlight()
@@ -518,11 +525,22 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     local menu = ISContextMenu:getNew(context)
     context:addSubMenu(main, menu)
 
+    if ParadiseDev.Zones and ParadiseDev.Zones.Visualization then
+        local zoneVisuals = menu:addOption(
+            (ParadiseDev.Zones.Visualization.isEnabledForPlayer(pl) and "Hide Zone Draw" or "Show Zone Draw"),
+            ParadiseDev.Context.toggleWorldZoneVisuals,
+            ParadiseDev.Context.runOption,
+            menu,
+            pl
+        )
+        zoneVisuals.iconTexture = getTexture("media/ui/Paradise/ZoneContextIcon.png")
+    end
+
     if ParadiseDev.SkillRecovery and ParadiseDev.SkillRecovery.addParadiseOptions then
         ParadiseDev.SkillRecovery.addParadiseOptions(menu, pl, worldobjects)
     end
 
-    local panelsRoot = menu:addOption("Panels")
+    local panelsRoot = menu:addOptionOnTop("Panels")
     panelsRoot.iconTexture = getTexture("media/ui/Paradise/ContextIcon.png")
     local panelsMenu = ISContextMenu:getNew(context)
     menu:addSubMenu(panelsRoot, panelsMenu)
@@ -614,6 +632,14 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
             ParadiseDev.Panels.openPlaytimeCheck,
             "media/ui/Paradise/ContextIcon.png"
         )
+
+        ParadiseDev.Context.addOption(
+            panelsMenu,
+            "Lua Reset Tool",
+            function() LuaResetTool.open() end,
+            "media/ui/Paradise/ContextIcon.png"
+        )
+
         if getCore():getDebug() then
             ParadiseDev.Context.addOption(
                 panelsMenu,
@@ -650,7 +676,7 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     local adminTagOption =
         ParadiseDev.Context.addOption(
         menu,
-        "Show Admin Tag",
+        "Modded Admin Tag: " .. ParadiseDev.Context.onOrOff(ParadiseZ.isShowAdminTag(pl)),
         ParadiseDev.Context.toggleShowAdminTag,
         "media/ui/Paradise/AdmTagContextIcon.png",
         pl
@@ -818,7 +844,7 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
         "media/ui/LootableMaps/map_skull.png"
     )
 
-    local clearRoot = menu:addOption("Clear")
+    local clearRoot = menu:addOptionOnTop("Clear")
     clearRoot.iconTexture = getTexture("media/ui/Paradise/ClearContextIcon.png")
     local clearMenu = ISContextMenu:getNew(context)
     menu:addSubMenu(clearRoot, clearMenu)

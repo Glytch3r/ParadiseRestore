@@ -49,8 +49,8 @@ ParadiseDev.ZoneHUD.featureVisuals = {
 }
 
 ParadiseDev.ZoneHUD.featureOrder = {
-    "isKos", "isPvE", "isBlocked", "isSafe", "isRad", "isHunt", "isBlaze", "isFrost", "isBomb", "isMine",
-    "isNoCamp", "isNoFire", "isCage", "isParty", "isRally", "isSpecial", "isTrade", "isSprint",
+    "isKos", "isBlocked", "isCage", "isSafe", "isPvE", "isRad", "isHunt", "isBlaze", "isFrost", "isBomb", "isMine",
+    "isNoCamp", "isNoFire", "isParty", "isRally", "isSpecial", "isTrade", "isSprint",
 }
 
 ParadiseDev.ZoneHUD.fonts = {
@@ -88,9 +88,6 @@ end
 function ParadiseDev.ZoneHUD.applyVisualSettings(settings)
     if ParadiseDev.Zones and ParadiseDev.Zones.MapText and ParadiseDev.Zones.MapText.setEnabled then
         ParadiseDev.Zones.MapText.setEnabled(settings.mapZoneVisuals)
-    end
-    if ParadiseDev.Zones and ParadiseDev.Zones.Visualization and ParadiseDev.Zones.Visualization.setEnabled then
-        ParadiseDev.Zones.Visualization.setEnabled(settings.worldZoneVisuals)
     end
 end
 
@@ -166,7 +163,9 @@ function ParadiseDev.ZoneHUD.draw()
     local header = (mapLabel and mapLabel .. "\n" or "") .. zoneName .. "\nX: " .. tostring(math.floor(pl:getX() + 0.5)) .. "    Y: " .. tostring(math.floor(pl:getY() + 0.5)) .. "    Z: " .. tostring(math.floor(pl:getZ() + 0.5))
     local allowed = not zone or zone.allowed ~= false
     local alpha = zone and 0.8 or (ParadiseDev.isAdm and ParadiseDev.isAdm(pl) and 1 or 0.4)
-    local r, g, b = allowed and 1 or 1, allowed and 1 or 0.35, allowed and 1 or 0.35
+    local zoneColor = ParadiseDev.Zones and ParadiseDev.Zones.MapText and ParadiseDev.Zones.MapText.getZoneColor and
+        ParadiseDev.Zones.MapText.getZoneColor(zone) or { r = 1.0, g = 0.9, b = 0.1 }
+    local r, g, b = zoneColor.r, zoneColor.g, zoneColor.b
     if settings.zoneVisible then getTextManager():DrawString(fonts.header, baseX, baseY, header, r, g, b, alpha) end
 
     if not settings.zoneVisible then
@@ -286,10 +285,9 @@ function ParadiseDev.ZoneHUD.SettingsPanel:onMapZoneVisualsChanged(option, enabl
 end
 
 function ParadiseDev.ZoneHUD.SettingsPanel:onWorldZoneVisualsChanged(option, enabled)
-    local settings = ParadiseDev.ZoneHUD.getSettings(self.player)
-    settings.worldZoneVisuals = enabled
-    ParadiseDev.ZoneHUD.saveSettings(self.player, settings)
-    ParadiseDev.ZoneHUD.applyVisualSettings(settings)
+    if ParadiseDev.Zones and ParadiseDev.Zones.Visualization and ParadiseDev.Zones.Visualization.setPlayerEnabled then
+        ParadiseDev.Zones.Visualization.setPlayerEnabled(self.player, enabled)
+    end
 end
 
 function ParadiseDev.ZoneHUD.SettingsPanel:onReset()
@@ -299,6 +297,10 @@ function ParadiseDev.ZoneHUD.SettingsPanel:onReset()
     settings.mapZoneVisuals, settings.worldZoneVisuals = true, true
     ParadiseDev.ZoneHUD.saveSettings(self.player, settings)
     ParadiseDev.ZoneHUD.applyVisualSettings(settings)
+    if ParadiseDev.Zones and ParadiseDev.Zones.Visualization and ParadiseDev.Zones.Visualization.setPlayerEnabled and
+        ParadiseDev.isAdm(self.player) then
+        ParadiseDev.Zones.Visualization.setPlayerEnabled(self.player, true)
+    end
     self.xSlider:setCurrentValue(settings.zoneX, true)
     self.ySlider:setCurrentValue(settings.zoneY, true)
     self.hpXSlider:setCurrentValue(settings.hpX, true)
@@ -311,7 +313,7 @@ function ParadiseDev.ZoneHUD.SettingsPanel:onReset()
     self.zoneVisible.selected[1] = true
     self.hpVisible.selected[1] = true
     self.mapZoneVisuals.selected[1] = true
-    self.worldZoneVisuals.selected[1] = true
+    if self.worldZoneVisuals then self.worldZoneVisuals.selected[1] = true end
 end
 
 function ParadiseDev.ZoneHUD.SettingsPanel:onClose()
@@ -401,12 +403,14 @@ function ParadiseDev.ZoneHUD.SettingsPanel:createChildren()
     self.mapZoneVisuals:addOption("Show Map Zone Visuals")
     self.mapZoneVisuals.selected[1] = settings.mapZoneVisuals
     self:addChild(self.mapZoneVisuals)
-    self.worldZoneVisuals = ISTickBox:new(12, 315, self.width - 24, 22, "", self, ParadiseDev.ZoneHUD.SettingsPanel.onWorldZoneVisualsChanged)
-    self.worldZoneVisuals:initialise()
-    self.worldZoneVisuals:instantiate()
-    self.worldZoneVisuals:addOption("Show World Zone Visuals")
-    self.worldZoneVisuals.selected[1] = settings.worldZoneVisuals
-    self:addChild(self.worldZoneVisuals)
+    if ParadiseDev.isAdm(self.player) then
+        self.worldZoneVisuals = ISTickBox:new(12, 315, self.width - 24, 22, "", self, ParadiseDev.ZoneHUD.SettingsPanel.onWorldZoneVisualsChanged)
+        self.worldZoneVisuals:initialise()
+        self.worldZoneVisuals:instantiate()
+        self.worldZoneVisuals:addOption("Show World Zone Visuals")
+        self.worldZoneVisuals.selected[1] = ParadiseDev.Zones.Visualization.isEnabledForPlayer(self.player)
+        self:addChild(self.worldZoneVisuals)
+    end
     self.resetButton = ISButton:new(12, 340, 120, 26, "Reset", self, ParadiseDev.ZoneHUD.SettingsPanel.onReset)
     self.resetButton:initialise()
     self.resetButton:instantiate()

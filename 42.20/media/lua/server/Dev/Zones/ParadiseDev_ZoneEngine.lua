@@ -303,7 +303,9 @@ function ParadiseDev.Zones.Engine.getDeniedReason(zone, pl)
     local tags = profile.tags
     local features = zone.features or {}
     if features.isBlocked then return "Blocked zone" end
-    if features.isKos and tags.pve then return "PvE profile cannot enter a KoS zone" end
+    local pveTrait = ParadiseDev.getTrait and ParadiseDev.getTrait("ParadiseDev:PvE") or "ParadiseDev:PvE"
+    local hasPveTrait = ParadiseDev.hasTrait and ParadiseDev.hasTrait(pl, pveTrait) or false
+    if features.isKos and (tags.pve or hasPveTrait) then return "PvE profile cannot enter a KoS zone" end
     if features.isHunt and not tags.range_staff and not tags.can_hunt then return "Hunt authorization required" end
     for tag in pairs(zone.policy.denyTags or {}) do
         if tags[tag] then return "Player profile is denied" end
@@ -319,15 +321,27 @@ function ParadiseDev.Zones.Engine.getDeniedReason(zone, pl)
     return nil
 end
 
+function ParadiseDev.Zones.Engine.isCanEnterZone(zone, pl)
+    if not zone or not pl then return true end
+    local features = zone.features or {}
+    local profile = ParadiseDev.Zones.Engine.getProfile(pl)
+    local pveTrait = ParadiseDev.getTrait and ParadiseDev.getTrait("ParadiseDev:PvE") or "ParadiseDev:PvE"
+    local hasPveTrait = ParadiseDev.hasTrait and ParadiseDev.hasTrait(pl, pveTrait) or false
+    if features.isKos and ((profile.tags and profile.tags.pve) or hasPveTrait) then
+        return false
+    end
+    local deniedReason = ParadiseDev.Zones.Engine.getDeniedReason(zone, pl)
+    if not deniedReason then return true end
+    if features.isBlocked then return false end
+    return ParadiseDev.isAdm(pl) and ParadiseDev.Zones.Engine.adminBypassEnabled() and zone.policy.adminBypass ~= false
+end
+
 function ParadiseDev.Zones.Engine.adminBypassEnabled()
     return SandboxVars and SandboxVars.ParadiseZ and SandboxVars.ParadiseZ.AdminBypassZoneRestrictions == true
 end
 
 function ParadiseDev.Zones.Engine.isAllowed(zone, pl)
-    local deniedReason = ParadiseDev.Zones.Engine.getDeniedReason(zone, pl)
-    if not deniedReason then return true end
-    if zone.features and zone.features.isBlocked then return false end
-    return ParadiseDev.isAdm(pl) and ParadiseDev.Zones.Engine.adminBypassEnabled() and zone.policy.adminBypass ~= false
+    return ParadiseDev.Zones.Engine.isCanEnterZone(zone, pl)
 end
 
 function ParadiseDev.Zones.Engine.syncBoundaryState(pl)
@@ -502,8 +516,11 @@ function ParadiseDev.Zones.Engine.assignCage(pl, zone)
     if not steamId then return false, "The target player has no Steam ID." end
     local region = ParadiseDev.Zones.Engine.nearestRegion(zone, pl:getX(), pl:getY())
     if not region then return false, "The Cage zone has no segments." end
-    local x, y = ParadiseDev.Zones.Engine.regionCenter(region)
     local z = zone.zMode == "floor" and zone.zMin or pl:getZ()
+    local x, y = pl:getX(), pl:getY()
+    if not ParadiseDev.Zones.Engine.zoneContains(zone, x, y, z, 0) then
+        x, y = ParadiseDev.Zones.Engine.regionCenter(region)
+    end
     ParadiseDev.Zones.Engine.cageAssignments[steamId] = zone.id
     ParadiseDev.Zones.Engine.lastValid[ParadiseDev.Zones.Engine.userName(pl)] = nil
     ParadiseDev.Zones.Engine.captureCageReturn(pl)
@@ -550,8 +567,8 @@ function ParadiseDev.Zones.Engine.enforceCage(pl, zone, x, y, z)
     end
 
     if vehicle:getCharacter(0) == pl then
-        if ParadiseDev.Zones.Engine.forceVehicleExit(pl, point.x, point.y, point.z) then
-            ParadiseDev.Zones.Engine.log("cage-driver-ejected", pl, zone)
+        if ParadiseDev.Zones.Engine.reboundVehicle(vehicle, x, y, point.x, point.y, pl) then
+            ParadiseDev.Zones.Engine.log("cage-vehicle-rebounded-inward", pl, zone)
         end
         return true
     end
@@ -620,9 +637,11 @@ end
 Events.OnPlayerMove.Remove(ParadiseDev.Zones.Engine.onPlayerMove)
 Events.OnPlayerMove.Add(ParadiseDev.Zones.Engine.onPlayerMove)
 
-function ParadiseDev.Zones.Engine.onClientCommand(module, command, pl)
+function ParadiseDev.Zones.Engine.onClientCommand(module, command, pl, args)
     if module == "PZZoneEngine" and command == "requestBoundaryState" then
         ParadiseDev.Zones.Engine.syncBoundaryState(pl)
+    elseif module == "PZZoneEngine" and command == "cageBoundary" then
+        ParadiseDev.Zones.Engine.onPlayerMove(pl)
     end
 end
 
