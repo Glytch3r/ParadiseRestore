@@ -41,31 +41,49 @@ function ParadiseDev.Save.exitToMenu()
 end
 
 function ParadiseDev.Save.waitUntilAlone()
+    if not ParadiseDev.Save.pendingFinalSave then return end
     local players = getOnlinePlayers and getOnlinePlayers() or nil
     if players and players:size() <= 1 then
         Events.OnTick.Remove(ParadiseDev.Save.waitUntilAlone)
-        ParadiseDev.Save.exitToMenu()
+        ParadiseDev.Save.pendingFinalSave = false
+        sendClientCommand(ParadiseDev.Save.module, "finalSave", {})
     end
 end
 
-function ParadiseDev.Save.countdown(initiator)
+function ParadiseDev.Save.countdown(initiator, seconds)
     local pl = getPlayer()
     if not pl then return end
+    ParadiseDev.Save.initiator = initiator
+    ParadiseDev.Save.pendingFinalSave = false
     ParadiseDev.Save.showSavingMessage()
-    timer:Create("ParadiseSaveCountdown", 1, 60, function()
+    timer:Create("ParadiseSaveCountdown", 1, math.max(1, tonumber(seconds) or 60), function()
         local remaining = timer:RepsLeft("ParadiseSaveCountdown")
         if remaining and remaining > 0 then
             pl:setHaloNote("Server save: " .. tostring(remaining), 250, 200, 0, 180)
         else
-            ParadiseDev.Save.exitToMenu()
+            if pl:getUsername() == ParadiseDev.Save.initiator then
+                ParadiseDev.Save.pendingFinalSave = true
+                Events.OnTick.Remove(ParadiseDev.Save.waitUntilAlone)
+                Events.OnTick.Add(ParadiseDev.Save.waitUntilAlone)
+            else
+                ParadiseDev.Save.exitToMenu()
+            end
         end
     end)
 end
 
 function ParadiseDev.Save.onServerCommand(module, command, args)
     if module ~= ParadiseDev.Save.module or command ~= "countdown" then return end
-    ParadiseDev.Save.countdown(args and args.initiator)
+    ParadiseDev.Save.countdown(args and args.initiator, args and args.seconds)
+end
+
+function ParadiseDev.Save.onFinalSaved(module, command)
+    if module ~= ParadiseDev.Save.module or command ~= "finalSaved" then return end
+    local pl = getPlayer and getPlayer() or nil
+    if pl then pl:addLineChatElement("Everyone Successfully logged out") end
 end
 
 Events.OnServerCommand.Remove(ParadiseDev.Save.onServerCommand)
 Events.OnServerCommand.Add(ParadiseDev.Save.onServerCommand)
+Events.OnServerCommand.Remove(ParadiseDev.Save.onFinalSaved)
+Events.OnServerCommand.Add(ParadiseDev.Save.onFinalSaved)

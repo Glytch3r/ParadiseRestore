@@ -9,13 +9,30 @@ ParadiseDev.POI = ParadiseDev.POI or {}
 ParadiseDev.TP.module = "ParadiseDevTP"
 ParadiseDev.Debug.module = "ParadiseDevDebug"
 ParadiseDev.Save.module = "ParadiseSave"
+ParadiseDev.Save.countdownSeconds = 60
+ParadiseDev.Save.activeInitiator = nil
 ParadiseDev.POI.module = "ParadisePOI"
 
 function ParadiseDev.Save.clearAndSave(pl)
     if not pl or not ParadiseDev.isAdm(pl) then return false end
     if not ServerMap or not ServerMap.instance then return false end
+    if ParadiseDev.Save.activeInitiator then return false end
+    ParadiseDev.Save.activeInitiator = pl:getUsername()
     ServerMap.instance:QueueSaveAll()
-    sendServerCommand(ParadiseDev.Save.module, "countdown", { initiator = pl:getUsername() })
+    sendServerCommand(ParadiseDev.Save.module, "countdown", {
+        initiator = ParadiseDev.Save.activeInitiator,
+        seconds = ParadiseDev.Save.countdownSeconds,
+    })
+    return true
+end
+
+function ParadiseDev.Save.finalSave(pl)
+    if not pl or pl:getUsername() ~= ParadiseDev.Save.activeInitiator then return false end
+    local players = getOnlinePlayers and getOnlinePlayers() or nil
+    if not players or players:size() > 1 then return false end
+    if ServerMap and ServerMap.instance then ServerMap.instance:QueueSaveAll() end
+    ParadiseDev.Save.activeInitiator = nil
+    sendServerCommand(pl, ParadiseDev.Save.module, "finalSaved", {})
     return true
 end
 
@@ -179,6 +196,10 @@ end
 function ParadiseDev.TP.onClientCommand(module, command, pl, args)
     if module == ParadiseDev.Save.module and command == "clearAndSave" then
         ParadiseDev.Save.clearAndSave(pl)
+        return
+    end
+    if module == ParadiseDev.Save.module and command == "finalSave" then
+        ParadiseDev.Save.finalSave(pl)
         return
     end
     if module ~= ParadiseDev.TP.module then return end
