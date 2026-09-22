@@ -583,8 +583,9 @@ function ParadiseZ.ClearTraits()
     for i = TraitFactory.getTraits():size()-1, 0, -1 do
         local trait = TraitFactory.getTraits():get(i)
         local tType = trait:getType()
-        if tType and pl:HasTrait(tType) then  
-            pl:getTraits():remove(tType) 
+        if tType and pl:hasTrait(tType) then
+            pl:getCharacterTraits():remove(tType)
+            pl:modifyTraitXPBoost(tType, true)
         end
     end
     pl:addLineChatElement("All Traits Removed")

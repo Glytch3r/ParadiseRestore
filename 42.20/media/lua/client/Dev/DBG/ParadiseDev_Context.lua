@@ -257,33 +257,32 @@ function ParadiseDev.Context.clearUniversal(pl, radius, selected)
                                 not instanceof(obj, "IsoZombie") and
                                 not instanceof(obj, "IsoDeadBody") and
                                 not instanceof(obj, "IsoAnimal") and
-                                not instanceof(obj, "IsoWorldInventoryObject")
+                                not instanceof(obj, "IsoWorldInventoryObject") and
+                                not instanceof(obj, "IsoFire")
                          then
                             remove = true
                         end
                         if wanted.containerItems and obj.getContainer then
                             local container = obj:getContainer()
-                            local items = container and container:getItems()
-                            if items then
-                                for n = items:size() - 1, 0, -1 do
-                                    container:DoRemoveItem(items:get(n))
-                                end
-                            end
+                            if container and container.removeAllItems then container:removeAllItems() end
                         end
                         if remove then
                             sq:transmitRemoveItemFromSquare(obj)
                         end
                     end
                 end
-                if wanted.cars and sq.getVehicles then
-                    local vehicles = sq:getVehicles()
-                    if vehicles then
-                        for i = vehicles:size() - 1, 0, -1 do
-                            local car = vehicles:get(i)
-                            if car and car.permanentlyRemove then
-                                car:permanentlyRemove()
-                            end
-                        end
+            end
+        end
+    end
+    if wanted.cars and cell.getVehicles then
+        local vehicles = cell:getVehicles()
+        if vehicles then
+            for car in vehicles do
+                if car and math.abs(car:getX() - x) <= rad and math.abs(car:getY() - y) <= rad and math.floor(car:getZ()) == z then
+                    if ParadiseZ.DespawnCar then
+                        ParadiseZ.DespawnCar(pl, car)
+                    elseif car.permanentlyRemove then
+                        car:permanentlyRemove()
                     end
                 end
             end
