@@ -74,9 +74,7 @@ function ParadiseDev.Context.setRateOfFireTestMode(mode)
 end
 
 function ParadiseDev.Context.resetMapVisited()
-    if WorldMapVisited and WorldMapVisited.Reset then
-        WorldMapVisited.Reset()
-    end
+    if ParadiseZ and ParadiseZ.ClearMap then ParadiseZ.ClearMap() end
 end
 
 function ParadiseDev.Context.toggleTrailingLight(pl)

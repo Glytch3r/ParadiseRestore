@@ -555,9 +555,13 @@ function ParadiseZ.clearFog()
 end
 
 function ParadiseZ.ClearMap()
-    WorldMapVisited.getInstance():forget()
     local pl = getPlayer()
-    if pl then pl:addLineChatElement("Map Records Deleted") end
+    if not pl then return end
+    WorldMapVisited.getInstance():forget()
+    if isClient() and sendClientCommand then
+        sendClientCommand(pl, "map", "forget", {})
+    end
+    pl:addLineChatElement("Map Records Deleted")
 end
 
 function ParadiseZ.ClearModData()
