@@ -8,7 +8,7 @@ function ParadiseDev.Zones.ReboundClient.onPlayerUpdate(pl)
     local hasCageTrait = cageTrait and ParadiseDev.hasTrait and ParadiseDev.hasTrait(pl, cageTrait) or false
     if not hasCageTrait then return end
     local now = getGameTime and getGameTime():getWorldAgeHours() or 0
-    if ParadiseDev.Zones.ReboundClient.lastBoundaryUpdate and now - ParadiseDev.Zones.ReboundClient.lastBoundaryUpdate < 0.0001 then return end
+    if ParadiseDev.Zones.ReboundClient.lastBoundaryUpdate and now - ParadiseDev.Zones.ReboundClient.lastBoundaryUpdate < 0.00002 then return end
     ParadiseDev.Zones.ReboundClient.lastBoundaryUpdate = now
     sendClientCommand("PZZoneEngine", "cageBoundary", {})
 end

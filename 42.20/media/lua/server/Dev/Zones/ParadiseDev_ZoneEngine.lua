@@ -412,6 +412,20 @@ function ParadiseDev.Zones.Engine.nearestOutside(region, x, y, padding)
     return x, bottom + 0.05
 end
 
+function ParadiseDev.Zones.Engine.nearestInside(region, x, y, padding)
+    padding = padding or 1
+    local left, right = region.xMin + padding, region.xMax - padding
+    local top, bottom = region.yMin + padding, region.yMax - padding
+    if left > right then left, right = region.xMin, region.xMax - 1 end
+    if top > bottom then top, bottom = region.yMin, region.yMax - 1 end
+    local west, east = math.abs(x - region.xMin), math.abs(region.xMax - x)
+    local north, south = math.abs(y - region.yMin), math.abs(region.yMax - y)
+    if west <= east and west <= north and west <= south then return left, math.max(top, math.min(y, bottom)) end
+    if east <= north and east <= south then return right, math.max(top, math.min(y, bottom)) end
+    if north <= south then return math.max(left, math.min(x, right)), top end
+    return math.max(left, math.min(x, right)), bottom
+end
+
 function ParadiseDev.Zones.Engine.regionCenter(region)
     return (region.xMin + region.xMax - 1) / 2, (region.yMin + region.yMax - 1) / 2
 end
@@ -519,7 +533,7 @@ function ParadiseDev.Zones.Engine.assignCage(pl, zone)
     local z = zone.zMode == "floor" and zone.zMin or pl:getZ()
     local x, y = pl:getX(), pl:getY()
     if not ParadiseDev.Zones.Engine.zoneContains(zone, x, y, z, 0) then
-        x, y = ParadiseDev.Zones.Engine.regionCenter(region)
+        x, y = ParadiseDev.Zones.Engine.nearestInside(region, x, y, 1)
     end
     ParadiseDev.Zones.Engine.cageAssignments[steamId] = zone.id
     ParadiseDev.Zones.Engine.lastValid[ParadiseDev.Zones.Engine.userName(pl)] = nil
@@ -555,7 +569,7 @@ function ParadiseDev.Zones.Engine.enforceCage(pl, zone, x, y, z)
     if not point then
         local region = ParadiseDev.Zones.Engine.nearestRegion(zone, x, y)
         if not region then return false end
-        local cageX, cageY = ParadiseDev.Zones.Engine.regionCenter(region)
+        local cageX, cageY = ParadiseDev.Zones.Engine.nearestInside(region, x, y, 1)
         point = { x = cageX, y = cageY, z = zone.zMode == "floor" and zone.zMin or z }
     end
 
