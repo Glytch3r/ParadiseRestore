@@ -490,10 +490,15 @@ function ParadiseDev.Zones.Engine.captureCageReturn(pl)
     if not pl then return end
     local modData = pl:getModData()
     if modData.ParadiseDevCageReturn then return end
+    local x, y, z = pl:getX(), pl:getY(), pl:getZ()
+    local vehicle = pl:getVehicle()
+    if vehicle then
+        x, y, z = vehicle:getX(), vehicle:getY(), pl:getZ()
+    end
     modData.ParadiseDevCageReturn = {
-        x = pl:getX(),
-        y = pl:getY(),
-        z = pl:getZ(),
+        x = x,
+        y = y,
+        z = z,
     }
 end
 
