@@ -335,12 +335,7 @@ function ParadiseDev.Context.onClearHighlightUpdate()
 end
 
 function ParadiseDev.Context.clearAndSave()
-    local pl = getPlayer()
-    if not pl then return end
-    sendClientCommand("ClearAndSave", "ClearAndSave", {
-        senderName = pl:getUsername(),
-        delay = 60,
-    })
+    ParadiseDev.ClearAndSave.openDelayPrompt()
 end
 
 function ParadiseDev.Context.getClearRadius()
