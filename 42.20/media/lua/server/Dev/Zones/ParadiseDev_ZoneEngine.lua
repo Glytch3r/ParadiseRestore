@@ -517,6 +517,12 @@ function ParadiseDev.Zones.Engine.restoreCageReturn(pl)
     local modData = pl:getModData()
     local returnPoint = modData.ParadiseDevCageReturn
     if not returnPoint then return false end
+    local vehicle = pl:getVehicle()
+    if vehicle then
+        local restored = ParadiseDev.Zones.Engine.forceVehicleExit(pl, returnPoint.x, returnPoint.y, returnPoint.z)
+        if restored then modData.ParadiseDevCageReturn = nil end
+        return restored
+    end
     local restored = ParadiseDev.Zones.Engine.teleportPlayer(pl, returnPoint.x, returnPoint.y, returnPoint.z)
     if restored then modData.ParadiseDevCageReturn = nil end
     return restored
@@ -528,6 +534,9 @@ function ParadiseDev.Zones.Engine.assignCage(pl, zone)
     end
     local steamId = ParadiseDev.Zones.Engine.playerSteamId(pl)
     if not steamId then return false, "The target player has no Steam ID." end
+    if ParadiseDev.Zones.Engine.cageAssignments[steamId] then
+        return false, "Player is already assigned to a cage."
+    end
     local region = ParadiseDev.Zones.Engine.nearestRegion(zone, pl:getX(), pl:getY())
     if not region then return false, "The Cage zone has no segments." end
     local z = zone.zMode == "floor" and zone.zMin or pl:getZ()
