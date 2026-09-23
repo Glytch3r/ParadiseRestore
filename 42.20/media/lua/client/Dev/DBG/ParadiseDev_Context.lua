@@ -334,11 +334,13 @@ function ParadiseDev.Context.onClearHighlightUpdate()
     ParadiseDev.Context.updateClearHighlight()
 end
 
-function ParadiseDev.Context.clearAndSave(pl)
-    if not pl or not ParadiseDev.Save or not sendClientCommand then
-        return
-    end
-    sendClientCommand(ParadiseDev.Save.module, "clearAndSave", {})
+function ParadiseDev.Context.clearAndSave()
+    local pl = getPlayer()
+    if not pl then return end
+    sendClientCommand("ClearAndSave", "ClearAndSave", {
+        senderName = pl:getUsername(),
+        delay = 60,
+    })
 end
 
 function ParadiseDev.Context.getClearRadius()
@@ -939,8 +941,7 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
         clearMenu,
         "Clear and Save",
         ParadiseDev.Context.clearAndSave,
-        "media/ui/Paradise/ClearContextIcon.png",
-        pl
+        "media/ui/Paradise/ClearContextIcon.png"
     )
 end
 
