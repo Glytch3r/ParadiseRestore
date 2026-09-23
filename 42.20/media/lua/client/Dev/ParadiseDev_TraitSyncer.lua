@@ -45,7 +45,7 @@ function Syncer.cleanDuplicates(player)
     local traits = player:getCharacterTraits()
     for _, traitId in ipairs(Syncer.Traits) do
         local trait = ParadiseDev.getTrait and ParadiseDev.getTrait(traitId) or nil
-        if trait and traits:contains(trait) then
+        if trait and Syncer.has(player, traitId) then
             traits:remove(trait)
             traits:add(trait)
         end

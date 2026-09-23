@@ -45,7 +45,6 @@ function ParadiseDev.Save.waitUntilAlone()
     local players = getOnlinePlayers and getOnlinePlayers() or nil
     if players and players:size() <= 1 then
         Events.OnTick.Remove(ParadiseDev.Save.waitUntilAlone)
-        ParadiseDev.Save.pendingFinalSave = false
         sendClientCommand(ParadiseDev.Save.module, "finalSave", {})
     end
 end
@@ -53,6 +52,10 @@ end
 function ParadiseDev.Save.countdown(initiator, seconds)
     local pl = getPlayer()
     if not pl then return end
+    Events.OnTick.Remove(ParadiseDev.Save.waitUntilAlone)
+    if timer then
+        timer:Remove("ParadiseSaveCountdown")
+    end
     ParadiseDev.Save.initiator = initiator
     ParadiseDev.Save.pendingFinalSave = false
     ParadiseDev.Save.showSavingMessage()
@@ -63,7 +66,6 @@ function ParadiseDev.Save.countdown(initiator, seconds)
         else
             if pl:getUsername() == ParadiseDev.Save.initiator then
                 ParadiseDev.Save.pendingFinalSave = true
-                Events.OnTick.Remove(ParadiseDev.Save.waitUntilAlone)
                 Events.OnTick.Add(ParadiseDev.Save.waitUntilAlone)
             else
                 ParadiseDev.Save.exitToMenu()
@@ -79,6 +81,9 @@ end
 
 function ParadiseDev.Save.onFinalSaved(module, command)
     if module ~= ParadiseDev.Save.module or command ~= "finalSaved" then return end
+    Events.OnTick.Remove(ParadiseDev.Save.waitUntilAlone)
+    ParadiseDev.Save.pendingFinalSave = false
+    ParadiseDev.Save.initiator = nil
     local pl = getPlayer and getPlayer() or nil
     if pl then pl:addLineChatElement("Everyone Successfully logged out") end
 end
