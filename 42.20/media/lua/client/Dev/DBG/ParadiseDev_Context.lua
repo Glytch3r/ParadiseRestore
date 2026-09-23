@@ -564,11 +564,11 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
             "media/ui/Paradise/ZoneContextIcon.png"
         )
     end
-    if ParadiseDev.Cage and ParadiseDev.Cage.openPanel then
+    if ParadiseDev.TraitSyncer and ParadiseDev.TraitSyncer.openPanel then
         ParadiseDev.Context.addOption(
             panelsMenu,
-            "Cage Administration",
-            ParadiseDev.Cage.openPanel,
+            "ParadiseZ Trait Syncer",
+            ParadiseDev.TraitSyncer.openPanel,
             "media/ui/Paradise/ContextIcon.png"
         )
     end

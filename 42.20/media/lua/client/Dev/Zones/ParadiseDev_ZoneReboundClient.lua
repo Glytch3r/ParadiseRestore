@@ -4,13 +4,11 @@ ParadiseDev.Zones.ReboundClient = ParadiseDev.Zones.ReboundClient or {}
 
 function ParadiseDev.Zones.ReboundClient.onPlayerUpdate(pl)
     if not pl or not isClient or not isClient() or not sendClientCommand then return end
-    local cageTrait = ParadiseDev.getTrait and ParadiseDev.getTrait("ParadiseDev:Caged") or nil
-    local hasCageTrait = cageTrait and ParadiseDev.hasTrait and ParadiseDev.hasTrait(pl, cageTrait) or false
-    if not hasCageTrait then return end
     local now = getGameTime and getGameTime():getWorldAgeHours() or 0
-    if ParadiseDev.Zones.ReboundClient.lastBoundaryUpdate and now - ParadiseDev.Zones.ReboundClient.lastBoundaryUpdate < 0.00002 then return end
+    if ParadiseDev.Zones.ReboundClient.lastBoundaryUpdate and
+        now - ParadiseDev.Zones.ReboundClient.lastBoundaryUpdate < 0.00002 then return end
     ParadiseDev.Zones.ReboundClient.lastBoundaryUpdate = now
-    sendClientCommand("PZZoneEngine", "cageBoundary", {})
+    sendClientCommand("PZZoneEngine", "boundaryCheck", {})
 end
 
 function ParadiseDev.Zones.ReboundClient.onServerCommand(module, command, args)

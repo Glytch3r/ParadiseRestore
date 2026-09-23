@@ -593,7 +593,7 @@ function ParadiseDev.Zones.Engine.enforceCage(pl, zone, x, y, z)
     return true
 end
 
-function ParadiseDev.Zones.Engine.onPlayerMove(pl)
+function ParadiseDev.Zones.Engine.onPlayerUpdate(pl)
     if not pl or not pl:isAlive() then return end
     if ParadiseDev and ParadiseDev.Cage then ParadiseDev.Cage.syncPlayer(pl) end
     local vehicle = pl:getVehicle()
@@ -626,6 +626,11 @@ function ParadiseDev.Zones.Engine.onPlayerMove(pl)
     if not zone or ParadiseDev.Zones.Engine.isAllowed(zone, pl) then
         ParadiseDev.Zones.Engine.lastValid[ParadiseDev.Zones.Engine.userName(pl)] = { x = x, y = y, z = z }
         if ParadiseDev.TP and ParadiseDev.TP.saveRebound then ParadiseDev.TP.saveRebound(pl, "Zone Rebound") end
+        if vehicle and vehicle:getCharacter(0) == pl and
+            ParadiseDev.Zones.PassengerScan and
+            ParadiseDev.Zones.PassengerScan.ejectDeniedPassengersOnDriverMove then
+            ParadiseDev.Zones.PassengerScan.ejectDeniedPassengersOnDriverMove(pl)
+        end
         return
     end
 
@@ -648,14 +653,12 @@ function ParadiseDev.Zones.Engine.onPlayerMove(pl)
     ParadiseDev.Zones.Engine.log("vehicle-rebounded", pl, zone)
 end
 
-Events.OnPlayerMove.Remove(ParadiseDev.Zones.Engine.onPlayerMove)
-Events.OnPlayerMove.Add(ParadiseDev.Zones.Engine.onPlayerMove)
-
 function ParadiseDev.Zones.Engine.onClientCommand(module, command, pl, args)
     if module == "PZZoneEngine" and command == "requestBoundaryState" then
         ParadiseDev.Zones.Engine.syncBoundaryState(pl)
-    elseif module == "PZZoneEngine" and command == "cageBoundary" then
-        ParadiseDev.Zones.Engine.onPlayerMove(pl)
+    elseif module == "PZZoneEngine" and
+        (command == "boundaryCheck" or command == "cageBoundary") then
+        ParadiseDev.Zones.Engine.onPlayerUpdate(pl)
     end
 end
 

@@ -8,7 +8,7 @@ function ParadiseDev.Zones.PassengerScan.ejectDeniedPassengersOnDriverMove(pl)
     if not vehicle or vehicle:getCharacter(0) ~= pl then return end
 
     local x, y, z = vehicle:getX(), vehicle:getY(), pl:getZ()
-    local zone, region = ParadiseDev.Zones.Engine.getAuthority(x, y, z)
+    local zone, region = ParadiseDev.Zones.Engine.getAuthority(x, y, z, 2.0)
     if not zone then return end
 
     local outX, outY = ParadiseDev.Zones.Engine.nearestOutside(region, x, y, 2.0)
@@ -21,6 +21,3 @@ function ParadiseDev.Zones.PassengerScan.ejectDeniedPassengersOnDriverMove(pl)
         end
     end
 end
-
-Events.OnPlayerMove.Remove(ParadiseDev.Zones.PassengerScan.ejectDeniedPassengersOnDriverMove)
-Events.OnPlayerMove.Add(ParadiseDev.Zones.PassengerScan.ejectDeniedPassengersOnDriverMove)
