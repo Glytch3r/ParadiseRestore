@@ -50,38 +50,11 @@ function ParadiseDev.TargContext.setSuspect(target)
     networkUserAction("SetRole", target:getUsername(), "Suspect")
 end
 
-function ParadiseDev.TargContext.setOfficer(target)
-    if not target or not target.getUsername or not target.getAccessLevel or not networkUserAction then return end
-    if string.lower(tostring(target:getAccessLevel())) ~= "admin" then return end
-    networkUserAction("SetRole", target:getUsername(), "Officers")
-    networkUserAction("SetAccessLevel", target:getUsername(), "none")
-end
-
 function ParadiseDev.TargContext.setCage(_, target, isCaged)
     if not target or not target.getUsername then return end
     local username = target:getUsername()
     if ParadiseDev.Cage and ParadiseDev.Cage.requestSet then
         ParadiseDev.Cage.requestSet(username, isCaged)
-    end
-end
-
-function ParadiseDev.TargContext.setPvE(_, target, enabled)
-    if not target or not target.getCharacterTraits then return end
-    local traitType = "ParadiseDev:PvE"
-    local trait = ParadiseDev.getTrait and ParadiseDev.getTrait(traitType) or nil
-    if not trait then return end
-    local traits = target:getCharacterTraits()
-    local hasTrait = ParadiseDev.hasTrait and ParadiseDev.hasTrait(target, traitType) or false
-    if enabled then
-        if not hasTrait then
-            traits:add(trait)
-        end
-    elseif hasTrait then
-        traits:remove(trait)
-    end
-    if SyncXp then SyncXp(target) end
-    if ISPlayerStatsUI and ISPlayerStatsUI.instance then
-        ISPlayerStatsUI.instance:loadTraits()
     end
 end
 
@@ -100,13 +73,14 @@ function ParadiseDev.TargContext.addPlayerMenu(context, target, localPlayer)
     local menu = ISContextMenu:getNew(context)
     context:addSubMenu(root, menu)
 
+    if ParadiseDev.TraitSyncer then
+        ParadiseDev.TraitSyncer.addTargetMenu(menu, target)
+    end
     if ParadiseDev.Cage then
         local isCaged = ParadiseDev.Cage.isTargetCaged and ParadiseDev.Cage.isTargetCaged(target)
         if ParadiseDev.Cage.requestSet then
             menu:addOption(isCaged and "Uncage" or "Cage", nil, ParadiseDev.TargContext.setCage, target, not isCaged)
         end
-        local isPvE = ParadiseDev.Cage.isTargetPvE and ParadiseDev.Cage.isTargetPvE(target) or false
-        menu:addOption(isPvE and "Remove PvE" or "Add PvE", nil, ParadiseDev.TargContext.setPvE, target, not isPvE)
     end
 
     if ParadiseZ and ParadiseZ.setSpectate then
@@ -117,9 +91,6 @@ function ParadiseDev.TargContext.addPlayerMenu(context, target, localPlayer)
     end
 
     if networkUserAction then
-        if target.getAccessLevel and string.lower(tostring(target:getAccessLevel())) == "admin" then
-            menu:addOption("Set Officer Role", nil, ParadiseDev.TargContext.setOfficer, target)
-        end
         menu:addOption("Set Suspect Role", nil, ParadiseDev.TargContext.setSuspect, target)
     end
 

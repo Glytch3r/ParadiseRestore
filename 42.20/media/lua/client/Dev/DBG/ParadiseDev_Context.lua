@@ -74,9 +74,7 @@ function ParadiseDev.Context.setRateOfFireTestMode(mode)
 end
 
 function ParadiseDev.Context.resetMapVisited()
-    if WorldMapVisited and WorldMapVisited.Reset then
-        WorldMapVisited.Reset()
-    end
+    if ParadiseZ and ParadiseZ.ClearMap then ParadiseZ.ClearMap() end
 end
 
 function ParadiseDev.Context.toggleTrailingLight(pl)
@@ -124,6 +122,21 @@ function ParadiseDev.Context.toggleZombieAttacks(pl)
         return
     end
     pl:setZombiesDontAttack(not (pl:isZombiesDontAttack() == true))
+end
+
+function ParadiseDev.Context.clearPlayerInventory(pl)
+    pl = pl or getPlayer()
+    if not pl then
+        return
+    end
+    local inventory = pl:getInventory()
+    if inventory then
+        inventory:removeAllItems()
+        pl:clearWornItems()
+        pl:resetModelNextFrame()
+        ISInventoryPage.dirtyUI()
+        getPlayerLoot(pl:getPlayerNum()):refreshBackpacks()
+    end
 end
 
 function ParadiseDev.Context.killZeds()
@@ -242,33 +255,32 @@ function ParadiseDev.Context.clearUniversal(pl, radius, selected)
                                 not instanceof(obj, "IsoZombie") and
                                 not instanceof(obj, "IsoDeadBody") and
                                 not instanceof(obj, "IsoAnimal") and
-                                not instanceof(obj, "IsoWorldInventoryObject")
+                                not instanceof(obj, "IsoWorldInventoryObject") and
+                                not instanceof(obj, "IsoFire")
                          then
                             remove = true
                         end
                         if wanted.containerItems and obj.getContainer then
                             local container = obj:getContainer()
-                            local items = container and container:getItems()
-                            if items then
-                                for n = items:size() - 1, 0, -1 do
-                                    container:DoRemoveItem(items:get(n))
-                                end
-                            end
+                            if container and container.removeAllItems then container:removeAllItems() end
                         end
                         if remove then
                             sq:transmitRemoveItemFromSquare(obj)
                         end
                     end
                 end
-                if wanted.cars and sq.getVehicles then
-                    local vehicles = sq:getVehicles()
-                    if vehicles then
-                        for i = vehicles:size() - 1, 0, -1 do
-                            local car = vehicles:get(i)
-                            if car and car.permanentlyRemove then
-                                car:permanentlyRemove()
-                            end
-                        end
+            end
+        end
+    end
+    if wanted.cars and cell.getVehicles then
+        local vehicles = cell:getVehicles()
+        if vehicles then
+            for car in vehicles do
+                if car and math.abs(car:getX() - x) <= rad and math.abs(car:getY() - y) <= rad and math.floor(car:getZ()) == z then
+                    if ParadiseZ.DespawnCar then
+                        ParadiseZ.DespawnCar(pl, car)
+                    elseif car.permanentlyRemove then
+                        car:permanentlyRemove()
                     end
                 end
             end
@@ -322,11 +334,8 @@ function ParadiseDev.Context.onClearHighlightUpdate()
     ParadiseDev.Context.updateClearHighlight()
 end
 
-function ParadiseDev.Context.clearAndSave(pl)
-    if not pl or not ParadiseDev.Save or not sendClientCommand then
-        return
-    end
-    sendClientCommand(ParadiseDev.Save.module, "clearAndSave", {})
+function ParadiseDev.Context.clearAndSave()
+    ParadiseDev.ClearAndSave.openDelayPrompt()
 end
 
 function ParadiseDev.Context.getClearRadius()
@@ -552,11 +561,11 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
             "media/ui/Paradise/ZoneContextIcon.png"
         )
     end
-    if ParadiseDev.Cage and ParadiseDev.Cage.openPanel then
+    if ParadiseDev.TraitSyncer and ParadiseDev.TraitSyncer.openPanel then
         ParadiseDev.Context.addOption(
             panelsMenu,
-            "Cage Administration",
-            ParadiseDev.Cage.openPanel,
+            "ParadiseZ Trait Syncer",
+            ParadiseDev.TraitSyncer.openPanel,
             "media/ui/Paradise/ContextIcon.png"
         )
     end
@@ -900,6 +909,13 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     )
     ParadiseDev.Context.addOption(
         clearMenu,
+        "Clear Player Inventory",
+        ParadiseDev.Context.clearPlayerInventory,
+        "media/ui/Paradise/ClearContextIcon.png",
+        pl
+    )
+    ParadiseDev.Context.addOption(
+        clearMenu,
         "Clear Traits",
         ParadiseZ.ClearTraits,
         "media/ui/Paradise/TraitsContextIcon.png"
@@ -920,8 +936,7 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
         clearMenu,
         "Clear and Save",
         ParadiseDev.Context.clearAndSave,
-        "media/ui/Paradise/ClearContextIcon.png",
-        pl
+        "media/ui/Paradise/ClearContextIcon.png"
     )
 end
 

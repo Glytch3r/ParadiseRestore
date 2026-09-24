@@ -2,7 +2,7 @@ ParadiseRestore = ParadiseRestore or {}
 ParadiseCloner = ParadiseCloner or {}
 
 local function labelPrompt(title, callback)
-    local modal = ISTextBox:new(title, "Label", "", 300, 150, true, ParadiseCloner, callback, nil)
+    local modal = ISTextBox:new(300, 150, 300, 150, title, "", ParadiseCloner, callback, nil)
     modal:initialise(); modal:addToUIManager(); modal:bringToTop()
 end
 

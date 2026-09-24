@@ -555,9 +555,13 @@ function ParadiseZ.clearFog()
 end
 
 function ParadiseZ.ClearMap()
-    WorldMapVisited.getInstance():forget()
     local pl = getPlayer()
-    if pl then pl:addLineChatElement("Map Records Deleted") end
+    if not pl then return end
+    WorldMapVisited.getInstance():forget()
+    if isClient() and sendClientCommand then
+        sendClientCommand(pl, "map", "forget", {})
+    end
+    pl:addLineChatElement("Map Records Deleted")
 end
 
 function ParadiseZ.ClearModData()
@@ -583,8 +587,9 @@ function ParadiseZ.ClearTraits()
     for i = TraitFactory.getTraits():size()-1, 0, -1 do
         local trait = TraitFactory.getTraits():get(i)
         local tType = trait:getType()
-        if tType and pl:HasTrait(tType) then  
-            pl:getTraits():remove(tType) 
+        if tType and pl:hasTrait(tType) then
+            pl:getCharacterTraits():remove(tType)
+            pl:modifyTraitXPBoost(tType, true)
         end
     end
     pl:addLineChatElement("All Traits Removed")

@@ -91,11 +91,6 @@ local function isAdminViewer()
     return ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) or false
 end
 
-local function isOfficer(targ)
-    local role = targ and targ.getRole and targ:getRole() or nil
-    return role and string.lower(tostring(role:getName())) == "officers" or false
-end
-
 local function isSuspect(targ)
     local role = targ and targ.getRole and targ:getRole() or nil
     return role and role:getName() == "Suspect" or false
@@ -303,7 +298,7 @@ function ParadiseZ.setTag(targ)
         tag:setVisibleRadius(360)
         ParadiseZ.publicTextTags[tostring(key) .. ":press"] = { tag = tag, target = targ, r = 0.35, g = 0.75, b = 1, offsetY = (isCaged(targ) and TAG_LINE_SPACING or 0) + (hasRole(targ, "Staff") and TAG_LINE_SPACING or 0) }
     end
-    if key and ParadiseZ.isShowAdminTag(targ) and (isOfficer(targ) or targ.getAccessLevel and string.lower(tostring(targ:getAccessLevel())) == "admin") then
+    if key and ParadiseZ.isShowAdminTag(targ) and targ.getAccessLevel and string.lower(tostring(targ:getAccessLevel())) == "admin" then
         local tag = TextDrawObject.new()
         tag:setDefaultFont(UIFont.NewLarge)
         tag:ReadString(UIFont.NewLarge, "ADMIN", -1)

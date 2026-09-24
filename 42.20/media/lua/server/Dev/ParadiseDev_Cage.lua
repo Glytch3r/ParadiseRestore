@@ -101,7 +101,8 @@ function ParadiseDev.Cage.isCaged(pl)
     local key = ParadiseDev.Cage.getKey(pl)
     local usernameKey = ParadiseDev.Cage.getUsernameKey(ParadiseDev.Cage.getUsername(pl))
     local store = ParadiseDev.Cage.getStore()
-    return (key and store.players[key] == true) or (usernameKey and store.pending[usernameKey] == true) or false
+    local trait = ParadiseDev.getTrait and ParadiseDev.getTrait(ParadiseDev.Cage.trait) or nil
+    return (key and store.players[key] == true) or (usernameKey and store.pending[usernameKey] == true) or (pl and trait and ParadiseDev.hasTrait and ParadiseDev.hasTrait(pl, trait)) or false
 end
 
 function ParadiseDev.Cage.setTrait(pl, isCaged)
@@ -151,7 +152,9 @@ function ParadiseDev.Cage.getEntries(extraPlayer)
     local function addPlayer(pl)
         local key = ParadiseDev.Cage.getKey(pl)
         if not key or included[key] then return end
+        ParadiseDev.Cage.syncPlayer(pl)
         local username = ParadiseDev.Cage.getUsername(pl) or ""
+        local traitCaged = ParadiseDev.hasTrait(pl, ParadiseDev.Cage.trait)
         included[key] = true
         local usernameKey = ParadiseDev.Cage.getUsernameKey(username)
         if usernameKey then includedUsernames[usernameKey] = true end
@@ -160,7 +163,7 @@ function ParadiseDev.Cage.getEntries(extraPlayer)
             steamId = ParadiseDev.Cage.getSteamId(pl) or "",
             username = username,
             displayName = pl:getDisplayName() or username,
-            isCaged = ParadiseDev.Cage.isCaged(pl),
+            isCaged = traitCaged,
             online = true,
         }
     end

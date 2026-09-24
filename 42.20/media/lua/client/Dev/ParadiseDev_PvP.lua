@@ -21,6 +21,29 @@ function ParadiseDev.PvP.isProtected(pl)
     return ParadiseDev.LifeBar.isPvE(pl) or ParadiseDev.LifeBar.isPvEZone(pl)
 end
 
+function ParadiseDev.PvP.isThrowable(item)
+    if not item then return false end
+    local script = item.getScriptItem and item:getScriptItem() or nil
+    local swingAnim = item.getSwingAnim and item:getSwingAnim() or nil
+    if not swingAnim and script and script.getSwingAnim then swingAnim = script:getSwingAnim() end
+    return swingAnim == "Throw"
+end
+
+function ParadiseDev.PvP.updateThrowableRestriction(pl)
+    if not pl or pl ~= getPlayer() or not pl.setAuthorizeMeleeAction then return end
+    local inPvE = ParadiseDev.LifeBar and ParadiseDev.LifeBar.isPvEZone and ParadiseDev.LifeBar.isPvEZone(pl)
+    local holdingThrowable = ParadiseDev.PvP.isThrowable(pl:getPrimaryHandItem())
+    local shouldBlock = inPvE and holdingThrowable
+    if shouldBlock and not ParadiseDev.PvP.throwableBlocked then
+        ParadiseDev.PvP.throwableBlocked = true
+        pl:setAuthorizeMeleeAction(false)
+        if ISTimedActionQueue then ISTimedActionQueue.clear(pl) end
+    elseif not shouldBlock and ParadiseDev.PvP.throwableBlocked then
+        ParadiseDev.PvP.throwableBlocked = false
+        pl:setAuthorizeMeleeAction(true)
+    end
+end
+
 function ParadiseDev.PvP.updateSafety(pl)
     if not pl or not pl.getSafety or not ParadiseDev.LifeBar then return end
     local hasPvETrait = ParadiseDev.LifeBar.isPvE(pl)
@@ -60,6 +83,9 @@ function ParadiseDev.PvP.getWeaponDamage(wpn, pl)
     local pvp = SandboxVars and SandboxVars.ParadiseZpvp or {}
     if ParadiseDev.PvP.isUnarmed(pl) then return 0 end
     wpn = wpn or pl:getPrimaryHandItem()
+    if pl.IsInMeleeAttack and pl:IsInMeleeAttack() then
+        return tonumber(pvp.MeleePvpDmg) or 10
+    end
     if not ParadiseDev.PvP.isFirearm(wpn) then return tonumber(pvp.MeleePvpDmg) or 10 end
     local item = wpn:getScriptItem()
     if item and item.getSwingAnim and item:getSwingAnim() == "Rifle" then
@@ -128,5 +154,7 @@ Events.OnWeaponHitCharacter.Remove(ParadiseDev.PvP.onWeaponHit)
 Events.OnWeaponHitCharacter.Add(ParadiseDev.PvP.onWeaponHit)
 Events.OnPlayerUpdate.Remove(ParadiseDev.PvP.updateSafety)
 Events.OnPlayerUpdate.Add(ParadiseDev.PvP.updateSafety)
+Events.OnPlayerUpdate.Remove(ParadiseDev.PvP.updateThrowableRestriction)
+Events.OnPlayerUpdate.Add(ParadiseDev.PvP.updateThrowableRestriction)
 Events.OnFillInventoryObjectContextMenu.Remove(ParadiseDev.PvP.addMedkitOption)
 Events.OnFillInventoryObjectContextMenu.Add(ParadiseDev.PvP.addMedkitOption)

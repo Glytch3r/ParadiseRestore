@@ -65,12 +65,11 @@ if isServer and isServer() then
     local function setupParadiseRoles()
         if not addRole or not getRoles or not setupRole then return end
         local roles = getRoles()
-        local suspect, officers, admin
+        local suspect, admin
         for index = 0, roles:size() - 1 do
             local role = roles:get(index)
             local name = role and string.lower(tostring(role:getName())) or ""
             if name == "suspect" then suspect = role end
-            if name == "officers" then officers = role end
             if name == "admin" then admin = role end
         end
         if not suspect then
@@ -85,29 +84,6 @@ if isServer and isServer() then
             setupRole(suspect, "", Color.new(1, 0, 0, 1), getDefaultPlayerCapabilities())
         end
         if not admin or not getCapabilities then return end
-        if not officers then
-            addRole("Officers")
-            roles = getRoles()
-            for index = 0, roles:size() - 1 do
-                local role = roles:get(index)
-                if role and string.lower(tostring(role:getName())) == "officers" then officers = role break end
-            end
-        end
-        if not officers then return end
-        if moveRole and officers.getPosition and admin.getPosition then
-            local guard = 0
-            while officers:getPosition() < admin:getPosition() and guard < 32 do
-                moveRole(1, officers:getName())
-                guard = guard + 1
-                roles = getRoles()
-                for index = 0, roles:size() - 1 do
-                    local role = roles:get(index)
-                    local name = role and string.lower(tostring(role:getName())) or ""
-                    if name == "officers" then officers = role end
-                    if name == "admin" then admin = role end
-                end
-            end
-        end
         local capabilities = {}
         local allCapabilities = getCapabilities()
         for index = 0, allCapabilities:size() - 1 do
@@ -115,7 +91,7 @@ if isServer and isServer() then
             if admin:hasCapability(capability) then capabilities[capability] = true end
         end
         capabilities[Capability.ToggleWriteRoleNameAbove] = nil
-        setupRole(officers, admin:getDescription(), admin:getColor(), capabilities)
+        setupRole(admin, admin:getDescription(), admin:getColor(), capabilities)
 
         local staff = nil
         for index = 0, roles:size() - 1 do

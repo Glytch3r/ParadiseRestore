@@ -412,6 +412,20 @@ function ParadiseDev.Zones.Engine.nearestOutside(region, x, y, padding)
     return x, bottom + 0.05
 end
 
+function ParadiseDev.Zones.Engine.nearestInside(region, x, y, padding)
+    padding = padding or 1
+    local left, right = region.xMin + padding, region.xMax - padding
+    local top, bottom = region.yMin + padding, region.yMax - padding
+    if left > right then left, right = region.xMin, region.xMax - 1 end
+    if top > bottom then top, bottom = region.yMin, region.yMax - 1 end
+    local west, east = math.abs(x - region.xMin), math.abs(region.xMax - x)
+    local north, south = math.abs(y - region.yMin), math.abs(region.yMax - y)
+    if west <= east and west <= north and west <= south then return left, math.max(top, math.min(y, bottom)) end
+    if east <= north and east <= south then return right, math.max(top, math.min(y, bottom)) end
+    if north <= south then return math.max(left, math.min(x, right)), top end
+    return math.max(left, math.min(x, right)), bottom
+end
+
 function ParadiseDev.Zones.Engine.regionCenter(region)
     return (region.xMin + region.xMax - 1) / 2, (region.yMin + region.yMax - 1) / 2
 end
@@ -476,10 +490,15 @@ function ParadiseDev.Zones.Engine.captureCageReturn(pl)
     if not pl then return end
     local modData = pl:getModData()
     if modData.ParadiseDevCageReturn then return end
+    local x, y, z = pl:getX(), pl:getY(), pl:getZ()
+    local vehicle = pl:getVehicle()
+    if vehicle then
+        x, y, z = vehicle:getX(), vehicle:getY(), pl:getZ()
+    end
     modData.ParadiseDevCageReturn = {
-        x = pl:getX(),
-        y = pl:getY(),
-        z = pl:getZ(),
+        x = x,
+        y = y,
+        z = z,
     }
 end
 
@@ -503,6 +522,12 @@ function ParadiseDev.Zones.Engine.restoreCageReturn(pl)
     local modData = pl:getModData()
     local returnPoint = modData.ParadiseDevCageReturn
     if not returnPoint then return false end
+    local vehicle = pl:getVehicle()
+    if vehicle then
+        local restored = ParadiseDev.Zones.Engine.forceVehicleExit(pl, returnPoint.x, returnPoint.y, returnPoint.z)
+        if restored then modData.ParadiseDevCageReturn = nil end
+        return restored
+    end
     local restored = ParadiseDev.Zones.Engine.teleportPlayer(pl, returnPoint.x, returnPoint.y, returnPoint.z)
     if restored then modData.ParadiseDevCageReturn = nil end
     return restored
@@ -514,12 +539,15 @@ function ParadiseDev.Zones.Engine.assignCage(pl, zone)
     end
     local steamId = ParadiseDev.Zones.Engine.playerSteamId(pl)
     if not steamId then return false, "The target player has no Steam ID." end
+    if ParadiseDev.Zones.Engine.cageAssignments[steamId] then
+        return false, "Player is already assigned to a cage."
+    end
     local region = ParadiseDev.Zones.Engine.nearestRegion(zone, pl:getX(), pl:getY())
     if not region then return false, "The Cage zone has no segments." end
     local z = zone.zMode == "floor" and zone.zMin or pl:getZ()
     local x, y = pl:getX(), pl:getY()
     if not ParadiseDev.Zones.Engine.zoneContains(zone, x, y, z, 0) then
-        x, y = ParadiseDev.Zones.Engine.regionCenter(region)
+        x, y = ParadiseDev.Zones.Engine.nearestInside(region, x, y, 1)
     end
     ParadiseDev.Zones.Engine.cageAssignments[steamId] = zone.id
     ParadiseDev.Zones.Engine.lastValid[ParadiseDev.Zones.Engine.userName(pl)] = nil
@@ -555,7 +583,7 @@ function ParadiseDev.Zones.Engine.enforceCage(pl, zone, x, y, z)
     if not point then
         local region = ParadiseDev.Zones.Engine.nearestRegion(zone, x, y)
         if not region then return false end
-        local cageX, cageY = ParadiseDev.Zones.Engine.regionCenter(region)
+        local cageX, cageY = ParadiseDev.Zones.Engine.nearestInside(region, x, y, 1)
         point = { x = cageX, y = cageY, z = zone.zMode == "floor" and zone.zMin or z }
     end
 
@@ -579,7 +607,7 @@ function ParadiseDev.Zones.Engine.enforceCage(pl, zone, x, y, z)
     return true
 end
 
-function ParadiseDev.Zones.Engine.onPlayerMove(pl)
+function ParadiseDev.Zones.Engine.onPlayerUpdate(pl)
     if not pl or not pl:isAlive() then return end
     if ParadiseDev and ParadiseDev.Cage then ParadiseDev.Cage.syncPlayer(pl) end
     local vehicle = pl:getVehicle()
@@ -612,6 +640,11 @@ function ParadiseDev.Zones.Engine.onPlayerMove(pl)
     if not zone or ParadiseDev.Zones.Engine.isAllowed(zone, pl) then
         ParadiseDev.Zones.Engine.lastValid[ParadiseDev.Zones.Engine.userName(pl)] = { x = x, y = y, z = z }
         if ParadiseDev.TP and ParadiseDev.TP.saveRebound then ParadiseDev.TP.saveRebound(pl, "Zone Rebound") end
+        if vehicle and vehicle:getCharacter(0) == pl and
+            ParadiseDev.Zones.PassengerScan and
+            ParadiseDev.Zones.PassengerScan.ejectDeniedPassengersOnDriverMove then
+            ParadiseDev.Zones.PassengerScan.ejectDeniedPassengersOnDriverMove(pl)
+        end
         return
     end
 
@@ -634,14 +667,12 @@ function ParadiseDev.Zones.Engine.onPlayerMove(pl)
     ParadiseDev.Zones.Engine.log("vehicle-rebounded", pl, zone)
 end
 
-Events.OnPlayerMove.Remove(ParadiseDev.Zones.Engine.onPlayerMove)
-Events.OnPlayerMove.Add(ParadiseDev.Zones.Engine.onPlayerMove)
-
 function ParadiseDev.Zones.Engine.onClientCommand(module, command, pl, args)
     if module == "PZZoneEngine" and command == "requestBoundaryState" then
         ParadiseDev.Zones.Engine.syncBoundaryState(pl)
-    elseif module == "PZZoneEngine" and command == "cageBoundary" then
-        ParadiseDev.Zones.Engine.onPlayerMove(pl)
+    elseif module == "PZZoneEngine" and
+        (command == "boundaryCheck" or command == "cageBoundary") then
+        ParadiseDev.Zones.Engine.onPlayerUpdate(pl)
     end
 end
 
