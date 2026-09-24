@@ -584,7 +584,7 @@ function ParadiseDev.Zones.Panel:new(x, y, width, height)
     o.syncRequested = false
     o.pendingFeatureChanges = {}
     o.borderColor = { r = 0.81, g = 0.92, b = 0.84, a = 0.75 }
-    o.backgroundColor = { r = 0.18, g = 0.02, b = 0.22, a = 0.80 }
+    o.backgroundColor = { r = 0.1, g = 0.1, b = 0.1, a = 0.90 }
     o.moveWithMouse = true
     return o
 end

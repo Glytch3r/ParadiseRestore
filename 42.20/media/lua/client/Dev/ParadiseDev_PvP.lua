@@ -21,46 +21,6 @@ function ParadiseDev.PvP.isProtected(pl)
     return ParadiseDev.LifeBar.isPvE(pl) or ParadiseDev.LifeBar.isPvEZone(pl)
 end
 
-function ParadiseDev.PvP.isThrowable(item)
-    if not item then return false end
-    local script = item.getScriptItem and item:getScriptItem() or nil
-    local swingAnim = item.getSwingAnim and item:getSwingAnim() or nil
-    if not swingAnim and script and script.getSwingAnim then swingAnim = script:getSwingAnim() end
-    return swingAnim == "Throw"
-end
-
-function ParadiseDev.PvP.updateThrowableRestriction(pl)
-    if not pl or pl ~= getPlayer() or not pl.setAuthorizeMeleeAction then return end
-    local inPvE = ParadiseDev.LifeBar and ParadiseDev.LifeBar.isPvEZone and ParadiseDev.LifeBar.isPvEZone(pl)
-    local holdingThrowable = ParadiseDev.PvP.isThrowable(pl:getPrimaryHandItem())
-    local shouldBlock = inPvE and holdingThrowable
-    if shouldBlock and not ParadiseDev.PvP.throwableBlocked then
-        ParadiseDev.PvP.throwableBlocked = true
-        pl:setAuthorizeMeleeAction(false)
-        if ISTimedActionQueue then ISTimedActionQueue.clear(pl) end
-    elseif not shouldBlock and ParadiseDev.PvP.throwableBlocked then
-        ParadiseDev.PvP.throwableBlocked = false
-        pl:setAuthorizeMeleeAction(true)
-    end
-end
-
-function ParadiseDev.PvP.updateSafety(pl)
-    if not pl or not pl.getSafety or not ParadiseDev.LifeBar then return end
-    local hasPvETrait = ParadiseDev.LifeBar.isPvE(pl)
-    local inPvE = hasPvETrait or ParadiseDev.LifeBar.isPvEZone(pl)
-    local border = ParadiseDev.Zones and ParadiseDev.Zones.Border
-    local zone = border and border.getZoneFor and border.getZoneFor(pl) or nil
-    local inKos = zone and zone.features and zone.features.isKos == true or false
-    local shouldBeOn = inPvE
-    if not inPvE and not inKos then return end
-    local safety = pl:getSafety()
-    if not safety or not safety.isCurrent or not safety:isToggleAllowed() then return end
-    if safety:isCurrent() ~= shouldBeOn then
-        local ui = getPlayerSafetyUI and getPlayerSafetyUI(pl:getPlayerNum()) or nil
-        if ui and ui.toggleSafety then ui:toggleSafety() end
-    end
-end
-
 function ParadiseDev.PvP.isUnarmed(pl)
     return tostring(WeaponType.getWeaponType(pl)) == "barehand"
 end
@@ -152,9 +112,5 @@ end
 
 Events.OnWeaponHitCharacter.Remove(ParadiseDev.PvP.onWeaponHit)
 Events.OnWeaponHitCharacter.Add(ParadiseDev.PvP.onWeaponHit)
-Events.OnPlayerUpdate.Remove(ParadiseDev.PvP.updateSafety)
-Events.OnPlayerUpdate.Add(ParadiseDev.PvP.updateSafety)
-Events.OnPlayerUpdate.Remove(ParadiseDev.PvP.updateThrowableRestriction)
-Events.OnPlayerUpdate.Add(ParadiseDev.PvP.updateThrowableRestriction)
 Events.OnFillInventoryObjectContextMenu.Remove(ParadiseDev.PvP.addMedkitOption)
 Events.OnFillInventoryObjectContextMenu.Add(ParadiseDev.PvP.addMedkitOption)
