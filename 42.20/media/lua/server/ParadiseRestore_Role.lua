@@ -35,6 +35,6 @@ function ParadiseRestore.removeAdminCapability()
     )
 end
 Events.OnServerStarted.Remove(ParadiseRestore.removeAdminCapability)
-Events.OnServerStarted.Add(ParadiseRestore.removeAdminCapability)
+--Events.OnServerStarted.Add(ParadiseRestore.removeAdminCapability)
 
-Events.OnServerStartSaving.Add(ParadiseRestore.removeAdminCapability)
+--Events.OnServerStartSaving.Add(ParadiseRestore.removeAdminCapability)
