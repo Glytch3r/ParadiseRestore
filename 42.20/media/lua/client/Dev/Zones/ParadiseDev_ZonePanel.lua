@@ -149,6 +149,21 @@ function ParadiseDev.Zones.activeFlags(zone)
     return table.concat(names, ", ")
 end
 
+local function featureButtonColor(key)
+    local mapText = ParadiseDev.Zones.MapText
+    local color = mapText and mapText.featureColors and mapText.featureColors[key]
+    return color or { r = 0.55, g = 0.55, b = 0.55 }
+end
+
+local function applyFeatureButtonColor(button, key, active)
+    local color = featureButtonColor(key)
+    local alpha = active and 1.0 or 0.18
+    button.borderColor = { r = color.r, g = color.g, b = color.b, a = 1.0 }
+    button.borderColorMouseOver = { r = color.r, g = color.g, b = color.b, a = 1.0 }
+    button.backgroundColor = { r = color.r, g = color.g, b = color.b, a = alpha }
+    button.backgroundColorMouseOver = { r = color.r, g = color.g, b = color.b, a = alpha }
+end
+
 function ParadiseDev.Zones.zoneById(id)
     for _, zone in ipairs(ParadiseDev.Zones.adminZones) do
         if zone.id == id then return zone end
@@ -395,6 +410,7 @@ function ParadiseDev.Zones.Panel:updateSelection()
         local def = FEATURE_BY_KEY[key]
         local active = hasZone and zone.features and zone.features[key] == true
         button:setImage(active and def.onTexture or def.offTexture)
+        applyFeatureButtonColor(button, key, active)
     end
 end
 
