@@ -44,6 +44,9 @@ end
 function ParadiseDev.Zones.Engine.load()
     local store = ParadiseDev.Zones.Engine.getStore()
     ParadiseDev.Zones.Engine.zones = store.zones
+    for _, zone in pairs(ParadiseDev.Zones.Engine.zones) do
+        zone.features = ParadiseDev.Zones.Engine.copyFeatures(zone.features)
+    end
     ParadiseDev.Zones.Engine.profiles = store.profiles
     ParadiseDev.Zones.Engine.vehicleMode = "rebound"
     ParadiseDev.Zones.Engine.rebuildIndex()
@@ -88,6 +91,8 @@ function ParadiseDev.Zones.Engine.copyFeatures(features)
     for _, key in ipairs(ParadiseDev.Zones.Engine.FEATURE_KEYS) do
         result[key] = features and features[key] == true or false
     end
+    -- Prefer PvE when loading legacy data or receiving conflicting bulk settings.
+    if result.isPvE then result.isKos = false end
     return result
 end
 
@@ -97,6 +102,10 @@ function ParadiseDev.Zones.Engine.setZoneFeature(id, key, enabled)
     if not ParadiseDev.Zones.Engine.featureKeySet[key] then return false, "unknown zone feature" end
     zone.features = zone.features or ParadiseDev.Zones.Engine.copyFeatures(nil)
     zone.features[key] = enabled == true
+    if enabled == true then
+        if key == "isPvE" then zone.features.isKos = false end
+        if key == "isKos" then zone.features.isPvE = false end
+    end
     if key == "isCage" and enabled ~= true then
         for steamId, cageId in pairs(ParadiseDev.Zones.Engine.cageAssignments) do
             if cageId == id then ParadiseDev.Zones.Engine.cageAssignments[steamId] = nil end

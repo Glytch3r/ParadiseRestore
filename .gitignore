@@ -4,3 +4,8 @@
 # Local planning and validation support
 /docs/
 /tests/
+.aider.tags.cache.v4/cache.db-wal
+/.aider.tags.cache.v4
+*.history
+.aider.chat.history.md
+.aider*
