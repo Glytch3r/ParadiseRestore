@@ -596,6 +596,7 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
                 ParadisePromo.openAdminPanel()
             end, "media/ui/Paradise/ContextIcon.png")
 ]]
+--[[ 
         ParadiseDev.Context.addOption(
             panelsMenu,
             "Mini Scoreboard",
@@ -609,6 +610,7 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
             end,
             "media/ui/Paradise/ContextIcon.png"
         )
+ ]]
         ParadiseDev.Context.addOption(
             panelsMenu,
             "Users List",
