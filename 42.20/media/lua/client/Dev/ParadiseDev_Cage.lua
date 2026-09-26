@@ -19,6 +19,20 @@ function ParadiseDev.Cage.requestState()
     if sendClientCommand then sendClientCommand("ParadiseDevCage", "list", {}) end
 end
 
+function ParadiseDev.Cage.onServerCommand(module, command, args)
+    if module ~= "ParadiseDevCage" or command ~= "state" then return end
+    ParadiseDev.Cage.entries = args and args.entries or {}
+end
+
+function ParadiseDev.Cage.getEntry(username)
+    if not username then return nil end
+    local usernameKey = string.lower(tostring(username))
+    for _, entry in ipairs(ParadiseDev.Cage.entries or {}) do
+        if string.lower(tostring(entry.username or "")) == usernameKey then return entry end
+    end
+    return nil
+end
+
 function ParadiseDev.Cage.setLocal(username, key, isCaged)
     local pl = getPlayer and getPlayer() or nil
     if not key and pl and pl.getUsername and pl:getUsername() == username then
@@ -84,13 +98,20 @@ end
 function ParadiseDev.Cage.isTargetCaged(targ)
     if not targ then return false end
     local player = targ
+    local username = targ.username or (targ.getUsername and targ:getUsername())
     if not player.getCharacterTraits then
-        local username = targ.username or (targ.getUsername and targ:getUsername())
         player = username and getPlayerFromUsername(username) or nil
     end
     local trait = ParadiseDev.getTrait and ParadiseDev.getTrait("ParadiseDev:Caged") or nil
-    return player and trait and ParadiseDev.hasTrait and ParadiseDev.hasTrait(player, trait) or false
+    if player and trait and ParadiseDev.hasTrait and ParadiseDev.hasTrait(player, trait) then return true end
+    local entry = ParadiseDev.Cage.getEntry(username)
+    return entry and entry.isCaged == true or false
 end
+
+Events.OnServerCommand.Remove(ParadiseDev.Cage.onServerCommand)
+Events.OnServerCommand.Add(ParadiseDev.Cage.onServerCommand)
+Events.OnConnected.Remove(ParadiseDev.Cage.requestState)
+Events.OnConnected.Add(ParadiseDev.Cage.requestState)
 
 --[[ 
 function ParadiseDev.Cage.addTargetOptions(context, targ)

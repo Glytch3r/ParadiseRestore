@@ -9,7 +9,8 @@ function ISMiniScoreboardUI:doPlayerListContextMenu(player, x,y)
     local playerNum = self.admin:getPlayerNum()
     local context = ISContextMenu.get(playerNum, x + self:getAbsoluteX(), y + self:getAbsoluteY());
     hook1(self, player, x,y)
-    if ParadiseDev.isAdm(self.admin) then
+    local username = player and player.username or nil
+    if username and ParadiseDev.isAdm(self.admin) then
         local caged = ParadiseDev.Cage and ParadiseDev.Cage.isTargetCaged and ParadiseDev.Cage.isTargetCaged(player)
         context:addOption((caged and "Uncage: " or "Cage: ") .. username, self, ISMiniScoreboardUI.onCommand, player, "CAGED")
         local role = self.admin:getRole()
@@ -33,7 +34,6 @@ function ISMiniScoreboardUI:onCommand(player, command)
     elseif command == "SPECTATE" then
         if ParadiseZ and ParadiseZ.setSpectate and player and player.username then ParadiseZ.setSpectate(player.username) end
     else
-        ParadiseDev.miniscoreboard.onCommand(player, command)
+        hook2(self, player, command)
     end
-    hook2(self, player, command)
 end

@@ -209,6 +209,18 @@ function ParadiseDev.Cage.sendState(pl)
     sendServerCommand(pl, "ParadiseDevCage", "state", { entries = ParadiseDev.Cage.getEntries(pl) })
 end
 
+function ParadiseDev.Cage.broadcastState()
+    local players = getOnlinePlayers and getOnlinePlayers() or nil
+    if not players then return end
+    local entries = ParadiseDev.Cage.getEntries()
+    for index = 0, players:size() - 1 do
+        local player = players:get(index)
+        if player and ParadiseDev.isAdm(player) then
+            sendServerCommand(player, "ParadiseDevCage", "state", { entries = entries })
+        end
+    end
+end
+
 function ParadiseDev.Cage.set(pl, isCaged)
     local key = ParadiseDev.Cage.getKey(pl)
     if not key then return false, "The target player has no cage identity." end
@@ -460,7 +472,7 @@ function ParadiseDev.Cage.onClientCommand(module, command, pl, args)
         else
             ParadiseDev.Cage.setPending(username, isCaged)
         end
-        ParadiseDev.Cage.sendState(pl)
+        ParadiseDev.Cage.broadcastState()
         return
     end
     if command == "logData" then
@@ -471,12 +483,12 @@ function ParadiseDev.Cage.onClientCommand(module, command, pl, args)
     if command ~= "set" then return end
     if args and args.key then
         ParadiseDev.Cage.setStored(args.key, args.username, args.isCaged == true)
-        ParadiseDev.Cage.sendState(pl)
+        ParadiseDev.Cage.broadcastState()
         return
     end
     if args and args.steamId then
         ParadiseDev.Cage.setStored(args.steamId, args.username, args.isCaged == true)
-        ParadiseDev.Cage.sendState(pl)
+        ParadiseDev.Cage.broadcastState()
         return
     end
     local username = args and args.username or nil
@@ -487,7 +499,7 @@ function ParadiseDev.Cage.onClientCommand(module, command, pl, args)
     elseif username and username ~= "" then
         ParadiseDev.Cage.setPending(username, args.isCaged == true)
     end
-    ParadiseDev.Cage.sendState(pl)
+    ParadiseDev.Cage.broadcastState()
 end
 
 function ParadiseDev.Cage.onInitGlobalModData()
