@@ -1,6 +1,16 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.TargContext = ParadiseDev.TargContext or {}
 
+function ParadiseDev.TargContext.getUsername(target)
+    if not target then return nil end
+    return target.username or (target.getUsername and target:getUsername()) or nil
+end
+
+function ParadiseDev.TargContext.resolveTarget(target)
+    local username = ParadiseDev.TargContext.getUsername(target)
+    return username and getPlayerFromUsername and getPlayerFromUsername(username) or target
+end
+
 function ParadiseDev.TargContext.getSquare(worldobjects)
     if ISWorldObjectContextMenu and ISWorldObjectContextMenu.fetchVars then
         local square = ISWorldObjectContextMenu.fetchVars.clickedSquare
@@ -45,21 +55,71 @@ function ParadiseDev.TargContext.getPlayers(square, radius)
     return players
 end
 
-function ParadiseDev.TargContext.setSuspect(target)
-    if not target or not target.getUsername or not networkUserAction then return end
-    networkUserAction("SetRole", target:getUsername(), "Suspect")
+function ParadiseDev.TargContext.isSuspect(target)
+    local role = target and target.getRole and target:getRole() or nil
+    return role and role.getName and string.lower(tostring(role:getName())) == "suspect" or false
 end
 
-function ParadiseDev.TargContext.setCage(_, target, isCaged)
-    if not target or not target.getUsername then return end
-    local username = target:getUsername()
-    if ParadiseDev.Cage and ParadiseDev.Cage.requestSet then
-        ParadiseDev.Cage.requestSet(username, isCaged)
+function ParadiseDev.TargContext.getPlayerRoleName()
+    local roles = getRoles and getRoles() or nil
+    if roles then
+        for _, wanted in ipairs({ "player", "user", "none" }) do
+            for index = 0, roles:size() - 1 do
+                local role = roles:get(index)
+                if role and string.lower(tostring(role:getName())) == wanted then return role:getName() end
+            end
+        end
     end
+    return "player"
+end
+
+function ParadiseDev.TargContext.toggleSuspect(_, target)
+    local username = ParadiseDev.TargContext.getUsername(target)
+    if not username or not networkUserAction then return end
+    local role = ParadiseDev.TargContext.isSuspect(target) and ParadiseDev.TargContext.getPlayerRoleName() or "Suspect"
+    networkUserAction("SetRole", username, role)
+end
+
+function ParadiseDev.TargContext.toggleCage(_, target)
+    if ParadiseDev.Cage and ParadiseDev.Cage.requestToggle then ParadiseDev.Cage.requestToggle(target) end
 end
 
 function ParadiseDev.TargContext.spectate(_, username)
     if ParadiseZ and ParadiseZ.setSpectate then ParadiseZ.setSpectate(username) end
+end
+
+function ParadiseDev.TargContext.togglePvE(_, target)
+    local username = ParadiseDev.TargContext.getUsername(target)
+    if not username or not ParadiseDev.TraitSyncer then return end
+    local traitId = "ParadiseDev:PvE"
+    local enabled = ParadiseDev.TraitSyncer.isTargetTrait and ParadiseDev.TraitSyncer.isTargetTrait(target, traitId)
+    if ParadiseDev.TraitSyncer.requestSet then
+        ParadiseDev.TraitSyncer.requestSet(username, traitId, not enabled)
+    end
+end
+
+function ParadiseDev.TargContext.addPlayerActions(menu, target, localPlayer)
+    if not menu or not target or not localPlayer then return end
+    local username = ParadiseDev.TargContext.getUsername(target)
+    if not username then return end
+    target = ParadiseDev.TargContext.resolveTarget(target)
+    local caged = ParadiseDev.Cage and ParadiseDev.Cage.isTargetCaged and ParadiseDev.Cage.isTargetCaged(target) or false
+    menu:addOption((caged and "Uncage: " or "Cage: ") .. username, nil, ParadiseDev.TargContext.toggleCage, target)
+
+    if ParadiseZ and ParadiseZ.isSpectating and ParadiseZ.isSpectating(localPlayer) then
+        menu:addOption("Stop Spectating", nil, ParadiseZ.stopSpectate)
+    elseif username ~= localPlayer:getUsername() and ParadiseZ and ParadiseZ.setSpectate then
+        menu:addOption("Spectate: " .. username, nil, ParadiseDev.TargContext.spectate, username)
+    end
+
+    local pve = ParadiseDev.TraitSyncer and ParadiseDev.TraitSyncer.isTargetTrait and
+        ParadiseDev.TraitSyncer.isTargetTrait(target, "ParadiseDev:PvE") or false
+    menu:addOption((pve and "Disable PvE: " or "Enable PvE: ") .. username, nil,
+        ParadiseDev.TargContext.togglePvE, target)
+
+    local suspect = ParadiseDev.TargContext.isSuspect(target)
+    menu:addOption((suspect and "Remove Suspect Role: " or "Assign Suspect Role: ") .. username, nil,
+        ParadiseDev.TargContext.toggleSuspect, target)
 end
 --[[ 
         ISPlayerStatsUI.instance.char:getCharacterTraits():add(trait:getType());
@@ -73,32 +133,7 @@ function ParadiseDev.TargContext.addPlayerMenu(context, target, localPlayer)
     local menu = ISContextMenu:getNew(context)
     context:addSubMenu(root, menu)
 
-    if ParadiseDev.TraitSyncer then
-        ParadiseDev.TraitSyncer.addTargetMenu(menu, target)
-    end
-    if ParadiseDev.Cage then
-        local isCaged = ParadiseDev.Cage.isTargetCaged and ParadiseDev.Cage.isTargetCaged(target)
-        if ParadiseDev.Cage.requestSet then
-            menu:addOption(isCaged and "Uncage" or "Cage", nil, ParadiseDev.TargContext.setCage, target, not isCaged)
-        end
-    end
-
-    if ParadiseZ and ParadiseZ.setSpectate then
-        local spectate = menu:addOption("Spectate", nil, ParadiseDev.TargContext.spectate, username)
-        if username == localPlayer:getUsername() then spectate.notAvailable = true end
-    elseif ParadiseZ and ParadiseZ.isSpectating and ParadiseZ.isSpectating(localPlayer) and ParadiseZ.stopSpectate then
-        menu:addOption("Stop Spectating", nil, ParadiseZ.stopSpectate)
-    end
-
-    if networkUserAction then
-        menu:addOption("Set Suspect Role", nil, ParadiseDev.TargContext.setSuspect, target)
-    end
-
-    if ParadiseCloner and ParadiseCloner.addTargetOption then ParadiseCloner.addTargetOption(menu, target) end
-
-    if ParadiseBan and ParadiseBan.addTargetMenu then
-        ParadiseBan.addTargetMenu(menu, target, localPlayer)
-    end
+    ParadiseDev.TargContext.addPlayerActions(menu, target, localPlayer)
 end
 
 function ParadiseDev.TargContext.addWorldContext(plNum, context, worldobjects, test)

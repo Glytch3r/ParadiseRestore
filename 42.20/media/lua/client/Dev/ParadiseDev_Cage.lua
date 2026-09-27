@@ -75,6 +75,12 @@ function ParadiseDev.Cage.requestSet(username, isCaged)
     return ParadiseDev.Cage.setLocal(username, nil, isCaged == true)
 end
 
+function ParadiseDev.Cage.requestToggle(target)
+    local username = target and (target.username or (target.getUsername and target:getUsername())) or nil
+    if not username or username == "" then return false end
+    return ParadiseDev.Cage.requestSet(username, not ParadiseDev.Cage.isTargetCaged(target))
+end
+
 function ParadiseDev.Cage.requestLogData(username)
     if not username or username == "" or not sendClientCommand then return false end
     sendClientCommand("ParadiseDevCage", "logData", { username = username })

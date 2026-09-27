@@ -1,12 +1,6 @@
 --client/WaveCaster_Data.lua
 WaveCaster = WaveCaster or {}
 
-function WaveCaster.isAdm()
-    if ParadiseDev and ParadiseDev.isAdm then return ParadiseDev.isAdm() end
-    local pl = getPlayer()
-    return ((pl and string.lower(pl:getAccessLevel()) == "admin") or (isClient() and isAdmin())) 
-end
-
 function WaveCaster.saveData(data)
     if not data then return end    
 	if isClient() then 

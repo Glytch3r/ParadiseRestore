@@ -102,18 +102,24 @@ local function hasRole(targ, wanted)
 end
 
 local function getSurvivorName(target)
+    if ParadiseRestore and ParadiseRestore.DeadTracker and ParadiseRestore.DeadTracker.getOwnerUsername then
+        local trackedName = ParadiseRestore.DeadTracker.getOwnerUsername(target)
+        if trackedName then return trackedName end
+    end
     local name = target and target.getUsername and target:getUsername() or nil
     if not name or name == "" then name = target and target.getPlayerName and target:getPlayerName() or nil end
     if not name or name == "" then name = target and target.getName and target:getName() or nil end
     local modData = target and target.getModData and target:getModData() or nil
-    if (not name or name == "") and modData then name = modData.username or modData.Username or modData.playerName end
+    if (not name or name == "") and modData then
+        name = modData.ParadiseRestoreDeadPlayerUsername or modData.username or modData.Username or modData.playerName
+    end
     return name and tostring(name) or "Unknown"
 end
 
 local function setSurvivorTag(target)
     local tag = TextDrawObject.new()
-    tag:setDefaultFont(UIFont.NewLarge)
-    tag:ReadString(UIFont.NewLarge, "SURVIVOR: " .. getSurvivorName(target), -1)
+    tag:setDefaultFont(UIFont.Small)
+    tag:ReadString(UIFont.Small, getSurvivorName(target), -1)
     tag:setDefaultColors(1, 0.2, 0.2)
     tag:setVisibleRadius(360)
     ParadiseZ.survivorTags[target] = { tag = tag, target = target }

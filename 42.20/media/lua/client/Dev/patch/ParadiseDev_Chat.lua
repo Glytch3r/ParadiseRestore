@@ -113,6 +113,9 @@ function ParadiseDev.chatCmd(cmd)
             ParadiseDev.Cage.requestSet(username, isCaged)
         end
     elseif command == "/die" then
+        if pl:isGodMod() then
+            pl:setGodMod(false)
+        end
         if isClient() then
             sendClientCommand("ParadiseDevTP", "die", {})
         else
@@ -146,14 +149,14 @@ function ParadiseDev.chatCmd(cmd)
         local msg = "Glytch3r: Thanks for your support " .. tostring(user) .. "! Take this " .. tostring(item) .. " as a gift! Enjoy Paradise! "
 
         if not received then
-            local inventory = pl:getInventory()
+            local inv = pl:getInventory()
             if not inventory then return end
 
             pl:playEmote("thankyou")
             recordGifted(user)
-            local gift = inventory:AddItem(item)
+            local gift = inv:AddItem(item)
             if ParadiseDev.Inventory and ParadiseDev.Inventory.syncAddedItem then
-                ParadiseDev.Inventory.syncAddedItem(inventory, gift)
+                ParadiseDev.Inventory.syncAddedItem(inv, gift)
             end
             getSoundManager():playUISound("ParadiseZ_Intro_2")
         else

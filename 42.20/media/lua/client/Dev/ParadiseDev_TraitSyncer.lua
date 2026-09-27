@@ -40,18 +40,6 @@ function Syncer.setLocal(player, traitId, enabled)
     return true
 end
 
-function Syncer.cleanDuplicates(player)
-    if not player or not player.getCharacterTraits then return end
-    local traits = player:getCharacterTraits()
-    for _, traitId in ipairs(Syncer.Traits) do
-        local trait = ParadiseDev.getTrait and ParadiseDev.getTrait(traitId) or nil
-        if trait and Syncer.has(player, traitId) then
-            traits:remove(trait)
-            traits:add(trait)
-        end
-    end
-end
-
 function Syncer.syncPlayer(player)
     if not player or not player.getUsername then return end
     local username = tostring(player:getUsername())
@@ -59,9 +47,10 @@ function Syncer.syncPlayer(player)
     local record = store.players and store.players[username] or nil
     if type(record) ~= "table" then record = {} end
     for _, traitId in ipairs(Syncer.Traits) do
-        Syncer.setLocal(player, traitId, record[traitId] == true)
+        if traitId ~= "ParadiseDev:Caged" then
+            Syncer.setLocal(player, traitId, record[traitId] == true)
+        end
     end
-    Syncer.cleanDuplicates(player)
     if ISPlayerStatsUI and ISPlayerStatsUI.instance and ISPlayerStatsUI.instance.loadTraits then
         ISPlayerStatsUI.instance:loadTraits()
     end
@@ -76,11 +65,27 @@ function Syncer.requestSet(username, traitId, enabled)
 end
 
 function Syncer.isTargetTrait(target, traitId)
+    if traitId == "ParadiseDev:Caged" and ParadiseDev.Cage and ParadiseDev.Cage.isTargetCaged then
+        return ParadiseDev.Cage.isTargetCaged(target)
+    end
+    local username = target and (target.username or (target.getUsername and target:getUsername())) or nil
+    if username then
+        for _, entry in ipairs(Syncer.entries or {}) do
+            if string.lower(tostring(entry.username or "")) == string.lower(tostring(username)) then
+                return entry.traits and entry.traits[traitId] == true or false
+            end
+        end
+    end
     return Syncer.has(target, traitId)
 end
 
 function Syncer.setTarget(_, target, traitId, enabled)
-    if target and target.getUsername then Syncer.requestSet(target:getUsername(), traitId, enabled) end
+    if not target or not target.getUsername then return end
+    if traitId == "ParadiseDev:Caged" and ParadiseDev.Cage and ParadiseDev.Cage.requestSet then
+        ParadiseDev.Cage.requestSet(target:getUsername(), enabled)
+        return
+    end
+    Syncer.requestSet(target:getUsername(), traitId, enabled)
 end
 
 function Syncer.addTargetMenu(menu, target)

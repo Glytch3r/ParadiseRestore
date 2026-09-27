@@ -1,4 +1,5 @@
 require "ISUI/AdminPanel/ISMiniScoreboardUI"
+require "Dev/ParadiseDev_TargContext"
 
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.miniscoreboard = ParadiseDev.miniscoreboard or {}
@@ -11,29 +12,18 @@ function ISMiniScoreboardUI:doPlayerListContextMenu(player, x,y)
     hook1(self, player, x,y)
     local username = player and player.username or nil
     if username and ParadiseDev.isAdm(self.admin) then
-        local caged = ParadiseDev.Cage and ParadiseDev.Cage.isTargetCaged and ParadiseDev.Cage.isTargetCaged(player)
-        context:addOption((caged and "Uncage: " or "Cage: ") .. username, self, ISMiniScoreboardUI.onCommand, player, "CAGED")
-        local role = self.admin:getRole()
-        if role and role:hasCapability(Capability.TeleportToPlayer) then
-            context:addOption("Spectate: " .. username, self, ISMiniScoreboardUI.onCommand, player, "SPECTATE")
-        end
-        if ParadiseDev.SkillRecovery and ParadiseDev.SkillRecovery.addTargetOptions then
-            ParadiseDev.SkillRecovery.addTargetOptions(context, player)
+        if ParadiseDev.TargContext and ParadiseDev.TargContext.addPlayerActions then
+            ParadiseDev.TargContext.addPlayerActions(context, player, self.admin)
         end
     end
 end 
 
-local hook2 = ISMiniScoreboardUI.onCommand
-function ISMiniScoreboardUI:onCommand(player, command)    
-    if command == "CAGED" then
-        local username = player and player.username or nil
-        if username and ParadiseDev.Cage and ParadiseDev.Cage.requestSet then
-            local caged = ParadiseDev.Cage.isTargetCaged and ParadiseDev.Cage.isTargetCaged(player)
-            ParadiseDev.Cage.requestSet(username, not caged)
-        end
-    elseif command == "SPECTATE" then
-        if ParadiseZ and ParadiseZ.setSpectate and player and player.username then ParadiseZ.setSpectate(player.username) end
-    else
-        hook2(self, player, command)
+local closeHook = ISMiniScoreboardUI.close
+function ISMiniScoreboardUI:close()
+    local options = SandboxVars and SandboxVars.ParadiseZ or {}
+    if options.StopSpectateOnScoreboardClose ~= false and
+        ParadiseZ and ParadiseZ.isSpectating and ParadiseZ.isSpectating(self.admin) and ParadiseZ.stopSpectate then
+        ParadiseZ.stopSpectate()
     end
+    closeHook(self)
 end

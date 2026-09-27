@@ -92,6 +92,12 @@ option ParadiseZ.HideAvatar
 	page = ParadiseZ, translation = ParadiseZ_HideAvatar,
 }
 
+option ParadiseZ.StopSpectateOnScoreboardClose
+{
+	type = boolean, default = true,
+	page = ParadiseZ, translation = ParadiseZ_StopSpectateOnScoreboardClose,
+}
+
 option ParadiseZ.AutoInvisible  
 {
 	type = boolean, default = false,
@@ -749,4 +755,40 @@ option ParadiseZ.AutoFarmDisableAutoClearReceding
 {
     type = boolean, default = false,
     page = ParadiseZ_AutoFarm, translation = ParadiseZ_AutoFarmDisableAutoClearReceding,
+}
+
+option ParadiseZ.DeadTrackerCorpseColorR
+{
+    type = double, min = 0.00, max = 1.00, default = 0.82,
+    page = ParadiseZ, translation = ParadiseZ_DeadTrackerCorpseColorR,
+}
+
+option ParadiseZ.DeadTrackerCorpseColorG
+{
+    type = double, min = 0.00, max = 1.00, default = 0.18,
+    page = ParadiseZ, translation = ParadiseZ_DeadTrackerCorpseColorG,
+}
+
+option ParadiseZ.DeadTrackerCorpseColorB
+{
+    type = double, min = 0.00, max = 1.00, default = 1.00,
+    page = ParadiseZ, translation = ParadiseZ_DeadTrackerCorpseColorB,
+}
+
+option ParadiseZ.DeadTrackerZombieColorR
+{
+    type = double, min = 0.00, max = 1.00, default = 0.58,
+    page = ParadiseZ, translation = ParadiseZ_DeadTrackerZombieColorR,
+}
+
+option ParadiseZ.DeadTrackerZombieColorG
+{
+    type = double, min = 0.00, max = 1.00, default = 0.08,
+    page = ParadiseZ, translation = ParadiseZ_DeadTrackerZombieColorG,
+}
+
+option ParadiseZ.DeadTrackerZombieColorB
+{
+    type = double, min = 0.00, max = 1.00, default = 0.78,
+    page = ParadiseZ, translation = ParadiseZ_DeadTrackerZombieColorB,
 }

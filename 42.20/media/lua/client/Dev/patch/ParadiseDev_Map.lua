@@ -5,6 +5,7 @@ ParadiseDev.Map.zoneVisuals = ParadiseDev.Map.zoneVisuals ~= false
 ParadiseDev.Map.coordinates = ParadiseDev.Map.coordinates ~= false
 
 require "ISUI/Maps/ISMiniMap"
+require "ParadiseRestore_DeadTracker"
 
 ParadiseDev.Map.vanillaInstantiate = ParadiseDev.Map.vanillaInstantiate or ISWorldMap.instantiate
 
@@ -123,6 +124,9 @@ if ISMiniMapOuter and not ParadiseDev.Map.miniMapHooked then
         ParadiseDev.Map.miniMapRender(self, ...)
         drawMinimapZoneBorders(self)
         drawSuspectMarkers(self)
+        if ParadiseRestore and ParadiseRestore.DeadTracker then
+            ParadiseRestore.DeadTracker.drawMapMarkers(self)
+        end
     end
 end
 
@@ -191,6 +195,9 @@ function ParadiseDev.Map.hookWorldMap()
         ParadiseDev.Map.drawZoneBorders(self)
         ParadiseDev.Map.drawCoordinates(self)
         drawSuspectMarkers(self)
+        if ParadiseRestore and ParadiseRestore.DeadTracker then
+            ParadiseRestore.DeadTracker.drawMapMarkers(self)
+        end
     end
 
     local vanillaMapRightMouseUp = ISWorldMap.onRightMouseUp
@@ -206,6 +213,10 @@ function ParadiseDev.Map.hookWorldMap()
             ParadiseDev.Map.coordinates = not ParadiseDev.Map.coordinates
         end)
         context:setOptionChecked(option, not ParadiseDev.Map.coordinates)
+        if ParadiseRestore and ParadiseRestore.DeadTracker and ParadiseRestore.DeadTracker.isAdminViewer() then
+            option = context:addOption("Hide DeadTracker Dots", self, ParadiseRestore.DeadTracker.toggleVisibility)
+            context:setOptionChecked(option, not ParadiseRestore.DeadTracker.visible)
+        end
         return true
     end
 end
