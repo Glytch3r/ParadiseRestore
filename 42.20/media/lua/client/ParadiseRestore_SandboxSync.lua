@@ -17,6 +17,10 @@ Events.OnSandboxModified.Add(ParadiseRestore.onSandboxModified)
 function ParadiseRestore.onSandboxSyncCommand(module, command, args)
     if module ~= "ParadiseRestore" or command ~= "reParams" then return end
     triggerEvent("OnSandboxModified")
+    local pl = getPlayer() 
+    if pl and ParadiseRestore.isAdm(pl) and args.targUser then
+        pl:setHaloNote('Admin '..tostring(args.targUser)..' SYNCED SANDBOX',150,250,150,900) 
+    end
 end
 Events.OnServerCommand.Remove(ParadiseRestore.onSandboxSyncCommand)
 Events.OnServerCommand.Add(ParadiseRestore.onSandboxSyncCommand)
