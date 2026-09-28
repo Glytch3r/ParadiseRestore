@@ -1,6 +1,5 @@
 if isClient and isClient() then return end
 
-require "Dev/ParadiseEconomy/ParadiseEconomy_Shared"
 
 local economy = ParadiseEconomy
 

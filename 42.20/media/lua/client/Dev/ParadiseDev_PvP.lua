@@ -1,4 +1,3 @@
-require "Dev/ParadiseDev_ApplyMedkitPvP"
 
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.PvP = ParadiseDev.PvP or {}

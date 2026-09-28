@@ -1,7 +1,3 @@
-require "ISUI/ISPanelJoypad"
-require "ISUI/ISRichTextPanel"
-require "ISUI/ISTickBox"
-require "ISUI/ISButton"
 
 JimsRulesUI = ISPanelJoypad:derive("JimsRulesUI")
 

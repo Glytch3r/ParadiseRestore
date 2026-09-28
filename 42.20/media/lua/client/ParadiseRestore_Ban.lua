@@ -1,4 +1,3 @@
-require "TimedActions/ISBaseTimedAction"
 
 ParadiseBan = ParadiseBan or {}
 ParadiseBan.MODULE = "ParadiseBan"

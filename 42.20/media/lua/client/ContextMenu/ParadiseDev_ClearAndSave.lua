@@ -1,7 +1,3 @@
-require "ISUI/ISImage"
-require "ISUI/ISModalDialog"
-require "ISUI/ISTextEntryBox"
-require "lua_timers"
 
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.ClearAndSave = ParadiseDev.ClearAndSave or {}

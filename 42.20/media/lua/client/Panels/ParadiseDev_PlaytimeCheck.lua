@@ -1,7 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Panels = ParadiseDev.Panels or {}
 
-require "ISUI/ISTextEntryBox"
 
 ParadiseDev.Panels.PlaytimeCheck = ISCollapsableWindow:derive("ParadiseDev.Panels.PlaytimeCheck")
 
@@ -12,7 +11,6 @@ function ParadiseDev.Panels.PlaytimeCheck:requestCheck()
         return
     end
     if not (isClient and isClient()) or not sendClientCommand then
-        self.result:setName("This panel requires a multiplayer server.")
         return
     end
     self.result:setName("Checking...")

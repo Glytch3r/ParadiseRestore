@@ -1,4 +1,3 @@
-require "ISUI/ISTickBox"
 
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.DataCheck = ParadiseDev.DataCheck or {}

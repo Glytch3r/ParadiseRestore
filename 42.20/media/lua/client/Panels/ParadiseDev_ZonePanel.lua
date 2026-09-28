@@ -1,14 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
 
-require "ISUI/ISCollapsableWindow"
-require "ISUI/ISButton"
-require "ISUI/ISLabel"
-require "ISUI/ISScrollingListBox"
-require "ISUI/ISTextEntryBox"
-require "ISUI/ISTickBox"
-require "ISUI/ISComboBox"
-require "ISUI/ISModalDialog"
 
 ParadiseDev.Zones.MODULE = ParadiseDev.Zones.MODULE or "PZZoneHarness"
 ParadiseDev.Zones.adminZones = ParadiseDev.Zones.adminZones or {}
@@ -650,8 +642,6 @@ function ParadiseDev.Zones.Editor:createChildren()
     ParadiseDev.Zones.addLabel(self, "Deny tags", rightX, y)
     self.denyEntry = ParadiseDev.Zones.addEntry(self, "", fieldX, y, fieldW)
     y = y + ENTRY_HGT + GAP
-    ParadiseDev.Zones.addLabel(self, "Require any", rightX, y)
-    self.requireEntry = ParadiseDev.Zones.addEntry(self, "", fieldX, y, fieldW)
 
     y = y + ENTRY_HGT + GAP
     self.adminBypass = ISTickBox:new(fieldX, y, 190, ENTRY_HGT, "", self, nil)
@@ -720,7 +710,6 @@ function ParadiseDev.Zones.Editor:layoutChildren()
     self.idEntry:setWidth(fieldW)
     self.nameEntry:setWidth(fieldW)
     self.denyEntry:setWidth(fieldW)
-    self.requireEntry:setWidth(fieldW)
     self.statusLabel:setY(self.height - ENTRY_HGT - GAP - self:resizeWidgetHeight())
     self._lastLayoutW, self._lastLayoutH = self.width, self.height
 end
@@ -745,7 +734,6 @@ function ParadiseDev.Zones.Editor:loadZone(zone)
     self.zMinEntry:setText(tostring(zone.zMin or 0))
     self.zMaxEntry:setText(tostring(zone.zMaxExclusive or 1))
     self.denyEntry:setText(zone.denyTags or "")
-    self.requireEntry:setText(zone.requireTags or "")
     self.adminBypass:setSelected(1, zone.adminBypass ~= false)
 
     local names = {}
@@ -811,7 +799,6 @@ function ParadiseDev.Zones.Editor:zoneArgs(includeRegion)
         zMin = self.zMinEntry:getText(),
         zMaxExclusive = self.zMaxEntry:getText(),
         denyTags = self.denyEntry:getText(),
-        requireTags = self.requireEntry:getText(),
         adminBypass = self.adminBypass:isSelected(1),
     }
     if includeRegion then
@@ -1042,7 +1029,6 @@ end
 
 function ParadiseDev.Zones.openTestRemote()
     if not ParadiseDev.isAdm() then
-        print("[PZZoneHarness] Admin access is required for the test remote.")
         return
     end
 
@@ -1061,7 +1047,6 @@ function ParadiseDev.Zones.openTestRemote()
 end
 function ParadiseDev.Zones.openUI()
     if not ParadiseDev.isAdm() then
-        print("[PZZoneHarness] Admin access is required for the zone editor.")
         return
     end
     if ParadiseDev.Zones.window then

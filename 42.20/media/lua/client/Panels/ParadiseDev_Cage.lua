@@ -1,7 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Cage = ParadiseDev.Cage or {}
 
---require "ISUI/AdminPanel/ISUsersList"
 
 ParadiseDev.Cage.scoreboardContext = nil
 ParadiseDev.Cage.usersListContext = nil

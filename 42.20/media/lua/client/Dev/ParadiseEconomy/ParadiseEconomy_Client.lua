@@ -1,9 +1,3 @@
-require "Dev/ParadiseEconomy/ParadiseEconomy_Shared"
-require "TimedActions/ISBaseTimedAction"
-require "ISUI/ISPanel"
-require "ISUI/ISLabel"
-require "ISUI/ISButton"
-require "RadioCom/ISUIRadio/ISSliderPanel"
 
 local economy = ParadiseEconomy
 economy.balance = economy.balance or { gold = 0, silver = 0 }

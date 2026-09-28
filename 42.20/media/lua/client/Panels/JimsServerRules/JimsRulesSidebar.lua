@@ -1,5 +1,3 @@
-require "ISUI/ISEquippedItem"
-require "ISUI/ISButton"
 
 JimsRulesSidebar = JimsRulesSidebar or {}
 

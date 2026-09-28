@@ -1,7 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.LifeBar = ParadiseDev.LifeBar or {}
 
-require "ISUI/ISPanel"
 
 ParadiseDev.LifeBar.panel = nil
 ParadiseDev.LifeBar.visible = true

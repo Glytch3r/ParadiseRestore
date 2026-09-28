@@ -1,7 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Panels = ParadiseDev.Panels or {}
 
-require "ISUI/ISTextEntryBox"
 
 ParadiseDev.Panels.MediaSpawner = ISCollapsableWindow:derive("ParadiseDev.Panels.MediaSpawner")
 

@@ -1,4 +1,3 @@
-require "ISUI/ISPanelJoypad"
 WaveCaster = WaveCaster or {}
 WaveCasterPanel = ISCollapsableWindow:derive("WaveCasterPanel");
 WaveCaster.midColor = { r = 1.00, g = 0.48, b = 0.45 }

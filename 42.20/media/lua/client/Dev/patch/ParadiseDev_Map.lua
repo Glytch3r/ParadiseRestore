@@ -4,8 +4,6 @@ ParadiseDev.Map = ParadiseDev.Map or {}
 ParadiseDev.Map.zoneVisuals = ParadiseDev.Map.zoneVisuals ~= false
 ParadiseDev.Map.coordinates = ParadiseDev.Map.coordinates ~= false
 
-require "ISUI/Maps/ISMiniMap"
-require "ParadiseRestore_DeadTracker"
 
 ParadiseDev.Map.vanillaInstantiate = ParadiseDev.Map.vanillaInstantiate or ISWorldMap.instantiate
 

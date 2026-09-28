@@ -1,14 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.ZedController = ParadiseDev.ZedController or {}
 
-require "ISUI/ISCollapsableWindow"
-require "ISUI/ISPanel"
-require "ISUI/ISButton"
-require "ISUI/ISLabel"
-require "ISUI/ISComboBox"
-require "ISUI/ISTextEntryBox"
-require "RadioCom/ISUIRadio/ISSliderPanel"
-require "BuildingObjects/ISSelectCursor"
 
 local ZedController = ParadiseDev.ZedController
 local previousOnServerCommand = ZedController.onServerCommand
@@ -458,7 +450,6 @@ function ZedController.executeLocal(pl, command, args)
     end
     if kind == "corpse" then
         if command == "resurrect" then return ZedController.reanimate(obj, args.minutes), "Reanimation requested." end
-        return false, "That action requires a live zed."
     end
     if command == "kill" then
         local cell = getCell and getCell() or nil

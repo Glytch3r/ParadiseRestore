@@ -2,7 +2,6 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.TheRange = ParadiseDev.TheRange or {}
 ParadiseDev.TheRange.Context = ParadiseDev.TheRange.Context or {}
 
-require "ISUI/ISTextBox"
 
 ParadiseDev.TheRange.Context.vendorSprites = {
     ParadiseTiles_12 = true,

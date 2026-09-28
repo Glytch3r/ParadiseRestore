@@ -2,12 +2,9 @@ if not isClient() then
     return
 end
 
-require "JimsServerRules/JimsRulesShared"
-require "JimsServerRules/JimsRulesUI"
 
 JimsRulesClient = JimsRulesClient or {}
 
-require "JimsServerRules/JimsRulesSidebar"
 
 local activePlayer = nil
 local activePlayerNumber = 0

@@ -2,7 +2,6 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
 ParadiseDev.Zones.MapText = ParadiseDev.Zones.MapText or {}
 
-require "ISUI/Maps/ISWorldMap"
 
 ParadiseDev.Zones.MapText.enabled = ParadiseDev.Zones.MapText.enabled ~= false
 ParadiseDev.Zones.MapText.layer = "text-place"

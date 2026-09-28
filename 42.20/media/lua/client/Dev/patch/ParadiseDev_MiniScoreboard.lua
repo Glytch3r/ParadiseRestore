@@ -1,5 +1,3 @@
-require "ISUI/AdminPanel/ISMiniScoreboardUI"
-require "Dev/ParadiseDev_TargContext"
 
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.miniscoreboard = ParadiseDev.miniscoreboard or {}

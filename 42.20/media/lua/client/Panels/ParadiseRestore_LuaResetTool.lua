@@ -1,5 +1,4 @@
 --r* reset* lua* resetlua*
-require "ISUI/ISCollapsableWindow"
 
 LuaResetTool = LuaResetTool or {}
 LuaResetTool.files = LuaResetTool.files or {}

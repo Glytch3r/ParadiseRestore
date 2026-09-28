@@ -3,17 +3,6 @@ ParadiseDev.Context = ParadiseDev.Context or {}
 ParadiseZ = ParadiseZ or {}
 ParadiseZ.soundDbg = ParadiseZ.soundDbg or false
 
-require "Dev/ParadiseDev_AdminPanels"
-require "Dev/ParadiseDev_TargContext"
-require "Dev/ParadiseDev_POI"
-require "Dev/DBG/ParadiseDev_VisualDebug"
-require "Dev/ParadiseDev_ZedController"
-require "ISUI/ISCollapsableWindow"
-require "ISUI/ISButton"
-require "ISUI/ISLabel"
-require "ISUI/ISTickBox"
-require "RadioCom/ISUIRadio/ISSliderPanel"
-
 function ParadiseDev.Context.onOrOff(value)
     return value and "On" or "Off"
 end

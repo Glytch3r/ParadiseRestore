@@ -1,4 +1,3 @@
-require "TimedActions/ISBaseTimedAction"
 
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.ApplyMedkitPvP = ISBaseTimedAction:derive("ParadiseDev.ApplyMedkitPvP")

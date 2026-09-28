@@ -4,15 +4,6 @@ ParadiseDev.ZoneHUD.width = 250
 ParadiseDev.ZoneHUD.defaultX = 68 + ParadiseDev.ZoneHUD.width
 ParadiseDev.ZoneHUD.defaultY = 73
 
-require "ISUI/ISPanel"
-require "ISUI/ISLabel"
-require "ISUI/ISButton"
-require "ISUI/ISComboBox"
-require "ISUI/ISTickBox"
-require "RadioCom/ISUIRadio/ISSliderPanel"
-require "ISUI/UserPanel/ISUserPanelUI"
-require "Dev/ParadiseEconomy/ParadiseEconomy_Client"
-
 ParadiseDev.ZoneHUD.mapLabels = {
     { key = "MapLabel_Brandenburg", x = 2056, y = 6070 },
     { key = "MapLabel_Ekron", x = 634, y = 9746 },
