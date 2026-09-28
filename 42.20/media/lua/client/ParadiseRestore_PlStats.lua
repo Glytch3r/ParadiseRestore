@@ -20,6 +20,8 @@ function ParadisePlStats.drunkHandler(_, pl)
 end
 Events.OnCreatePlayer.Remove(ParadisePlStats.drunkHandler)
 Events.OnCreatePlayer.Add(ParadisePlStats.drunkHandler)
+
+LuaEventManager.AddEvent("OnSandboxModified")
 Events.OnSandboxModified.Remove(ParadisePlStats.drunkHandler)
 Events.OnSandboxModified.Add(ParadisePlStats.drunkHandler)
 
