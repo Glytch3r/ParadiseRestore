@@ -148,4 +148,56 @@ local eventCount = 0
 for _ in pairs(eventHandlers) do eventCount = eventCount + 1 end
 assertEqual(eventCount, 1, "install event registered once")
 
+ParadisePanels.table = {}
+dofile("42.20/media/lua/client/Panels/ParadisePanels_table.lua")
+
+local expectedKeys = {
+    dataCheck = true,
+    globalModData = true,
+    mediaSpawner = true,
+    modActiveCheck = true,
+    playtimeCheck = true,
+    traitSyncer = true,
+    zedController = true,
+    zones = true,
+    zonesEditor = true,
+    zonesTestRemote = true,
+    poi = true,
+    luaResetTool = true,
+    waveCaster = true,
+    jimsRules = true,
+    promoAdmin = true,
+    promoPlayer = true,
+}
+local seenKeys = {}
+assertEqual(#ParadisePanels.table, 16, "complete panel inventory")
+for _, descriptor in ipairs(ParadisePanels.table) do
+    assertTrue(expectedKeys[descriptor.key] == true, "unexpected descriptor " .. tostring(descriptor.key))
+    assertNil(seenKeys[descriptor.key], "duplicate descriptor " .. descriptor.key)
+    seenKeys[descriptor.key] = true
+    assertTrue(type(descriptor.isAdmOnly) == "boolean", descriptor.key .. " admin flag")
+    assertTrue(type(descriptor.getModule) == "function", descriptor.key .. " module resolver")
+    assertTrue(type(descriptor.getInstance) == "function", descriptor.key .. " instance getter")
+    assertTrue(type(descriptor.setInstance) == "function", descriptor.key .. " instance setter")
+    assertTrue(type(descriptor.create) == "function", descriptor.key .. " creator")
+    if descriptor.key == "jimsRules" or descriptor.key == "promoPlayer" then
+        assertEqual(descriptor.isAdmOnly, false, descriptor.key .. " is player-facing")
+    else
+        assertEqual(descriptor.isAdmOnly, true, descriptor.key .. " is admin-only")
+    end
+end
+
+assertTrue(ParadisePromo.AdminPanel ~= ParadisePromo.PlayerPanel, "Promo modules are independent")
+local adminDescriptor
+local playerDescriptor
+for _, descriptor in ipairs(ParadisePanels.table) do
+    if descriptor.key == "promoAdmin" then adminDescriptor = descriptor end
+    if descriptor.key == "promoPlayer" then playerDescriptor = descriptor end
+end
+assertEqual(adminDescriptor.getModule(), ParadisePromo.AdminPanel, "admin Promo module")
+assertEqual(playerDescriptor.getModule(), ParadisePromo.PlayerPanel, "player Promo module")
+ParadisePromo.adminInstance = {}
+ParadisePromo.playerInstance = {}
+assertTrue(adminDescriptor.getInstance() ~= playerDescriptor.getInstance(), "Promo instances are independent")
+
 print("PASS test_ParadisePanels_Main")
