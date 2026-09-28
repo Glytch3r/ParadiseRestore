@@ -457,5 +457,9 @@
   "Sandbox_ParadiseZ_DeadTrackerZombieColorB_tooltip": "Blue component of the admin-only reanimated-player map dot. Range: 0-1.",
   "SandboxVars_ParadiseZpvp_pvpStaggerChance": "pvpStaggerChance",
   "Sandbox_ParadiseZ_DrunkMaxMinutes": "Maximum Drunk Duration (Real-Time Minutes)",
-  "Sandbox_ParadiseZ_DrunkMaxMinutes_tooltip": "Maximum real-time minutes required to sober up from 100 intoxication at normal game speed. The default 6.6137566 preserves the vanilla duration."
+  "Sandbox_ParadiseZ_DrunkMaxMinutes_tooltip": "Maximum real-time minutes required to sober up from 100 intoxication at normal game speed. The default 6.6137566 preserves the vanilla duration.",
+  "Sandbox_ParadiseZ_FactionInactiveDays": "Faction Inactivity Days",
+  "Sandbox_ParadiseZ_FactionInactiveDays_tooltip": "Real-world days without a qualifying faction login before the faction is marked inactive.",
+  "Sandbox_ParadiseZ_FactionActivityTracksMembers": "Faction Activity Tracks Members",
+  "Sandbox_ParadiseZ_FactionActivityTracksMembers_tooltip": "When enabled, any faction member login refreshes faction activity. When disabled, only the faction owner login refreshes activity."
 }

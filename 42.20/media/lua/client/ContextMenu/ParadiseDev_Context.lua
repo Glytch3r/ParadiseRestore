@@ -585,6 +585,14 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
         )
     end
     if ParadiseDev.Panels then
+        if FactionManager and FactionManager.OpenPanel then
+            ParadiseDev.Context.addOption(
+                panelsMenu,
+                "Faction Manager",
+                FactionManager.OpenPanel,
+                "media/ui/Paradise/ContextIcon.png"
+            )
+        end
         ParadiseDev.Context.addOption(
             panelsMenu,
             "WaveCaster",

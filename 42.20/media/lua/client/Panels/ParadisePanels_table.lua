@@ -12,6 +12,25 @@ end
 
 ParadisePanels.table = {
     {
+        key = "factionManager",
+        isAdmOnly = true,
+        getModule = function() return FactionManager end,
+        getInstance = function() return FactionManager and FactionManager.instance end,
+        setInstance = function(instance) FactionManager.instance = instance end,
+        create = function()
+            local width = math.min(1120, getCore():getScreenWidth() - 40)
+            local height = math.min(720, getCore():getScreenHeight() - 40)
+            local panel = FactionManager.Panel:new(
+                math.max(20, (getCore():getScreenWidth() - width) / 2),
+                math.max(20, (getCore():getScreenHeight() - height) / 2),
+                width,
+                height
+            )
+            return initialise(panel)
+        end,
+        onOpen = function() FactionManager.requestState() end,
+    },
+    {
         key = "dataCheck",
         isAdmOnly = true,
         getModule = function() return ParadiseDev and ParadiseDev.DataCheck end,

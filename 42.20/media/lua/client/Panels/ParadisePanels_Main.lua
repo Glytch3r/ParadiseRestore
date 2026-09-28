@@ -103,3 +103,7 @@ function ParadisePanels.CloseAdminPanels()
         end
     end
 end
+
+function ParadisePanels.OpenFactionManager()
+    if FactionManager and FactionManager.OpenPanel then return FactionManager.OpenPanel() end
+end

@@ -1,5 +1,17 @@
 if isClient() then return end
 
+ParadiseRestore = ParadiseRestore or {}
+ParadiseRestore.Sentinel = ParadiseRestore.Sentinel or {}
+
+function ParadiseRestore.Sentinel.writeFactionLog(path, message)
+    if type(path) ~= "string" or type(message) ~= "string" then return false end
+    local writer = getFileWriter(path, true, true)
+    if not writer then return false end
+    writer:write("[" .. os.date("%Y-%m-%d %H:%M:%S") .. "] " .. message:gsub("[%c]", " "):sub(1, 4096) .. "\n")
+    writer:close()
+    return true
+end
+
 local allowedCheats = {
     isInvisible = true, isGodMod = true, isNoClip = true,
     isTimedActionInstantCheat = true, isUnlimitedCarry = true,
