@@ -213,7 +213,7 @@ function ParadiseDev.Zones.Harness.featureIsValid(engine, feature)
 end
 function ParadiseDev.Zones.Harness.onClientCommand(module, command, pl, args)
     if module ~= MODULE then return end
-    if not pl or not ParadiseDev.isAdm(pl) then
+    if not pl or not ParadiseRestore.isAdm(pl) then
         if pl then ParadiseDev.Zones.Harness.reply(pl, "Admin access is required for zone-harness commands.") end
         return
     end

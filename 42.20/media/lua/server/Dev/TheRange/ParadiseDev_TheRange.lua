@@ -81,7 +81,7 @@ end
 
 function ParadiseDev.TheRange.isStaff(pl)
     if not pl then return false end
-    if ParadiseDev.isAdm(pl) then return true end
+    if ParadiseRestore.isAdm(pl) then return true end
     local staff = SandboxVars and SandboxVars.TheRange and SandboxVars.TheRange.Staff or ""
     for username in string.gmatch(tostring(staff), "[^;]+") do
         if username == pl:getUsername() then return true end
@@ -200,7 +200,7 @@ function ParadiseDev.TheRange.register(pl, args)
 end
 
 function ParadiseDev.TheRange.credit(pl, args)
-    if not ParadiseDev.isAdm(pl) then return end
+    if not ParadiseRestore.isAdm(pl) then return end
     local card = ParadiseDev.TheRange.getCard(pl, args and args.cardId)
     if not card then return ParadiseDev.TheRange.reply(pl, "The Range card was not found.") end
     ParadiseDev.TheRange.normalizeCard(card)
@@ -212,7 +212,7 @@ function ParadiseDev.TheRange.credit(pl, args)
 end
 
 function ParadiseDev.TheRange.points(pl, args)
-    if not ParadiseDev.isAdm(pl) then return end
+    if not ParadiseRestore.isAdm(pl) then return end
     local card = ParadiseDev.TheRange.getCard(pl, args and args.cardId)
     if not card then return ParadiseDev.TheRange.reply(pl, "The Range card was not found.") end
     ParadiseDev.TheRange.normalizeCard(card)

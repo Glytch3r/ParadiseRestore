@@ -10,7 +10,7 @@ ParadiseDev.Debug.module = "ParadiseDevDebug"
 ParadiseDev.POI.module = "ParadisePOI"
 function ParadiseDev.Debug.onClientCommand(module, command, pl, args)
     if module ~= ParadiseDev.Debug.module or command ~= "testDmg" then return end
-    if not pl or not ParadiseDev.isAdm(pl) then return end
+    if not pl or not ParadiseRestore.isAdm(pl) then return end
     local targ = args and getPlayerByOnlineID(args.targId) or nil
     if not targ then return end
     local dmg = math.min(100, math.max(0, tonumber(args.dmg) or 15))
@@ -21,13 +21,13 @@ function ParadiseDev.POI.onClientCommand(module, command, pl, args)
     if module ~= ParadiseDev.POI.module then return end
 
     if command == "requestSync" then
-        if not ParadiseDev.isAdm(pl) then return end
+        if not ParadiseRestore.isAdm(pl) then return end
         local data = ModData.getOrCreate("ParadisePOI_Data")
         sendServerCommand(pl, ParadiseDev.POI.module, "sync", { data = data })
         return
     end
 
-    if not ParadiseDev.isAdm(pl) then return end
+    if not ParadiseRestore.isAdm(pl) then return end
 
     if command == "save" and args and args.label then
         local label = tostring(args.label):gsub("^%s*(.-)%s*$", "%1")
@@ -175,16 +175,16 @@ function ParadiseDev.TP.onClientCommand(module, command, pl, args)
             return
         end
         ParadiseDev.TP.reboundPlayer(pl)
-    elseif command == "adminRebound" and ParadiseDev.isAdm(pl) then
+    elseif command == "adminRebound" and ParadiseRestore.isAdm(pl) then
         local target = ParadiseDev.TP.findPlayer(args and args.username, pl)
         if target then
             ParadiseDev.TP.reboundPlayer(target)
         else
             ParadiseDev.TP.reply(pl, "Player not found.")
         end
-    elseif command == "teleport" and ParadiseDev.isAdm(pl) then
+    elseif command == "teleport" and ParadiseRestore.isAdm(pl) then
         ParadiseDev.TP.exitVehicleAndTeleport(pl, args and args.x, args and args.y, args and args.z, false)
-    elseif command == "teleportWithVehicle" and ParadiseDev.isAdm(pl) then
+    elseif command == "teleportWithVehicle" and ParadiseRestore.isAdm(pl) then
         local x, y, z = args and args.x, args and args.y, args and args.z
         local vehicle = pl:getVehicle()
         if vehicle then

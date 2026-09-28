@@ -22,9 +22,9 @@ end
 
 function ParadiseBan.onClientCommand(module, command, sender, args)
     if module ~= ParadiseBan.MODULE or command ~= "start" then return end
-    if not sender or not ParadiseDev.isAdm(sender) or type(args) ~= "table" then return end
+    if not sender or not ParadiseRestore.isAdm(sender) or type(args) ~= "table" then return end
     local target = getTarget(args.targUser)
-    if not target or target == sender or ParadiseDev.isAdm(target) then return end
+    if not target or target == sender or ParadiseRestore.isAdm(target) then return end
     local choice = ParadiseBan.animChoices[args.animStr]
     if not choice then return end
     local delay = math.max(1, math.min(30000, tonumber(args.banDelay) or choice.banDelay or 1000))

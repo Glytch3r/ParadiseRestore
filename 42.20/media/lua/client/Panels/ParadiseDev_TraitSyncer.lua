@@ -27,15 +27,10 @@ function Syncer.has(player, traitId)
 end
 
 function Syncer.setLocal(player, traitId, enabled)
-    local trait = ParadiseDev.getTrait and ParadiseDev.getTrait(traitId) or nil
-    if not player or not trait or not player.getCharacterTraits then return false end
-    local traits = player:getCharacterTraits()
-    local present = Syncer.has(player, traitId)
-    if enabled and not present then traits:add(trait)
-    elseif not enabled and present then traits:remove(trait)
-    else return false end
-    if player.modifyTraitXPBoost then player:modifyTraitXPBoost(trait, true) end
-    if SyncXp then SyncXp(player) end
+    if not player or not player.getCharacterTraits then return false end
+    if Syncer.has(player, traitId) == enabled then return false end
+    local changed = ParadiseDev.setTrait(traitId, enabled, player)
+    if not changed then return false end
     if triggerEvent then triggerEvent("OnTraitsSync", traitId, enabled == true) end
     return true
 end
@@ -47,7 +42,7 @@ function Syncer.syncPlayer(player)
     local record = store.players and store.players[username] or nil
     if type(record) ~= "table" then record = {} end
     for _, traitId in ipairs(Syncer.Traits) do
-        if traitId ~= "ParadiseDev:Caged" then
+        if traitId ~= "ParadiseDev:Caged" and record[traitId] ~= nil then
             Syncer.setLocal(player, traitId, record[traitId] == true)
         end
     end
@@ -153,7 +148,7 @@ function Syncer.requestState()
     if sendClientCommand then sendClientCommand("ParadiseDevTraitSyncer", "list", {}) end
 end
 function Syncer.openPanel()
-    if not ParadiseDev.isAdm() then return end
+    if not ParadiseRestore.isAdm() then return end
     if Syncer.window then Syncer.window:setVisible(true); Syncer.window:bringToTop(); Syncer.requestState(); return end
     local panel = Syncer.Panel:new(220, 180, 700, 420); panel:initialise(); panel:addToUIManager(); panel:setVisible(true); Syncer.window = panel; Syncer.requestState()
 end

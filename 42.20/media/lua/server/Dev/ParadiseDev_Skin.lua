@@ -9,7 +9,7 @@ function skin.syncAddedItem(container, item)
 end
 
 function skin.spawnGoldgun(player)
-    if not player or not ParadiseDev.isAdm(player) then return false end
+    if not player or not ParadiseRestore.isAdm(player) then return false end
 
     local inventory = player:getInventory()
     local itemScript = ScriptManager.instance:getItem("Base.Pistol3_gold")
@@ -38,7 +38,7 @@ function skin.reloadGun(player, gun)
 end
 
 function skin.reloadGuns(player)
-    if not player or not ParadiseDev.isAdm(player) then return false end
+    if not player or not ParadiseRestore.isAdm(player) then return false end
     local loaded = {}
     local function loadContainer(container)
         if not container then return end

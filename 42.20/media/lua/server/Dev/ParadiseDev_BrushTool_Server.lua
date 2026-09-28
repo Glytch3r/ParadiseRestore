@@ -32,7 +32,7 @@ function brush.hasSprite(square, spriteName)
 end
 
 function brush.place(player, request)
-    if not ParadiseDev.isAdm(player) or not brush.isNearPlayer(player, request) then return false end
+    if not ParadiseRestore.isAdm(player) or not brush.isNearPlayer(player, request) then return false end
     local square = getCell():getGridSquare(request.x, request.y, request.z)
     if not square or brush.hasSprite(square, request.sprite) then return false end
     local source = IsoObject.new(square, request.sprite)
@@ -47,7 +47,7 @@ function brush.place(player, request)
 end
 
 function brush.onClientCommand(module, command, player, args)
-    if module ~= brush.module or not ParadiseDev.isAdm(player) then return end
+    if module ~= brush.module or not ParadiseRestore.isAdm(player) then return end
     if command == "place" then
         local request = brush.normalizeRequest(args)
         if request then brush.place(player, request) end

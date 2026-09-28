@@ -1,7 +1,7 @@
 ParadisePromo_Admin_Manager = ISPanel:derive("ParadisePromo_Admin_Manager")
 
 function ParadisePromo.openAdminPanel()
-    if not ParadiseDev.isAdm() then return end
+    if not ParadiseRestore.isAdm() then return end
     if ParadisePromo.adminInstance then
         ParadisePromo.adminInstance:setVisible(true)
         ParadisePromo.adminInstance:bringToTop()

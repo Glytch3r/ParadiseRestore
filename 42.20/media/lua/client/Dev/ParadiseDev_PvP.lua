@@ -54,9 +54,7 @@ function ParadiseDev.PvP.getWeaponDamage(wpn, pl)
 end
 
 function ParadiseDev.PvP.injure(pl)
-    local trait = ParadiseDev.getTrait and ParadiseDev.getTrait("ParadiseDev:InjuredPvP") or nil
-    if trait and not ParadiseDev.hasTrait(pl, trait) then
-        pl:getCharacterTraits():add(trait)
+    if ParadiseDev.setTrait("ParadiseDev:InjuredPvP", true, pl) then
         pl:addLineChatElement("PvP Injured")
     end
 end
@@ -92,24 +90,6 @@ function ParadiseDev.PvP.onWeaponHit(char, targ, wpn)
     ParadiseDev.PvP.applyDamage(targ, char, wpn, bonus)
 end
 
-function ParadiseDev.PvP.addMedkitOption(plNum, context, items)
-    if not ParadiseDev.PvP.isEnabled() then return end
-    local pl = getSpecificPlayer(plNum)
-    if not pl then return end
-    local item
-    for _, entry in ipairs(items or {}) do
-        local candidate = type(entry) == "table" and entry.items and entry.items[1] or entry
-        if candidate and candidate:getFullType() == "ParadiseZ.MedkitPvP" then item = candidate break end
-    end
-    if not item or not pl:getInventory():contains(item) then return end
-    local option = context:addOption("Apply PvP Medkit", item, function(medkit)
-        ISTimedActionQueue.add(ParadiseDev.ApplyMedkitPvP:new(pl, medkit))
-    end)
-    local md = pl:getModData()
-    if not ParadiseDev.hasTrait(pl, "ParadiseDev:InjuredPvP") and (md.LifePoints or 100) >= 100 then option.notAvailable = true end
-end
-
 Events.OnWeaponHitCharacter.Remove(ParadiseDev.PvP.onWeaponHit)
 Events.OnWeaponHitCharacter.Add(ParadiseDev.PvP.onWeaponHit)
-Events.OnFillInventoryObjectContextMenu.Remove(ParadiseDev.PvP.addMedkitOption)
-Events.OnFillInventoryObjectContextMenu.Add(ParadiseDev.PvP.addMedkitOption)
+

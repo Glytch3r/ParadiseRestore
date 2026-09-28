@@ -10,7 +10,7 @@ ParadiseDev.Map.vanillaInstantiate = ParadiseDev.Map.vanillaInstantiate or ISWor
 function ParadiseDev.Map.instantiate(self)
     ParadiseDev.Map.vanillaInstantiate(self)
 
-    if not ParadiseDev.isAdm() then
+    if not ParadiseRestore.isAdm() then
         self.mapAPI:setMaxZoom(tonumber(ParadiseDev.PlayerMapMaxZoom) or 18)
     end
 end

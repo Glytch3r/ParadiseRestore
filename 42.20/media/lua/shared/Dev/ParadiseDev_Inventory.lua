@@ -245,7 +245,7 @@ end
 
 function ParadiseDev.Inventory.inventoryContext(plNum, context, items)
     local pl = getSpecificPlayer(plNum)
-    if not ParadiseDev.isAdm(pl) then return end
+    if not ParadiseRestore.isAdm(pl) then return end
     local selected = ParadiseDev.Inventory.getItems(items)
     if #selected == 0 then return end
     local root = context:addOption("Paradise Item Cloner: ")

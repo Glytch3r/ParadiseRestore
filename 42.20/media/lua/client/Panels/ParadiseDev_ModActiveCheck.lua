@@ -50,7 +50,7 @@ function ParadiseDev.Panels.ModActiveCheck:new(x, y, width, height)
 end
 
 function ParadiseDev.Panels.openModActiveCheck()
-    if not ParadiseDev.isAdm() then return end
+    if not ParadiseRestore.isAdm() then return end
     if ParadiseDev.Panels.modActiveCheck then
         ParadiseDev.Panels.modActiveCheck:setVisible(true)
         ParadiseDev.Panels.modActiveCheck:bringToTop()

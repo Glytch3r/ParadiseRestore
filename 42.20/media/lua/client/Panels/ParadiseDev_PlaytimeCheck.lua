@@ -56,7 +56,7 @@ function ParadiseDev.Panels.PlaytimeCheck:new(x, y, width, height)
 end
 
 function ParadiseDev.Panels.openPlaytimeCheck()
-    if not ParadiseDev.isAdm() then return end
+    if not ParadiseRestore.isAdm() then return end
     if ParadiseDev.Panels.playtimeCheck then
         ParadiseDev.Panels.playtimeCheck:setVisible(true)
         ParadiseDev.Panels.playtimeCheck:bringToTop()

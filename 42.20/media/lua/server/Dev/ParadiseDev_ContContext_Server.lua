@@ -76,7 +76,7 @@ function loot.onLoadGridSquare(square)
 end
 
 function loot.register(player, args)
-    if not player or not ParadiseDev.isAdm(player) or type(args) ~= "table" then return end
+    if not player or not ParadiseRestore.isAdm(player) or type(args) ~= "table" then return end
     if not validNumber(args.x) or not validNumber(args.y) or not validNumber(args.z) or type(args.containerType) ~= "string" or type(args.lootType) ~= "string" then return end
     if not ItemPickerJava.containers[args.lootType] then return end
     local data = loot.getData()
@@ -95,7 +95,7 @@ function loot.register(player, args)
 end
 
 function loot.forceRefill(player, args)
-    if not player or not ParadiseDev.isAdm(player) or type(args) ~= "table" then return end
+    if not player or not ParadiseRestore.isAdm(player) or type(args) ~= "table" then return end
     if not validNumber(args.x) or not validNumber(args.y) or not validNumber(args.z) then return end
     local data = loot.getData()
     local entry = data.entries[key(args.x, args.y, args.z)]

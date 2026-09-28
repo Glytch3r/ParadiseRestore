@@ -159,7 +159,7 @@ function ParadiseDev.DataCheck.clear()
 end
 
 function ParadiseDev.DataCheck.open(obj, name)
-    if not ParadiseDev.isAdm() then return end
+    if not ParadiseRestore.isAdm() then return end
     local index = ParadiseDev.DataCheck.add(obj, name) or 1
     if ParadiseDev.DataCheck.window then
         ParadiseDev.DataCheck.window:setVisible(true)
@@ -274,7 +274,7 @@ function ParadiseDev.DataCheck.addWorldContext(plNum, context, worldobjects, tes
 end
 
 function ParadiseDev.DataCheck.addInventoryContext(plNum, context, items)
-    if not ParadiseDev.isAdm() then return end
+    if not ParadiseRestore.isAdm() then return end
     local selected = ParadiseDev.DataCheck.getInventoryItems(items)
     if #selected == 0 then return end
     local root = context:addOption("Add to Data Inspector")

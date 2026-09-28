@@ -1,4 +1,23 @@
 
+function ISPVPLogToolUI:onTicked(index, selected)
+--[[ 
+    if index == 1 then
+        SendCommandToServer("/changeoption PVPLogToolChat \"" .. tostring(selected) .. "\"")
+    end
+    if index == 2 then
+        SendCommandToServer("/changeoption PVPLogToolFile \"" .. tostring(selected) .. "\"")
+    end
+ ]]
+end
+
+
+if ISServerSavingMessage then
+    if ISServerSavingMessage.showPauseMessage and ISServerSavingMessage.showSavingFinishMessage then  
+        Events.OnServerStartSaving.Remove(ISServerSavingMessage.showPauseMessage);
+        Events.OnServerFinishSaving.Remove(ISServerSavingMessage.showSavingFinishMessage);
+    end
+end
+
 
 local ticks = 0
 function windowsOfDeathPatch(pl)

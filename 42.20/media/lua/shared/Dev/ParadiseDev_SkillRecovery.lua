@@ -253,10 +253,15 @@ function recovery.applyIdentity(pl)
     if life.profession and descriptor.setProfession then descriptor:setProfession(life.profession) end
     local playerTraits = pl.getTraits and pl:getTraits() or nil
     if playerTraits then
-        playerTraits:clear()
+        local existingTraits = {}
+        for index = 0, playerTraits:size() - 1 do
+            existingTraits[#existingTraits + 1] = tostring(playerTraits:get(index))
+        end
+        for _, traitID in ipairs(existingTraits) do
+            ParadiseDev.setTrait(traitID, false, pl)
+        end
         for _, traitID in ipairs(life.traits or {}) do
-            local trait = CharacterTrait and ResourceLocation and CharacterTrait.get and ResourceLocation.of and CharacterTrait.get(ResourceLocation.of(traitID)) or traitID
-            if trait then playerTraits:add(trait) end
+            ParadiseDev.setTrait(traitID, true, pl)
         end
     end
     if descriptor.getTraits then
@@ -291,9 +296,9 @@ end
 function recovery.onClientCommand(module, command, sender, args)
     if module ~= recovery.module or not sender then return end
     local target = recovery.findPlayer(args and args.username, sender)
-    if command == "save" and ParadiseDev.isAdm(sender) then
+    if command == "save" and ParadiseRestore.isAdm(sender) then
         recovery.saveDeath(target)
-    elseif command == "retrieve" and ParadiseDev.isAdm(sender) then
+    elseif command == "retrieve" and ParadiseRestore.isAdm(sender) then
         recovery.retrieve(target)
     elseif command == "autoStart" and recovery.hasReincarnate(sender) then
         recovery.setBaseline(sender)
@@ -321,7 +326,7 @@ function recovery.addTooltip(option, target)
 end
 
 function recovery.addTargetOptions(context, target)
-    if not context or not target or not ParadiseDev.isAdm() then return end
+    if not context or not target or not ParadiseRestore.isAdm() then return end
     local username = target.username or recovery.getUsername(target)
     if not username or username == "" then return end
     local save = context:addOption("Save Skill XP: " .. username, nil, recovery.request, "save", username)
@@ -344,7 +349,7 @@ function recovery.getClickedSquare(worldobjects)
 end
 
 function recovery.addParadiseOptions(menu, pl, worldobjects)
-    if not menu or not pl or not ParadiseDev.isAdm(pl) then return end
+    if not menu or not pl or not ParadiseRestore.isAdm(pl) then return end
     if recovery.getClickedSquare(worldobjects) ~= pl:getSquare() then return end
     local root = menu:addOption("Skill Recovery")
     root.iconTexture = getTexture("media/ui/Traits/trait_Reincarnate.png")

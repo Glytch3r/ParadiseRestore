@@ -2,7 +2,7 @@ ParadiseDev = ParadiseDev or {}
 ParadiseRestore = ParadiseRestore or {}
 
 
-function ParadiseDev.getTarg(targ)
+function ParadiseRestore.getTarg(targ)
     if not targ then return nil end
     if type(targ) ~= "string" then return targ end
     local pls = getOnlinePlayers and getOnlinePlayers() or nil
@@ -14,11 +14,29 @@ function ParadiseDev.getTarg(targ)
     return nil
 end
 
-function ParadiseDev.isAdm(targ)
+function ParadiseDev.getSteamIdOrUser(targ)
+    if not getSteamModeActive() then
+        return ParadiseDev.getResolvedTarg(targ)        
+    end
+    return tostring(targ:getSteamID()) or nil
+end
+
+
+function ParadiseDev.getResolvedTarg(targ)
+    if type(targ) == "string" then 
+        targ = getPlayerFromUsername(targ) or nil
+        return targ 
+    end    
+    if instanceof(targ, "IsoPlayer") then
+        return targ
+    end
+    return nil
+end
+
+function ParadiseRestore.isAdm(targ)
     targ = targ or (getPlayer and getPlayer() or nil)
-    targ = ParadiseDev.getTarg(targ)
+    targ = ParadiseDev.getResolvedTarg(targ)
     if not targ then return false end
     return targ.getAccessLevel and string.lower(tostring(targ:getAccessLevel())) == "admin" or false
 end
 
-ParadiseRestore.isAdm = ParadiseDev.isAdm

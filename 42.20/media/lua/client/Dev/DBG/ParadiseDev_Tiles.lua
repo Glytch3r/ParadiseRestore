@@ -48,7 +48,7 @@ end
 function ParadiseDev.Tiles.openBrushTool()
     ParadiseDev.Tiles.installServerBrushCursor()
     local player = getPlayer and getPlayer() or nil
-    if not player or not ParadiseDev.isAdm(player) then return end
+    if not player or not ParadiseRestore.isAdm(player) then return end
     if BrushToolChooseTileUI and BrushToolChooseTileUI.openPanel then
         BrushToolChooseTileUI.openPanel(900, 20, player)
         local panel = BrushToolChooseTileUI.instance
@@ -216,7 +216,7 @@ function ParadiseDev.Tiles.getClickedSquare()
 end
 
 function ParadiseDev.Tiles.addContext(plNum, context, worldobjects, test)
-    if test or not ParadiseDev.isAdm() then return end
+    if test or not ParadiseRestore.isAdm() then return end
     local pl = getSpecificPlayer(plNum)
     if not pl then return end
     local sq = ParadiseDev.Tiles.getClickedSquare()

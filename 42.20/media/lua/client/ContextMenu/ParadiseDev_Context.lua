@@ -332,7 +332,7 @@ function ParadiseDev.Context.getClearRadius()
 end
 
 ParadiseDev.Context.ClearPanel = ISCollapsableWindow:derive("ParadiseDev.Context.ClearPanel")
-ParadiseDev.Context.clearPanelState =
+ParadiseDev.Context.clearPanelState = 
     ParadiseDev.Context.clearPanelState or {radius = nil, selected = {}, highlightEnabled = true}
 if ParadiseDev.Context.clearPanelState.highlightEnabled == nil then
     ParadiseDev.Context.clearPanelState.highlightEnabled = true
@@ -515,7 +515,7 @@ end
 
 function ParadiseDev.Context.context(plNum, context, worldobjects)
     local pl = getSpecificPlayer(plNum)
-    if not pl or not pl:isAlive() or not ParadiseDev.isAdm(pl) then
+    if not pl or not pl:isAlive() or not ParadiseRestore.isAdm(pl) then
         return
     end
     local main = context:addOptionOnTop("ParadiseZ")

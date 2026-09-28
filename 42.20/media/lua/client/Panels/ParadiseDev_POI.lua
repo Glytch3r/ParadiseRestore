@@ -9,7 +9,7 @@ ParadisePOI.liveCoordinateDelay = 250
 ParadisePOI.data = ParadisePOI.data or {}
 
 function ParadisePOI.openPanel()
-    if not ParadiseDev.isAdm() then return end
+    if not ParadiseRestore.isAdm() then return end
     if ParadisePOI.instance then
         ParadisePOI.instance:setVisible(true)
         ParadisePOI.instance:bringToTop()

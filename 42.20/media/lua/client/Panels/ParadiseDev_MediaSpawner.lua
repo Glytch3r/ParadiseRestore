@@ -117,7 +117,7 @@ function ParadiseDev.Panels.MediaSpawner:new(x, y, width, height)
 end
 
 function ParadiseDev.Panels.openMediaSpawner()
-    if not ParadiseDev.isAdm() then return end
+    if not ParadiseRestore.isAdm() then return end
     if ParadiseDev.Panels.mediaSpawner then
         ParadiseDev.Panels.mediaSpawner:setVisible(true)
         ParadiseDev.Panels.mediaSpawner:bringToTop()

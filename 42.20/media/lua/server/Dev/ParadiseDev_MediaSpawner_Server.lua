@@ -23,7 +23,7 @@ function mediaSpawner.getMedia(category, mediaIndex)
 end
 
 function mediaSpawner.spawn(player, args)
-    if not ParadiseDev.isAdm(player) or type(args) ~= "table" then return false end
+    if not ParadiseRestore.isAdm(player) or type(args) ~= "table" then return false end
     local media = mediaSpawner.getMedia(args.category, args.mediaIndex)
     local inventory = player:getInventory()
     local item = media and inventory and inventory:AddItem(mediaSpawner.itemTypes[args.category]) or nil

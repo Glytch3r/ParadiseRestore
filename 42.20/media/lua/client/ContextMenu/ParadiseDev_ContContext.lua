@@ -93,7 +93,7 @@ function contContext.addLootOptions(menu, container, square)
 end
 
 function contContext.addWorldContext(plNum, context, worldobjects, test)
-    if test or not context or not ParadiseDev.isAdm() then return end
+    if test or not context or not ParadiseRestore.isAdm() then return end
     local container, square = contContext.getContainer(worldobjects)
     if not container then return end
     local root = context:addOption("Container Loot")

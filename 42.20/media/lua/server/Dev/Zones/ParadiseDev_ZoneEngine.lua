@@ -342,7 +342,7 @@ function ParadiseDev.Zones.Engine.isCanEnterZone(zone, pl)
     local deniedReason = ParadiseDev.Zones.Engine.getDeniedReason(zone, pl)
     if not deniedReason then return true end
     if features.isBlocked then return false end
-    return ParadiseDev.isAdm(pl) and ParadiseDev.Zones.Engine.adminBypassEnabled() and zone.policy.adminBypass ~= false
+    return ParadiseRestore.isAdm(pl) and ParadiseDev.Zones.Engine.adminBypassEnabled() and zone.policy.adminBypass ~= false
 end
 
 function ParadiseDev.Zones.Engine.adminBypassEnabled()

@@ -141,7 +141,7 @@ function ParadisePromo.OnClientCommand(module, command, player, args)
         sendServerCommand(player, "ParadisePromo", "sync", { data = ParadisePromo.getCodes() })
 
     elseif command == "save" then
-        if not ParadiseDev.isAdm(player) then return end
+        if not ParadiseRestore.isAdm(player) then return end
         local codes = ParadisePromo.getCodes()
         codes[args.code] = {
             active = args.active,
@@ -153,7 +153,7 @@ function ParadisePromo.OnClientCommand(module, command, player, args)
         sendServerCommand(player, "ParadisePromo", "sync", { data = codes })
 
     elseif command == "delete" then
-        if not ParadiseDev.isAdm(player) then return end
+        if not ParadiseRestore.isAdm(player) then return end
         local codes = ParadisePromo.getCodes()
         codes[args.code] = nil
         ModData.transmit("ParadisePromo_Codes")

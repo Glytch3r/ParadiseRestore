@@ -588,8 +588,7 @@ function ParadiseZ.ClearTraits()
         local trait = TraitFactory.getTraits():get(i)
         local tType = trait:getType()
         if tType and pl:hasTrait(tType) then
-            pl:getCharacterTraits():remove(tType)
-            pl:modifyTraitXPBoost(tType, true)
+            ParadiseDev.setTrait(tostring(tType), false, pl)
         end
     end
     pl:addLineChatElement("All Traits Removed")
@@ -638,12 +637,10 @@ function ParadiseZ.lvlUp()
         local tType = trait and trait:getType() or nil
         if tType and trait:getCost() >= 1 then
             if not pl:hasTrait(tType) then
-                pl:getCharacterTraits():add(tType)
-                pl:modifyTraitXPBoost(tType, false)
+                ParadiseDev.setTrait(tostring(tType), true, pl)
             end
         elseif tType and pl:hasTrait(tType) then
-            pl:getCharacterTraits():remove(tType)
-            pl:modifyTraitXPBoost(tType, true)
+            ParadiseDev.setTrait(tostring(tType), false, pl)
         end
     end
     SyncXp(pl)

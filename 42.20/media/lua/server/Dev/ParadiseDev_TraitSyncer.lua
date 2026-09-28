@@ -24,23 +24,19 @@ function Syncer.applyOnline(username, traitId, enabled)
         ParadiseDev.Cage.set(target, enabled)
         return
     end
-    local trait = ParadiseDev.getTrait and ParadiseDev.getTrait(traitId) or nil
-    if not trait or not target:getCharacterTraits() then return end
-    local traits = target:getCharacterTraits()
-    local has = ParadiseDev.hasTrait and ParadiseDev.hasTrait(target, traitId) or false
-    if enabled and not has then traits:add(trait)
-    elseif not enabled and has then traits:remove(trait) end
+    if not target:getCharacterTraits() then return end
+    ParadiseDev.setTrait(traitId, enabled, target)
     if sendSyncPlayerFields then sendSyncPlayerFields(target, 2) end
 end
 function Syncer.onClientCommand(module, command, player, args)
-    if module ~= "ParadiseDevTraitSyncer" or not ParadiseDev.isAdm(player) then return end
+    if module ~= "ParadiseDevTraitSyncer" or not ParadiseRestore.isAdm(player) then return end
     local store = Syncer.getStore()
     if command == "list" then Syncer.sendState(player); return end
     if command ~= "set" or not args or not args.username or not args.trait then return end
     local allowed = false; for _, traitId in ipairs(Syncer.Traits) do if traitId == args.trait then allowed = true; break end end
     if not allowed then return end
     store.players[tostring(args.username)] = store.players[tostring(args.username)] or {}
-    store.players[tostring(args.username)][args.trait] = args.enabled == true or nil
+    store.players[tostring(args.username)][args.trait] = args.enabled == true
     Syncer.applyOnline(tostring(args.username), args.trait, args.enabled == true)
     ModData.transmit(Syncer.StoreName); Syncer.sendState(player)
 end

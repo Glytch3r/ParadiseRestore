@@ -120,7 +120,7 @@ Events.OnConnected.Add(ParadiseDev.Cage.requestState)
 
 --[[ 
 function ParadiseDev.Cage.addTargetOptions(context, targ)
-    if not ParadiseDev.isAdm() or not context or not targ then return end
+    if not ParadiseRestore.isAdm() or not context or not targ then return end
     local user = targ.username or (targ.getUsername and targ:getUsername())
     if not user or user == "" then return end
     if ParadiseDev.Cage.isTargetCaged(targ) then
@@ -141,7 +141,7 @@ function ParadiseDev.Cage.getWorldTarget(context)
 end
 
 function ParadiseDev.Cage.addWorldContext(plNum, context, worldobjects, test)
-    if test or not ParadiseDev.isAdm() then return end
+    if test or not ParadiseRestore.isAdm() then return end
     ParadiseDev.Cage.addTargetOptions(context, ParadiseDev.Cage.getWorldTarget(context))
 end
 Events.OnFillWorldObjectContex tMenu.Add(ParadiseDev.Cage.addWorldContext)

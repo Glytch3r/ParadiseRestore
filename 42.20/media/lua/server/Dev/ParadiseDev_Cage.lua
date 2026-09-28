@@ -107,18 +107,7 @@ end
 
 function ParadiseDev.Cage.setTrait(pl, isCaged)
     if not pl then return end
-    local trait = ParadiseDev.getTrait(ParadiseDev.Cage.trait)
-    if not trait then return false end
-    local changed = false
-    if isCaged then
-        if not ParadiseDev.hasTrait(pl, trait) then
-            pl:getCharacterTraits():add(trait)
-            changed = true
-        end
-    elseif ParadiseDev.hasTrait(pl, trait) then
-        pl:getCharacterTraits():remove(trait)
-        changed = true
-    end
+    local changed = ParadiseDev.setTrait(ParadiseDev.Cage.trait, isCaged, pl)
     if changed and sendSyncPlayerFields then sendSyncPlayerFields(pl, 2) end
     return changed
 end
@@ -215,7 +204,7 @@ function ParadiseDev.Cage.broadcastState()
     local entries = ParadiseDev.Cage.getEntries()
     for index = 0, players:size() - 1 do
         local player = players:get(index)
-        if player and ParadiseDev.isAdm(player) then
+        if player and ParadiseRestore.isAdm(player) then
             sendServerCommand(player, "ParadiseDevCage", "state", { entries = entries })
         end
     end
@@ -443,7 +432,7 @@ end
 
 function ParadiseDev.Cage.onClientCommand(module, command, pl, args)
     if module == "ParadiseDevPlaytime" then
-        if command ~= "check" or not ParadiseDev.isAdm(pl) then return end
+        if command ~= "check" or not ParadiseRestore.isAdm(pl) then return end
         ParadiseDev.Cage.updateAllPlaytime()
         local profile, reason = ParadiseDev.Cage.findPlaytime(args and args.query)
         sendServerCommand(pl, module, "result", {
@@ -454,7 +443,7 @@ function ParadiseDev.Cage.onClientCommand(module, command, pl, args)
         })
         return
     end
-    if module ~= "ParadiseDevCage" or not ParadiseDev.isAdm(pl) then return end
+    if module ~= "ParadiseDevCage" or not ParadiseRestore.isAdm(pl) then return end
     if command == "list" then
         ParadiseDev.Cage.sendState(pl)
         return
@@ -546,7 +535,7 @@ function ParadiseDev.GlobalModData.sync(pl, name, removed)
 end
 
 function ParadiseDev.GlobalModData.onClientCommand(module, command, pl, args)
-    if module ~= ParadiseDev.GlobalModData.module or not pl or not ParadiseDev.isAdm(pl) then return end
+    if module ~= ParadiseDev.GlobalModData.module or not pl or not ParadiseRestore.isAdm(pl) then return end
     local name = args and tostring(args.name or "") or ""
     if name == "" then return end
     if command == "addTable" then

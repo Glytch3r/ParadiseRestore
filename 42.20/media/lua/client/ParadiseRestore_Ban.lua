@@ -1,14 +1,18 @@
-
+ParadiseDev = ParadiseDev or {}
 ParadiseBan = ParadiseBan or {}
 ParadiseBan.MODULE = "ParadiseBan"
-ParadiseBan.locked = false
 
-local function setDisabled(player, disabled)
-    player:setIgnoreInputsForDirection(disabled)
-    player:setAuthorizeMeleeAction(not disabled)
-    player:setIgnoreMovement(disabled)
-    player:setCanShout(not disabled)
-    player:setBlockMovement(disabled)
+function ParadiseRestore.Disabler(targ, disabled)
+    if not targ then return end
+    if disabled then
+        ISTimedActionQueue.clear(targ)
+        targ:setAutoWalk(false)
+    end
+    targ:setIgnoreInputsForDirection(disabled)
+    targ:setAuthorizeMeleeAction(not disabled)
+    targ:setIgnoreMovement(disabled)
+    targ:setCanShout(not disabled)
+    targ:setBlockMovement(disabled)
     JoypadState.disableClimbOver = disabled
     JoypadState.disableSmashWindow = disabled
     JoypadState.disableReload = disabled
@@ -25,28 +29,19 @@ local function setDisabled(player, disabled)
     ISBackButtonWheel.disableZoomIn = disabled
 end
 
-function ParadiseBan.disabler(player, disabled)
-    if not player then return end
-    setDisabled(player, disabled == true)
-    ParadiseBan.locked = disabled == true
-    if disabled then
-        ISTimedActionQueue.clear(player)
-        player:setAutoWalk(false)
-    end
-end
-
 ParadiseBanTimedAction = ISBaseTimedAction:derive("ParadiseBanTimedAction")
 
 function ParadiseBanTimedAction:isValid()
-    return self.character and self.target and self.target:getUsername() ~= self.character:getUsername() and ParadiseDev.isAdm(self.character)
+    return self.character and self.target and self.target:getUsername() ~= self.character:getUsername() and ParadiseRestore.isAdm(self.character)
 end
 
 function ParadiseBanTimedAction:start()
+    local targSteamID = ParadiseDev.getSteamIdOrUser(targ)
     self:setActionAnim(self.choice.animSet)
     self:setOverrideHandModels(nil, nil)
     sendClientCommand(ParadiseBan.MODULE, "start", {
         targUser = self.target:getUsername(),
-        targSteamID = self.target.getSteamID and tostring(self.target:getSteamID()) or nil,
+        targSteamID = tostring(targSteamID),
         animStr = self.animStr,
         banDelay = self.choice.banDelay,
     })
@@ -73,7 +68,7 @@ end
 function ParadiseBan.doBan(target, animStr)
     local pl = getPlayer()
     local choice = ParadiseBan.getAnimChoice(animStr)
-    if not pl or not target or not choice or not ParadiseDev.isAdm(pl) then return end
+    if not pl or not target or not choice or not ParadiseRestore.isAdm(pl) then return end
     ISTimedActionQueue.add(ParadiseBanTimedAction:new(pl, target, animStr))
 end
 
@@ -97,9 +92,9 @@ end
 function ParadiseBan.onServerCommand(module, command, args)
     if module ~= ParadiseBan.MODULE or type(args) ~= "table" then return end
     if command == "disable" then
-        ParadiseBan.disabler(getPlayer(), true)
+        ParadiseRestore.Disabler(getPlayer(), true)
     elseif command == "release" then
-        ParadiseBan.disabler(getPlayer(), false)
+        ParadiseRestore.Disabler(getPlayer(), false)
     end
 end
 

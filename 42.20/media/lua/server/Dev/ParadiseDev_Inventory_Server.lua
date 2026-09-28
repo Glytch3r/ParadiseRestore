@@ -128,7 +128,7 @@ function cloner.spawn(player, args)
 end
 
 function cloner.onClientCommand(module, command, player, args)
-    if module ~= cloner.module or not ParadiseDev.isAdm(player) then return end
+    if module ~= cloner.module or not ParadiseRestore.isAdm(player) then return end
     if command == "spawn" then return cloner.spawn(player, args) end
     if command ~= "clone" then return end
     local itemID, count = args and tonumber(args.itemID), args and tonumber(args.count)

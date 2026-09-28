@@ -137,7 +137,7 @@ function ParadiseDev.TargContext.addPlayerMenu(context, target, localPlayer)
 end
 
 function ParadiseDev.TargContext.addWorldContext(plNum, context, worldobjects, test)
-    if test or not context or not ParadiseDev.isAdm() then return end
+    if test or not context or not ParadiseRestore.isAdm() then return end
     local localPlayer = getSpecificPlayer(plNum)
     if not localPlayer then return end
     local square = ParadiseDev.TargContext.getSquare(worldobjects)

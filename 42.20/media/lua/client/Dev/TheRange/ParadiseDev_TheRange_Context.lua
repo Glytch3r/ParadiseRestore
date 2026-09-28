@@ -125,7 +125,7 @@ function ParadiseDev.TheRange.Context.addCardContext(plNum, context, items)
     info.notAvailable = true
     local register = submenu:addOption("Register", cards, ParadiseDev.TheRange.Context.requestRegister, context)
     register.notAvailable = owner ~= "" and owner ~= pl:getUsername()
-    if ParadiseDev.isAdm(pl) then
+    if ParadiseRestore.isAdm(pl) then
         submenu:addOption("Add Credit", cards, ParadiseDev.TheRange.Context.requestCredit, 1, context)
         submenu:addOption("Reduce Credit", cards, ParadiseDev.TheRange.Context.requestCredit, -1, context)
         submenu:addOption("Add Points", cards, ParadiseDev.TheRange.Context.requestPoints, 1, context)

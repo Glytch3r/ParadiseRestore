@@ -41,7 +41,7 @@ end
 -----------------------            ---------------------------
 
 function ParadiseDev.autoRemoveBlink()
-    if not ParadiseDev.isAdm() then return end
+    if not ParadiseRestore.isAdm() then return end
     ISChat.setAllTabBlinking(false)
 end
 
@@ -63,7 +63,7 @@ function ParadiseDev.serverMsgCmd(cmd)
 
     local functionName, functionArgs = args:match("^(%S+)%s*(.-)%s*$")
     if not functionName or functionName:sub(1, 5) ~= "rcon_" then return false end
-    if not ParadiseDev.isAdm(pl) then return true end
+    if not ParadiseRestore.isAdm(pl) then return true end
 
     local handler = _G[functionName:sub(6)]
     if type(handler) == "function" then
@@ -79,7 +79,7 @@ function ParadiseDev.chatCmd(cmd)
     local keyword, args = cmd:match("^%s*(/%S+)%s*(.-)%s*$")
     local command = keyword and string.lower(keyword) or ""
     local isDbg = getCore():getDebug()
-    local isAdm = ParadiseDev.isAdm(pl)  
+    local isAdm = ParadiseRestore.isAdm(pl)  
     if command == "/stuck" or command == "/unstuck" then
         if ParadiseDev.isInKosZone(pl) then
             pl:setHaloNote("Cannot use unstuck command inside a KoS zone.", 250, 0, 0, 180)
@@ -107,7 +107,7 @@ function ParadiseDev.chatCmd(cmd)
         local isCaged = value and string.lower(value) == "true" or nil
         if isClient() then
             sendClientCommand("ParadiseDevCage", "chatSet", { username = username ~= "" and username or nil, isCaged = isCaged })
-        elseif ParadiseDev.isAdm(pl) and ParadiseDev.Cage and ParadiseDev.Cage.requestSet then
+        elseif ParadiseRestore.isAdm(pl) and ParadiseDev.Cage and ParadiseDev.Cage.requestSet then
             username = username ~= "" and username or user
             if isCaged == nil then isCaged = not ParadiseDev.Cage.isTargetCaged(pl) end
             ParadiseDev.Cage.requestSet(username, isCaged)

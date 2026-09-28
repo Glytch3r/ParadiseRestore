@@ -54,7 +54,7 @@ function ParadiseDev.Notes.getUsername(pl)
 end
 
 function ParadiseDev.Notes.isAdmin(pl)
-    return ParadiseDev.isAdm and ParadiseDev.isAdm(pl) or false
+    return ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) or false
 end
 
 function ParadiseDev.Notes.canModifyFloor(pl, floor)

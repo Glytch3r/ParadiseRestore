@@ -18,8 +18,8 @@ function visual.fail(targ, message)
 end
 
 function visual.getTarget(targ)
-    if type(targ) == "string" and ParadiseDev.getTarg then
-        targ = ParadiseDev.getTarg(targ)
+    if type(targ) == "string" and ParadiseRestore then
+        targ = ParadiseRestore.getTarg(targ)
     end
 
     if not targ then return nil end

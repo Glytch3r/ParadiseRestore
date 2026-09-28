@@ -33,8 +33,9 @@ function ParadiseDev.LifeBar.UI:render()
     if not pl then return end
 
     if ParadiseDev.LifeBar.isPvE(pl) then
-        local injury = ParadiseDev.getTrait and ParadiseDev.getTrait("ParadiseDev:InjuredPvP") or nil
-        if injury and ParadiseDev.hasTrait(pl, injury) then pl:getTraits():remove(injury) end
+        if ParadiseDev.hasTrait(pl, "ParadiseDev:InjuredPvP") then
+            ParadiseDev.setTrait("ParadiseDev:InjuredPvP", false, pl)
+        end
         return
     end
 

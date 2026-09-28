@@ -53,7 +53,7 @@ end
 
 function ParadiseRestore.DeadTracker.isAdminViewer()
     local pl = getPlayer and getPlayer() or nil
-    return pl ~= nil and ParadiseDev and ParadiseDev.isAdm and ParadiseDev.isAdm(pl) == true or false
+    return pl ~= nil and ParadiseDev and ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) == true or false
 end
 
 function ParadiseRestore.DeadTracker.canViewerSee()

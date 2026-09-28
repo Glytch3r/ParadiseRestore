@@ -12,7 +12,7 @@ end
 
 function ParadiseDev.Zones.Probe.onClientCommand(module, command, pl, args)
     if module ~= ParadiseDev.Zones.Probe.module or command ~= "probe" then return end
-    if not pl or not ParadiseDev.isAdm(pl) then return end
+    if not pl or not ParadiseRestore.isAdm(pl) then return end
 
     if not ParadiseDev.Zones.Engine then
         ParadiseDev.Zones.Probe.reply(pl, "PROBE: engine missing")

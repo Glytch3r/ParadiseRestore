@@ -110,7 +110,7 @@ end
 function ParadiseZ.doSpectateTP(player)
     player = player or getLocalPlayer()
     if not player or not ParadiseZ.isSpectating(player) then return end
-    if not ParadiseDev or not ParadiseDev.isAdm or not ParadiseDev.isAdm(player) then
+    if not ParadiseDev or not ParadiseRestore.isAdm or not ParadiseRestore.isAdm(player) then
         ParadiseZ.stopSpectate()
         if ISMiniScoreboardUI and ISMiniScoreboardUI.instance then
             ISMiniScoreboardUI.instance:close()

@@ -33,8 +33,7 @@ function ParadiseDev.ApplyMedkitPvP:perform()
     if ParadiseDev.PvP and ParadiseDev.PvP.isEnabled and not ParadiseDev.PvP.isEnabled() then return end
     ISBaseTimedAction.perform(self)
     self.item:setJobDelta(0)
-    local injury = ParadiseDev.getTrait and ParadiseDev.getTrait("ParadiseDev:InjuredPvP") or nil
-    if injury then self.character:getTraits():remove(injury) end
+    ParadiseDev.setTrait("ParadiseDev:InjuredPvP", false, self.character)
     local md = self.character:getModData()
     local pvp = SandboxVars and SandboxVars.ParadiseZpvp
     md.LifePoints = math.min(100, (md.LifePoints or 100) + (pvp and tonumber(pvp.MedkitHeal) or 50))
@@ -55,3 +54,22 @@ function ParadiseDev.ApplyMedkitPvP:new(pl, item)
     if pl:isTimedActionInstant() then action.maxTime = 1 end
     return action
 end
+
+function ParadiseDev.medkitContext(plNum, context, items)
+    if not ParadiseDev.PvP.isEnabled() then return end
+    local pl = getSpecificPlayer(plNum)
+    if not pl then return end
+    local item
+    for _, entry in ipairs(items or {}) do
+        local candidate = type(entry) == "table" and entry.items and entry.items[1] or entry
+        if candidate and candidate:getFullType() == "ParadiseZ.MedkitPvP" then item = candidate break end
+    end
+    if not item or not pl:getInventory():contains(item) then return end
+    local option = context:addOption("Apply PvP Medkit", item, function(medkit)
+        ISTimedActionQueue.add(ParadiseDev.ApplyMedkitPvP:new(pl, medkit))
+    end)
+    local md = pl:getModData()
+    if not ParadiseDev.hasTrait(pl, "ParadiseDev:InjuredPvP") and (md.LifePoints or 100) >= 100 then option.notAvailable = true end
+end
+Events.OnFillInventoryObjectContextMenu.Remove(ParadiseDev.medkitContext)
+Events.OnFillInventoryObjectContextMenu.Add(ParadiseDev.medkitContext)

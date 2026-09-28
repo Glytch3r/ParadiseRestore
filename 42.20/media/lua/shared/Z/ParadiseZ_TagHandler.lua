@@ -80,7 +80,7 @@ function ParadiseZ.isShowAdminTag(targ)
 end
 
 function ParadiseZ.toggleShowAdminTag(targ)
-    if not ParadiseDev.isAdm(targ) then return end
+    if not ParadiseRestore.isAdm(targ) then return end
     local modData = targ:getModData()
     modData.ParadiseZShowAdminTag = not ParadiseZ.isShowAdminTag(targ)
     if targ.transmitModData then targ:transmitModData() end

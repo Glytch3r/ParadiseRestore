@@ -1028,7 +1028,7 @@ function ParadiseDev.Zones.TestRemote:new(x, y, width, height)
 end
 
 function ParadiseDev.Zones.openTestRemote()
-    if not ParadiseDev.isAdm() then
+    if not ParadiseRestore.isAdm() then
         return
     end
 
@@ -1046,7 +1046,7 @@ function ParadiseDev.Zones.openTestRemote()
     ParadiseDev.Zones.testWindow:addToUIManager()
 end
 function ParadiseDev.Zones.openUI()
-    if not ParadiseDev.isAdm() then
+    if not ParadiseRestore.isAdm() then
         return
     end
     if ParadiseDev.Zones.window then

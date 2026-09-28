@@ -28,7 +28,7 @@ end
 
 function ParadiseDev.Zones.Visualization.canRender(pl)
     if not ParadiseDev.Zones.Visualization.isEnabledForPlayer(pl) then return false end
-    if ParadiseDev.isAdm and ParadiseDev.isAdm(pl) then return true end
+    if ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) then return true end
     return SandboxVars and SandboxVars.ParadiseZ and SandboxVars.ParadiseZ.ShowZoneDrawToNonAdmins == true
 end
 
@@ -137,7 +137,7 @@ function ParadiseDev.Zones.Visualization.setEnabled(enabled)
 end
 
 function ParadiseDev.Zones.Visualization.setPlayerEnabled(pl, enabled)
-    if not pl or not ParadiseDev.isAdm or not ParadiseDev.isAdm(pl) then return end
+    if not pl or not ParadiseRestore.isAdm or not ParadiseRestore.isAdm(pl) then return end
     local modData = pl:getModData()
     modData[ParadiseDev.Zones.Visualization.MODDATA_KEY] = enabled == true
     if pl.transmitModData then pl:transmitModData() end

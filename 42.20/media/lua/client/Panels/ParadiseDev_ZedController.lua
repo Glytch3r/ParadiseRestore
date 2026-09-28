@@ -177,7 +177,7 @@ end
 
 function ZedController.isAdmin(pl)
     if not pl then return false end
-    if ParadiseDev.isAdm then return ParadiseDev.isAdm(pl) == true end
+    if ParadiseRestore.isAdm then return ParadiseRestore.isAdm(pl) == true end
     return string.lower(tostring(call(pl, "getAccessLevel") or "")) == "admin"
 end
 

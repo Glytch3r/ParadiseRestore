@@ -153,7 +153,7 @@ function ParadiseDev.ZoneHUD.draw()
     local mapLabel = ParadiseDev.ZoneHUD.getMapLabel(pl)
     local header = (mapLabel and mapLabel .. "\n" or "") .. zoneName .. "\nX: " .. tostring(math.floor(pl:getX() + 0.5)) .. "    Y: " .. tostring(math.floor(pl:getY() + 0.5)) .. "    Z: " .. tostring(math.floor(pl:getZ() + 0.5))
     local allowed = not zone or zone.allowed ~= false
-    local alpha = zone and 0.8 or (ParadiseDev.isAdm and ParadiseDev.isAdm(pl) and 1 or 0.4)
+    local alpha = zone and 0.8 or (ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) and 1 or 0.4)
     local zoneColor = ParadiseDev.Zones and ParadiseDev.Zones.MapText and ParadiseDev.Zones.MapText.getZoneColor and
         ParadiseDev.Zones.MapText.getZoneColor(zone) or { r = 1.0, g = 0.9, b = 0.1 }
     local r, g, b = zoneColor.r, zoneColor.g, zoneColor.b
@@ -289,7 +289,7 @@ function ParadiseDev.ZoneHUD.SettingsPanel:onReset()
     ParadiseDev.ZoneHUD.saveSettings(self.player, settings)
     ParadiseDev.ZoneHUD.applyVisualSettings(settings)
     if ParadiseDev.Zones and ParadiseDev.Zones.Visualization and ParadiseDev.Zones.Visualization.setPlayerEnabled and
-        ParadiseDev.isAdm(self.player) then
+        ParadiseRestore.isAdm(self.player) then
         ParadiseDev.Zones.Visualization.setPlayerEnabled(self.player, true)
     end
     self.xSlider:setCurrentValue(settings.zoneX, true)
@@ -394,7 +394,7 @@ function ParadiseDev.ZoneHUD.SettingsPanel:createChildren()
     self.mapZoneVisuals:addOption("Show Map Zone Visuals")
     self.mapZoneVisuals.selected[1] = settings.mapZoneVisuals
     self:addChild(self.mapZoneVisuals)
-    if ParadiseDev.isAdm(self.player) then
+    if ParadiseRestore.isAdm(self.player) then
         self.worldZoneVisuals = ISTickBox:new(12, 315, self.width - 24, 22, "", self, ParadiseDev.ZoneHUD.SettingsPanel.onWorldZoneVisualsChanged)
         self.worldZoneVisuals:initialise()
         self.worldZoneVisuals:instantiate()

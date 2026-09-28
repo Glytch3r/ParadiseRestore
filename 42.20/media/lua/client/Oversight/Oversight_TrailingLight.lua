@@ -28,7 +28,7 @@ end
 function ParadiseZ.setTrailingLightMode(activate, pl)
     pl = pl or getPlayer()
     if not pl or not pl:isAlive() then return end
-    if ParadiseDev.isAdm() then
+    if ParadiseRestore.isAdm() then
         if activate ~= nil then
             pl:getModData().isTrailLight = activate
         end
@@ -38,7 +38,7 @@ end
 function ParadiseZ.toggleTrailingLightMode(pl)
     pl = pl or getPlayer()
     if not pl or not pl:isAlive() then return end
-    if not ParadiseDev.isAdm() then return end
+    if not ParadiseRestore.isAdm() then return end
     local md = pl:getModData()
     local active = not (md.isTrailLight or false)
     md.isTrailLight = active
@@ -63,7 +63,7 @@ function ParadiseZ.TrailingLight(pl)
     ParadiseZ.trailTicks = ParadiseZ.trailTicks + 1
     if ParadiseZ.trailTicks % 3 ~= 0 then 
         if not ParadiseZ.isTrailingLightMode(pl) then return end
-        if ParadiseDev.isAdm() then
+        if ParadiseRestore.isAdm() then
             ParadiseZ.addLamp()
             local csq = pl:getCurrentSquare()
             if not csq then return end                
