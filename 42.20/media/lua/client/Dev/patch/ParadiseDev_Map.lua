@@ -4,6 +4,7 @@ ParadiseDev.Map = ParadiseDev.Map or {}
 ParadiseDev.Map.zoneVisuals = ParadiseDev.Map.zoneVisuals ~= false
 ParadiseDev.Map.coordinates = ParadiseDev.Map.coordinates ~= false
 
+require "ISUI/Maps/ISMiniMap"
 
 ParadiseDev.Map.vanillaInstantiate = ParadiseDev.Map.vanillaInstantiate or ISWorldMap.instantiate
 
@@ -115,10 +116,10 @@ local function drawSuspectMarkers(map)
     end
 end
 
-if ISMiniMapOuter and not ParadiseDev.Map.miniMapHooked then
+if ISMiniMapInner and not ParadiseDev.Map.miniMapHooked then
     ParadiseDev.Map.miniMapHooked = true
-    ParadiseDev.Map.miniMapRender = ISMiniMapOuter.render
-    function ISMiniMapOuter:render(...)
+    ParadiseDev.Map.miniMapRender = ISMiniMapInner.render
+    function ISMiniMapInner:render(...)
         ParadiseDev.Map.miniMapRender(self, ...)
         drawMinimapZoneBorders(self)
         drawSuspectMarkers(self)
