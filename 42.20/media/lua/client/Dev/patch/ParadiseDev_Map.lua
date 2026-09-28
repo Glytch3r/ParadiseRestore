@@ -33,6 +33,8 @@ local function drawMinimapZoneBorders(minimap)
     if not visuals or not visuals.zones then return end
     local pl = getSpecificPlayer and getSpecificPlayer(minimap.playerNum) or getPlayer()
     if not pl then return end
+    local absoluteX = minimap:getAbsoluteX()
+    local absoluteY = minimap:getAbsoluteY()
     local z = math.floor(pl:getZ())
     for _, zone in ipairs(visuals.zones) do
         if visuals.zoneOnLevel(zone, z) then
@@ -40,8 +42,10 @@ local function drawMinimapZoneBorders(minimap)
                 if visuals.regionNearPlayer(region, pl, visuals.VISIBLE_RADIUS) then
                     local r, g, b = mapZoneColor(zone)
                     local function line(x1, y1, x2, y2)
-                        local sx1, sy1 = minimap.mapAPI:worldToUIX(x1, y1), minimap.mapAPI:worldToUIY(x1, y1)
-                        local sx2, sy2 = minimap.mapAPI:worldToUIX(x2, y2), minimap.mapAPI:worldToUIY(x2, y2)
+                        local sx1 = minimap.mapAPI:worldToUIX(x1, y1) + absoluteX
+                        local sy1 = minimap.mapAPI:worldToUIY(x1, y1) + absoluteY
+                        local sx2 = minimap.mapAPI:worldToUIX(x2, y2) + absoluteX
+                        local sy2 = minimap.mapAPI:worldToUIY(x2, y2) + absoluteY
                         if sx1 and sy1 and sx2 and sy2 then
                             local dx, dy = sx2 - sx1, sy2 - sy1
                             local length = math.sqrt(dx * dx + dy * dy)

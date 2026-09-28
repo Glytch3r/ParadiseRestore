@@ -41,7 +41,7 @@ end
 function ParadiseZ.getTagScreenPos(targ, offsetY)
     local zoom = getCore():getZoom(0)
     local screenX = isoToScreenX(0, targ:getX(), targ:getY(), targ:getZ())
-    local screenY = isoToScreenY(0, targ:getX(), targ:getY(), targ:getZ()) - ((56 + ParadiseZ.tagHeadOffset) / zoom) - (offsetY or 0)
+    local screenY = isoToScreenY(0, targ:getX(), targ:getY(), targ:getZ()) - ((56 + ParadiseZ.tagHeadOffset) / zoom) - ParadiseZ.getTagLineHeight(UIFont.Small) - (offsetY or 0)
     return math.floor(screenX + 0.5), math.floor(screenY + 0.5)
 end
 
