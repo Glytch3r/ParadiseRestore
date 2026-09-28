@@ -341,7 +341,7 @@ function ParadiseDev.Notes.addWorldContext(plNum, context, worldobjects, test)
     local flr = sq and sq:getFloor() or nil
     if not flr then return end
     local note = ParadiseDev.Notes.getNote(flr)
-    local option = context:addOptionOnTop("Notes:")
+    local option = context:addOption("Notes:")
     option.iconTexture = ParadiseDev.Notes.getIcon("context_note")
     if note then
         ParadiseDev.Notes.highlightWhileContextVisible(context, flr)

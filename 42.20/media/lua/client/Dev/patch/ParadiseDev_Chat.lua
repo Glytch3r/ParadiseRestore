@@ -113,6 +113,8 @@ function ParadiseDev.chatCmd(cmd)
             ParadiseDev.Cage.requestSet(username, isCaged)
         end
     elseif command == "/die" then
+        ParadiseZ.die()
+--[[ 
         if pl:isGodMod() then
             pl:setGodMod(false)
         end
@@ -120,7 +122,7 @@ function ParadiseDev.chatCmd(cmd)
             sendClientCommand("ParadiseDevTP", "die", {})
         else
             pl:getBodyDamage():ReduceGeneralHealth(110)
-        end
+        end ]]
 --[[ 
     elseif command == "/checktemp" then
         if ParadiseDev.getCliStr then

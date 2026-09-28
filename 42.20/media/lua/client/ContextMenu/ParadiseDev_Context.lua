@@ -600,12 +600,12 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
             "media/ui/Paradise/ContextIcon.png"
         )
  ]]
-        ParadiseDev.Context.addOption(
+    --[[     ParadiseDev.Context.addOption(
             panelsMenu,
             "Users List",
             ParadiseDev.Panels.openUsersList,
             "media/ui/Paradise/ContextIcon.png"
-        )
+        ) ]]
         ParadiseDev.Context.addOption(
             panelsMenu,
             "Global ModData",
@@ -637,6 +637,13 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
             panelsMenu,
             "Lua Reset Tool",
             LuaResetTool.OpenPanel,
+            "media/ui/Paradise/ContextIcon.png"
+        )
+
+        ParadiseDev.Context.addOption(
+            panelsMenu,
+            "Close All Paradise Panels",
+            function()  ParadisePanels.CloseAdminPanels() end,
             "media/ui/Paradise/ContextIcon.png"
         )
 
@@ -844,10 +851,18 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
         "media/ui/LootableMaps/map_skull.png"
     )
 
-    local clearRoot = menu:addOptionOnTop("Clear")
+--[[     local clearRoot = menu:addOptionOnTop("Clear")
     clearRoot.iconTexture = getTexture("media/ui/Paradise/ClearContextIcon.png")
     local clearMenu = ISContextMenu:getNew(context)
+    menu:addSubMenu(clearRoot, clearMenu) ]]
+
+    local clearRoot = context:insertOptionAfter("Paradise", "Paradise Clear")
+    clearRoot.iconTexture = getTexture("media/ui/Paradise/ClearContextIcon.png")
+
+    local clearMenu = ISContextMenu:getNew(context)
     menu:addSubMenu(clearRoot, clearMenu)
+
+
     ParadiseDev.Context.addOption(
         clearMenu,
         "OpenClearPanel",

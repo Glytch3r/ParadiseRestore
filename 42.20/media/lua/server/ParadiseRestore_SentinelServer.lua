@@ -61,9 +61,28 @@ local function logActivity(pl, args)
         writeLog(pl, label .. " [client report]: " .. text:sub(1, 1024))
     end
 end
-
+local function unAliveSelfLog(pl, logStr)
+    if not pl then return end
+    if type(logStr) ~= "string" or logStr == "" then return end
+    local text = logStr:gsub("[%c]", " "):sub(1, 1024)
+    local writer = getFileWriter("Paradise_dieChatCommandLog.log", true, true)
+    if not writer then
+        print("[Sentinel] " .. text)
+        print("[Sentinel] Failed to save die command log")
+        return
+    end
+    writer:write(text .. "\n")
+    writer:close()
+end
 Events.OnClientCommand.Add(function(module, command, pl, args)
     if module ~= "Sentinel" then return end
-    if command == "doLog" then doLog(pl, args)
-    elseif command == "activity" then logActivity(pl, args) end
+    if command == "doLog" then 
+        doLog(pl, args)
+    elseif command == "activity" then 
+        logActivity(pl, args) 
+    elseif command == "unAliveSelf" and pl and pl:isAlive() then
+        local logStr = tostring(args.logStr) ..' ['.. tostring(os.date("%Y-%m-%d %H:%M:%S"))..']'
+        unAliveSelfLog(pl, logStr) 
+        pl:getBodyDamage():ReduceGeneralHealth(110)
+    end
 end)

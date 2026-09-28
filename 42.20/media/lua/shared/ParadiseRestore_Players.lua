@@ -84,7 +84,7 @@ function ParadiseRestore.getPlayersFromSq(sq, rad)
     local cell = getCell and getCell() or nil
     if not sq or not cell then return players end
     
-    rad = rad or 2
+    rad = rad or 0
     local radSq = rad * rad
     
     for dx = -rad, rad do

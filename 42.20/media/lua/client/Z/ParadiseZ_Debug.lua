@@ -433,7 +433,19 @@ end
 
 -----------------------            ---------------------------
 function ParadiseZ.die()
-	getPlayer():Kill(nil)
+	local pl = getPlayer() 
+	if pl:isGodMod() then
+		pl:setGodMod(false)
+	end
+	if isClient() then
+		--sendClientCommand("ParadiseDevTP", "die", {})
+		local user = pl:getUsername() 
+		local coords = "Coordinates: ".. tostring(round(pl:getX()))..", "..  tostring(round(pl:getY()))..", ".. tostring(round(pl:getZ()))
+		local logStr = tostring(user)..' used /die command '.. tostring(coords)
+		sendClientCommand(pl, "Sentinel", "unAliveSelf", { logStr = logStr  })
+	else
+		pl:getBodyDamage():ReduceGeneralHealth(110)
+	end
 end
 
 function ParadiseZ.boom()

@@ -3,11 +3,10 @@ ParadisePanels.table = ParadisePanels.table or {}
 ParadisePanels.Demote = ParadisePanels.Demote or {}
 
 
-local ticks = 0
+ParadisePanels.Demote.ticks = ParadisePanels.Demote.ticks or 0
 function ParadisePanels.Demote.PanelCloser(pl)
-    ticks = ticks or 0
-    ticks = ticks + 1
-    if ticks % 3 ~= 0 then return end
+    ParadisePanels.Demote.ticks = ParadisePanels.Demote.ticks + 1
+    if ParadisePanels.Demote.ticks % 3 ~= 0 then return end
 
     pl = pl or getPlayer()
     if not pl then return end
@@ -18,6 +17,7 @@ function ParadisePanels.Demote.PanelCloser(pl)
     pl:getModData()['isAdm'] = ParadiseRestore.isAdm(pl)
 end
 
+Events.OnPlayerUpdate.Remove(ParadisePanels.Demote.PanelCloser)
 Events.OnPlayerUpdate.Add(ParadisePanels.Demote.PanelCloser)
 
     

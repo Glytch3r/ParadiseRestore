@@ -197,8 +197,6 @@ function ParadiseDev.TP.onClientCommand(module, command, pl, args)
         if vehicle then
             ParadiseDev.TP.teleportVehicle(vehicle, args and args.x, args and args.y, pl)
         end
-    elseif command == "die" and pl and pl:isAlive() then
-        pl:getBodyDamage():ReduceGeneralHealth(110)
     end
 end
 

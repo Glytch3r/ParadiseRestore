@@ -88,6 +88,11 @@ function ParadisePanels.Install()
     return installed
 end
 
+if Events and Events.OnGameStart then
+    Events.OnGameStart.Remove(ParadisePanels.Install)
+    Events.OnGameStart.Add(ParadisePanels.Install)
+end
+
 function ParadisePanels.CloseAdminPanels()
     for _, entry in ipairs(ParadisePanels.table or {}) do
         if entry.isAdmOnly and type(entry.getModule) == "function" then
@@ -97,9 +102,4 @@ function ParadisePanels.CloseAdminPanels()
             end
         end
     end
-end
-
-if Events and Events.OnGameStart then
-    Events.OnGameStart.Remove(ParadisePanels.Install)
-    Events.OnGameStart.Add(ParadisePanels.Install)
 end
