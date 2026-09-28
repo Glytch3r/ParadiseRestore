@@ -4,6 +4,7 @@ ParadisePlStats.VANILLA_DRUNK_REDUCTION = 0.0042
 ParadisePlStats.VANILLA_DRUNK_MAX_MINUTES = 100 / (ParadisePlStats.VANILLA_DRUNK_REDUCTION * 60 * 60)
 
 function ParadisePlStats.drunkHandler(_, pl)
+    pl = pl or getPlayer()
     if not pl then return end
 
     local options = SandboxVars and SandboxVars.ParadiseZ or nil
@@ -17,7 +18,11 @@ function ParadisePlStats.drunkHandler(_, pl)
         bodyDamage:setDrunkReductionValue(100 / (maxMinutes * 60 * 60))
     end
 end
+Events.OnCreatePlayer.Remove(ParadisePlStats.drunkHandler)
 Events.OnCreatePlayer.Add(ParadisePlStats.drunkHandler)
+Events.OnSandboxModified.Remove(ParadisePlStats.drunkHandler)
+Events.OnSandboxModified.Add(ParadisePlStats.drunkHandler)
+
 
 
 function ParadisePlStats.formatSecondsToTime(seconds)
@@ -44,11 +49,11 @@ function ParadisePlStats.getRemainingTime(plStat, pl)
         local bodyDamage = pl:getBodyDamage()
 
         if stats and bodyDamage then
-            local currentDrunkenness = stats:getDrunkenness()
+            local currentDrunkenness = stats:get(CharacterStat.INTOXICATION)
             local reductionPerTick = bodyDamage:getDrunkReductionValue()
 
             if currentDrunkenness > 0 and reductionPerTick > 0 then
-                local remainingSeconds = currentDrunkenness / reductionPerTick
+                local remainingSeconds = currentDrunkenness / reductionPerTick / 60
                 return remainingSeconds
             end
         end

@@ -34,10 +34,17 @@ function ParadiseDev.Context.seeDrunkHandler()
         return
     end
     local pl = getPlayer() 
-    if not pl or not drunkStr then return end
+    if not pl then return end
     if not ParadiseRestore.isAdm(pl) then return end
+    local drunkStr = ParadisePlStats.getDrunkStr('paradise_drunk', pl)
     pl:setHaloNote(tostring(drunkStr), 111, 133, 232, 450)
 end
+if ParadiseZ.seeDrunkHandler then
+    Events.OnPlayerUpdate.Remove(ParadiseZ.seeDrunkHandler)
+end
+ParadiseZ.seeDrunkHandler = ParadiseDev.Context.seeDrunkHandler
+Events.OnPlayerUpdate.Remove(ParadiseDev.Context.seeDrunkHandler)
+Events.OnPlayerUpdate.Add(ParadiseDev.Context.seeDrunkHandler)
 
 function ParadiseDev.Context.dbgSoundHandler(x, y, z, radius, volume, source)
     if not ParadiseZ.soundDbg then
@@ -963,9 +970,6 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     )
 end
 
-
-ParadiseZ.seeDrunkHandler = ParadiseDev.Context.seeDrunkHandler
-Events.OnPlayerUpdate.Add(ParadiseDev.Context.seeDrunkHandler)
 
 ParadiseZ.dbgSoundHandler = ParadiseDev.Context.dbgSoundHandler
 Events.OnWorldSound.Add(ParadiseDev.Context.dbgSoundHandler)

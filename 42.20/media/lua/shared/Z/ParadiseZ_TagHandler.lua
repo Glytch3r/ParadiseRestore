@@ -40,8 +40,8 @@ end
 
 function ParadiseZ.getTagScreenPos(targ, offsetY)
     local zoom = getCore():getZoom(0)
-    local screenX = IsoUtils.XToScreenExact(targ:getX(), targ:getY(), targ:getZ(), 0) / zoom
-    local screenY = IsoUtils.YToScreenExact(targ:getX(), targ:getY(), targ:getZ(), 0) / zoom - ((56 + ParadiseZ.tagHeadOffset) / zoom) - (offsetY or 0)
+    local screenX = isoToScreenX(0, targ:getX(), targ:getY(), targ:getZ())
+    local screenY = isoToScreenY(0, targ:getX(), targ:getY(), targ:getZ()) - ((56 + ParadiseZ.tagHeadOffset) / zoom) - (offsetY or 0)
     return math.floor(screenX + 0.5), math.floor(screenY + 0.5)
 end
 
