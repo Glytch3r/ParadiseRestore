@@ -42,10 +42,10 @@ function ParadisePanels.Close(entry)
     local instance = entry.getInstance()
     if not instance then return end
 
+    entry.setInstance(nil)
     if entry.onClose then entry.onClose(instance) end
     if instance.setVisible then instance:setVisible(false) end
     if instance.removeFromUIManager then instance:removeFromUIManager() end
-    entry.setInstance(nil)
 end
 
 function ParadisePanels.Toggle(entry, ...)
@@ -86,6 +86,17 @@ function ParadisePanels.Install()
         end
     end
     return installed
+end
+
+function ParadisePanels.CloseAdminPanels()
+    for _, entry in ipairs(ParadisePanels.table or {}) do
+        if entry.isAdmOnly and type(entry.getModule) == "function" then
+            local module = entry.getModule()
+            if type(module) == "table" and type(module.ClosePanel) == "function" then
+                module.ClosePanel()
+            end
+        end
+    end
 end
 
 if Events and Events.OnGameStart then

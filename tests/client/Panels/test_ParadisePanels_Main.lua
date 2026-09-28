@@ -108,6 +108,35 @@ assertNil(module.OpenPanel("denied"), "admin panel denied")
 assertEqual(creates, 2, "denied open does not create")
 ParadiseRestore.isAdm = function() return true end
 
+local reentrantInstance
+local reentrantModule = {}
+local reentrantRemovals = 0
+local reentrantCloses = 0
+local reentrantEntry = {
+    key = "reentrant",
+    isAdmOnly = false,
+    getModule = function() return reentrantModule end,
+    getInstance = function() return reentrantInstance end,
+    setInstance = function(value) reentrantInstance = value end,
+    create = function()
+        return {
+            setVisible = function() end,
+            addToUIManager = function() end,
+            removeFromUIManager = function()
+                reentrantRemovals = reentrantRemovals + 1
+                if reentrantRemovals == 1 then reentrantModule.ClosePanel() end
+            end,
+        }
+    end,
+    onClose = function() reentrantCloses = reentrantCloses + 1 end,
+}
+assertTrue(ParadisePanels.InstallEntry(reentrantEntry), "reentrant entry installs")
+reentrantModule.OpenPanel()
+reentrantModule.ClosePanel()
+assertEqual(reentrantCloses, 1, "reentrant close hook runs once")
+assertEqual(reentrantRemovals, 1, "reentrant removal runs once")
+assertNil(reentrantInstance, "reentrant close clears instance")
+
 local lateModule
 local lateEntry = {
     key = "late",
@@ -199,5 +228,19 @@ assertEqual(playerDescriptor.getModule(), ParadisePromo.PlayerPanel, "player Pro
 ParadisePromo.adminInstance = {}
 ParadisePromo.playerInstance = {}
 assertTrue(adminDescriptor.getInstance() ~= playerDescriptor.getInstance(), "Promo instances are independent")
+
+local adminClosed = 0
+local playerClosed = 0
+local adminModule = { ClosePanel = function() adminClosed = adminClosed + 1 end }
+local playerModule = { ClosePanel = function() playerClosed = playerClosed + 1 end }
+ParadisePanels.table = {
+    { key = "admin", isAdmOnly = true, getModule = function() return adminModule end },
+    { key = "player", isAdmOnly = false, getModule = function() return playerModule end },
+    { key = "missing", isAdmOnly = true, getModule = function() return nil end },
+    { key = "adminWithoutApi", isAdmOnly = true, getModule = function() return {} end },
+}
+ParadisePanels.CloseAdminPanels()
+assertEqual(adminClosed, 1, "admin panel closes on bulk close")
+assertEqual(playerClosed, 0, "player panel stays open on bulk close")
 
 print("PASS test_ParadisePanels_Main")
