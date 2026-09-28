@@ -190,6 +190,12 @@ option ParadiseZ.ShowPvETag
 	page = ParadiseZ, translation = ParadiseZ_ShowPvETag,
 }
 
+option ParadiseZ.ShowModdedAdminTag
+{
+	type = boolean, default = true,
+	page = ParadiseZ, translation = ParadiseZ_ShowModdedAdminTag,
+}
+
 
 option ParadiseZ.HiderList 
 {

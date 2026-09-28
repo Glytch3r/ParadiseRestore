@@ -82,12 +82,24 @@ function ParadiseZ.isShowTag()
     return (settings and settings.ShowPvETag) or (getCore and getCore():getDebug()) or false
 end
 
+function ParadiseZ.isModdedAdminTagEnabled()
+    local settings = SandboxVars and SandboxVars.ParadiseZ
+    return not settings or settings.ShowModdedAdminTag ~= false
+end
+
 function ParadiseZ.isShowAdminTag(targ)
+    if not ParadiseZ.isModdedAdminTagEnabled() then return false end
     if not targ or not ParadiseRestore or not ParadiseRestore.isAdm then return false end
     if not ParadiseRestore.isAdm(targ) then return false end
     local modData = targ:getModData()
     if modData.ParadiseZShowAdminTag == nil then modData.ParadiseZShowAdminTag = true end
     return modData.ParadiseZShowAdminTag == true
+end
+
+ParadiseZ.calculateShowAdminTagHook = ParadiseZ.calculateShowAdminTagHook or IsoPlayer.calculateShowAdminTag
+function IsoPlayer:calculateShowAdminTag()
+    if ParadiseZ.isShowAdminTag(self) then return false end
+    return ParadiseZ.calculateShowAdminTagHook(self)
 end
 
 function ParadiseZ.toggleShowAdminTag(targ)
