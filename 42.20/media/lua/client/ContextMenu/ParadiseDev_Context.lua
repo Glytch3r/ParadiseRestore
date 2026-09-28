@@ -2,6 +2,7 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.Context = ParadiseDev.Context or {}
 ParadiseZ = ParadiseZ or {}
 ParadiseZ.soundDbg = ParadiseZ.soundDbg or false
+ParadiseZ.seeDrunk = ParadiseZ.seeDrunk or false
 
 function ParadiseDev.Context.onOrOff(value)
     return value and "On" or "Off"
@@ -28,14 +29,23 @@ function ParadiseDev.Context.addOption(menu, label, callback, icon, pl)
     return option
 end
 
+function ParadiseDev.Context.seeDrunkHandler()
+    if not ParadiseZ.seeDrunk then
+        return
+    end
+    local pl = getPlayer() 
+    if not pl or not drunkStr then return end
+    if not ParadiseRestore.isAdm(pl) then return end
+    pl:setHaloNote(tostring(drunkStr), 111, 133, 232, 450)
+end
+
 function ParadiseDev.Context.dbgSoundHandler(x, y, z, radius, volume, source)
     if not ParadiseZ.soundDbg then
         return
     end
     local pl = getPlayer()
-    if not pl then
-        return
-    end
+    if not pl then return end
+    if not ParadiseRestore.isAdm(pl) then return end
     local message =
         tostring(source) ..
         "\nx: " ..
@@ -56,6 +66,10 @@ end
 
 function ParadiseDev.Context.toggleSound()
     ParadiseZ.soundDbg = not ParadiseZ.soundDbg
+end
+
+function ParadiseDev.Context.toggleSeeDrunk()
+    ParadiseZ.seeDrunk = not ParadiseZ.seeDrunk
 end
 
 function ParadiseDev.Context.setRateOfFireTestMode(mode)
@@ -312,8 +326,7 @@ function ParadiseDev.Context.updateClearHighlight()
             if floor then
                 floor:setHighlightColor(1, 1, 0, 0.75)
                 floor:setHighlighted(true, false)
-                ParadiseDev.Context.highlightedFloors[tostring(x + dx) .. ":" .. tostring(y + dy) .. ":" .. tostring(z)] =
-                    floor
+                ParadiseDev.Context.highlightedFloors[tostring(x + dx) .. ":" .. tostring(y + dy) .. ":" .. tostring(z)] = floor
             end
         end
     end
@@ -332,8 +345,7 @@ function ParadiseDev.Context.getClearRadius()
 end
 
 ParadiseDev.Context.ClearPanel = ISCollapsableWindow:derive("ParadiseDev.Context.ClearPanel")
-ParadiseDev.Context.clearPanelState = 
-    ParadiseDev.Context.clearPanelState or {radius = nil, selected = {}, highlightEnabled = true}
+ParadiseDev.Context.clearPanelState = ParadiseDev.Context.clearPanelState or {radius = nil, selected = {}, highlightEnabled = true}
 if ParadiseDev.Context.clearPanelState.highlightEnabled == nil then
     ParadiseDev.Context.clearPanelState.highlightEnabled = true
 end
@@ -398,8 +410,7 @@ function ParadiseDev.Context.ClearPanel:createChildren()
     self.radiusSlider:setValues(1, 50, 1, 5, true)
     self.radiusSlider:setCurrentValue(self.radius, true)
     self:addChild(self.radiusSlider)
-    local clear =
-        ISButton:new(16, radiusY + 58, 130, 28, "Clear Selected", self, ParadiseDev.Context.ClearPanel.onClear)
+    local clear = ISButton:new(16, radiusY + 58, 130, 28, "Clear Selected", self, ParadiseDev.Context.ClearPanel.onClear)
     clear:initialise()
     clear:instantiate()
     self:addChild(clear)
@@ -664,6 +675,12 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
             "media/ui/Paradise/ZoneContextIcon.png"
         )
     end
+    ParadiseDev.Context.addOption(
+        menu,
+        "See Drunk: " .. ParadiseDev.Context.onOrOff(ParadiseZ.seeDrunk),
+        ParadiseDev.Context.toggleSeeDrunk,
+        "media/ui/Paradise/context_seeDrunk.png"
+    )
 
     ParadiseDev.Context.addOption(
         menu,
@@ -946,13 +963,16 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     )
 end
 
-ParadiseZ.dbgSoundHandler = ParadiseDev.Context.dbgSoundHandler
-ParadiseZ.context = ParadiseDev.Context.context
 
-Events.OnWorldSound.Remove(ParadiseDev.Context.dbgSoundHandler)
+ParadiseZ.seeDrunkHandler = ParadiseDev.Context.seeDrunkHandler
+Events.OnPlayerUpdate.Add(ParadiseDev.Context.seeDrunkHandler)
+
+ParadiseZ.dbgSoundHandler = ParadiseDev.Context.dbgSoundHandler
 Events.OnWorldSound.Add(ParadiseDev.Context.dbgSoundHandler)
-Events.OnFillWorldObjectContextMenu.Remove(ParadiseDev.Context.context)
+
+ParadiseZ.context = ParadiseDev.Context.context
 Events.OnFillWorldObjectContextMenu.Add(ParadiseDev.Context.context)
+
 
 function ParadiseDev.Context.reloadGuns()
     local pl = getPlayer()
