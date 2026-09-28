@@ -454,5 +454,7 @@
   "Sandbox_ParadiseZ_DeadTrackerZombieColorG_tooltip": "Green component of the admin-only reanimated-player map dot. Range: 0-1.",
   "Sandbox_ParadiseZ_DeadTrackerZombieColorB": "DeadTracker Reanimated Dot Blue",
   "Sandbox_ParadiseZ_DeadTrackerZombieColorB_tooltip": "Blue component of the admin-only reanimated-player map dot. Range: 0-1.",
-  "SandboxVars_ParadiseZpvp_pvpStaggerChance": "pvpStaggerChance"
+  "SandboxVars_ParadiseZpvp_pvpStaggerChance": "pvpStaggerChance",
+  "Sandbox_ParadiseZ_DrunkMaxMinutes": "Maximum Drunk Duration (Real-Time Minutes)",
+  "Sandbox_ParadiseZ_DrunkMaxMinutes_tooltip": "Maximum real-time minutes required to sober up from 100 intoxication at normal game speed. The default 6.6137566 preserves the vanilla duration."
 }

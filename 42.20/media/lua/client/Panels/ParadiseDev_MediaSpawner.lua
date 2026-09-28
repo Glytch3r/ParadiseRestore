@@ -101,8 +101,7 @@ function ParadiseDev.Panels.MediaSpawner:createChildren()
 end
 
 function ParadiseDev.Panels.MediaSpawner:close()
-    ISCollapsableWindow.close(self)
-    if ParadiseDev.Panels.mediaSpawner == self then ParadiseDev.Panels.mediaSpawner = nil end
+    ParadiseDev.Panels.MediaSpawner.ClosePanel()
 end
 
 function ParadiseDev.Panels.MediaSpawner:new(x, y, width, height)
@@ -114,20 +113,4 @@ function ParadiseDev.Panels.MediaSpawner:new(x, y, width, height)
     panel.minimumWidth = 420
     panel.minimumHeight = 360
     return panel
-end
-
-function ParadiseDev.Panels.openMediaSpawner()
-    if not ParadiseRestore.isAdm() then return end
-    if ParadiseDev.Panels.mediaSpawner then
-        ParadiseDev.Panels.mediaSpawner:setVisible(true)
-        ParadiseDev.Panels.mediaSpawner:bringToTop()
-        ParadiseDev.Panels.mediaSpawner:populateCategories()
-        ParadiseDev.Panels.mediaSpawner:populateList()
-        return
-    end
-    local panel = ParadiseDev.Panels.MediaSpawner:new(250, 180, 620, 500)
-    panel:initialise()
-    panel:addToUIManager()
-    panel:setVisible(true)
-    ParadiseDev.Panels.mediaSpawner = panel
 end

@@ -36,8 +36,7 @@ function ParadiseDev.Panels.ModActiveCheck:createChildren()
 end
 
 function ParadiseDev.Panels.ModActiveCheck:close()
-    ISCollapsableWindow.close(self)
-    if ParadiseDev.Panels.modActiveCheck == self then ParadiseDev.Panels.modActiveCheck = nil end
+    ParadiseDev.Panels.ModActiveCheck.ClosePanel()
 end
 
 function ParadiseDev.Panels.ModActiveCheck:new(x, y, width, height)
@@ -47,18 +46,4 @@ function ParadiseDev.Panels.ModActiveCheck:new(x, y, width, height)
     panel.title = "ParadiseZ Mod Active Check"
     panel.resizable = false
     return panel
-end
-
-function ParadiseDev.Panels.openModActiveCheck()
-    if not ParadiseRestore.isAdm() then return end
-    if ParadiseDev.Panels.modActiveCheck then
-        ParadiseDev.Panels.modActiveCheck:setVisible(true)
-        ParadiseDev.Panels.modActiveCheck:bringToTop()
-        return
-    end
-    local panel = ParadiseDev.Panels.ModActiveCheck:new(250, 180, 360, 150)
-    panel:initialise()
-    panel:addToUIManager()
-    panel:setVisible(true)
-    ParadiseDev.Panels.modActiveCheck = panel
 end

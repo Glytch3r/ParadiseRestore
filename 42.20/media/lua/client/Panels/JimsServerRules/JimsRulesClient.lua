@@ -76,7 +76,7 @@ local function onServerCommand(module, command, arguments)
     if command == JimsServerRules.COMMAND_SHOW then
         waitingForServer = false
         waitingForReview = false
-        JimsRulesUI.show(
+        JimsRulesUI.OpenPanel(
             activePlayerNumber,
             activePlayer,
             arguments.title,

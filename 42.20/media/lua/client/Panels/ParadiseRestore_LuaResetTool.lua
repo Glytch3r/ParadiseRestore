@@ -284,7 +284,11 @@ function LuaResetWindow:refresh()
 end
 
 function LuaResetWindow:closePanel()
-    LuaResetTool.close()
+    self:close()
+end
+
+function LuaResetWindow:close()
+    LuaResetTool.ClosePanel()
 end
 
 function LuaResetTool.addUnique(path)
@@ -301,23 +305,6 @@ function LuaResetTool.addUnique(path)
     end
 
     table.insert(LuaResetTool.files, path)
-end
-
-function LuaResetTool.removeExisting()
-    if not LuaResetTool.window then
-        return
-    end
-
-    if UIManager.getUI():contains(LuaResetTool.window) then
-        UIManager.getUI():removeChild(LuaResetTool.window)
-    end
-
-    LuaResetTool.window:setVisible(false)
-    LuaResetTool.window = nil
-end
-
-function LuaResetTool.close()
-    LuaResetTool.removeExisting()
 end
 
 function LuaResetTool.reset(path)
@@ -345,28 +332,3 @@ function LuaResetTool.reset(path)
         getCore():ResetLua("default", "Force")
     end
 end
-
-function LuaResetTool.open()
-    LuaResetTool.removeExisting()
-
-    local width = 770
-    local height = 560
-    local x = math.floor((getCore():getScreenWidth() - width) / 2)
-    local y = math.floor((getCore():getScreenHeight() - height) / 2)
-
-    local window = LuaResetWindow:new(x, y, width, height)
-    window:initialise()
-    window:addToUIManager()
-    window:setVisible(true)
-    window:setAlwaysOnTop(true)
-
-    if window.bringToTop then
-        window:bringToTop()
-    end
-
-    LuaResetTool.window = window
-
-    return window
-end
-
---LuaResetTool.open()

@@ -1,34 +1,5 @@
 ParadisePromo_Admin_Manager = ISPanel:derive("ParadisePromo_Admin_Manager")
 
-function ParadisePromo.openAdminPanel()
-    if not ParadiseRestore.isAdm() then return end
-    if ParadisePromo.adminInstance then
-        ParadisePromo.adminInstance:setVisible(true)
-        ParadisePromo.adminInstance:bringToTop()
-        ParadisePromo.adminInstance:addToUIManager()
-        sendClientCommand(getPlayer(), "ParadisePromo", "requestSync", {})
-        return
-    end
-
-    local width = 700
-    local height = 460
-    local x = (getCore():getScreenWidth() / 2) - (width / 2)
-    local y = (getCore():getScreenHeight() / 2) - (height / 2)
-
-    local panel = ParadisePromo_Admin_Manager:new(x, y, width, height)
-    panel:initialise()
-    panel:addToUIManager()
-
-    ParadisePromo.adminInstance = panel
-    sendClientCommand(getPlayer(), "ParadisePromo", "requestSync", {})
-end
-
-function ParadisePromo.closeAdminPanel()
-    if ParadisePromo.adminInstance then
-        ParadisePromo.adminInstance:close()
-    end
-end
-
 function ParadisePromo_Admin_Manager:new(x, y, width, height)
     local o = ISPanel.new(self, x, y, width, height)
     o.backgroundColor = {r=0, g=0, b=0, a=0.8}
@@ -38,16 +9,12 @@ function ParadisePromo_Admin_Manager:new(x, y, width, height)
 end
 
 function ParadisePromo_Admin_Manager:close()
-    self:setVisible(false)
-    self:removeFromUIManager()
-    ParadisePromo.adminInstance = nil
+    ParadisePromo.AdminPanel.ClosePanel()
 end
 
 function ParadisePromo_Admin_Manager:onDestroy()
     ISPanel.onDestroy(self)
-    if ParadisePromo.adminInstance == self then
-        ParadisePromo.adminInstance = nil
-    end
+    ParadisePromo.AdminPanel.ClosePanel()
 end
 
 function ParadisePromo_Admin_Manager:initialise()

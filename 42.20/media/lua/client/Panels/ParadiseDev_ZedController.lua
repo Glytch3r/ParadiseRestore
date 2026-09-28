@@ -1209,11 +1209,7 @@ function ZedController.Panel:prerender()
 end
 
 function ZedController.Panel:close()
-    self:clearCursor()
-    self:clearSelection()
-    self:setVisible(false)
-    self:removeFromUIManager()
-    if ZedController.instance == self then ZedController.instance = nil end
+    ParadiseDev.ZedController.ClosePanel()
 end
 
 function ZedController.Panel:new(x, y, width, height, chr)
@@ -1231,31 +1227,6 @@ function ZedController.Panel:new(x, y, width, height, chr)
     panel.titleFontHgt = getTextManager():getFontHeight(UIFont.Medium)
     panel:setTitle("Paradise Zed Control")
     return panel
-end
-
-function ZedController.open(pl)
-    pl = pl or getPlayer()
-    if not ZedController.isAdmin(pl) then return nil end
-    if ZedController.instance then
-        ZedController.instance:setVisible(true)
-        ZedController.instance:bringToTop()
-        return ZedController.instance
-    end
-    local core = getCore()
-    local width = math.min(920, math.max(360, core:getScreenWidth() - 16))
-    local height = math.min(650, math.max(280, core:getScreenHeight() - 16))
-    local panel = ZedController.Panel:new(math.max(8, math.floor((core:getScreenWidth() - width) / 2)), math.max(8, math.floor((core:getScreenHeight() - height) / 2)), width, height, pl)
-    panel:initialise()
-    panel:addToUIManager()
-    if panel.resizeWidget then panel.resizeWidget.resizeFunction = ZedController.Panel.resizeWindow end
-    if panel.resizeWidget2 then panel.resizeWidget2.resizeFunction = ZedController.Panel.resizeWindow end
-    ZedController.instance = panel
-    return panel
-end
-
-function ZedController.close()
-    if ZedController.instance then ZedController.instance:close() end
-    ZedController.instance = nil
 end
 
 function ZedController.onResolutionChange()

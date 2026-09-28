@@ -177,7 +177,7 @@ function ParadiseDev.Tiles.copyTile(obj, spriteName, pl)
         if cell and cell.setDrag then cell:setDrag(cursor, pl:getPlayerNum()) end
     end
     if ISMoveableCursor and ISMoveableCursor.clearCacheForAllPlayers then ISMoveableCursor.clearCacheForAllPlayers() end
-    if obj and ParadiseDev.DataCheck and ParadiseDev.DataCheck.open then ParadiseDev.DataCheck.open(obj, spriteName) end
+    if obj and ParadiseDev.DataCheck and ParadiseDev.DataCheck.OpenPanel then ParadiseDev.DataCheck.OpenPanel(obj, spriteName) end
 end
 
 function ParadiseDev.Tiles.addCopyOption(menu, label, obj, spriteName, pl)

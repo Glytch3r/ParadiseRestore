@@ -19,9 +19,7 @@ function ParadiseDev.Panels.GlobalModData:new(x, y, width, height, title)
 end
 
 function ParadiseDev.Panels.GlobalModData:close()
-    self:setVisible(false)
-    self:removeFromUIManager()
-    ParadiseDev.Panels.globalModData = nil
+    ParadiseDev.Panels.GlobalModData.ClosePanel()
 end
 
 function ParadiseDev.Panels.GlobalModData:createChildren()
@@ -280,21 +278,6 @@ function ParadiseDev.Panels.GlobalModData:onClickDeleteTable()
     self.valueEntry:setText("")
     self:populateList()
 end 
-
-function ParadiseDev.Panels.openGlobalModData()
-    if ParadiseDev.Panels.globalModData then
-        ParadiseDev.Panels.globalModData:setVisible(true)
-        ParadiseDev.Panels.globalModData:bringToTop()
-        ParadiseDev.Panels.globalModData:populateList()
-        return
-    end
-    local panel = ParadiseDev.Panels.GlobalModData:new(100, 100, 900, 600, "ParadiseZ Global ModData")
-    panel:initialise()
-    panel:instantiate()
-    panel:addToUIManager()
-    panel:setVisible(true)
-    ParadiseDev.Panels.globalModData = panel
-end
 
 function ParadiseDev.Panels.onGlobalModDataServerCommand(module, command, args)
     if module ~= "ParadiseDevGlobalModData" or not args or not args.name then return end

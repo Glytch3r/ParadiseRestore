@@ -542,27 +542,27 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     panelsRoot.iconTexture = getTexture("media/ui/Paradise/ContextIcon.png")
     local panelsMenu = ISContextMenu:getNew(context)
     menu:addSubMenu(panelsRoot, panelsMenu)
-    if ParadiseDev.Zones and ParadiseDev.Zones.openUI then
+    if ParadiseDev.Zones and ParadiseDev.Zones.OpenPanel then
         ParadiseDev.Context.addOption(
             panelsMenu,
             "Zone Editor",
-            ParadiseDev.Zones.openUI,
+            ParadiseDev.Zones.OpenPanel,
             "media/ui/Paradise/ZoneContextIcon.png"
         )
     end
-    if ParadiseDev.TraitSyncer and ParadiseDev.TraitSyncer.openPanel then
+    if ParadiseDev.TraitSyncer and ParadiseDev.TraitSyncer.OpenPanel then
         ParadiseDev.Context.addOption(
             panelsMenu,
             "ParadiseZ Trait Syncer",
-            ParadiseDev.TraitSyncer.openPanel,
+            ParadiseDev.TraitSyncer.OpenPanel,
             "media/ui/Paradise/ContextIcon.png"
         )
     end
-    if ParadiseDev.ZedController and ParadiseDev.ZedController.open then
+    if ParadiseDev.ZedController and ParadiseDev.ZedController.OpenPanel then
         ParadiseDev.Context.addOption(
             panelsMenu,
             "Paradise Zed Control",
-            ParadiseDev.ZedController.open,
+            ParadiseDev.ZedController.OpenPanel,
             "media/ui/Paradise/StopZedContextIcon.png"
         )
     end
@@ -570,19 +570,19 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
         ParadiseDev.Context.addOption(
             panelsMenu,
             "WaveCaster",
-            ParadiseDev.Panels.openWaveCaster,
+            WaveCasterPanel.OpenPanel,
             "media/ui/Paradise/ContextIcon.png"
         )
         ParadiseDev.Context.addOption(
             panelsMenu,
             "Media Spawner",
-            ParadiseDev.Panels.openMediaSpawner,
+            ParadiseDev.Panels.MediaSpawner.OpenPanel,
             "media/ui/Paradise/ContextIcon.png"
         )
         --[[ 
             if ParadiseDev.Tiles and ParadiseDev.Tiles.openBrushTool then ParadiseDev.Context.addOption(panelsMenu, "Brush Tool", ParadiseDev.Tiles.openBrushTool, "media/ui/Paradise/ContextIcon.png") end
             ParadiseDev.Context.addOption(panelsMenu, "Promo Manager", function() 
-                ParadisePromo.openAdminPanel()
+                ParadisePromo.AdminPanel.OpenPanel()
             end, "media/ui/Paradise/ContextIcon.png")
 ]]
 --[[ 
@@ -609,34 +609,34 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
         ParadiseDev.Context.addOption(
             panelsMenu,
             "Global ModData",
-            ParadiseDev.Panels.openGlobalModData,
+            ParadiseDev.Panels.GlobalModData.OpenPanel,
             "media/ui/Paradise/ContextIcon.png"
         )
-        if ParadisePOI and ParadisePOI.openPanel then
+        if ParadisePOI and ParadisePOI.OpenPanel then
             ParadiseDev.Context.addOption(
                 panelsMenu,
                 "POI Manager",
-                ParadisePOI.openPanel,
+                ParadisePOI.OpenPanel,
                 "media/ui/Paradise/ContextIcon.png"
             )
         end
         ParadiseDev.Context.addOption(
             panelsMenu,
             "Mod Active Check",
-            ParadiseDev.Panels.openModActiveCheck,
+            ParadiseDev.Panels.ModActiveCheck.OpenPanel,
             "media/ui/Paradise/ContextIcon.png"
         )
         ParadiseDev.Context.addOption(
             panelsMenu,
             "Paradise Playtime Checker",
-            ParadiseDev.Panels.openPlaytimeCheck,
+            ParadiseDev.Panels.PlaytimeCheck.OpenPanel,
             "media/ui/Paradise/ContextIcon.png"
         )
 
         ParadiseDev.Context.addOption(
             panelsMenu,
             "Lua Reset Tool",
-            function() LuaResetTool.open() end,
+            LuaResetTool.OpenPanel,
             "media/ui/Paradise/ContextIcon.png"
         )
 
@@ -649,11 +649,11 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
             )
         end
     end
-    if ParadiseDev.Zones and ParadiseDev.Zones.openTestRemote then
+    if ParadiseDev.Zones and ParadiseDev.Zones.TestRemote and ParadiseDev.Zones.TestRemote.OpenPanel then
         ParadiseDev.Context.addOption(
             panelsMenu,
             "Zone Test Control",
-            ParadiseDev.Zones.openTestRemote,
+            ParadiseDev.Zones.TestRemote.OpenPanel,
             "media/ui/Paradise/ZoneContextIcon.png"
         )
     end

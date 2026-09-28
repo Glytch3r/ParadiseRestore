@@ -99,9 +99,12 @@ ParadisePanels.table = {
                 math.max(8, math.floor((core:getScreenHeight() - height) / 2)),
                 width, height, pl)
             initialise(panel)
-            if panel.resizeWidget then panel.resizeWidget.resizeFunction = module.Panel.resizeWindow end
-            if panel.resizeWidget2 then panel.resizeWidget2.resizeFunction = module.Panel.resizeWindow end
             return panel
+        end,
+        onOpen = function(panel)
+            local resize = ParadiseDev.ZedController.Panel.resizeWindow
+            if panel.resizeWidget then panel.resizeWidget.resizeFunction = resize end
+            if panel.resizeWidget2 then panel.resizeWidget2.resizeFunction = resize end
         end,
         onClose = function(panel)
             panel:clearCursor()
@@ -139,6 +142,16 @@ ParadisePanels.table = {
             local x = math.max(0, (getCore():getScreenWidth() - width) / 2 + 220)
             local y = math.max(0, (getCore():getScreenHeight() - height) / 2)
             return initialise(ParadiseDev.Zones.Editor:new(x, y, width, height, zoneId, parent))
+        end,
+        onOpen = function(panel, zoneId, parent)
+            if zoneId then panel.zoneId = zoneId end
+            if panel.parentWindow and panel.parentWindow ~= parent and panel.parentWindow.childEditor == panel then
+                panel.parentWindow.childEditor = nil
+            end
+            panel.parentWindow = parent
+            if parent then parent.childEditor = panel end
+            local zone = ParadiseDev.Zones.zoneById(panel.zoneId)
+            if zone and panel.loadZone then panel:loadZone(zone) end
         end,
         onClose = function(panel)
             if panel.parentWindow and panel.parentWindow.childEditor == panel then
@@ -206,6 +219,18 @@ ParadisePanels.table = {
             local y = (getCore():getScreenHeight() - height) / 2
             return initialise(WaveCasterPanel:new(x, y, width, height, pl, square))
         end,
+        onOpen = function(panel, pl, square)
+            pl = pl or getPlayer()
+            if not pl then return end
+            square = square or pl:getSquare()
+            if not square then return end
+            panel.chr = pl
+            panel.plNum = pl:getPlayerNum()
+            panel.castX, panel.castY = square:getX(), square:getY()
+            panel.selectX, panel.selectY, panel.selectZ = square:getX(), square:getY(), square:getZ()
+            panel:removeMarker()
+            panel:addPickMarker(square)
+        end,
         onClose = function(panel)
             if panel.childEditor then
                 if panel.childEditor.onCancel then
@@ -230,18 +255,50 @@ ParadisePanels.table = {
                 playerNumber, player, title, subtitle, rawRules, reviewOnly)
             return initialise(panel)
         end,
-        onOpen = function(panel)
+        onOpen = function(panel, playerNumber, player, title, subtitle, rawRules, reviewOnly)
+            if playerNumber ~= nil then panel.playerNumber = playerNumber end
+            panel.player = player
+            panel.title = tostring(title or "JIM'S PARADISE")
+            panel.subtitle = tostring(subtitle or "Read the rules below before entering the world.")
+            panel.rawRules = tostring(rawRules or "")
+            panel.reviewOnly = reviewOnly == true
+            panel.awaitingServer = false
+            panel.errorMessage = nil
+            if panel.rulesPanel then
+                panel.rulesPanel:setText(JimsRulesUI.formatRules(panel.rawRules))
+                panel.rulesPanel:paginate()
+            end
+            if panel.agreement then
+                panel.agreement:setVisible(not panel.reviewOnly)
+                panel.agreement:setSelected(1, false)
+            end
+            if panel.acceptButton then
+                panel.acceptButton:setTitle(panel.reviewOnly and "CLOSE" or "ACCEPT AND ENTER")
+                panel.acceptButton:setEnable(panel.reviewOnly)
+            end
             panel:setAlwaysOnTop(true)
             panel:setWantKeyEvents(true)
             panel:setForceCursorVisible(true)
+
+            if panel._paradiseFocusCaptured and panel._paradiseFocusPlayer ~= panel.playerNumber then
+                local previousPlayer = JoypadState.players[panel._paradiseFocusPlayer + 1]
+                if previousPlayer then setJoypadFocus(panel._paradiseFocusPlayer, panel.previousJoypadFocus) end
+                panel._paradiseFocusCaptured = false
+                panel.previousJoypadFocus = nil
+            end
             if JoypadState.players[panel.playerNumber + 1] then
-                panel.previousJoypadFocus = JoypadState.players[panel.playerNumber + 1].focus
+                if not panel._paradiseFocusCaptured then
+                    panel.previousJoypadFocus = JoypadState.players[panel.playerNumber + 1].focus
+                    panel._paradiseFocusCaptured = true
+                    panel._paradiseFocusPlayer = panel.playerNumber
+                end
                 setJoypadFocus(panel.playerNumber, panel)
             end
         end,
         onClose = function(panel)
-            if panel.playerNumber and JoypadState.players[panel.playerNumber + 1] then
-                setJoypadFocus(panel.playerNumber, panel.previousJoypadFocus)
+            local playerNumber = panel._paradiseFocusPlayer or panel.playerNumber
+            if panel._paradiseFocusCaptured and playerNumber ~= nil and JoypadState.players[playerNumber + 1] then
+                setJoypadFocus(playerNumber, panel.previousJoypadFocus)
             end
         end,
     },

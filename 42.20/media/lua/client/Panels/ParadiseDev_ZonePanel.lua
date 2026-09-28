@@ -423,13 +423,8 @@ function ParadiseDev.Zones.Panel:prerender()
 end
 function ParadiseDev.Zones.Panel:onEditZone(zone)
     if not zone then return end
-    if ParadiseDev.Zones.editorWindow then ParadiseDev.Zones.editorWindow:close() end
-    local width, height = 950, 520
-    local x = math.max(0, (getCore():getScreenWidth() - width) / 2 + 220)
-    local y = math.max(0, (getCore():getScreenHeight() - height) / 2)
-    ParadiseDev.Zones.editorWindow = ParadiseDev.Zones.Editor:new(x, y, width, height, zone.id, self)
-    ParadiseDev.Zones.editorWindow:initialise()
-    ParadiseDev.Zones.editorWindow:addToUIManager()
+    ParadiseDev.Zones.Editor.ClosePanel()
+    ParadiseDev.Zones.Editor.OpenPanel(zone.id, self)
 end
 
 function ParadiseDev.Zones.Panel:onPanelButton(button)
@@ -558,10 +553,7 @@ function ParadiseDev.Zones.Panel:setStatus(text)
 end
 
 function ParadiseDev.Zones.Panel:close()
-    if ParadiseDev.Zones.editorWindow then ParadiseDev.Zones.editorWindow:close() end
-    self:setVisible(false)
-    self:removeFromUIManager()
-    if ParadiseDev.Zones.window == self then ParadiseDev.Zones.window = nil end
+    ParadiseDev.Zones.ClosePanel()
 end
 
 function ParadiseDev.Zones.Panel:new(x, y, width, height)
@@ -847,7 +839,7 @@ function ParadiseDev.Zones.Editor:onPoint1() ParadiseDev.Zones.setPoint(self.x1E
 function ParadiseDev.Zones.Editor:onPoint2() ParadiseDev.Zones.setPoint(self.x2Entry, self.y2Entry) end
 
 function ParadiseDev.Zones.Editor:onCloseButton()
-    self:close()
+    ParadiseDev.Zones.Editor.ClosePanel()
 end
 
 function ParadiseDev.Zones.Editor:setStatus(text)
@@ -855,12 +847,7 @@ function ParadiseDev.Zones.Editor:setStatus(text)
 end
 
 function ParadiseDev.Zones.Editor:close()
-    self:setVisible(false)
-    self:removeFromUIManager()
-    if self.parentWindow and self.parentWindow.childEditor == self then
-        self.parentWindow.childEditor = nil
-    end
-    if ParadiseDev.Zones.editorWindow == self then ParadiseDev.Zones.editorWindow = nil end
+    ParadiseDev.Zones.Editor.ClosePanel()
 end
 
 function ParadiseDev.Zones.Editor:new(x, y, width, height, zoneId, parent)
@@ -1010,9 +997,7 @@ function ParadiseDev.Zones.TestRemote:setStatus(text)
 end
 
 function ParadiseDev.Zones.TestRemote:close()
-    self:setVisible(false)
-    self:removeFromUIManager()
-    if ParadiseDev.Zones.testWindow == self then ParadiseDev.Zones.testWindow = nil end
+    ParadiseDev.Zones.TestRemote.ClosePanel()
 end
 
 function ParadiseDev.Zones.TestRemote:new(x, y, width, height)
@@ -1025,42 +1010,6 @@ function ParadiseDev.Zones.TestRemote:new(x, y, width, height)
     o.minimumHeight = 390
     o.moveWithMouse = true
     return o
-end
-
-function ParadiseDev.Zones.openTestRemote()
-    if not ParadiseRestore.isAdm() then
-        return
-    end
-
-    if ParadiseDev.Zones.testWindow then
-        ParadiseDev.Zones.testWindow:setVisible(true)
-        ParadiseDev.Zones.testWindow:addToUIManager()
-        ParadiseDev.Zones.send("requestAdminState")
-        return
-    end
-    local width, height = 560, 410
-    local x = math.max(0, (getCore():getScreenWidth() - width) / 2 + 260)
-    local y = math.max(0, (getCore():getScreenHeight() - height) / 2)
-    ParadiseDev.Zones.testWindow = ParadiseDev.Zones.TestRemote:new(x, y, width, height)
-    ParadiseDev.Zones.testWindow:initialise()
-    ParadiseDev.Zones.testWindow:addToUIManager()
-end
-function ParadiseDev.Zones.openUI()
-    if not ParadiseRestore.isAdm() then
-        return
-    end
-    if ParadiseDev.Zones.window then
-        ParadiseDev.Zones.window:setVisible(true)
-        ParadiseDev.Zones.window:addToUIManager()
-        ParadiseDev.Zones.send("requestAdminState")
-        return
-    end
-    local width, height = 1200, 568
-    local x = math.max(0, (getCore():getScreenWidth() - width) / 2 - 180)
-    local y = math.max(0, (getCore():getScreenHeight() - height) / 2)
-    ParadiseDev.Zones.window = ParadiseDev.Zones.Panel:new(x, y, width, height)
-    ParadiseDev.Zones.window:initialise()
-    ParadiseDev.Zones.window:addToUIManager()
 end
 
 function ParadiseDev.Zones.Panel.onServerCommand(module, command, args)

@@ -90,7 +90,7 @@ function ParadiseDev.chatCmd(cmd)
         end
 
     elseif command == "/promo" then
-        ParadisePromo.openPlayerPanel()
+        ParadisePromo.PlayerPanel.OpenPanel()
     elseif command == "/rebound" then
         if isAdm then
             if isClient() then

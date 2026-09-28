@@ -25,5 +25,5 @@ function ParadisePanels.Demote.doDemote(pl)
     pl = pl or getPlayer()
     if not pl then return end
     pl:getModData()['isAdm'] = false
-    -- close each opened isAdmOnly panels
+    ParadisePanels.CloseAdminPanels()
 end

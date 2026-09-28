@@ -1,11 +1,6 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Panels = ParadiseDev.Panels or {}
 
-
-function ParadiseDev.Panels.openWaveCaster()
-    if WaveCaster and WaveCaster.panel then WaveCaster.panel(true) end
-end
-
 function ParadiseDev.Panels.onNetworkUsersReceived()
     local panel = ParadiseDev.Panels.usersList
     if panel and panel:isVisible() then panel:populateList() end

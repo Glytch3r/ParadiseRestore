@@ -8,35 +8,6 @@ ParadisePOI.liveCoordinateDelay = 250
 
 ParadisePOI.data = ParadisePOI.data or {}
 
-function ParadisePOI.openPanel()
-    if not ParadiseRestore.isAdm() then return end
-    if ParadisePOI.instance then
-        ParadisePOI.instance:setVisible(true)
-        ParadisePOI.instance:bringToTop()
-        ParadisePOI.instance:addToUIManager()
-        ParadisePOI.requestSync()
-        return
-    end
-
-    local width = 960
-    local height = 430
-    local x = (getCore():getScreenWidth() / 2) - (width / 2)
-    local y = (getCore():getScreenHeight() / 2) - (height / 2)
-
-    local panel = Paradise_POI_Manager:new(x, y, width, height)
-    panel:initialise()
-    panel:addToUIManager()
-
-    ParadisePOI.instance = panel
-    ParadisePOI.requestSync()
-end
-
-function ParadisePOI.closePanel()
-    if ParadisePOI.instance then
-        ParadisePOI.instance:close()
-    end
-end
-
 function ParadisePOI.requestSync()
     if isClient() then
         sendClientCommand(getPlayer(), "ParadisePOI", "requestSync", {})
@@ -76,11 +47,7 @@ function Paradise_POI_Manager:new(x, y, width, height)
 end
 
 function Paradise_POI_Manager:close()
-    self:setVisible(false)
-    self:removeFromUIManager()
-    if ParadisePOI and ParadisePOI.instance then
-        ParadisePOI.instance = nil
-    end
+    ParadisePOI.ClosePanel()
 end
 
 function Paradise_POI_Manager:initialise()

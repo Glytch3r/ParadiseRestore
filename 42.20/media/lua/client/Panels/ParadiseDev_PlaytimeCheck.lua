@@ -42,8 +42,7 @@ function ParadiseDev.Panels.PlaytimeCheck:createChildren()
 end
 
 function ParadiseDev.Panels.PlaytimeCheck:close()
-    ISCollapsableWindow.close(self)
-    if ParadiseDev.Panels.playtimeCheck == self then ParadiseDev.Panels.playtimeCheck = nil end
+    ParadiseDev.Panels.PlaytimeCheck.ClosePanel()
 end
 
 function ParadiseDev.Panels.PlaytimeCheck:new(x, y, width, height)
@@ -53,20 +52,6 @@ function ParadiseDev.Panels.PlaytimeCheck:new(x, y, width, height)
     panel.title = "Paradise Playtime Checker"
     panel.resizable = false
     return panel
-end
-
-function ParadiseDev.Panels.openPlaytimeCheck()
-    if not ParadiseRestore.isAdm() then return end
-    if ParadiseDev.Panels.playtimeCheck then
-        ParadiseDev.Panels.playtimeCheck:setVisible(true)
-        ParadiseDev.Panels.playtimeCheck:bringToTop()
-        return
-    end
-    local panel = ParadiseDev.Panels.PlaytimeCheck:new(250, 180, 400, 180)
-    panel:initialise()
-    panel:addToUIManager()
-    panel:setVisible(true)
-    ParadiseDev.Panels.playtimeCheck = panel
 end
 
 function ParadiseDev.Panels.formatPlaytime(seconds)

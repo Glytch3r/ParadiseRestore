@@ -432,7 +432,7 @@ function ParadiseDev.ZoneHUD.onUserPanelOption(self, button, x, y)
         return
     end
     if button.internal == "PARADISE_PROMO_REDEEM" then
-        ParadisePromo.openPlayerPanel()
+        ParadisePromo.PlayerPanel.OpenPanel()
     end
 end
 function ParadiseDev.ZoneHUD.layoutUserPanel()

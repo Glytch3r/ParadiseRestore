@@ -114,6 +114,8 @@ local function formatRules(rawRules)
     return table.concat(output, " ")
 end
 
+JimsRulesUI.formatRules = formatRules
+
 function JimsRulesUI:initialise()
     ISPanelJoypad.initialise(self)
 end
@@ -503,50 +505,7 @@ function JimsRulesUI:onJoypadDown(button, joypadData)
 end
 
 function JimsRulesUI:destroy()
-    if self.playerNumber and JoypadState.players[self.playerNumber + 1] then
-        setJoypadFocus(self.playerNumber, self.previousJoypadFocus)
-    end
-
-    self:setVisible(false)
-    self:removeFromUIManager()
-
-    if JimsRulesUI.instance == self then
-        JimsRulesUI.instance = nil
-    end
-end
-
-function JimsRulesUI.show(playerNumber, player, title, subtitle, rawRules, reviewOnly)
-    if JimsRulesUI.instance then
-        JimsRulesUI.instance:destroy()
-    end
-
-    local screenWidth = getCore():getScreenWidth()
-    local screenHeight = getCore():getScreenHeight()
-    local ui = JimsRulesUI:new(
-        0,
-        0,
-        screenWidth,
-        screenHeight,
-        playerNumber,
-        player,
-        title,
-        subtitle,
-        rawRules,
-        reviewOnly
-    )
-    ui:initialise()
-    ui:addToUIManager()
-    ui:setAlwaysOnTop(true)
-    ui:setWantKeyEvents(true)
-    ui:setForceCursorVisible(true)
-
-    if JoypadState.players[playerNumber + 1] then
-        ui.previousJoypadFocus = JoypadState.players[playerNumber + 1].focus
-        setJoypadFocus(playerNumber, ui)
-    end
-
-    JimsRulesUI.instance = ui
-    return ui
+    JimsRulesUI.ClosePanel()
 end
 
 function JimsRulesUI:new(x, y, width, height, playerNumber, player, title, subtitle, rawRules, reviewOnly)

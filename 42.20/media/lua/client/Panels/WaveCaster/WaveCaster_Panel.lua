@@ -9,7 +9,7 @@ WaveCaster.SkeletonSkins = { "Skeleton_Mannequin", "Skeleton", "SkeletonBurned",
 if DebugContextMenu and DebugContextMenu.onHordeManager then
 	function DebugContextMenu.onHordeManager(sq, pl)
 		if not getCore():getDebug() then return end
-		WaveCaster.panel(true)
+		WaveCasterPanel.OpenPanel()
 	end
 end
 if AdminContextMenu and AdminContextMenu.onHordeManager then
@@ -17,7 +17,7 @@ if AdminContextMenu and AdminContextMenu.onHordeManager then
 		local pl = getPlayer()
 		if not pl then return end
 		if not ParadiseRestore.isAdm(pl) then return end
-		WaveCaster.panel(true)
+		WaveCasterPanel.OpenPanel()
 	end
 end
  ]]
@@ -1000,38 +1000,8 @@ function WaveCasterPanel:onRemoveZombies()
 end
 -----------------------            ---------------------------
 function WaveCasterPanel:close()
-    if self.childEditor then
-        if self.childEditor.onCancel then
-            self.childEditor:onCancel()
-        else
-            self.childEditor:close()
-        end
-        self.childEditor = nil
-    end
-    self:removeMarker();
-    self:setVisible(false)
-    self:removeFromUIManager()
-end
-function WaveCaster.panel(activate)
-    activate = activate or true
-    if WaveCasterPanel.instance then
-        WaveCasterPanel.instance:close()
-        WaveCasterPanel.instance = nil
-    end
-    if activate then
-        local pl = getPlayer() 
-        local sq = pl:getSquare()
-        if not pl or not sq then return end
-		local width = 1020;
-		local height = 960;
-        local x = (getCore():getScreenWidth() - width) / 2 - 300
-        local y = (getCore():getScreenHeight() - height) / 2
-        local editor = WaveCasterPanel:new(x, y, width, height, pl, sq )
-        editor:initialise()
-        editor:addToUIManager()
-		WaveCasterPanel.instance = editor
-    end
+    WaveCasterPanel.ClosePanel()
 end
 --[[ 
-WaveCaster.panel(true)
+WaveCasterPanel.OpenPanel()
  ]]

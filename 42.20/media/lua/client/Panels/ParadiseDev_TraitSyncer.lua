@@ -132,6 +132,9 @@ function Syncer.Panel:new(x, y, width, height)
     local panel = ISCollapsableWindow:new(x, y, width, height); setmetatable(panel, self); self.__index = self
     panel.title = "ParadiseZ Trait Syncer"; panel.resizable = true; return panel
 end
+function Syncer.Panel:close()
+    ParadiseDev.TraitSyncer.ClosePanel()
+end
 function Syncer.refreshPanel()
     if not Syncer.window or not Syncer.window.list then return end
     Syncer.window.list:clear()
@@ -146,11 +149,6 @@ function Syncer.refreshPanel()
 end
 function Syncer.requestState()
     if sendClientCommand then sendClientCommand("ParadiseDevTraitSyncer", "list", {}) end
-end
-function Syncer.openPanel()
-    if not ParadiseRestore.isAdm() then return end
-    if Syncer.window then Syncer.window:setVisible(true); Syncer.window:bringToTop(); Syncer.requestState(); return end
-    local panel = Syncer.Panel:new(220, 180, 700, 420); panel:initialise(); panel:addToUIManager(); panel:setVisible(true); Syncer.window = panel; Syncer.requestState()
 end
 function Syncer.onServerCommand(module, command, args)
     if module ~= "ParadiseDevTraitSyncer" then return end

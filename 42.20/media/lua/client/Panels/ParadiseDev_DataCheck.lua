@@ -158,32 +158,6 @@ function ParadiseDev.DataCheck.clear()
     ParadiseDev.DataCheck.entries = {}
 end
 
-function ParadiseDev.DataCheck.open(obj, name)
-    if not ParadiseRestore.isAdm() then return end
-    local index = ParadiseDev.DataCheck.add(obj, name) or 1
-    if ParadiseDev.DataCheck.window then
-        ParadiseDev.DataCheck.window:setVisible(true)
-        ParadiseDev.DataCheck.window:bringToTop()
-        ParadiseDev.DataCheck.window:refresh(index)
-        return ParadiseDev.DataCheck.window
-    end
-    local window = ParadiseDev.DataCheck.Panel:new(60, 60, 1250, 620)
-    window:initialise()
-    window:addToUIManager()
-    window:setVisible(true)
-    ParadiseDev.DataCheck.window = window
-    window:refresh(index)
-    return window
-end
-
-function ParadiseDev.DataCheck.close()
-    local window = ParadiseDev.DataCheck.window
-    if not window then return end
-    window:setVisible(false)
-    window:removeFromUIManager()
-    ParadiseDev.DataCheck.window = nil
-end
-
 function ParadiseDev.DataCheck.getClickedSquare(worldobjects)
     if ISWorldObjectContextMenu and ISWorldObjectContextMenu.fetchVars then
         local sq = ISWorldObjectContextMenu.fetchVars.clickedSquare
@@ -202,7 +176,7 @@ end
 function ParadiseDev.DataCheck.addWorldObjectOption(menu, obj, name)
     if not menu or not obj then return end
     name = ParadiseDev.DataCheck.objectName(obj, name)
-    local option = menu:addOption(name, obj, ParadiseDev.DataCheck.openSelected, name)
+    local option = menu:addOption(name, obj, ParadiseDev.DataCheck.OpenPanel, name)
     ParadiseDev.DataCheck.setOptionIcon(option, obj)
     return option
 end
@@ -232,10 +206,6 @@ function ParadiseDev.DataCheck.getInventoryItems(items)
         end
     end
     return result
-end
-
-function ParadiseDev.DataCheck.openSelected(obj, name)
-    ParadiseDev.DataCheck.open(obj, name)
 end
 
 function ParadiseDev.DataCheck.addWorldContext(plNum, context, worldobjects, test)
@@ -282,7 +252,7 @@ function ParadiseDev.DataCheck.addInventoryContext(plNum, context, items)
     context:addSubMenu(root, submenu)
     for _, item in ipairs(selected) do
         local name = ParadiseDev.DataCheck.objectName(item)
-        local option = submenu:addOption(name, item, ParadiseDev.DataCheck.openSelected, name)
+        local option = submenu:addOption(name, item, ParadiseDev.DataCheck.OpenPanel, name)
         ParadiseDev.DataCheck.setOptionIcon(option, item)
     end
 end
@@ -703,7 +673,7 @@ function ParadiseDev.DataCheck.Panel:onClick(button)
 end
 
 function ParadiseDev.DataCheck.Panel:close()
-    ParadiseDev.DataCheck.close()
+    ParadiseDev.DataCheck.ClosePanel()
 end
 
 function ParadiseDev.DataCheck.Panel:new(x, y, width, height)

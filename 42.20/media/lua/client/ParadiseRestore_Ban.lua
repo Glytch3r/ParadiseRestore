@@ -36,7 +36,7 @@ function ParadiseBanTimedAction:isValid()
 end
 
 function ParadiseBanTimedAction:start()
-    local targSteamID = ParadiseDev.getSteamIdOrUser(targ)
+    local targSteamID = ParadiseRestore.getSteamIdOrUser(targ)
     self:setActionAnim(self.choice.animSet)
     self:setOverrideHandModels(nil, nil)
     sendClientCommand(ParadiseBan.MODULE, "start", {

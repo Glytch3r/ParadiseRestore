@@ -3,32 +3,6 @@ ParadisePromo = ParadisePromo or {}
 
 
 
-function ParadisePromo.openPlayerPanel()
-    if ParadisePromo.playerInstance then
-        ParadisePromo.playerInstance:setVisible(true)
-        ParadisePromo.playerInstance:bringToTop()
-        ParadisePromo.playerInstance:addToUIManager()
-        return
-    end
-
-    local width = 320
-    local height = 130
-    local x = (getCore():getScreenWidth() / 2) - (width / 2)
-    local y = (getCore():getScreenHeight() / 2) - (height / 2)
-
-    local panel = ParadisePromo_Player_Panel:new(x, y, width, height)
-    panel:initialise()
-    panel:addToUIManager()
-
-    ParadisePromo.playerInstance = panel
-end
-
-function ParadisePromo.closePlayerPanel()
-    if ParadisePromo.playerInstance then
-        ParadisePromo.playerInstance:close()
-    end
-end
-
 function ParadisePromo_Player_Panel:new(x, y, width, height)
     local o = ISPanel.new(self, x, y, width, height)
     o.backgroundColor = {r=0, g=0, b=0, a=0.8}
@@ -38,11 +12,7 @@ function ParadisePromo_Player_Panel:new(x, y, width, height)
 end
 
 function ParadisePromo_Player_Panel:close()
-    self:setVisible(false)
-    self:removeFromUIManager()
-    if ParadisePromo and ParadisePromo.playerInstance then
-        ParadisePromo.playerInstance = nil
-    end
+    ParadisePromo.PlayerPanel.ClosePanel()
 end
 
 function ParadisePromo_Player_Panel:initialise()
