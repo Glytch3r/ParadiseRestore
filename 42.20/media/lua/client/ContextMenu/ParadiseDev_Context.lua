@@ -111,7 +111,7 @@ function ParadiseDev.Context.forceRebound(pl)
         ParadiseDev.TP.rebound(pl)
     end
 end
-
+ 
 function ParadiseDev.Context.spawnRangeCard(pl)
     if not pl or not ParadiseDev.Inventory or not ParadiseDev.Inventory.syncAddedItem then
         return
