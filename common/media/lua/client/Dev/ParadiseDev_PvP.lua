@@ -66,9 +66,20 @@ function ParadiseDev.PvP.applyDamage(targ, char, wpn, bonus)
     local lowest = targ:isGodMod() and 1 or 0
     local dmg = ParadiseDev.PvP.getWeaponDamage(wpn, char) + (bonus or 0)
     md.LifePoints = math.max(lowest, (md.LifePoints or 100) - dmg)
-    md.ParadiseDevDamageFlash = { decay = 0.04, rgb = { 1, 0, 0 }, opacity = 0.4 }
+    ParadiseDev.Flash.run({ 1, 0, 0 }, tonumber(pvp.HitFlashDecay) or 1.8, 0.4, targ)
     if ParadiseDev.PvP.isFirearm(wpn) and ZombRand(1, 101) <= (tonumber(pvp.PvPInjuryChance) or 0) then ParadiseDev.PvP.injure(targ) end
     if md.LifePoints <= 0 and not pvp.teleportPvpDeath then targ:Kill(char) end
+end
+
+function ParadiseDev.PvP.cancelHitReaction(targ)
+    if not targ then return end
+    targ:setHitReaction("")
+    targ:setHitForce(0)
+    targ:setVariable("hitpvp", false)
+    targ:setVariable("HitReaction", "")
+    targ:setVariable("PlayerHitReaction", "")
+    targ:setVariable("BumpFall", false)
+    targ:setVariable("BumpFallType", "")
 end
 
 function ParadiseDev.PvP.onWeaponHit(char, targ, wpn)
@@ -77,13 +88,19 @@ function ParadiseDev.PvP.onWeaponHit(char, targ, wpn)
         targ:setAvoidDamage(false)
         return
     end
+    if not instanceof(char, "IsoPlayer") or not instanceof(targ, "IsoPlayer") then return end
+    if not ParadiseDev.PvP.isEnabled() then
+        targ:setAvoidDamage(false)
+        return
+    end
     local protected = ParadiseDev.PvP.isProtected(char) or ParadiseDev.PvP.isProtected(targ)
     if protected then
         targ:setAvoidDamage(true)
+        ParadiseDev.PvP.cancelHitReaction(targ)
         return
     end
-    if not ParadiseDev.PvP.isEnabled() then return end
     targ:setAvoidDamage(true)
+    ParadiseDev.PvP.cancelHitReaction(targ)
     if targ ~= getPlayer() then return end
     local pvp = SandboxVars and SandboxVars.ParadiseZpvp or {}
     local bonus = targ:isCriticalHit() and ZombRand(0, (tonumber(pvp.pvpDmgMult) or 0) + 1) or 0
@@ -92,4 +109,13 @@ end
 
 Events.OnWeaponHitCharacter.Remove(ParadiseDev.PvP.onWeaponHit)
 Events.OnWeaponHitCharacter.Add(ParadiseDev.PvP.onWeaponHit)
+
+function ParadiseDev.PvP.onSandboxModified()
+    if ParadiseDev.PvP.isEnabled() then return end
+    local pl = getPlayer()
+    if pl then pl:setAvoidDamage(false) end
+end
+if not Events.OnSandboxModified then LuaEventManager.AddEvent("OnSandboxModified") end
+Events.OnSandboxModified.Remove(ParadiseDev.PvP.onSandboxModified)
+Events.OnSandboxModified.Add(ParadiseDev.PvP.onSandboxModified)
 

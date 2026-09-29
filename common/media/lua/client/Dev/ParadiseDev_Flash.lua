@@ -10,26 +10,41 @@ function ParadiseDev.Flash.getRGB(rgb)
     return math.max(0, math.min(1, r)), math.max(0, math.min(1, g)), math.max(0, math.min(1, b))
 end
 
+function ParadiseDev.Flash.run(rgb, sec, opacity, pl)
+    pl = pl or getPlayer()
+    if not pl then return false end
+    local r, g, b = ParadiseDev.Flash.getRGB(rgb)
+    sec = tonumber(sec)
+    opacity = tonumber(opacity) or 0.4
+    if not r or not sec or sec <= 0 then return false end
+    local md = pl:getModData()
+    md.ParadiseDevFlash = {
+        rgb = { r, g, b },
+        duration = sec,
+        remaining = sec,
+        opacity = math.max(0, math.min(1, opacity)),
+    }
+    return true
+end
+
 function ParadiseDev.Flash.draw()
     local pl = getPlayer()
     if not pl then return end
     local md = pl:getModData()
+    local effect = md.ParadiseDevFlash
+    if type(effect) ~= "table" then return end
     local sw, sh = getCore():getScreenWidth(), getCore():getScreenHeight()
-
-    for key, effect in pairs(md) do
-        if type(effect) == "table" then
-            local decay = tonumber(effect.decay)
-            local opacity = tonumber(effect.opacity)
-            local r, g, b = ParadiseDev.Flash.getRGB(effect.rgb)
-            if decay and opacity and r then
-                if opacity > 0 then
-                    getRenderer():renderRect(0, 0, sw, sh, r, g, b, math.min(1, opacity))
-                    effect.opacity = opacity - math.max(0, decay)
-                end
-                if effect.opacity <= 0 then md[key] = nil end
-            end
-        end
+    local duration = tonumber(effect.duration) or 0
+    local remaining = tonumber(effect.remaining) or 0
+    local opacity = tonumber(effect.opacity) or 0
+    local r, g, b = ParadiseDev.Flash.getRGB(effect.rgb)
+    if not r or duration <= 0 or remaining <= 0 then
+        md.ParadiseDevFlash = nil
+        return
     end
+    getRenderer():renderRect(0, 0, sw, sh, r, g, b, math.min(1, opacity * (remaining / duration)))
+    effect.remaining = remaining - getGameTime():getRealworldSecondsSinceLastUpdate()
+    if effect.remaining <= 0 then md.ParadiseDevFlash = nil end
 end
 
 Events.OnPostUIDraw.Remove(ParadiseDev.Flash.draw)

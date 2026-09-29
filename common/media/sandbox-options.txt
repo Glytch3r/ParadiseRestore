@@ -223,6 +223,30 @@ option ParadiseZ.RadZoneDmg
 	page = ParadiseZ, translation = ParadiseZ_RadZoneDmg,
 }
 
+option ParadiseZ.RadToModHp
+{
+	type = boolean, default = false,
+	page = ParadiseZ, translation = ParadiseZ_RadToModHp,
+}
+
+option ParadiseZ.RadZonePvpOnly
+{
+	type = boolean, default = false,
+	page = ParadiseZ, translation = ParadiseZ_RadZonePvpOnly,
+}
+
+option ParadiseZ.RadDamageMultiplier
+{
+	type = double, min = 0.00, max = 100, default = 1.0,
+	page = ParadiseZ, translation = ParadiseZ_RadDamageMultiplier,
+}
+
+option ParadiseZ.RadGlowIndicator
+{
+	type = boolean, default = true,
+	page = ParadiseZ, translation = ParadiseZ_RadGlowIndicator,
+}
+
 option ParadiseZ.DuckDropChance
 {
 	type = double,	 min = 0.00,  max = 100,  default = 2,

@@ -511,9 +511,9 @@ function ParadiseZ.applyTestDmg(targ, dmg, pushedDir)
     local md = targ:getModData()
     dmg = math.min(100, math.max(0, tonumber(dmg) or 15))
     md.LifePoints = math.max(0, (md.LifePoints or 100) - dmg)
-    md.ParadiseDevDamageFlash = { decay = 0.04, rgb = { 1, 0, 0 }, opacity = 0.4 }
 
     local pvp = SandboxVars and SandboxVars.ParadiseZpvp
+    ParadiseDev.Flash.run({ 1, 0, 0 }, pvp and tonumber(pvp.HitFlashDecay) or 1.8, 0.4, targ)
     local percent = pvp and pvp.pvpStaggerChance or 34
     if ParadiseZ.doRoll(percent) then
 		pushedDir = pushedDir or 'pushedbehind'

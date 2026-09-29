@@ -99,6 +99,13 @@ function ParadiseDev.LifeBar.updateVisibility(pl)
     end
 end
 
+function ParadiseDev.LifeBar.onSandboxModified()
+    ParadiseDev.LifeBar.updateVisibility(getPlayer())
+end
+if not Events.OnSandboxModified then LuaEventManager.AddEvent("OnSandboxModified") end
+Events.OnSandboxModified.Remove(ParadiseDev.LifeBar.onSandboxModified)
+Events.OnSandboxModified.Add(ParadiseDev.LifeBar.onSandboxModified)
+
 function ParadiseDev.LifeBar.init()
     local pl = getPlayer()
     if not pl then return end
