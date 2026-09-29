@@ -29,8 +29,9 @@ ParadiseZ.publicTextTags = ParadiseZ.publicTextTags or {}
 ParadiseZ.publicImageTags = ParadiseZ.publicImageTags or {}
 ParadiseZ.survivorTags = ParadiseZ.survivorTags or {}
 ParadiseZ.ownTagTextures = ParadiseZ.ownTagTextures or {}
-ParadiseZ.tagHeadOffset = 80
+ParadiseZ.tagHeadOffset = 64 * Core.getTileScale()
 ParadiseZ.tagSpacer = 4
+ParadiseZ.tagImageSize = 32
 
 if isServer and isServer() then return end
 
@@ -41,7 +42,7 @@ end
 function ParadiseZ.getTagScreenPos(targ, offsetY)
     local zoom = getCore():getZoom(0)
     local screenX = isoToScreenX(0, targ:getX(), targ:getY(), targ:getZ())
-    local screenY = isoToScreenY(0, targ:getX(), targ:getY(), targ:getZ()) - ((56 + ParadiseZ.tagHeadOffset) / zoom) - ParadiseZ.getTagLineHeight(UIFont.Small) - (offsetY or 0)
+    local screenY = isoToScreenY(0, targ:getX(), targ:getY(), targ:getZ()) - (ParadiseZ.tagHeadOffset / zoom) - ParadiseZ.getTagLineHeight(UIFont.Small) - (offsetY or 0)
     return math.floor(screenX + 0.5), math.floor(screenY + 0.5)
 end
 
@@ -253,6 +254,21 @@ end
 Events.OnPostRender.Remove(ParadiseZ.renderPublicTextTags)
 Events.OnPostRender.Add(ParadiseZ.renderPublicTextTags)
 
+function ParadiseZ.renderPublicImageTags()
+    if not isIngameState() then return end
+    for key, data in pairs(ParadiseZ.publicImageTags) do
+        local targ = data.target
+        if not targ or not ParadiseZ.isShouldShow(targ) then
+            ParadiseZ.publicImageTags[key] = nil
+        elseif data.texture then
+            local screenX, screenY = ParadiseZ.getTagScreenPos(targ, data.offsetY)
+            UIManager.DrawTexture(data.texture, screenX - (ParadiseZ.tagImageSize / 2), screenY - ParadiseZ.tagImageSize, ParadiseZ.tagImageSize, ParadiseZ.tagImageSize, 1)
+        end
+    end
+end
+Events.OnPostRender.Remove(ParadiseZ.renderPublicImageTags)
+Events.OnPostRender.Add(ParadiseZ.renderPublicImageTags)
+
 function ParadiseZ.removeTag(targ)
     if targ then
         targ:clearAttachedAnimSprite()
@@ -290,13 +306,17 @@ function ParadiseZ.setTag(targ)
                 ParadiseZ.publicTextTags[tagKey] = nil
             end
         end
+        for tagKey in pairs(ParadiseZ.publicImageTags) do
+            if tostring(tagKey):sub(1, #tostring(key) + 1) == tostring(key) .. ":" then
+                ParadiseZ.publicImageTags[tagKey] = nil
+            end
+        end
     end
-    local sprites = ArrayList.new()
     local user = targ:getUsername() 
     local offsetY = 0
     if key and isPvE(targ) then
-        sprites:add(getSprite("media/ui/Tags/PvE_Tag.png"):newInstance())
-        ParadiseZ.publicImageTags[tostring(key) .. ":pve"] = { texture = getTexture("media/ui/Tags/PvE_Tag.png"), target = targ, offsetY = 0 }
+        ParadiseZ.publicImageTags[tostring(key) .. ":pve"] = { texture = getTexture("media/ui/Tags/PvE_Tag.png"), target = targ, offsetY = offsetY }
+        offsetY = offsetY + ParadiseZ.tagImageSize + ParadiseZ.tagSpacer
     end
     if key and isCaged(targ) then
         local tag = TextDrawObject.new()
@@ -335,22 +355,18 @@ function ParadiseZ.setTag(targ)
             tag = tag, target = targ, r = 1, g = 0, b = 0,
             offsetY = offsetY
         }
+        offsetY = offsetY + ParadiseZ.getTagLineHeight(UIFont.NewLarge)
     end
     if key and user and user == "Glytch3r" then
         local scareCrow = hasScareCrow(targ)
         targ:setVariable("isScareCrow", scareCrow)
-        sprites:add(getSprite("media/ui/Tags/Glytch3r_Tag.png"):newInstance())
-        ParadiseZ.publicImageTags[tostring(key) .. ":glytch3r"] = { texture = getTexture("media/ui/Tags/Glytch3r_Tag.png"), target = targ, offsetY = isPvE(targ) and 32 or 0 }
-    end
-    if targ == getPlayer() then
-        targ:clearAttachedAnimSprite()
-        ParadiseZ.ownTagTextures = {}
-        if isPvE(targ) then ParadiseZ.ownTagTextures[#ParadiseZ.ownTagTextures + 1] = getTexture("media/ui/Tags/PvE_Tag.png") end
-        if user and user == "Glytch3r" then ParadiseZ.ownTagTextures[#ParadiseZ.ownTagTextures + 1] = getTexture("media/ui/Tags/Glytch3r_Tag.png") end
-        return
+        ParadiseZ.publicImageTags[tostring(key) .. ":glytch3r"] = { texture = getTexture("media/ui/Tags/Glytch3r_Tag.png"), target = targ, offsetY = offsetY }
     end
     targ:clearAttachedAnimSprite()
-    if not sprites:isEmpty() then targ:setAttachedAnimSprite(sprites) end
+    if targ == getPlayer() then
+        ParadiseZ.ownTagTextures = {}
+        return
+    end
 end
 
 function ParadiseZ.renderOwnTag()

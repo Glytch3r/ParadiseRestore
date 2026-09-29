@@ -169,6 +169,35 @@ function ParadiseDev.Context.deleteZeds()
     ParadiseZ.delZeds(nil, nil, nil, ParadiseDev.Context.getClearRadius())
 end
 
+function ParadiseDev.Context.clearFire(sq)
+    if not sq then return end
+    sq:transmitStopFire()
+    sq:stopFire()
+end
+
+function ParadiseDev.Context.clearContainer(cont)
+    if not cont then return end
+    local items = cont:getItems()
+    for i = items:size() - 1, 0, -1 do
+        local item = items:get(i)
+        cont:DoRemoveItem(item)
+        if isClient() then
+            sendRemoveItemFromContainer(cont, item)
+        end
+    end
+end
+
+function ParadiseDev.Context.getCars(cell)
+    local cars = {}
+    local vehicles = cell and cell:getVehicles() or nil
+    if not vehicles then return cars end
+    local iterator = vehicles:iterator()
+    while iterator:hasNext() do
+        cars[#cars + 1] = iterator:next()
+    end
+    return cars
+end
+
 function ParadiseDev.Context.clearUniversal(pl, radius, selected)
     if not pl or not selected then
         return
@@ -231,9 +260,8 @@ function ParadiseDev.Context.clearUniversal(pl, radius, selected)
                 if wanted.puddle and sq.getPuddlesInGround and sq:getPuddlesInGround() > 0 and sq.setPuddles then
                     sq:setPuddles(0)
                 end
-                if wanted.fire and sq:Is(IsoFlagType.burning) then
-                    sq:transmitStopFire()
-                    sq:stopFire()
+                if wanted.fire then
+                    ParadiseDev.Context.clearFire(sq)
                 end
                 local objects = sq:getObjects()
                 if objects then
@@ -271,8 +299,7 @@ function ParadiseDev.Context.clearUniversal(pl, radius, selected)
                             remove = true
                         end
                         if wanted.containerItems and obj.getContainer then
-                            local container = obj:getContainer()
-                            if container and container.removeAllItems then container:removeAllItems() end
+                            ParadiseDev.Context.clearContainer(obj:getContainer())
                         end
                         if remove then
                             sq:transmitRemoveItemFromSquare(obj)
@@ -283,15 +310,13 @@ function ParadiseDev.Context.clearUniversal(pl, radius, selected)
         end
     end
     if wanted.cars and cell.getVehicles then
-        local vehicles = cell:getVehicles()
-        if vehicles then
-            for car in vehicles do
-                if car and math.abs(car:getX() - x) <= rad and math.abs(car:getY() - y) <= rad and math.floor(car:getZ()) == z then
-                    if ParadiseZ.DespawnCar then
-                        ParadiseZ.DespawnCar(pl, car)
-                    elseif car.permanentlyRemove then
-                        car:permanentlyRemove()
-                    end
+        local cars = ParadiseDev.Context.getCars(cell)
+        for _, car in ipairs(cars) do
+            if car and math.abs(car:getX() - x) <= rad and math.abs(car:getY() - y) <= rad and math.floor(car:getZ()) == z then
+                if ParadiseZ.DespawnCar then
+                    ParadiseZ.DespawnCar(pl, car)
+                elseif car.permanentlyRemove then
+                    car:permanentlyRemove()
                 end
             end
         end
@@ -358,7 +383,7 @@ if ParadiseDev.Context.clearPanelState.highlightEnabled == nil then
 end
 
 function ParadiseDev.Context.ClearPanel:new(pl)
-    local width, height = 360, 560
+    local width, height = 360, 595
     local panel =
         ISCollapsableWindow:new(
         (getCore():getScreenWidth() - width) / 2,
@@ -417,11 +442,19 @@ function ParadiseDev.Context.ClearPanel:createChildren()
     self.radiusSlider:setValues(1, 50, 1, 5, true)
     self.radiusSlider:setCurrentValue(self.radius, true)
     self:addChild(self.radiusSlider)
-    local clear = ISButton:new(16, radiusY + 58, 130, 28, "Clear Selected", self, ParadiseDev.Context.ClearPanel.onClear)
+    local selectAll = ISButton:new(16, radiusY + 58, 130, 28, "Select All", self, ParadiseDev.Context.ClearPanel.onSelectAll)
+    selectAll:initialise()
+    selectAll:instantiate()
+    self:addChild(selectAll)
+    local deselectAll = ISButton:new(160, radiusY + 58, 130, 28, "Deselect All", self, ParadiseDev.Context.ClearPanel.onDeselectAll)
+    deselectAll:initialise()
+    deselectAll:instantiate()
+    self:addChild(deselectAll)
+    local clear = ISButton:new(16, radiusY + 92, 130, 28, "Clear Selected", self, ParadiseDev.Context.ClearPanel.onClear)
     clear:initialise()
     clear:instantiate()
     self:addChild(clear)
-    local close = ISButton:new(160, radiusY + 58, 130, 28, "Close", self, ParadiseDev.Context.ClearPanel.onClose)
+    local close = ISButton:new(160, radiusY + 92, 130, 28, "Close", self, ParadiseDev.Context.ClearPanel.onClose)
     close:initialise()
     close:instantiate()
     self:addChild(close)
@@ -432,6 +465,21 @@ function ParadiseDev.Context.ClearPanel:onToggle(index, selected)
     if box and box.entry then
         ParadiseDev.Context.clearPanelState.selected[box.entry.name] = selected == true
     end
+end
+
+function ParadiseDev.Context.setAllClearOptions(panel, selected)
+    for _, box in ipairs(panel.checks or {}) do
+        box:setSelected(1, selected)
+        ParadiseDev.Context.clearPanelState.selected[box.entry.name] = selected
+    end
+end
+
+function ParadiseDev.Context.ClearPanel:onSelectAll()
+    ParadiseDev.Context.setAllClearOptions(self, true)
+end
+
+function ParadiseDev.Context.ClearPanel:onDeselectAll()
+    ParadiseDev.Context.setAllClearOptions(self, false)
 end
 
 function ParadiseDev.Context.ClearPanel:onRadiusChanged(value)
