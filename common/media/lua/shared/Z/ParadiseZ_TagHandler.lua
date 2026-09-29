@@ -29,7 +29,8 @@ ParadiseZ.publicTextTags = ParadiseZ.publicTextTags or {}
 ParadiseZ.publicImageTags = ParadiseZ.publicImageTags or {}
 ParadiseZ.survivorTags = ParadiseZ.survivorTags or {}
 ParadiseZ.ownTagTextures = ParadiseZ.ownTagTextures or {}
-ParadiseZ.tagHeadOffset = 64 * Core.getTileScale()
+ParadiseZ.tagScreenPos = ParadiseZ.tagScreenPos or Vector2.new()
+ParadiseZ.tagHeadOffset = 128 / (2 / Core.getTileScale())
 ParadiseZ.tagSpacer = 4
 ParadiseZ.tagImageSize = 32
 
@@ -39,10 +40,15 @@ function ParadiseZ.getTagLineHeight(font)
     return getTextManager():getFontHeight(font) + ParadiseZ.tagSpacer
 end
 
-function ParadiseZ.getTagScreenPos(targ, offsetY)
+function ParadiseZ.getTagScreenPos(targ, offsetY, tagHeight)
     local zoom = getCore():getZoom(0)
-    local screenX = isoToScreenX(0, targ:getX(), targ:getY(), targ:getZ())
-    local screenY = isoToScreenY(0, targ:getX(), targ:getY(), targ:getZ()) - (ParadiseZ.tagHeadOffset / zoom) - ParadiseZ.getTagLineHeight(UIFont.Small) - (offsetY or 0)
+    local screenPos = ParadiseZ.tagScreenPos
+    local car = targ:getVehicle()
+    if not car or not car:getNameCoordForPlayer(targ, zoom, screenPos) then
+        IsoGameCharacter.getNameCoords(targ:getX(), targ:getY(), targ:getZ(), targ:getOffsetX(), targ:getOffsetY() + ParadiseZ.tagHeadOffset, zoom, screenPos)
+    end
+    local screenX = screenPos:getX()
+    local screenY = screenPos:getY() - ParadiseZ.getTagLineHeight(UIFont.Small) - (offsetY or 0) - (tagHeight or 0)
     return math.floor(screenX + 0.5), math.floor(screenY + 0.5)
 end
 
@@ -184,7 +190,7 @@ function ParadiseZ.renderSurvivorTags()
     for _, data in pairs(ParadiseZ.survivorTags) do
         local target = data.target
         if target and ParadiseZ.isShouldShow(target) then
-            local screenX, screenY = ParadiseZ.getTagScreenPos(target, data.offsetY)
+            local screenX, screenY = ParadiseZ.getTagScreenPos(target, data.offsetY, data.tag:getHeight())
             data.tag:AddBatchedDraw(screenX, screenY, 1, 0.2, 0.2, 1, false)
         end
     end
@@ -231,7 +237,7 @@ function ParadiseZ.renderSuspectTags()
         if not targ or not isSuspect(targ) then
             ParadiseZ.suspectTags[key] = nil
         else
-            local screenX, screenY = ParadiseZ.getTagScreenPos(targ, data.offsetY)
+            local screenX, screenY = ParadiseZ.getTagScreenPos(targ, data.offsetY, data.tag:getHeight())
             data.tag:AddBatchedDraw(screenX, screenY, 1, 0, 0, 1, false)
         end
     end
@@ -246,7 +252,7 @@ function ParadiseZ.renderPublicTextTags()
         if not targ or not ParadiseZ.isShouldShow(targ) then
             ParadiseZ.publicTextTags[key] = nil
         else
-            local screenX, screenY = ParadiseZ.getTagScreenPos(targ, data.offsetY)
+            local screenX, screenY = ParadiseZ.getTagScreenPos(targ, data.offsetY, data.tag:getHeight())
             data.tag:AddBatchedDraw(screenX, screenY, data.r or 1, data.g or 1, data.b or 1, 1, false)
         end
     end
@@ -261,8 +267,8 @@ function ParadiseZ.renderPublicImageTags()
         if not targ or not ParadiseZ.isShouldShow(targ) then
             ParadiseZ.publicImageTags[key] = nil
         elseif data.texture then
-            local screenX, screenY = ParadiseZ.getTagScreenPos(targ, data.offsetY)
-            UIManager.DrawTexture(data.texture, screenX - (ParadiseZ.tagImageSize / 2), screenY - ParadiseZ.tagImageSize, ParadiseZ.tagImageSize, ParadiseZ.tagImageSize, 1)
+            local screenX, screenY = ParadiseZ.getTagScreenPos(targ, data.offsetY, ParadiseZ.tagImageSize)
+            UIManager.DrawTexture(data.texture, screenX - (ParadiseZ.tagImageSize / 2), screenY, ParadiseZ.tagImageSize, ParadiseZ.tagImageSize, 1)
         end
     end
 end

@@ -198,6 +198,20 @@ function ParadiseDev.Context.getCars(cell)
     return cars
 end
 
+function ParadiseDev.Context.clearBlood(x, y, z, rad)
+    if isClient() then
+        sendClientCommand("WaveCaster", "ClearBlood", {x = x, y = y, z = z, radius = rad})
+        return
+    end
+    local cell = getCell()
+    for sx = x - rad, x + rad do
+        for sy = y - rad, y + rad do
+            local sq = cell:getGridSquare(sx, sy, z)
+            if sq then sq:removeBlood(false, false) end
+        end
+    end
+end
+
 function ParadiseDev.Context.clearUniversal(pl, radius, selected)
     if not pl or not selected then
         return
@@ -228,31 +242,10 @@ function ParadiseDev.Context.clearUniversal(pl, radius, selected)
         end
     end
     if wanted.zombies then
-        local removeRadius = rad + 1
-        if isClient() then
-            if DebugContextMenu and DebugContextMenu.OnRemoveAllZombiesClient then
-                DebugContextMenu.OnRemoveAllZombiesClient()
-            else
-                SendCommandToServer(string.format("/removezombies -x %d -y %d -z %d -radius %d", x, y, z, removeRadius))
-            end
-        else
-            for sx = x - removeRadius, x + removeRadius do
-                for sy = y - removeRadius, y + removeRadius do
-                    local target = cell:getGridSquare(sx, sy, z)
-                    if target then
-                        local moving = target:getMovingObjects()
-                        for i = moving:size(), 1, -1 do
-                            local zed = moving:get(i - 1)
-                            if instanceof(zed, "IsoZombie") then
-                                zed:removeFromWorld()
-                                zed:removeFromSquare()
-                            end
-                        end
-                    end
-                end
-            end
-        end
+        ParadiseZ.delZeds(x, y, z, rad)
     end
+    if wanted.corpses then ParadiseZ.delBodies(x, y, z, rad) end
+    if wanted.floorBlood then ParadiseDev.Context.clearBlood(x, y, z, rad) end
     for dx = -rad, rad do
         for dy = -rad, rad do
             local sq = cell:getGridSquare(x + dx, y + dy, z)
@@ -276,9 +269,6 @@ function ParadiseDev.Context.clearUniversal(pl, radius, selected)
                             remove = true
                         end
                         if wanted.animals and instanceof(obj, "IsoAnimal") then
-                            remove = true
-                        end
-                        if wanted.corpses and instanceof(obj, "IsoDeadBody") and not obj:isPlayer() then
                             remove = true
                         end
                         if wanted.plants and not instanceof(obj, "IsoTree") then
@@ -554,6 +544,7 @@ ParadiseDev.Context.clearOptions = {
     {label = "Plants", name = "plants"},
     {label = "Cars", name = "cars"},
     {label = "Corpses", name = "corpses"},
+    {label = "Floor Blood", name = "floorBlood"},
     {label = "Zombies", name = "zombies"},
     {label = "Animals", name = "animals"},
     {label = "Fire", name = "fire"},

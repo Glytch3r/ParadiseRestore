@@ -12,6 +12,26 @@ end
 
 ParadisePanels.table = {
     {
+        key = "uiInspector",
+        isAdmOnly = true,
+        getModule = function() return ParadiseDev and ParadiseDev.UI end,
+        getInstance = function() return ParadiseDev and ParadiseDev.UI and ParadiseDev.UI.instance end,
+        setInstance = function(instance) ParadiseDev.UI.instance = instance end,
+        create = function()
+            local bounds = ParadiseDev.UI.getPanelBounds(
+                getCore():getScreenWidth(),
+                getCore():getScreenHeight()
+            )
+            return initialise(ParadiseDev.UI.Panel:new(
+                bounds.x,
+                bounds.y,
+                bounds.width,
+                bounds.height
+            ))
+        end,
+        onOpen = function(panel) panel:refresh() end,
+    },
+    {
         key = "factionManager",
         isAdmOnly = true,
         getModule = function() return FactionManager end,

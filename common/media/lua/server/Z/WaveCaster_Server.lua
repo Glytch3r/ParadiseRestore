@@ -229,6 +229,16 @@ function WaveCaster.getClosestPlayerInRange(castEvent)
     return closestPlayer
 end
 
+function WaveCaster.clearBlood(x, y, z, rad)
+    local cell = getCell()
+    for sx = x - rad, x + rad do
+        for sy = y - rad, y + rad do
+            local sq = cell:getGridSquare(sx, sy, z)
+            if sq then sq:removeBlood(false, false) end
+        end
+    end
+end
+
 function WaveCaster.processEvents()
     local data = ModData.getOrCreate("WaveCaster_Data")
     if not data.events then return end
@@ -309,6 +319,15 @@ function WaveCaster.updateEvents(module, command, player, args)
                 end
             end
         end
+        return
+    end
+
+    if command == "ClearBlood" then
+        if not player or not ParadiseRestore.isAdm(player) then return end
+        local x, y, z = tonumber(args and args.x), tonumber(args and args.y), tonumber(args and args.z)
+        local rad = tonumber(args and args.radius)
+        if not x or not y or not z or not rad then return end
+        WaveCaster.clearBlood(x, y, z, rad)
         return
     end
 

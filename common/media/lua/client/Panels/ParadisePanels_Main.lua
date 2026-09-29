@@ -107,3 +107,7 @@ end
 function ParadisePanels.OpenFactionManager()
     if FactionManager and FactionManager.OpenPanel then return FactionManager.OpenPanel() end
 end
+
+function ParadisePanels.OpenUIInspector()
+    if ParadiseDev and ParadiseDev.UI and ParadiseDev.UI.OpenPanel then return ParadiseDev.UI.OpenPanel() end
+end
