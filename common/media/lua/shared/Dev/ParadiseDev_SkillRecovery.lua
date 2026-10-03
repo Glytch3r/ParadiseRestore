@@ -136,9 +136,10 @@ function recovery.getRecoveryXP(record, perkID)
     local mode = recovery.getMode()
     if mode == 5 or #lives == 0 then return 0 end
     local result = 0
-    if mode == 1 or mode == 4 then
-        result = tonumber(lives[#lives].earned and lives[#lives].earned[perkID]) or 0
-        if mode == 4 then result = result * 0.5 end
+    if mode == 1 then
+        result = (tonumber(lives[#lives].skills and lives[#lives].skills[perkID]) or 0) * 0.9
+    elseif mode == 4 then
+        result = (tonumber(lives[#lives].earned and lives[#lives].earned[perkID]) or 0) * 0.5
     elseif mode == 2 then
         for _, life in ipairs(lives) do result = result + (tonumber(life.earned and life.earned[perkID]) or 0) end
     elseif mode == 3 then
