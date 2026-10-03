@@ -1,7 +1,7 @@
 
 -- client/WaveCaster_Client.lua
 WaveCaster = WaveCaster or {}
-
+ 
 
 function WaveCaster.ClientSync(module, command, args)
     if module ~= "WaveCaster" then return end
