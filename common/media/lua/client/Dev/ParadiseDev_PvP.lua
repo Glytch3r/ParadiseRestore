@@ -64,6 +64,7 @@ function ParadiseDev.PvP.injure(pl)
 end
 
 function ParadiseDev.PvP.applyDamage(targ, char, wpn, bonus)
+    if ParadiseDev.PvP.isHitProtected(char, targ) then return end
     if not ParadiseDev.PvP.isEnabled() then return end
     local pvp = SandboxVars and SandboxVars.ParadiseZpvp or {}
     local md = targ:getModData()
@@ -94,7 +95,11 @@ function ParadiseDev.PvP.onWeaponHit(char, targ, wpn)
     end
     if not instanceof(char, "IsoPlayer") or not instanceof(targ, "IsoPlayer") then return end
     local protected = ParadiseDev.PvP.isHitProtected(char, targ)
-    if protected then return end
+    if protected then
+        targ:setAvoidDamage(true)
+        ParadiseDev.PvP.cancelHitReaction(targ)
+        return
+    end
     if not ParadiseDev.PvP.isEnabled() then
         targ:setAvoidDamage(false)
         return
