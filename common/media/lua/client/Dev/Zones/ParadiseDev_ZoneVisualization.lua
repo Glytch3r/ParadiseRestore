@@ -26,7 +26,12 @@ function ParadiseDev.Zones.Visualization.isEnabledForPlayer(pl)
     return value == true
 end
 
-function ParadiseDev.Zones.Visualization.canRender(pl)
+function ParadiseDev.Zones.Visualization.canRenderWorld(pl)
+    if not ParadiseDev.Zones.Visualization.isEnabledForPlayer(pl) then return false end
+    return ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) or false
+end
+
+function ParadiseDev.Zones.Visualization.canRenderMap(pl)
     if not ParadiseDev.Zones.Visualization.isEnabledForPlayer(pl) then return false end
     if ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) then return true end
     return SandboxVars and SandboxVars.ParadiseZ and SandboxVars.ParadiseZ.ShowZoneDrawToNonAdmins == true
@@ -131,7 +136,7 @@ function ParadiseDev.Zones.Visualization.refreshHighlights(force)
     ParadiseDev.Zones.Visualization.lastRefreshX, ParadiseDev.Zones.Visualization.lastRefreshY, ParadiseDev.Zones.Visualization.lastRefreshZ = px, py, pz
     ParadiseDev.Zones.Visualization.clearHighlights()
     if not ParadiseDev.Zones.Visualization.enabled then return end
-    if not ParadiseDev.Zones.Visualization.canRender(pl) then return end
+    if not ParadiseDev.Zones.Visualization.canRenderWorld(pl) then return end
 
     for _, zone in ipairs(ParadiseDev.Zones.Visualization.zones) do
         if ParadiseDev.Zones.Visualization.zoneOnLevel(zone, pz) then
@@ -192,7 +197,7 @@ function ParadiseDev.Zones.Visualization.renderBorders()
     if not ParadiseDev.Zones.Visualization.enabled then return end
     local pl = getPlayer()
     if not pl then return end
-    if not ParadiseDev.Zones.Visualization.canRender(pl) then return end
+    if not ParadiseDev.Zones.Visualization.canRenderWorld(pl) then return end
     local z = math.floor(pl:getZ())
     for _, zone in ipairs(ParadiseDev.Zones.Visualization.zones) do
         if ParadiseDev.Zones.Visualization.zoneOnLevel(zone, z) then

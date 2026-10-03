@@ -55,9 +55,7 @@ end
 local function isPvE(targ)
     if not targ then return false end
     if ParadiseZ.isPvE then return ParadiseZ.isPvE(targ) == true end
-    if targ.HasTrait and targ:HasTrait("PvE") == true then return true end
-    local traits = targ.getCharacterTraits and targ:getCharacterTraits() or nil
-    return traits and traits.contains and traits:contains("PvE") == true or false
+    return ParadiseDev and ParadiseDev.hasTrait and ParadiseDev.hasTrait(targ, "ParadiseDev:PvE") == true or false
 end
 
 local function isCaged(targ)
@@ -321,8 +319,13 @@ function ParadiseZ.setTag(targ)
     local user = targ:getUsername() 
     local offsetY = 0
     if key and isPvE(targ) then
-        ParadiseZ.publicImageTags[tostring(key) .. ":pve"] = { texture = getTexture("media/ui/Tags/PvE_Tag.png"), target = targ, offsetY = offsetY }
-        offsetY = offsetY + ParadiseZ.tagImageSize + ParadiseZ.tagSpacer
+        local tag = TextDrawObject.new()
+        tag:setDefaultFont(UIFont.Small)
+        tag:ReadString(UIFont.Small, "PVE", -1)
+        tag:setDefaultColors(0.1, 0.8, 0.25)
+        tag:setVisibleRadius(360)
+        ParadiseZ.publicTextTags[tostring(key) .. ":pve"] = { tag = tag, target = targ, r = 0.1, g = 0.8, b = 0.25, offsetY = offsetY }
+        offsetY = offsetY + ParadiseZ.getTagLineHeight(UIFont.Small)
     end
     if key and isCaged(targ) then
         local tag = TextDrawObject.new()

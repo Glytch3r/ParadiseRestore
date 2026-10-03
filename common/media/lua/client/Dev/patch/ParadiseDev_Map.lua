@@ -33,6 +33,7 @@ local function drawMinimapZoneBorders(minimap)
     if not visuals or not visuals.zones then return end
     local pl = getSpecificPlayer and getSpecificPlayer(minimap.playerNum) or getPlayer()
     if not pl then return end
+    if not visuals.canRenderMap or not visuals.canRenderMap(pl) then return end
     local absoluteX = minimap:getAbsoluteX()
     local absoluteY = minimap:getAbsoluteY()
     local z = math.floor(pl:getZ())
@@ -148,7 +149,7 @@ end
 function ParadiseDev.Map.drawZoneBorders(self)
     if not ParadiseDev.Map.zoneVisuals then return end
     local visuals = ParadiseDev.Zones and ParadiseDev.Zones.Visualization
-    if not visuals or not visuals.canRender(getSpecificPlayer(0)) then return end
+    if not visuals or not visuals.canRenderMap(getSpecificPlayer(0)) then return end
     local mx, my = self:getMouseX(), self:getMouseY()
     local wx, wy = self.mapAPI:uiToWorldX(mx, my), self.mapAPI:uiToWorldY(mx, my)
     if not wx or not wy then return end
