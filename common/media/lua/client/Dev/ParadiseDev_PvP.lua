@@ -89,14 +89,14 @@ function ParadiseDev.PvP.onWeaponHit(char, targ, wpn)
         return
     end
     if not instanceof(char, "IsoPlayer") or not instanceof(targ, "IsoPlayer") then return end
-    if not ParadiseDev.PvP.isEnabled() then
-        targ:setAvoidDamage(false)
-        return
-    end
     local protected = ParadiseDev.PvP.isProtected(char) or ParadiseDev.PvP.isProtected(targ)
     if protected then
         targ:setAvoidDamage(true)
         ParadiseDev.PvP.cancelHitReaction(targ)
+        return
+    end
+    if not ParadiseDev.PvP.isEnabled() then
+        targ:setAvoidDamage(false)
         return
     end
     targ:setAvoidDamage(true)
