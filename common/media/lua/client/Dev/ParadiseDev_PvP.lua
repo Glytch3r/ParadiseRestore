@@ -20,6 +20,10 @@ function ParadiseDev.PvP.isProtected(pl)
     return ParadiseDev.LifeBar.isPvE(pl) or ParadiseDev.LifeBar.isPvEZone(pl)
 end
 
+function ParadiseDev.PvP.isHitProtected(char, targ)
+    return ParadiseDev.LifeBar.isPvE(targ) or ParadiseDev.LifeBar.isPvEZone(char) or ParadiseDev.LifeBar.isPvEZone(targ)
+end
+
 function ParadiseDev.PvP.isUnarmed(pl)
     return tostring(WeaponType.getWeaponType(pl)) == "barehand"
 end
@@ -89,7 +93,7 @@ function ParadiseDev.PvP.onWeaponHit(char, targ, wpn)
         return
     end
     if not instanceof(char, "IsoPlayer") or not instanceof(targ, "IsoPlayer") then return end
-    local protected = ParadiseDev.PvP.isProtected(char) or ParadiseDev.PvP.isProtected(targ)
+    local protected = ParadiseDev.PvP.isHitProtected(char, targ)
     if protected then
         targ:setAvoidDamage(true)
         ParadiseDev.PvP.cancelHitReaction(targ)
