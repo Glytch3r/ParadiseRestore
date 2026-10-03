@@ -21,7 +21,7 @@ function ParadiseDev.PvP.isProtected(pl)
 end
 
 function ParadiseDev.PvP.isHitProtected(char, targ)
-    return ParadiseDev.LifeBar.isPvE(targ) or ParadiseDev.LifeBar.isPvEZone(char) or ParadiseDev.LifeBar.isPvEZone(targ)
+    return ParadiseDev.LifeBar.isPvE(char) or ParadiseDev.LifeBar.isPvE(targ) or ParadiseDev.LifeBar.isPvEZone(char) or ParadiseDev.LifeBar.isPvEZone(targ)
 end
 
 function ParadiseDev.PvP.isUnarmed(pl)
@@ -94,11 +94,7 @@ function ParadiseDev.PvP.onWeaponHit(char, targ, wpn)
     end
     if not instanceof(char, "IsoPlayer") or not instanceof(targ, "IsoPlayer") then return end
     local protected = ParadiseDev.PvP.isHitProtected(char, targ)
-    if protected then
-        targ:setAvoidDamage(true)
-        ParadiseDev.PvP.cancelHitReaction(targ)
-        return
-    end
+    if protected then return end
     if not ParadiseDev.PvP.isEnabled() then
         targ:setAvoidDamage(false)
         return
@@ -113,13 +109,4 @@ end
 
 Events.OnWeaponHitCharacter.Remove(ParadiseDev.PvP.onWeaponHit)
 Events.OnWeaponHitCharacter.Add(ParadiseDev.PvP.onWeaponHit)
-
-function ParadiseDev.PvP.onSandboxModified()
-    if ParadiseDev.PvP.isEnabled() then return end
-    local pl = getPlayer()
-    if pl then pl:setAvoidDamage(false) end
-end
-if not Events.OnSandboxModified then LuaEventManager.AddEvent("OnSandboxModified") end
-Events.OnSandboxModified.Remove(ParadiseDev.PvP.onSandboxModified)
-Events.OnSandboxModified.Add(ParadiseDev.PvP.onSandboxModified)
 
