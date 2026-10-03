@@ -9,3 +9,4 @@ end
 
 Events.OnWeaponHitCharacter.Remove(ParadiseDev.PvE.onWeaponHit)
 Events.OnWeaponHitCharacter.Add(ParadiseDev.PvE.onWeaponHit)
+ 
