@@ -125,11 +125,13 @@ if ISMiniMapInner and not ParadiseDev.Map.miniMapHooked then
     ParadiseDev.Map.miniMapRender = ISMiniMapInner.render
     function ISMiniMapInner:render(...)
         ParadiseDev.Map.miniMapRender(self, ...)
+        self:setStencilRect(0, 0, self:getWidth(), self:getHeight())
         drawMinimapZoneBorders(self)
         drawSuspectMarkers(self)
         if ParadiseRestore and ParadiseRestore.DeadTracker then
             ParadiseRestore.DeadTracker.drawMapMarkers(self)
         end
+        self:clearStencilRect()
     end
 end
 

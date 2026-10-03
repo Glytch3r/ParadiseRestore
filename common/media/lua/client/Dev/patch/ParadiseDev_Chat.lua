@@ -1,3 +1,4 @@
+require "Chat/ISChat"
 
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.hook = ParadiseDev.hook or {}
@@ -78,7 +79,6 @@ function ParadiseDev.chatCmd(cmd)
     local user = pl:getUsername()
     local keyword, args = cmd:match("^%s*(/%S+)%s*(.-)%s*$")
     local command = keyword and string.lower(keyword) or ""
-    local isDbg = getCore():getDebug()
     local isAdm = ParadiseRestore.isAdm(pl)  
     if command == "/stuck" or command == "/unstuck" then
         if ParadiseDev.isInKosZone(pl) then
@@ -100,11 +100,13 @@ function ParadiseDev.chatCmd(cmd)
             end
         end
     elseif command == "/cage" then
+        if not isAdm then return end
         local username, value = args:match('^"(.-)"%s+(%S+)$')
         if not username then username, value = args:match('^(.-)%s+(%S+)$') end
         if value and string.lower(value) ~= "true" and string.lower(value) ~= "false" then username, value = args, nil end
         username = (username or args):gsub('^"(.*)"$', '%1')
-        local isCaged = value and string.lower(value) == "true" or nil
+        local isCaged = nil
+        if value ~= nil then isCaged = string.lower(value) == "true" end
         if isClient() then
             sendClientCommand("ParadiseDevCage", "chatSet", { username = username ~= "" and username or nil, isCaged = isCaged })
         elseif ParadiseRestore.isAdm(pl) and ParadiseDev.Cage and ParadiseDev.Cage.requestSet then
@@ -113,74 +115,12 @@ function ParadiseDev.chatCmd(cmd)
             ParadiseDev.Cage.requestSet(username, isCaged)
         end
     elseif command == "/die" then
-        ParadiseZ.die()
---[[ 
-        if pl:isGodMod() then
-            pl:setGodMod(false)
-        end
-        if isClient() then
-            sendClientCommand("ParadiseDevTP", "die", {})
-        else
-            pl:getBodyDamage():ReduceGeneralHealth(110)
-        end ]]
---[[ 
-    elseif command == "/checktemp" then
-        if ParadiseDev.getCliStr then
-            ParadiseDev.getCliStr(pl:getSquare())
-        end ]]
-    elseif command == "/glytch3r" or command == "/glytch" then
-        local settings = SandboxVars and SandboxVars.ParadiseZ
-        local item = settings and settings.Glytch3rGift
-        if not item or item == "" or not pl:isAlive() then return end
+        if pl:isAlive() then ParadiseZ.die() end
 
-        local modData = pl:getModData()
-        if modData.GiftAttempt ~= nil then return end
 
-        local user = pl:getUsername()
-        if not user then return end
-
-        if ParadiseZ.setTempTag then
-            ParadiseZ.setTempTag(pl)
-        end
-
-        local isGiftReceived = ParadiseDev.isGiftReceived or ParadiseDev.isGiftRecieved
-        local recordGifted = ParadiseDev.recordGifted
-        if not (isGiftReceived and recordGifted) then return end
-
-        local received = isGiftReceived(user)
-        local msg = "Glytch3r: Thanks for your support " .. tostring(user) .. "! Take this " .. tostring(item) .. " as a gift! Enjoy Paradise! "
-
-        if not received then
-            local inv = pl:getInventory()
-            if not inventory then return end
-
-            pl:playEmote("thankyou")
-            recordGifted(user)
-            local gift = inv:AddItem(item)
-            if ParadiseDev.Inventory and ParadiseDev.Inventory.syncAddedItem then
-                ParadiseDev.Inventory.syncAddedItem(inv, gift)
-            end
-            getSoundManager():playUISound("ParadiseZ_Intro_2")
-        else
-            modData.GiftAttempt = true
-            pl:playEmote("shrug")
-            msg = "Glytch3r: Can only recieve once per account."
-            getSoundManager():playUISound("ZombieSurprisedPlayer")
-        end
-
-        pl:addLineChatElement(msg)
-    elseif command == "/scare" and isDbg then
+    elseif command == "/scare" and isAdm then
         getSoundManager():PlayWorldSound("ZombieSurprisedPlayer", pl:getSquare(), 0, 5, 5, false)
     end
-end
-
-function ISChat:logChatCommand(command)
-    if self.chatText then
-        self.chatText.logIndex = 0
-    end
-
-    ParadiseDev.chatCmd(command)
-    ParadiseDev.hook.ISChat_logChatCommand(self, command)
 end
 
 function ParadiseDev.Chat.isHandledCommand(command)
@@ -190,7 +130,7 @@ function ParadiseDev.Chat.isHandledCommand(command)
     keyword = string.lower(keyword)
     return keyword == "/stuck" or keyword == "/unstuck" or keyword == "/promo"
         or keyword == "/rebound" or keyword == "/cage" or keyword == "/die"
-        or keyword == "/glytch" or keyword == "/glytch3r" or keyword == "/scare"
+        or keyword == "/scare"
 end
 
 function ISChat:onCommandEntered()
@@ -207,7 +147,7 @@ function ISChat:onCommandEntered()
     end
     if ParadiseDev.serverMsgCmd(command) then
         self:unfocus()
-        self:logChatCommand(command)
+        ParadiseDev.hook.ISChat_logChatCommand(self, command)
         doKeyPress(false)
         self.timerTextEntry = 20
         return

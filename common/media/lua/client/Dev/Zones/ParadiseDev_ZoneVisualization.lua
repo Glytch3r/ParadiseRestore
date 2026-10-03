@@ -61,6 +61,13 @@ function ParadiseDev.Zones.Visualization.highlightSquare(x, y, z, color)
 end
 
 function ParadiseDev.Zones.Visualization.highlightHorizontal(x1, x2, y1, y2, z, color)
+    -- Clip the bands before iteration, not after each distant-square lookup.
+    local pl = getPlayer()
+    if not pl then return end
+    local radius = ParadiseDev.Zones.Visualization.VISIBLE_RADIUS
+    local px, py = math.floor(pl:getX()), math.floor(pl:getY())
+    x1, x2 = math.max(x1, px - radius), math.min(x2, px + radius)
+    y1, y2 = math.max(y1, py - radius), math.min(y2, py + radius)
     if x2 < x1 or y2 < y1 then return end
     for x = x1, x2 do
         for y = y1, y2 do ParadiseDev.Zones.Visualization.highlightSquare(x, y, z, color) end
@@ -68,6 +75,13 @@ function ParadiseDev.Zones.Visualization.highlightHorizontal(x1, x2, y1, y2, z, 
 end
 
 function ParadiseDev.Zones.Visualization.highlightVertical(x1, x2, y1, y2, z, color)
+    -- Clip the bands before iteration, not after each distant-square lookup.
+    local pl = getPlayer()
+    if not pl then return end
+    local radius = ParadiseDev.Zones.Visualization.VISIBLE_RADIUS
+    local px, py = math.floor(pl:getX()), math.floor(pl:getY())
+    x1, x2 = math.max(x1, px - radius), math.min(x2, px + radius)
+    y1, y2 = math.max(y1, py - radius), math.min(y2, py + radius)
     if x2 < x1 or y2 < y1 then return end
     for x = x1, x2 do
         for y = y1, y2 do ParadiseDev.Zones.Visualization.highlightSquare(x, y, z, color) end

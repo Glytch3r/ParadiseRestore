@@ -45,7 +45,11 @@ function ParadiseDev.POI.onClientCommand(module, command, pl, args)
 end
 
 function ParadiseDev.TP.validCoordinates(x, y, z)
-    return tonumber(x) ~= nil and tonumber(y) ~= nil and tonumber(z) ~= nil
+    local function finite(value)
+        local n = tonumber(value)
+        return n ~= nil and n == n and n ~= math.huge and n ~= -math.huge
+    end
+    return finite(x) and finite(y) and finite(z)
 end
 
 function ParadiseDev.TP.teleportPlayer(pl, x, y, z)
@@ -192,7 +196,7 @@ function ParadiseDev.TP.onClientCommand(module, command, pl, args)
         else
             ParadiseDev.TP.teleportPlayer(pl, x, y, z)
         end
-    elseif command == "teleportVehicle" then
+    elseif command == "teleportVehicle" and ParadiseRestore.isAdm(pl) then
         local vehicle = pl:getVehicle()
         if vehicle then
             ParadiseDev.TP.teleportVehicle(vehicle, args and args.x, args and args.y, pl)

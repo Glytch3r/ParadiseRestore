@@ -93,7 +93,7 @@ Events.OnClientCommand.Add(function(module, command, pl, args)
     elseif command == "activity" then 
         logActivity(pl, args) 
     elseif command == "unAliveSelf" and pl and pl:isAlive() then
-        local logStr = tostring(args.logStr) ..' ['.. tostring(os.date("%Y-%m-%d %H:%M:%S"))..']'
+        local logStr = tostring(pl:getUsername()) .. " requested /die at " .. tostring(pl:getX()) .. "," .. tostring(pl:getY()) .. "," .. tostring(pl:getZ()) .. " [" .. os.date("%Y-%m-%d %H:%M:%S") .. "]"
         unAliveSelfLog(pl, logStr) 
         pl:getBodyDamage():ReduceGeneralHealth(110)
     end

@@ -52,12 +52,12 @@ end
 function loot.fillLoadedSquare(square)
     if not square then return end
     local data = loot.getData()
+    local entry = data.entries[key(square:getX(), square:getY(), square:getZ())]
+    if not entry then return end
     local now = getGameTime():getWorldAgeHours()
-    for id, entry in pairs(data.entries) do
-        if id == key(square:getX(), square:getY(), square:getZ()) and (not entry.nextFill or now >= entry.nextFill) then
-            local container = loot.findContainer(entry)
-            if container and loot.fill(entry, container) then entry.nextFill = now + loot.intervalHours end
-        end
+    if not entry.nextFill or now >= entry.nextFill then
+        local container = loot.findContainer(entry)
+        if container and loot.fill(entry, container) then entry.nextFill = now + loot.intervalHours end
     end
 end
 

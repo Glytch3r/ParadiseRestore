@@ -454,7 +454,11 @@ function ParadiseDev.Cage.onClientCommand(module, command, pl, args)
         if not target and ParadiseDev.Cage.getUsername(pl) == username then target = pl end
         local isCaged = args and args.isCaged
         if isCaged == nil then
-            isCaged = target and not ParadiseDev.Cage.isCaged(target) or not ParadiseDev.Cage.getStore().pending[ParadiseDev.Cage.getUsernameKey(username)]
+            if target then
+                isCaged = not ParadiseDev.Cage.isCaged(target)
+            else
+                isCaged = not ParadiseDev.Cage.getStore().pending[ParadiseDev.Cage.getUsernameKey(username)]
+            end
         end
         if target then
             ParadiseDev.Cage.set(target, isCaged)

@@ -1,6 +1,5 @@
 {
     "ParadiseZ.MedkitPvP": "PvP Medkit",
-    "ParadiseZ.PiggyBank": "Piggy Bank",
     "ParadiseZ.TheRangeCard": "The Range Membership Card",
     "ParadiseZ.Duckhunt_jim": "Duck Hunt 50",
     "ParadiseZ.Duckhunt_goro": "Duck Hunt 116",
@@ -28,8 +27,5 @@
     "ParadiseZ.HoodieUP_NF": "NF Hoodie",
     "ParadiseZ.Hat_BalaclavaGhost": "Balaclava",
     "ParadiseZ.TurtBag": "Turtle Backpack",
-    "ParadiseZ.FU_GoldCoin": "FU Gold Coin",
-    "ParadiseZ.FU_SilverCoin": "FU Silver Coin",
-    "Base.Pistol3_gold": "Golden B-F Pistol",
-
+    "Base.Pistol3_gold": "Golden B-F Pistol"
 }

@@ -64,7 +64,7 @@ function ParadiseZ.isSpr(obj, prefix)
     return prefix and luautils.stringStarts(sprName, prefix) or false
 end
 
-function ParadiseZ.setSpr(obj, targSpr)
+function ParadiseZ.setSpr(obj, targSpr, visualOnly)
     local spr = obj:getSprite()
     if spr then
         local sprName = spr:getName()
@@ -72,7 +72,7 @@ function ParadiseZ.setSpr(obj, targSpr)
             obj:setSprite(targSpr)
             obj:getSprite():setName(targSpr)
             obj:setSpriteFromName(targSpr)
-            getPlayerLoot(0):refreshBackpacks()
+            if not visualOnly then getPlayerLoot(0):refreshBackpacks() end
         end
     end
 end
@@ -89,44 +89,40 @@ function ParadiseZ.getSprObj(sq, prefix)
     return nil
 end
 
-local ticks = 0
+-- Spread the existing discovery pass across updates. Never create world squares
+-- for a decorative animation. Keep an independent cursor for each local player.
+local cursors = setmetatable({}, { __mode = "k" })
 function ParadiseZ.sprHandler(pl)
     pl = pl or getPlayer()
-    local rad = 15
+    if not pl or not pl:isLocalPlayer() then return end
     local cell = pl:getCell()
-    local px, py, pz = pl:getX(), pl:getY(), pl:getZ()
-
-    ticks = ticks + 1
-    if ticks % 16 ~= 0 then return end
-
-    for xDelta = -rad, rad do
-        for yDelta = -rad, rad do
-            local sq = cell:getOrCreateGridSquare(px + xDelta, py + yDelta, pz)
-            if sq then
-                for i = 0, sq:getObjects():size() - 1 do
-                    local obj = sq:getObjects():get(i)
-                    if obj and ParadiseZ.isSpr(obj, "ParadiseTiles") then
-                        local sprName = ParadiseZ.getSprName(obj)
-                        if sprName and ParadiseZ.List[sprName] then
-                            local sprNum = ParadiseZ.getSprNum(sprName)
-                            if sprNum then
-                                if obj and obj.isActivated and obj:isActivated() then
-                                    local nextSprNum = ParadiseZ.Frames[tostring(sprNum)]
-                                    if nextSprNum then
-                                        ParadiseZ.setSpr(obj, "ParadiseTiles_" .. nextSprNum)
-                                    end
-                                else
-                                    if sprNum ~= 48 then
-                                        ParadiseZ.setSpr(obj, "ParadiseTiles_48")
-                                    end
-                                end
-                            end
-                        end
+    if not cell then return end
+    local px, py, pz = math.floor(pl:getX()), math.floor(pl:getY()), math.floor(pl:getZ())
+    local cursor = cursors[pl] or 0
+    -- 961 positions / 16 callbacks: 61 maximum lookups per callback instead of
+    -- a single 961-position burst. Each position is visited once per 16 updates.
+    local first = math.floor(cursor * 961 / 16)
+    local last = math.floor((cursor + 1) * 961 / 16) - 1
+    for index = first, last do
+        local dx, dy = math.floor(index / 31) - 15, index % 31 - 15
+        local sq = cell:getGridSquare(px + dx, py + dy, pz)
+        if sq then
+            local objects = sq:getObjects()
+            for i = 0, objects:size() - 1 do
+                local obj = objects:get(i)
+                local name = ParadiseZ.getSprName(obj)
+                if name and ParadiseZ.List[name] then
+                    local target = "ParadiseTiles_48"
+                    if obj.isActivated and obj:isActivated() then
+                        local nextFrame = ParadiseZ.Frames[tostring(ParadiseZ.getSprNum(name))]
+                        if nextFrame then target = "ParadiseTiles_" .. nextFrame end
                     end
+                    if name ~= target then ParadiseZ.setSpr(obj, target, true) end
                 end
             end
         end
     end
+    cursors[pl] = (cursor + 1) % 16
 end
 Events.OnPlayerUpdate.Remove(ParadiseZ.sprHandler)
 Events.OnPlayerUpdate.Add(ParadiseZ.sprHandler)
