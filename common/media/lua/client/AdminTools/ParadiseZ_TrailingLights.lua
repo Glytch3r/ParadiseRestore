@@ -82,6 +82,7 @@ TL.defaults = {
 
 TL.stateByPlayer = {}
 TL.windows = {}
+TL.instance = nil
 TL.activeLights = {}
 
 local function clamp(value, minValue, maxValue)
@@ -374,6 +375,7 @@ function TL.teardown(preserveState)
     end
 
     TL.windows = {}
+    TL.instance = nil
     TL.activeLights = {}
     TL._tickHook = nil
     TL._rendererInstalled = nil
@@ -1545,13 +1547,7 @@ function ParadiseZTrailingLightsWindow:onPickColor(button)
 end
 
 function ParadiseZTrailingLightsWindow:close()
-    if self.colorPicker then
-        self.colorPicker:removeSelf()
-        self.colorPicker = nil
-    end
-    TL.windows[self.playerNum] = nil
-    self:setVisible(false)
-    self:removeFromUIManager()
+    TL.ClosePanel()
 end
 
 function ParadiseZTrailingLightsWindow:new(x, y, width, height, playerNum)
@@ -1572,10 +1568,23 @@ function ParadiseZTrailingLightsWindow:new(x, y, width, height, playerNum)
     return o
 end
 
-function TL.openWindow(playerNum)
+function TL.ClosePanel()
+    local window = TL.instance
+    if not window then return end
+    TL.instance = nil
+    TL.windows[window.playerNum] = nil
+    if window.colorPicker then
+        window.colorPicker:removeSelf()
+        window.colorPicker = nil
+    end
+    window:setVisible(false)
+    window:removeFromUIManager()
+end
+
+function TL.OpenPanel(playerNum)
     playerNum = playerNum or 0
 
-    local window = TL.windows[playerNum]
+    local window = TL.instance
     if window then
         window:syncFromState()
         window:setVisible(true)
@@ -1594,8 +1603,22 @@ function TL.openWindow(playerNum)
     window:addToUIManager()
     window:bringToTop()
 
+    TL.instance = window
     TL.windows[playerNum] = window
     window:syncFromState()
+    return window
+end
+
+function TL.TogglePanel(playerNum)
+    if TL.instance then
+        TL.ClosePanel()
+        return
+    end
+    return TL.OpenPanel(playerNum)
+end
+
+function TL.openWindow(playerNum)
+    return TL.OpenPanel(playerNum)
 end
 
 function TL.installRenderer()
@@ -1619,7 +1642,7 @@ function TL.install()
     end
     TL._installed = true
 
-    PZContext.install(TL.openWindow)
+    PZContext.install(function(playerNum) TL.OpenPanel(playerNum) end)
     TL.installRenderer()
 
     for playerNum = 0, getNumActivePlayers() - 1 do

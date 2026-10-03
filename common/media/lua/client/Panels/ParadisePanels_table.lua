@@ -2,6 +2,7 @@ ParadisePanels = ParadisePanels or {}
 ParadisePromo = ParadisePromo or {}
 ParadisePromo.AdminPanel = ParadisePromo.AdminPanel or {}
 ParadisePromo.PlayerPanel = ParadisePromo.PlayerPanel or {}
+ParadiseZTrailingLights = ParadiseZTrailingLights or {}
 
 local function initialise(panel, instantiate)
     if not panel then return nil end
@@ -11,6 +12,32 @@ local function initialise(panel, instantiate)
 end
 
 ParadisePanels.table = {
+    {
+        key = "trailingLights",
+        isAdmOnly = true,
+        getModule = function() return ParadiseZTrailingLights end,
+        getInstance = function() return ParadiseZTrailingLights.instance end,
+        setInstance = function(instance) ParadiseZTrailingLights.instance = instance end,
+        create = function(plNum)
+            plNum = plNum or 0
+            local width = 276
+            local height = 392
+            local x = math.max(20, math.floor((getCore():getScreenWidth() - width) / 2))
+            local y = math.max(20, math.floor((getCore():getScreenHeight() - height) / 2))
+            return initialise(ParadiseZTrailingLightsWindow:new(x, y, width, height, plNum))
+        end,
+        onOpen = function(panel)
+            ParadiseZTrailingLights.windows[panel.playerNum] = panel
+            panel:syncFromState()
+        end,
+        onClose = function(panel)
+            ParadiseZTrailingLights.windows[panel.playerNum] = nil
+            if panel.colorPicker then
+                panel.colorPicker:removeSelf()
+                panel.colorPicker = nil
+            end
+        end,
+    },
     {
         key = "uiInspector",
         isAdmOnly = true,

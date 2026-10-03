@@ -133,10 +133,9 @@ function ParadiseDev.Chat.isHandledCommand(command)
         or keyword == "/scare"
 end
 
-function ISChat:onCommandEntered()
+function ParadiseDev.Chat.onCommandEntered(self)
     local chat = ISChat.instance
     local command = chat and chat.textEntry and chat.textEntry:getText() or nil
-    local keyword = type(command) == "string" and command:match("^%s*(/%S+)") or nil
     if ParadiseDev.Chat.isHandledCommand(command) then
         ParadiseDev.chatCmd(command)
         ParadiseDev.hook.ISChat_logChatCommand(chat, command)
@@ -155,6 +154,15 @@ function ISChat:onCommandEntered()
     return ParadiseDev.Chat.originalOnCommandEntered(self)
 end
 
-if ISChat.instance and ISChat.instance.textEntry then
-    ISChat.instance.textEntry.onCommandEntered = ISChat.onCommandEntered
+function ParadiseDev.Chat.install()
+    ISChat.onCommandEntered = ParadiseDev.Chat.onCommandEntered
+    if ISChat.instance and ISChat.instance.textEntry then
+        ISChat.instance.textEntry.onCommandEntered = ISChat.onCommandEntered
+    end
+    local sentinel = ParadiseRestore and ParadiseRestore.Sentinel
+    if sentinel and sentinel.installHooks then
+        sentinel.installHooks()
+    end
 end
+
+ParadiseDev.Chat.install()
