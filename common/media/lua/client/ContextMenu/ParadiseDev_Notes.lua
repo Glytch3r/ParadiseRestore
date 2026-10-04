@@ -46,9 +46,14 @@ end
 function ParadiseDev.Notes.normalizeOffset(offset)
     offset = type(offset) == "table" and offset or {}
     local function value(number)
-        return math.max(-100, math.min(100, tonumber(number) or 0))
+        return math.max(-0.49, math.min(0.49, tonumber(number) or 0))
     end
     return { x = value(offset.x), y = value(offset.y) }
+end
+
+function ParadiseDev.Notes.normalizeFontSize(size)
+    if size == "Small" or size == "Large" then return size end
+    return "Medium"
 end
 
 function ParadiseDev.Notes.getNote(flr)
@@ -218,8 +223,34 @@ function ParadiseDev.Notes.highlightWhileContextVisible(context, flr)
     Events.OnTick.Add(clearHighlight)
 end
 
-function ParadiseDev.Notes.setFont(target, font)
-    ParadiseDev.Notes.settings.font = font
+function ParadiseDev.Notes.getGlobalData()
+    return ModData and ModData.get and ModData.get(ParadiseDev.Notes.globalStore) or nil
+end
+
+function ParadiseDev.Notes.getFontSize()
+    local data = ParadiseDev.Notes.getGlobalData()
+    return ParadiseDev.Notes.normalizeFontSize(data and data.fontSize)
+end
+
+function ParadiseDev.Notes.getFont()
+    local size = ParadiseDev.Notes.getFontSize()
+    if size == "Small" then return UIFont.Small end
+    if size == "Large" then return UIFont.Large end
+    return UIFont.Medium
+end
+
+function ParadiseDev.Notes.setFontSize(target, size)
+    if not ParadiseDev.Notes.canWriteNotes() then return false end
+    size = ParadiseDev.Notes.normalizeFontSize(size)
+    if isClient() then
+        sendClientCommand(ParadiseDev.Notes.module, "setFontSize", { size = size })
+        return true
+    end
+    local data = ModData.getOrCreate(ParadiseDev.Notes.globalStore)
+    data.notes = data.notes or {}
+    data.fontSize = size
+    if ModData.transmit then ModData.transmit(ParadiseDev.Notes.globalStore) end
+    return true
 end
 
 function ParadiseDev.Notes.setTextVisible()
@@ -265,19 +296,20 @@ function ParadiseDev.Notes.addSettings(menu, flr)
     sizeOption.iconTexture = ParadiseDev.Notes.getIcon("context_noteRead")
     local sizeMenu = ISContextMenu:getNew(settingsMenu)
     settingsMenu:addSubMenu(sizeOption, sizeMenu)
-    local small = sizeMenu:addOption("Small", ParadiseDev.Notes, ParadiseDev.Notes.setFont, UIFont.Small)
-    local medium = sizeMenu:addOption("Medium", ParadiseDev.Notes, ParadiseDev.Notes.setFont, UIFont.Medium)
-    local large = sizeMenu:addOption("Large", ParadiseDev.Notes, ParadiseDev.Notes.setFont, UIFont.Large)
-    sizeMenu:setOptionChecked(small, ParadiseDev.Notes.settings.font == UIFont.Small)
-    sizeMenu:setOptionChecked(medium, ParadiseDev.Notes.settings.font == UIFont.Medium)
-    sizeMenu:setOptionChecked(large, ParadiseDev.Notes.settings.font == UIFont.Large)
+    local small = sizeMenu:addOption("Small", ParadiseDev.Notes, ParadiseDev.Notes.setFontSize, "Small")
+    local medium = sizeMenu:addOption("Medium", ParadiseDev.Notes, ParadiseDev.Notes.setFontSize, "Medium")
+    local large = sizeMenu:addOption("Large", ParadiseDev.Notes, ParadiseDev.Notes.setFontSize, "Large")
+    local size = ParadiseDev.Notes.getFontSize()
+    sizeMenu:setOptionChecked(small, size == "Small")
+    sizeMenu:setOptionChecked(medium, size == "Medium")
+    sizeMenu:setOptionChecked(large, size == "Large")
     local text = settingsMenu:addOption("Show", ParadiseDev.Notes, ParadiseDev.Notes.setTextVisible)
     settingsMenu:setOptionChecked(text, ParadiseDev.Notes.settings.showText)
     settingsMenu:addOption("World Offset", flr, ParadiseDev.Notes.openOffsetPanel)
 end
 
 function ParadiseDev.Notes.getGlobalNotes()
-    local data = ModData and ModData.get and ModData.get(ParadiseDev.Notes.globalStore) or nil
+    local data = ParadiseDev.Notes.getGlobalData()
     return data and data.notes or {}
 end
 
@@ -344,6 +376,7 @@ end
 
 function ParadiseDev.Notes.addWorldContext(plNum, context, worldobjects, test)
     if test then return end
+    if not ParadiseDev.Notes.canWriteNotes() then return end
     local sq = ParadiseDev.Notes.getClickedSquare()
     local flr = sq and sq:getFloor() or nil
     if not flr then return end
@@ -438,7 +471,7 @@ function ParadiseDev.Notes.drawText(plNum, pl, ref, note, color, offset)
     offset = ParadiseDev.Notes.normalizeOffset(offset)
     local x = isoToScreenX(plNum, ref.x + 0.5 + offset.x, ref.y + 0.5 + offset.y, ref.z)
     local y = isoToScreenY(plNum, ref.x + 0.5 + offset.x, ref.y + 0.5 + offset.y, ref.z) - 18
-    local font = ParadiseDev.Notes.settings.font
+    local font = ParadiseDev.Notes.getFont()
     getTextManager():DrawStringCentre(font, x - 1, y - 1, note, 0, 0, 0, 1)
     getTextManager():DrawStringCentre(font, x + 1, y + 1, note, 0, 0, 0, 1)
     getTextManager():DrawStringCentre(font, x, y, note, color.r, color.g, color.b, 1)

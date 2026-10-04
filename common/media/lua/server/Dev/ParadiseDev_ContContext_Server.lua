@@ -1,4 +1,5 @@
-ParadiseDev = ParadiseDev or {}
+--[[
+ ParadiseDev = ParadiseDev or {}
 ParadiseDev.ContainerLoot = ParadiseDev.ContainerLoot or {}
 
 local loot = ParadiseDev.ContainerLoot
@@ -138,3 +139,4 @@ Events.LoadGridsquare.Remove(loot.onLoadGridSquare)
 Events.LoadGridsquare.Add(loot.onLoadGridSquare)
 Events.EveryHours.Remove(loot.update)
 Events.EveryHours.Add(loot.update)
+ ]]

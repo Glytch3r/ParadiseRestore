@@ -343,6 +343,13 @@ function ParadiseZ.removeTag(targ)
     end
 end
 
+function ParadiseZ.onCharacterDeath(targ)
+    if not targ or not instanceof(targ, "IsoPlayer") then return end
+    ParadiseZ.removeTag(targ)
+end
+Events.OnCharacterDeath.Remove(ParadiseZ.onCharacterDeath)
+Events.OnCharacterDeath.Add(ParadiseZ.onCharacterDeath)
+
 function ParadiseZ.isTagEmpty(targ)
     if not targ or not targ.getAttachedAnimSprite then return true end
     local sprites = targ:getAttachedAnimSprite()

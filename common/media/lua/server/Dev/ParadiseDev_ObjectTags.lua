@@ -34,9 +34,18 @@ end
 function ParadiseDev.Notes.normalizeOffset(offset)
     offset = type(offset) == "table" and offset or {}
     local function value(number)
-        return math.max(-100, math.min(100, tonumber(number) or 0))
+        return math.max(-0.49, math.min(0.49, tonumber(number) or 0))
     end
     return { x = value(offset.x), y = value(offset.y) }
+end
+
+function ParadiseDev.Notes.normalizeFontSize(size)
+    if size == "Small" or size == "Large" then return size end
+    return "Medium"
+end
+
+function ParadiseDev.Notes.isFontSize(size)
+    return size == "Small" or size == "Medium" or size == "Large"
 end
 
 function ParadiseDev.Notes.getFloor(args)
@@ -89,7 +98,14 @@ end
 function ParadiseDev.Notes.getGlobalStore()
     local store = ModData.getOrCreate(ParadiseDev.Notes.globalStore)
     store.notes = store.notes or {}
+    store.fontSize = ParadiseDev.Notes.normalizeFontSize(store.fontSize)
     return store
+end
+
+function ParadiseDev.Notes.setFontSize(size)
+    local store = ParadiseDev.Notes.getGlobalStore()
+    store.fontSize = ParadiseDev.Notes.normalizeFontSize(size)
+    ModData.transmit(ParadiseDev.Notes.globalStore)
 end
 
 function ParadiseDev.Notes.globalKey(args)
@@ -113,6 +129,10 @@ end
 
 function ParadiseDev.Notes.onClientCommand(module, command, pl, args)
     if module ~= ParadiseDev.Notes.module or type(args) ~= "table" then return end
+    if command == "setFontSize" then
+        if ParadiseDev.Notes.canWriteNotes(pl) and ParadiseDev.Notes.isFontSize(args.size) then ParadiseDev.Notes.setFontSize(args.size) end
+        return
+    end
     if command == "globalSet" then
         if ParadiseDev.Notes.isAdmin(pl) and ParadiseDev.Notes.getFloor(args) then ParadiseDev.Notes.setGlobal(args) end
         return
