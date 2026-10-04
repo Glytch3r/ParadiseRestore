@@ -29,6 +29,13 @@ function recovery.getRecordKeyStr(pl)
     return string.lower((forename .. "_" .. surname .. "_" .. tostring(prof)):gsub("[^%w_%-]", "_"))
 end
 
+function recovery.copyTab(tab)
+    if type(tab) ~= "table" then return tab end
+    local result = {}
+    for key, value in pairs(tab) do result[recovery.copyTab(key)] = recovery.copyTab(value) end
+    return result
+end
+
 function recovery.normalizeRecord(record)
     if not record then return nil end
     if not record.lives then
@@ -141,7 +148,7 @@ function recovery.saveNamedRecord(pl)
     if not record or not key then return false end
     local store = recovery.getStore()
     store.records = store.records or {}
-    store.records[key] = record
+    store.records[key] = recovery.copyTab(record)
     if ModData.transmit then ModData.transmit(recovery.storeName) end
     return true
 end
@@ -164,8 +171,22 @@ function recovery.loadRecord(pl, key)
     local record = recovery.normalizeRecord((recovery.getStore().records or {})[key])
     local user = recovery.getUsername(pl)
     if not record or not user then return false end
-    recovery.getStore().players[user] = record
+    recovery.getStore().players[user] = recovery.copyTab(record)
     return recovery.retrieve(pl)
+end
+
+function recovery.syncRecords(pl)
+    if not pl then return end
+    local records = recovery.getStore().records or {}
+    if isServer and isServer() then
+        sendServerCommand(pl, recovery.module, "recordsSync", { records = records })
+    else
+        recovery.receiveRecords(records)
+    end
+end
+
+function recovery.receiveRecords(records)
+    recovery.getStore().records = records or {}
 end
 
 function recovery.applyStats(pl)
@@ -388,10 +409,15 @@ function recovery.onClientCommand(module, command, sender, args)
         recovery.recordDeath(sender)
     elseif command == "saveRecord" and ParadiseRestore.isAdm(sender) then
         recovery.saveNamedRecord(target)
+        recovery.syncRecords(sender)
     elseif command == "deleteRecord" and ParadiseRestore.isAdm(sender) and args.key then
         recovery.deleteRecord(args.key)
+        recovery.syncRecords(sender)
     elseif command == "loadRecord" and ParadiseRestore.isAdm(sender) and args.key then
         recovery.loadRecord(target, args.key)
+        recovery.syncRecords(sender)
+    elseif command == "getRecords" and ParadiseRestore.isAdm(sender) then
+        recovery.syncRecords(sender)
     end
 end
 
@@ -543,16 +569,44 @@ function recovery.addRecordTooltip(opt, record)
     opt.toolTip = tip
 end
 
+function recovery.requestOption(_, command, username, key)
+    if key then
+        if isClient and isClient() then
+            sendClientCommand(recovery.module, command, { username = username, key = key })
+        else
+            recovery.onClientCommand(recovery.module, command, getPlayer(), { username = username, key = key })
+        end
+        return
+    end
+    recovery.request(command, username)
+end
+
+function recovery.addTraitOption(_, pl)
+    ParadiseDev.setTrait(recovery.trait, true, pl)
+end
+
+function recovery.retrieveOption(_, pl)
+    recovery.retrieve(pl)
+end
+
+function recovery.randomizeNameOption(_, pl)
+    recovery.randomizeName(pl)
+end
+
+function recovery.randomizeCharacterOption(_, pl)
+    recovery.randomizeCharacter(pl)
+end
+
 function recovery.addTestOptions(menu, pl)
     if not ParadiseRestore.isAdm(pl) then return end
     local root = menu:addOption("ReincarnateTest")
     local sub = ISContextMenu:getNew(menu)
     menu:addSubMenu(root, sub)
-    sub:addOption("Add Reincarnate Trait", nil, ParadiseDev.setTrait, recovery.trait, true, pl)
-    sub:addOption("doReincarnate", nil, recovery.retrieve, pl)
-    sub:addOption("Save Record", nil, recovery.request, "saveRecord", recovery.getUsername(pl))
-    sub:addOption("randomizeName", nil, recovery.randomizeName, pl)
-    sub:addOption("Randomize Character", nil, recovery.randomizeCharacter, pl)
+    sub:addOption("Add Reincarnate Trait", nil, recovery.addTraitOption, pl)
+    sub:addOption("doReincarnate", nil, recovery.retrieveOption, pl)
+    sub:addOption("Save Record", nil, recovery.requestOption, "saveRecord", recovery.getUsername(pl))
+    sub:addOption("randomizeName", nil, recovery.randomizeNameOption, pl)
+    sub:addOption("Randomize Character", nil, recovery.randomizeCharacterOption, pl)
     local records = recovery.getStore().records or {}
     for _, label in ipairs({"Delete Record", "Load Record"}) do
         local opt = sub:addOption(label)
@@ -560,7 +614,7 @@ function recovery.addTestOptions(menu, pl)
         sub:addSubMenu(opt, list)
         for _, key in ipairs(recovery.getRecordKeys()) do
             local command = label == "Delete Record" and "deleteRecord" or "loadRecord"
-            local item = list:addOption(key, nil, function() sendClientCommand(recovery.module, command, { username = recovery.getUsername(pl), key = key }) end)
+            local item = list:addOption(key, nil, recovery.requestOption, command, recovery.getUsername(pl), key)
             recovery.addRecordTooltip(item, records[key])
         end
     end
@@ -667,8 +721,12 @@ function recovery.installHooks()
 end
 
 function recovery.onServerCommand(module, command, args)
-    if module ~= recovery.module or command ~= "recoveryPlan" then return end
-    recovery.queueRecovery(getPlayer and getPlayer() or nil, args and args.skills or {}, args and args.lifeCount)
+    if module ~= recovery.module then return end
+    if command == "recoveryPlan" then
+        recovery.queueRecovery(getPlayer and getPlayer() or nil, args and args.skills or {}, args and args.lifeCount)
+    elseif command == "recordsSync" then
+        recovery.receiveRecords(args and args.records or {})
+    end
 end
 
 if Events.OnClientCommand then Events.OnClientCommand.Remove(recovery.onClientCommand) Events.OnClientCommand.Add(recovery.onClientCommand) end
@@ -683,3 +741,11 @@ function recovery.requestStore()
 end
 
 if Events.OnGameStart then Events.OnGameStart.Remove(recovery.requestStore) Events.OnGameStart.Add(recovery.requestStore) end
+
+function recovery.onReceiveGlobalModData(name, data)
+    if name ~= recovery.storeName or not data then return end
+    if ModData.exists(recovery.storeName) then ModData.remove(recovery.storeName) end
+    ModData.add(recovery.storeName, data)
+end
+
+if Events.OnReceiveGlobalModData then Events.OnReceiveGlobalModData.Remove(recovery.onReceiveGlobalModData) Events.OnReceiveGlobalModData.Add(recovery.onReceiveGlobalModData) end
