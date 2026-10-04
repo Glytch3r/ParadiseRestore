@@ -450,6 +450,89 @@ function recovery.randomizeName(pl)
     sendPlayerStatsChange(pl)
 end
 
+function recovery.isTraitExclusive(traitDef, selected)
+    local excluded = traitDef:getMutuallyExclusiveTraits()
+    for index = 0, excluded:size() - 1 do
+        if selected[tostring(excluded:get(index))] then return true end
+    end
+    return false
+end
+
+function recovery.randomizeTraits(pl, pointBudget)
+    local current = recovery.getTraits(pl)
+    for _, traitID in ipairs(current) do ParadiseDev.setTrait(traitID, false, pl) end
+    local positive = {}
+    local negative = {}
+    local traits = CharacterTraitDefinition.getTraits()
+    for index = 0, traits:size() - 1 do
+        local traitDef = traits:get(index)
+        if not traitDef:isFree() and not (isClient() and traitDef:isDisabledInMultiplayer()) then
+            if traitDef:getCost() > 0 then positive[#positive + 1] = traitDef elseif traitDef:getCost() < 0 then negative[#negative + 1] = traitDef end
+        end
+    end
+    local selected = {}
+    local points = pointBudget
+    for count = 1, ZombRand(1, 4) do
+        if #negative > 0 then
+            local traitDef = table.remove(negative, ZombRand(#negative) + 1)
+            if not recovery.isTraitExclusive(traitDef, selected) then
+                local traitID = tostring(traitDef:getType())
+                selected[traitID] = true
+                points = points - traitDef:getCost()
+                ParadiseDev.setTrait(traitID, true, pl)
+            end
+        end
+    end
+    for count = 1, ZombRand(1, 5) do
+        if #positive > 0 then
+            local traitDef = table.remove(positive, ZombRand(#positive) + 1)
+            if traitDef:getCost() <= points and not recovery.isTraitExclusive(traitDef, selected) then
+                local traitID = tostring(traitDef:getType())
+                selected[traitID] = true
+                points = points - traitDef:getCost()
+                ParadiseDev.setTrait(traitID, true, pl)
+            end
+        end
+    end
+end
+
+function recovery.randomizePerks(pl, hours)
+    local days = hours / 24
+    local maxLvl = math.min(10, math.max(1, math.floor(math.sqrt(days + 1) + 1)))
+    recovery.forEachPerk(function(perk)
+        pl:setPerkLevelDebug(perk, 0)
+        pl:getXp():setXPToLevel(perk, 0)
+        if ZombRand(100) < math.min(70, 12 + days) then
+            local lvl = ZombRand(maxLvl + 1)
+            pl:setPerkLevelDebug(perk, lvl)
+            pl:getXp():setXPToLevel(perk, lvl)
+            local currentXP = lvl > 0 and perk:getTotalXpForLevel(lvl) or 0
+            local nextXP = lvl < 10 and perk:getTotalXpForLevel(lvl + 1) or currentXP
+            if nextXP > currentXP then pl:getXp():AddXP(perk, ZombRandFloat(0, nextXP - currentXP), false, false, true) end
+        end
+    end)
+end
+
+function recovery.randomizeCharacter(pl)
+    pl = pl or getPlayer()
+    if not pl or not ParadiseRestore.isAdm(pl) then return end
+    recovery.randomizeName(pl)
+    local professions = CharacterProfessionDefinition.getProfessions()
+    local prof = professions:get(ZombRand(professions:size()))
+    pl:getDescriptor():setCharacterProfession(prof:getType())
+    recovery.randomizeTraits(pl, (tonumber(SandboxVars.CharacterFreePoints) or 0) + prof:getCost())
+    local grantedTraits = prof:getGrantedTraits()
+    for index = 0, grantedTraits:size() - 1 do ParadiseDev.setTrait(tostring(grantedTraits:get(index)), true, pl) end
+    local hours = math.floor(math.pow(ZombRandFloat(0, 1), 2.4) * 4320) + 1
+    local kills = math.floor(hours / 24 * ZombRandFloat(0.5, 18) + ZombRand(8))
+    pl:setHoursSurvived(hours)
+    pl:setZombieKills(kills)
+    recovery.randomizePerks(pl, hours)
+    SyncXp(pl)
+    sendPlayerStatsChange(pl)
+    sendPlayerExtraInfo(pl)
+end
+
 function recovery.addRecordTooltip(opt, record)
     if not opt or not record then return end
     local life = (record.lives or {})[#(record.lives or {})] or {}
@@ -469,6 +552,7 @@ function recovery.addTestOptions(menu, pl)
     sub:addOption("doReincarnate", nil, recovery.retrieve, pl)
     sub:addOption("Save Record", nil, recovery.request, "saveRecord", recovery.getUsername(pl))
     sub:addOption("randomizeName", nil, recovery.randomizeName, pl)
+    sub:addOption("Randomize Character", nil, recovery.randomizeCharacter, pl)
     local records = recovery.getStore().records or {}
     for _, label in ipairs({"Delete Record", "Load Record"}) do
         local opt = sub:addOption(label)
