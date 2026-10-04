@@ -16,7 +16,9 @@ local COL_2_WIDTH = UI_BORDER_SPACING*2 + getTextManager():MeasureStringX(UIFont
 local COL_3_WIDTH = UI_BORDER_SPACING*2 + getTextManager():MeasureStringX(UIFont.Small, getText("Viewed"))
 
 function ParadiseDev.AdminTicket.teleportToUser(_, user)
-    teleportToHimUserAction("TeleportToHim", user, "")
+    local pl = getPlayer()
+    if not pl then return end
+    SendCommandToServer("/teleport \"" .. pl:getUsername() .. "\" \"" .. user .. "\"")
 end
 
 function ParadiseDev.AdminTicket.onRightMouseUp(self, x, y)
