@@ -78,7 +78,13 @@ function ParadiseDev.Notes.isAdmin()
     return ParadiseRestore.isAdm and ParadiseRestore.isAdm() or false
 end
 
+function ParadiseDev.Notes.canWriteNotes()
+    local sand = SandboxVars and SandboxVars.ParadiseZnotes
+    return ParadiseDev.Notes.isAdmin() or sand and sand.EveryoneCanWriteNotes == true
+end
+
 function ParadiseDev.Notes.canModifyFloor(flr)
+    if not ParadiseDev.Notes.canWriteNotes() then return false end
     local note = ParadiseDev.Notes.getNote(flr)
     if not note then return true end
     return ParadiseDev.Notes.isAdmin() or ParadiseDev.Notes.getOwner(flr) == ParadiseDev.Notes.getUsername()

@@ -189,6 +189,21 @@ option ParadiseZ.ShowPvETag
 	type = boolean, default = true,
 	page = ParadiseZ, translation = ParadiseZ_ShowPvETag,
 }
+option ParadiseZ.ReincarnateKeepSurvivalTime
+{
+    type = boolean, default = true,
+    page = ParadiseZ, translation = ParadiseZ_ReincarnateKeepSurvivalTime,
+}
+option ParadiseZ.ReincarnateKeepZombieKills
+{
+    type = boolean, default = true,
+    page = ParadiseZ, translation = ParadiseZ_ReincarnateKeepZombieKills,
+}
+option ParadiseZ.isSpawnAtDeathLoc
+{
+    type = boolean, default = true,
+    page = ParadiseZ, translation = ParadiseZ_isSpawnAtDeathLoc,
+}
 
 option ParadiseZ.ShowModdedAdminTag
 {

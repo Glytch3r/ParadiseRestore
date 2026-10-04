@@ -591,8 +591,8 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
         zoneVisuals.iconTexture = getTexture("media/ui/Paradise/ZoneContextIcon.png")
     end
 
-    if ParadiseDev.SkillRecovery and ParadiseDev.SkillRecovery.addParadiseOptions then
-        ParadiseDev.SkillRecovery.addParadiseOptions(menu, pl, worldobjects)
+    if ParadiseDev.Reincarnate and ParadiseDev.Reincarnate.addTestOptions then
+        ParadiseDev.Reincarnate.addTestOptions(menu, pl)
     end
 
     local panelsRoot = menu:addOptionOnTop("Panels")

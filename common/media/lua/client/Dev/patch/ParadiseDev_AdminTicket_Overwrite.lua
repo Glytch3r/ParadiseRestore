@@ -1,6 +1,9 @@
 ISAdminTicketsUI = ISPanel:derive("ISAdminTicketsUI");
 ISAdminTicketsUI.messages = {};
 
+ParadiseDev = ParadiseDev or {}
+ParadiseDev.AdminTicket = ParadiseDev.AdminTicket or {}
+
 local FONT_HGT_SMALL = getTextManager():getFontHeight(UIFont.Small)
 local FONT_HGT_MEDIUM = getTextManager():getFontHeight(UIFont.Medium)
 local FONT_HGT_LARGE = getTextManager():getFontHeight(UIFont.Large)
@@ -11,6 +14,26 @@ local BUTTON_HGT = FONT_HGT_SMALL + 6
 local COL_1_WIDTH = 200
 local COL_2_WIDTH = UI_BORDER_SPACING*2 + getTextManager():MeasureStringX(UIFont.Small, getText("0000"))
 local COL_3_WIDTH = UI_BORDER_SPACING*2 + getTextManager():MeasureStringX(UIFont.Small, getText("Viewed"))
+
+function ParadiseDev.AdminTicket.teleportToUser(_, user)
+    teleportToHimUserAction("TeleportToHim", user, "")
+end
+
+function ParadiseDev.AdminTicket.onRightMouseUp(self, x, y)
+    local row = self:rowAt(x, y)
+    if row < 1 or row > #self.items then return end
+
+    self.selected = row
+    local ui = self.parent
+    local ticket = self.items[row].item.ticket
+    ui.selectedTicket = ticket
+
+    local user = ticket:getAuthor()
+    if not getPlayerFromUsername(user) then return end
+
+    local context = ISContextMenu.get(ui.player:getPlayerNum(), x + self:getAbsoluteX(), y + self:getAbsoluteY())
+    context:addOption(getText("IGUI_UserList_TeleportToHim") .. ": " .. user, ParadiseDev.AdminTicket, ParadiseDev.AdminTicket.teleportToUser, user)
+end
 
 function ISAdminTicketsUI:initialise()
     ISPanel.initialise(self);
@@ -26,6 +49,7 @@ function ISAdminTicketsUI:initialise()
     self.datas.joypadParent = self;
     self.datas.font = UIFont.NewSmall;
     self.datas.doDrawItem = self.drawDatas;
+    self.datas.onRightMouseUp = ParadiseDev.AdminTicket.onRightMouseUp;
     self.datas.drawBorder = true;
     self:addChild(self.datas);
 
