@@ -160,8 +160,22 @@ function recovery.applySkill(pl, perkID)
     local desired = math.min(recovery.getMaxXP(perk), startingXP + recovery.getRecoveryXP(record, perkID))
     local current = math.max(0, tonumber(xp:getXP(perk)) or 0)
     local rawAmount = math.max(0, desired - current)
-    if rawAmount > 0 then xp:AddXP(perk, rawAmount, false, false, true) end
-    return rawAmount
+    if rawAmount <= 0 then return 0 end
+    -- Only the server (or single-player) may award the saved, server-calculated XP.
+    if isClient and isClient() then return 0 end
+    if isServer and isServer() then
+        -- B42's supported award path also updates its XP anti-cheat baseline.
+        -- Do not fall back to raw AddXP on a server: that caused recovery spikes.
+        if not addXpNoMultiplier then
+            error("[ParadiseDevSkillRecovery] server XP award helper unavailable")
+        end
+        addXpNoMultiplier(pl, perk, rawAmount)
+    else
+        xp:AddXP(perk, rawAmount, false, false, true)
+    end
+    local awarded = math.max(0, (tonumber(xp:getXP(perk)) or current) - current)
+    recovery.log("AWARD " .. tostring(perkID) .. " requested=" .. tostring(rawAmount), recovery.getUsername(pl), awarded)
+    return awarded
 end
 
 function recovery.retrieve(pl)
