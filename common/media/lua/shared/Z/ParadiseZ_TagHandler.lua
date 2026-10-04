@@ -29,6 +29,7 @@ ParadiseZ.publicTextTags = ParadiseZ.publicTextTags or {}
 ParadiseZ.publicImageTags = ParadiseZ.publicImageTags or {}
 ParadiseZ.survivorTags = ParadiseZ.survivorTags or {}
 ParadiseZ.ownTagTextures = ParadiseZ.ownTagTextures or {}
+ParadiseZ.adminTagStates = ParadiseZ.adminTagStates or {}
 ParadiseZ.tagScreenPos = ParadiseZ.tagScreenPos or Vector2.new()
 ParadiseZ.tagHeadOffset = 128 / (2 / Core.getTileScale())
 ParadiseZ.tagSpacer = 4
@@ -92,13 +93,22 @@ function ParadiseZ.isModdedAdminTagEnabled()
     return not settings or settings.ShowModdedAdminTag ~= false
 end
 
+function ParadiseZ.getAdminTagState(targ)
+    if not targ then return false end
+    local user = targ.getUsername and targ:getUsername() or nil
+    local synced = user and ParadiseZ.adminTagStates[string.lower(tostring(user))] or nil
+    if synced ~= nil then return synced == true end
+    local modData = targ:getModData()
+    if modData.ParadiseZShowAdminTag == nil then modData.ParadiseZShowAdminTag = true end
+    return modData.ParadiseZShowAdminTag == true
+end
+
 function ParadiseZ.isShowAdminTag(targ)
     if not ParadiseZ.isModdedAdminTagEnabled() then return false end
     if not targ or not ParadiseRestore or not ParadiseRestore.isAdm then return false end
     if not ParadiseRestore.isAdm(targ) then return false end
-    local modData = targ:getModData()
-    if modData.ParadiseZShowAdminTag == nil then modData.ParadiseZShowAdminTag = true end
-    return modData.ParadiseZShowAdminTag == true
+    if targ.isInvisible and targ:isInvisible() then return false end
+    return ParadiseZ.getAdminTagState(targ)
 end
 
 ParadiseZ.calculateShowAdminTagHook = ParadiseZ.calculateShowAdminTagHook or IsoPlayer.calculateShowAdminTag
@@ -110,9 +120,42 @@ end
 function ParadiseZ.toggleShowAdminTag(targ)
     if not ParadiseRestore.isAdm(targ) then return end
     local modData = targ:getModData()
-    modData.ParadiseZShowAdminTag = not ParadiseZ.isShowAdminTag(targ)
+    modData.ParadiseZShowAdminTag = not ParadiseZ.getAdminTagState(targ)
+    local user = targ.getUsername and targ:getUsername() or nil
+    if user then ParadiseZ.adminTagStates[string.lower(tostring(user))] = modData.ParadiseZShowAdminTag end
     if targ.transmitModData then targ:transmitModData() end
+    if isClient and isClient() and sendClientCommand then
+        sendClientCommand("ParadiseZTagHandler", "setAdminTagState", { shown = modData.ParadiseZShowAdminTag })
+    end
 end
+
+function ParadiseZ.applyAdminTagState(user, shown)
+    if not user then return end
+    ParadiseZ.adminTagStates[string.lower(tostring(user))] = shown == true
+    local targ = getPlayerFromUsername and getPlayerFromUsername(tostring(user)) or nil
+    if not targ then return end
+    targ:getModData().ParadiseZShowAdminTag = shown == true
+    ParadiseZ.setTag(targ)
+end
+
+function ParadiseZ.onTagServerCommand(module, command, args)
+    if module ~= "ParadiseZTagHandler" or not args then return end
+    if command == "adminTagState" then
+        ParadiseZ.applyAdminTagState(args.user, args.shown)
+    elseif command == "adminTagStates" then
+        ParadiseZ.adminTagStates = args.states or {}
+    end
+end
+Events.OnServerCommand.Remove(ParadiseZ.onTagServerCommand)
+Events.OnServerCommand.Add(ParadiseZ.onTagServerCommand)
+
+function ParadiseZ.requestAdminTagState()
+    if isClient and isClient() and sendClientCommand then
+        sendClientCommand("ParadiseZTagHandler", "requestAdminTagState", {})
+    end
+end
+Events.OnCreatePlayer.Remove(ParadiseZ.requestAdminTagState)
+Events.OnCreatePlayer.Add(ParadiseZ.requestAdminTagState)
 
 local function isAdminViewer()
     local pl = getPlayer and getPlayer() or nil

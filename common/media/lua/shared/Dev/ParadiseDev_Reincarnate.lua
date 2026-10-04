@@ -123,7 +123,8 @@ function recovery.saveDeath(pl)
         life.total = life.total + current
     end)
     local descriptor = pl.getDescriptor and pl:getDescriptor() or nil
-    life.profession = descriptor and descriptor.getProfession and descriptor:getProfession() or nil
+    local prof = descriptor and descriptor.getCharacterProfession and descriptor:getCharacterProfession() or nil
+    life.profession = prof and prof.getName and prof:getName() or (descriptor and descriptor.getProfession and descriptor:getProfession() or nil)
     life.forename = descriptor and descriptor.getForename and descriptor:getForename() or nil
     life.surname = descriptor and descriptor.getSurname and descriptor:getSurname() or nil
     life.traits = recovery.getTraits(pl)
@@ -172,21 +173,71 @@ function recovery.loadRecord(pl, key)
     local user = recovery.getUsername(pl)
     if not record or not user then return false end
     recovery.getStore().players[user] = recovery.copyTab(record)
-    return recovery.retrieve(pl)
+    return recovery.applyRecordExact(pl, record)
 end
 
-function recovery.syncRecords(pl)
+function recovery.applyRecordExact(pl, record)
+    local lives = record and record.lives or {}
+    local life = lives[#lives]
+    local xp = pl and pl.getXp and pl:getXp() or nil
+    if not life or not xp then return false end
+    recovery.forEachPerk(function(perk, perkID)
+        pl:setPerkLevelDebug(perk, 0)
+        xp:setXPToLevel(perk, 0)
+        local saved = math.max(0, tonumber(life.skills and life.skills[perkID]) or 0)
+        local earned = math.max(0, tonumber(life.earned and life.earned[perkID]) or 0)
+        local amount = math.max(0, saved - earned + earned * 0.9)
+        if amount > 0 then xp:AddXP(perk, amount, false, false, true) end
+    end)
+    local desc = pl:getDescriptor()
+    if life.forename then desc:setForename(life.forename) end
+    if life.surname then desc:setSurname(life.surname) end
+    if life.profession then
+        local professions = CharacterProfessionDefinition.getProfessions()
+        for index = 0, professions:size() - 1 do
+            local profDef = professions:get(index)
+            if tostring(profDef:getType():getName()) == tostring(life.profession) then
+                desc:setCharacterProfession(profDef:getType())
+                break
+            end
+        end
+    end
+    local current = recovery.getTraits(pl)
+    for _, traitID in ipairs(current) do ParadiseDev.setTrait(traitID, false, pl) end
+    for _, traitID in ipairs(life.traits or {}) do ParadiseDev.setTrait(traitID, true, pl) end
+    local recipes = pl.getKnownRecipes and pl:getKnownRecipes() or nil
+    if recipes then
+        recipes:clear()
+        for _, recipeName in ipairs(life.recipes or {}) do recipes:add(recipeName) end
+    end
+    if pl.setHoursSurvived then pl:setHoursSurvived(tonumber(life.hoursSurvived) or 0) end
+    if pl.setZombieKills then pl:setZombieKills(tonumber(life.zombieKills) or 0) end
+    if not (isServer and isServer()) then
+        SyncXp(pl)
+        sendPlayerStatsChange(pl)
+        sendPlayerExtraInfo(pl)
+    end
+    return true
+end
+
+function recovery.syncRecords(pl, status, key)
     if not pl then return end
     local records = recovery.getStore().records or {}
     if isServer and isServer() then
-        sendServerCommand(pl, recovery.module, "recordsSync", { records = records })
+        sendServerCommand(pl, recovery.module, "recordsSync", { records = records, status = status, key = key })
     else
         recovery.receiveRecords(records)
+        recovery.showRecordHalo(pl, status, key)
     end
 end
 
 function recovery.receiveRecords(records)
     recovery.getStore().records = records or {}
+end
+
+function recovery.showRecordHalo(pl, status, key)
+    if not pl or not status or not key then return end
+    pl:setHaloNote(tostring(key) .. " " .. tostring(status), 150, 250, 150, 900)
 end
 
 function recovery.applyStats(pl)
@@ -408,14 +459,18 @@ function recovery.onClientCommand(module, command, sender, args)
     elseif command == "death" then
         recovery.recordDeath(sender)
     elseif command == "saveRecord" and ParadiseRestore.isAdm(sender) then
-        recovery.saveNamedRecord(target)
-        recovery.syncRecords(sender)
+        local key = recovery.getRecordKeyStr(target)
+        local overwritten = key and (recovery.getStore().records or {})[key] ~= nil
+        if recovery.saveNamedRecord(target) then recovery.syncRecords(sender, overwritten and "overwritten" or "saved", key) end
     elseif command == "deleteRecord" and ParadiseRestore.isAdm(sender) and args.key then
         recovery.deleteRecord(args.key)
-        recovery.syncRecords(sender)
+        recovery.syncRecords(sender, "deleted", args.key)
     elseif command == "loadRecord" and ParadiseRestore.isAdm(sender) and args.key then
-        recovery.loadRecord(target, args.key)
-        recovery.syncRecords(sender)
+        local record = (recovery.getStore().records or {})[args.key]
+        if recovery.loadRecord(target, args.key) then
+            if isServer and isServer() and record then sendServerCommand(sender, recovery.module, "applyRecord", { record = record }) end
+            recovery.syncRecords(sender, "loaded", args.key)
+        end
     elseif command == "getRecords" and ParadiseRestore.isAdm(sender) then
         recovery.syncRecords(sender)
     end
@@ -586,7 +641,8 @@ function recovery.addTraitOption(_, pl)
 end
 
 function recovery.retrieveOption(_, pl)
-    recovery.retrieve(pl)
+    local record = recovery.getRecord(pl)
+    recovery.applyRecordExact(pl, record)
 end
 
 function recovery.randomizeNameOption(_, pl)
@@ -726,6 +782,9 @@ function recovery.onServerCommand(module, command, args)
         recovery.queueRecovery(getPlayer and getPlayer() or nil, args and args.skills or {}, args and args.lifeCount)
     elseif command == "recordsSync" then
         recovery.receiveRecords(args and args.records or {})
+        recovery.showRecordHalo(getPlayer(), args and args.status, args and args.key)
+    elseif command == "applyRecord" then
+        recovery.applyRecordExact(getPlayer(), args and args.record)
     end
 end
 
