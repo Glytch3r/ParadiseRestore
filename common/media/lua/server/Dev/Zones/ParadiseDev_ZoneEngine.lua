@@ -676,7 +676,30 @@ function ParadiseDev.Zones.Engine.onPlayerUpdate(pl)
     ParadiseDev.Zones.Engine.log("vehicle-rebounded", pl, zone)
 end
 
+-- Bounded aggregate diagnostics; no player identifiers or command arguments.
+local boundaryPerf = { started = getTimestampMs(), total = 0, boundary = 0, cage = 0, state = 0, other = 0 }
+local function countBoundaryCommand(module, command)
+    boundaryPerf.total = boundaryPerf.total + 1
+    if module == "PZZoneEngine" then
+        if command == "boundaryCheck" then boundaryPerf.boundary = boundaryPerf.boundary + 1
+        elseif command == "cageBoundary" then boundaryPerf.cage = boundaryPerf.cage + 1
+        elseif command == "requestBoundaryState" then boundaryPerf.state = boundaryPerf.state + 1
+        else boundaryPerf.other = boundaryPerf.other + 1 end
+    end
+end
+local function reportBoundaryCommands()
+    local now = getTimestampMs()
+    if now < boundaryPerf.started then boundaryPerf.started = now end
+    if now - boundaryPerf.started < 60000 then return end
+    print(string.format("[RestoreBoundaryPerf r1] windowMs=%d allCommands=%d boundaryCheck=%d cageBoundary=%d requestBoundaryState=%d otherZone=%d",
+        now - boundaryPerf.started, boundaryPerf.total, boundaryPerf.boundary, boundaryPerf.cage, boundaryPerf.state, boundaryPerf.other))
+    boundaryPerf.started = now
+    boundaryPerf.total, boundaryPerf.boundary, boundaryPerf.cage, boundaryPerf.state, boundaryPerf.other = 0, 0, 0, 0, 0
+end
+Events.OnTick.Add(reportBoundaryCommands)
+
 function ParadiseDev.Zones.Engine.onClientCommand(module, command, pl, args)
+    countBoundaryCommand(module, command)
     if module == "PZZoneEngine" and command == "requestBoundaryState" then
         ParadiseDev.Zones.Engine.syncBoundaryState(pl)
     elseif module == "PZZoneEngine" and
