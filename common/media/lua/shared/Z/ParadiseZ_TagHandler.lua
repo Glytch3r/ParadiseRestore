@@ -157,9 +157,10 @@ end
 Events.OnCreatePlayer.Remove(ParadiseZ.requestAdminTagState)
 Events.OnCreatePlayer.Add(ParadiseZ.requestAdminTagState)
 
-local function isAdminViewer()
+function ParadiseZ.isAdminViewer()
     local pl = getPlayer and getPlayer() or nil
-    return ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) or false
+    if not pl or not pl.getAccessLevel then return false end
+    return string.lower(tostring(pl:getAccessLevel())) == "admin"
 end
 
 local function isSuspect(targ)
@@ -187,7 +188,8 @@ local function getSurvivorName(target)
     return name and tostring(name) or "Unknown"
 end
 
-local function setSurvivorTag(target)
+function ParadiseZ.setSurvivorTag(target)
+    if not ParadiseZ.isAdminViewer() then return end
     local tag = TextDrawObject.new()
     tag:setDefaultFont(UIFont.Small)
     tag:ReadString(UIFont.Small, getSurvivorName(target), -1)
@@ -197,7 +199,7 @@ local function setSurvivorTag(target)
 end
 
 function ParadiseZ.updateSurvivorTags()
-    if not isAdminViewer() then
+    if not ParadiseZ.isAdminViewer() then
         ParadiseZ.survivorTags = {}
         return
     end
@@ -211,7 +213,7 @@ function ParadiseZ.updateSurvivorTags()
             (target and instanceof(target, "IsoZombie") and target:isReanimatedPlayer())
         if isSurvivor then
             seen[target] = true
-            if not ParadiseZ.survivorTags[target] then setSurvivorTag(target) end
+            if not ParadiseZ.survivorTags[target] then ParadiseZ.setSurvivorTag(target) end
         end
     end
     for target in pairs(ParadiseZ.survivorTags) do
@@ -222,7 +224,11 @@ function ParadiseZ.updateSurvivorTags()
 end
 
 function ParadiseZ.renderSurvivorTags()
-    if not isIngameState() or not isAdminViewer() then return end
+    if not isIngameState() then return end
+    if not ParadiseZ.isAdminViewer() then
+        ParadiseZ.survivorTags = {}
+        return
+    end
     local now = getTimestampMs()
     if not ParadiseZ.survivorTagCheckAt or now - ParadiseZ.survivorTagCheckAt >= 500 then
         ParadiseZ.survivorTagCheckAt = now
@@ -241,7 +247,7 @@ Events.OnPostRender.Add(ParadiseZ.renderSurvivorTags)
 
 function ParadiseZ.setSuspectTag(targ)
     local key = targ and targ.getOnlineID and targ:getOnlineID() or nil
-    if not key or not isAdminViewer() or targ == getPlayer() or not isSuspect(targ) or not ParadiseZ.isShouldShow(targ) then
+    if not key or not ParadiseZ.isAdminViewer() or targ == getPlayer() or not isSuspect(targ) or not ParadiseZ.isShouldShow(targ) then
         if key then ParadiseZ.suspectTags[key] = nil end
         return
     end
@@ -260,7 +266,7 @@ function ParadiseZ.setSuspectTag(targ)
 end
 
 function ParadiseZ.renderSuspectTags()
-    if not isIngameState() or not isAdminViewer() then return end
+    if not isIngameState() or not ParadiseZ.isAdminViewer() then return end
     local now = getTimestampMs()
     if not ParadiseZ.suspectTagCheckAt or now - ParadiseZ.suspectTagCheckAt >= 1000 then
         ParadiseZ.suspectTagCheckAt = now

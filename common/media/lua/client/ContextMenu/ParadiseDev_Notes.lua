@@ -256,6 +256,7 @@ function ParadiseDev.Notes.openOffsetPanel(flr)
 end
 
 function ParadiseDev.Notes.addSettings(menu, flr)
+    if not ParadiseDev.Notes.canWriteNotes() then return end
     local settingsOption = menu:addOption("Settings")
     settingsOption.iconTexture = ParadiseDev.Notes.getIcon("context_noteWrite")
     local settingsMenu = ISContextMenu:getNew(menu)
