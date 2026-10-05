@@ -9,9 +9,14 @@ JimsServerRules.COMMAND_SHOW = "ShowRules"
 JimsServerRules.COMMAND_ALREADY_ACCEPTED = "AlreadyAccepted"
 JimsServerRules.COMMAND_ACCEPTED = "RulesAccepted"
 JimsServerRules.COMMAND_ERROR = "RulesError"
+JimsServerRules.COMMAND_ADMIN_REQUEST = "AdminRequestRules"
+JimsServerRules.COMMAND_ADMIN_SAVE = "AdminSaveRules"
+JimsServerRules.COMMAND_ADMIN_RESET = "AdminResetRules"
+JimsServerRules.COMMAND_ADMIN_DATA = "AdminRulesData"
+JimsServerRules.COMMAND_ADMIN_ERROR = "AdminRulesError"
 
 -- These files are created in the server's Zomboid/Lua directory.
-JimsServerRules.RULES_FILE = "JimsServerRules_rules.txt"
+JimsServerRules.RULES_FILE = "JimsServerRules.json"
 JimsServerRules.ACCEPTED_USERS_FILE = "JimsServerRules_accepted_users.txt"
 
 JimsServerRules.TITLE = "JIM'S PARADISE"

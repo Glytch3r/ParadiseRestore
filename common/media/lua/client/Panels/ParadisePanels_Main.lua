@@ -111,3 +111,7 @@ end
 function ParadisePanels.OpenUIInspector()
     if ParadiseDev and ParadiseDev.UI and ParadiseDev.UI.OpenPanel then return ParadiseDev.UI.OpenPanel() end
 end
+
+function ParadisePanels.OpenRulesAdmin()
+    if JimsRulesAdmin and JimsRulesAdmin.OpenPanel then return JimsRulesAdmin.OpenPanel() end
+end

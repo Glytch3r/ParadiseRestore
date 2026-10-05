@@ -3,6 +3,7 @@ ParadisePromo = ParadisePromo or {}
 ParadisePromo.AdminPanel = ParadisePromo.AdminPanel or {}
 ParadisePromo.PlayerPanel = ParadisePromo.PlayerPanel or {}
 ParadiseZTrailingLights = ParadiseZTrailingLights or {}
+JimsRulesAdmin = JimsRulesAdmin or {}
 
 local function initialise(panel, instantiate)
     if not panel then return nil end
@@ -12,6 +13,24 @@ local function initialise(panel, instantiate)
 end
 
 ParadisePanels.table = {
+    {
+        key = "jimsRulesAdmin",
+        isAdmOnly = true,
+        getModule = function() return JimsRulesAdmin end,
+        getInstance = function() return JimsRulesAdmin.instance end,
+        setInstance = function(instance) JimsRulesAdmin.instance = instance end,
+        create = function()
+            local width = math.min(900, getCore():getScreenWidth() - 40)
+            local height = math.min(700, getCore():getScreenHeight() - 40)
+            return initialise(JimsRulesAdmin.Panel:new(
+                math.max(20, (getCore():getScreenWidth() - width) / 2),
+                math.max(20, (getCore():getScreenHeight() - height) / 2),
+                width,
+                height
+            ))
+        end,
+        onOpen = function() JimsRulesAdmin.requestRules() end,
+    },
     {
         key = "trailingLights",
         isAdmOnly = true,
