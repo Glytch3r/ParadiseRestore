@@ -143,6 +143,8 @@ function ParadiseDev.Notes.onClientCommand(module, command, pl, args)
     ParadiseDev.Notes.setNote(floor, args.note, args.color, ParadiseDev.Notes.getUsername(pl), args.offset)
 end
 
+require "Dev/ParadiseNotesAudit"
+
 Events.OnInitGlobalModData.Remove(ParadiseDev.Notes.onInitGlobalModData)
 Events.OnInitGlobalModData.Add(ParadiseDev.Notes.onInitGlobalModData)
 Events.OnClientCommand.Remove(ParadiseDev.Notes.onClientCommand)

@@ -107,23 +107,8 @@ function ParadiseDev.Notes.getFloorKey(flr)
 end
 
 function ParadiseDev.Notes.setNote(flr, note, color, owner, offset)
-    if not flr or not flr.getModData then return false end
-    local md = flr:getModData()
-    note = ParadiseDev.Notes.normalizeTag(note)
-    md[ParadiseDev.Notes.key] = note
-    if note then
-        md[ParadiseDev.Notes.colorKey] = ParadiseDev.Notes.normalizeColor(color or md[ParadiseDev.Notes.colorKey])
-        md[ParadiseDev.Notes.offsetKey] = ParadiseDev.Notes.normalizeOffset(offset or md[ParadiseDev.Notes.offsetKey])
-        md[ParadiseDev.Notes.ownerKey] = md[ParadiseDev.Notes.ownerKey] or owner or ParadiseDev.Notes.getUsername()
-    else
-        md[ParadiseDev.Notes.colorKey] = nil
-        md[ParadiseDev.Notes.offsetKey] = nil
-        md[ParadiseDev.Notes.ownerKey] = nil
-    end
-    if flr.transmitModData then flr:transmitModData() end
-    ParadiseDev.Notes.mapDirty = true
-    ParadiseDev.Notes.refresh(true)
-    return true
+    -- No client mod-data writes: ownership comes from the authenticated server.
+    return ParadiseDev.Notes.requestSet(flr, note, color, offset)
 end
 
 function ParadiseDev.Notes.requestSet(flr, note, color, offset)
@@ -136,7 +121,8 @@ function ParadiseDev.Notes.requestSet(flr, note, color, offset)
         sendClientCommand(ParadiseDev.Notes.module, "set", ref)
         return true
     end
-    return ParadiseDev.Notes.setNote(flr, ref.note, ref.color, ParadiseDev.Notes.getUsername(), ref.offset)
+    if ParadiseNotesAudit then ParadiseNotesAudit.command(ParadiseDev.Notes.module, "set", getPlayer(), ref); return true end
+    return false
 end
 
 function ParadiseDev.Notes.onEnteredText(target, button, flr)
@@ -247,11 +233,8 @@ function ParadiseDev.Notes.setFontSize(target, size)
         sendClientCommand(ParadiseDev.Notes.module, "setFontSize", { size = size })
         return true
     end
-    local data = ModData.getOrCreate(ParadiseDev.Notes.globalStore)
-    data.notes = data.notes or {}
-    data.fontSize = size
-    if ModData.transmit then ModData.transmit(ParadiseDev.Notes.globalStore) end
-    return true
+    if ParadiseNotesAudit then ParadiseNotesAudit.command(ParadiseDev.Notes.module, "setFontSize", getPlayer(), {size=size});return true end
+    return false
 end
 
 function ParadiseDev.Notes.setTextVisible()
@@ -498,7 +481,7 @@ function ParadiseDev.Notes.draw()
     for _, entry in pairs(ParadiseDev.Notes.getGlobalNotes()) do
         local ref = { x = tonumber(entry.x), y = tonumber(entry.y), z = tonumber(entry.z) or 0 }
         local dx, dy = ref.x - pl:getX(), ref.y - pl:getY()
-        if entry.text and dx * dx + dy * dy <= radiusSq then ParadiseDev.Notes.drawText(plNum, pl, ref, tostring(entry.text), ParadiseDev.Notes.normalizeColor(entry.color)) end
+        if entry.text and dx * dx + dy * dy <= radiusSq then ParadiseDev.Notes.drawText(plNum, pl, ref, tostring(entry.text), ParadiseDev.Notes.normalizeColor(entry.color), entry.offset) end
     end
 end
 
@@ -577,3 +560,5 @@ Events.OnGameStart.Remove(ParadiseDev.Notes.onGameStart)
 Events.OnGameStart.Add(ParadiseDev.Notes.onGameStart)
 Events.OnReceiveGlobalModData.Remove(ParadiseDev.Notes.onReceiveGlobalModData)
 Events.OnReceiveGlobalModData.Add(ParadiseDev.Notes.onReceiveGlobalModData)
+
+require "Panels/ParadiseNotesAuditPanel"

@@ -542,6 +542,11 @@ function ParadiseDev.GlobalModData.onClientCommand(module, command, pl, args)
     if module ~= ParadiseDev.GlobalModData.module or not pl or not ParadiseRestore.isAdm(pl) then return end
     local name = args and tostring(args.name or "") or ""
     if name == "" then return end
+    if name == "ParadiseDev_GlobalNotes" then
+        if ParadiseNotesAudit then ParadiseNotesAudit.rejectGeneric(pl, command)
+        else print("[ParadiseNotesAudit] global-note editor request refused: audit unavailable") end
+        return
+    end
     if command == "addTable" then
         ModData.getOrCreate(name)
         ParadiseDev.GlobalModData.sync(pl, name)
