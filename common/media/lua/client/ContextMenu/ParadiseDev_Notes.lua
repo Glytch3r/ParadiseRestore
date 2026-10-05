@@ -58,6 +58,7 @@ end
 
 function ParadiseDev.Notes.getNote(flr)
     if not flr or not flr.getModData then return nil end
+    if flr.hasModData and not flr:hasModData() then return nil end
     return ParadiseDev.Notes.normalizeTag(flr:getModData()[ParadiseDev.Notes.key])
 end
 
@@ -452,8 +453,9 @@ function ParadiseDev.Notes.refresh(force)
         for sy = y - radius, y + radius do
             local sq = cell:getGridSquare(sx, sy, z)
             local flr = sq and sq:getFloor() or nil
-            local key = ParadiseDev.Notes.getFloorKey(flr)
-            if key and ParadiseDev.Notes.getNote(flr) then
+            local note = ParadiseDev.Notes.getNote(flr)
+            local key = note and ParadiseDev.Notes.getFloorKey(flr) or nil
+            if key then
                 ParadiseDev.Notes.cache[key] = flr
                 ParadiseDev.Notes.rememberFloor(flr)
             end
