@@ -194,6 +194,11 @@ option ParadiseZ.isShouldReincarnate
     type = boolean, default = true,
     page = ParadiseZ, translation = ParadiseZ_isShouldReincarnate,
 }
+option ParadiseZ.reloginDelayMins
+{
+    type = integer, min = 0, max = 10080, default = 0,
+    page = ParadiseZ, translation = ParadiseZ_reloginDelayMins,
+}
 option ParadiseZ.ReincarnateKeepSurvivalTime
 {
     type = boolean, default = true,

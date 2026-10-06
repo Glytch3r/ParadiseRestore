@@ -744,6 +744,7 @@ function recovery.onPlayerDeath(pl)
     end
     if isClient and isClient() then
         if pl and pl.isLocalPlayer and pl:isLocalPlayer() then
+            if ParadiseLimbo and ParadiseLimbo.report then ParadiseLimbo.report(0) end
             sendClientCommand(recovery.module, "death", {})
         end
         return
@@ -858,7 +859,12 @@ end
 function recovery.onContinueAsNew(panel)
     recovery.pending = recovery.pending or {}
     recovery.pending[panel.playerIndex] = nil
+    if ParadiseLimbo and ParadiseLimbo.report then ParadiseLimbo.report(2) end
     return recovery.onRespawnHook(panel)
+end
+
+function recovery.onEventRespawn()
+    if ParadiseLimbo and ParadiseLimbo.report then ParadiseLimbo.report(5) end
 end
 
 function recovery.layoutPostDeath(panel)
@@ -948,11 +954,13 @@ function recovery.installHooks()
     recovery.prerenderHook = ISPostDeathUI.prerender
     recovery.renderHook = ISPostDeathUI.render
     recovery.onRespawnHook = ISPostDeathUI.onRespawn
+    recovery.onExitHook = ISPostDeathUI.onExit
+    recovery.onConfirmQuitToDesktopHook = ISPostDeathUI.onConfirmQuitToDesktop
     function ISPostDeathUI:createChildren()
         recovery.createChildrenHook(self)
         self.buttonRespawn:setTitle("Reincarnate")
         self.buttonRespawn:setEnable(recovery.pending and recovery.pending[self.playerIndex] == true)
-        self.buttonEventRespawn = ISButton:new(0, 0, 100, 25, "Event Respawn", self, nil)
+        self.buttonEventRespawn = ISButton:new(0, 0, 100, 25, "Event Respawn", self, recovery.onEventRespawn)
         self:configButton(self.buttonEventRespawn)
         self.buttonEventRespawn:setEnable(false)
         self.buttonEventRespawn:enableDisabledColor()
@@ -975,8 +983,20 @@ function recovery.installHooks()
         return recovery.renderPostDeath(self)
     end
     function ISPostDeathUI:onRespawn()
-        if recovery.pending and recovery.pending[self.playerIndex] and recovery.doReincarnate(self.playerIndex) then return end
+        if recovery.pending and recovery.pending[self.playerIndex] and recovery.doReincarnate(self.playerIndex) then
+            if ParadiseLimbo and ParadiseLimbo.report then ParadiseLimbo.report(1) end
+            return
+        end
+        if ParadiseLimbo and ParadiseLimbo.report then ParadiseLimbo.report(2) end
         return recovery.onRespawnHook(self)
+    end
+    function ISPostDeathUI:onExit()
+        if ParadiseLimbo and ParadiseLimbo.report then ParadiseLimbo.report(3) end
+        return recovery.onExitHook(self)
+    end
+    function ISPostDeathUI:onConfirmQuitToDesktop(button)
+        if button and button.internal == "YES" and ParadiseLimbo and ParadiseLimbo.report then ParadiseLimbo.report(4) end
+        return recovery.onConfirmQuitToDesktopHook(self, button)
     end
 end
 
