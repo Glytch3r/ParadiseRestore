@@ -12,7 +12,7 @@ function ParadiseRestore.addGoldenPistolMounts()
     local itemScrs = ScriptManager.instance:getAllItems()
     for i = 0, itemScrs:size() - 1 do
         local itemScr = itemScrs:get(i)
-        local item = InventoryItemFactory.CreateItem(itemScr:getFullName())
+        local item = instanceItem(itemScr:getFullName())
         if item and instanceof(item, "WeaponPart") then
             local mountOn = item:getMountOn()
             if mountOn:contains(ParadiseRestore.goldenPistolBaseType) and not mountOn:contains(ParadiseRestore.goldenPistolType) then
