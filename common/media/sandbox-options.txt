@@ -214,6 +214,11 @@ option ParadiseZ.isSpawnAtDeathLoc
     type = boolean, default = true,
     page = ParadiseZ, translation = ParadiseZ_isSpawnAtDeathLoc,
 }
+option ParadiseZ.ReincarnateDeathMessages
+{
+    type = string, default = THAT WAS PARADISE.;PARADISE ALWAYS COLLECTS.;ANOTHER SOUL LEAVES PARADISE.;THE CHAIR REMEMBERS.;YOU MADE IT TO PARADISE. BRIEFLY.,
+    page = ParadiseZ, translation = ParadiseZ_ReincarnateDeathMessages,
+}
 
 option ParadiseZ.ShowModdedAdminTag
 {

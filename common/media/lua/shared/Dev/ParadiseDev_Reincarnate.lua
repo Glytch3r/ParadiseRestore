@@ -6,13 +6,11 @@ recovery.module = "ParadiseDevSkillRecovery"
 recovery.storeName = "ParadiseDev_SkillRecovery"
 recovery.deathAudioPaused = recovery.deathAudioPaused or false
 recovery.wideLayoutWidth = 900
-recovery.deathMessages = recovery.deathMessages or {
-    "THAT WAS PARADISE.",
-    "PARADISE ALWAYS COLLECTS.",
-    "ANOTHER SOUL LEAVES PARADISE.",
-    "THE CHAIR REMEMBERS.",
-    "YOU MADE IT TO PARADISE. BRIEFLY.",
-}
+recovery.deathTextures = recovery.deathTextures or {}
+recovery.deathTextureCount = 60
+recovery.deathTextureFrameMs = 30
+recovery.creationInProgress = recovery.creationInProgress or {}
+recovery.deathSubmitted = recovery.deathSubmitted or {}
 
 function recovery.getStore()
     local store = ModData.getOrCreate(recovery.storeName)
@@ -343,6 +341,18 @@ end
 function recovery.isShouldReincarnate()
     local sand = SandboxVars and SandboxVars.ParadiseZ or nil
     return not sand or sand.isShouldReincarnate ~= false
+end
+
+function ParadiseDev.Reincarnate.getDeathMessages()
+    local sand = SandboxVars and SandboxVars.ParadiseZ or nil
+    local str = sand and tostring(sand.ReincarnateDeathMessages or "") or ""
+    local tab = {}
+    for strEntry in string.gmatch(str, "([^;]+)") do
+        strEntry = strEntry:gsub("^%s+", ""):gsub("%s+$", "")
+        if strEntry ~= "" then tab[#tab + 1] = strEntry end
+    end
+    if #tab == 0 then tab[1] = "THAT WAS PARADISE." end
+    return tab
 end
 
 function recovery.setBaseline(pl)
@@ -720,9 +730,47 @@ function recovery.resumeDeathAudio()
     resumeSoundAndMusic()
 end
 
+function ParadiseDev.Reincarnate.removeCreationTransition()
+    if not recovery.creationTransition then return end
+    recovery.creationTransition:removeFromUIManager()
+    recovery.creationTransition = nil
+end
+
+function ParadiseDev.Reincarnate.showCreationTransition()
+    recovery.removeCreationTransition()
+    local panel = ISPanel:new(0, 0, getCore():getScreenWidth(), getCore():getScreenHeight())
+    panel:initialise()
+    panel.background = true
+    panel.backgroundColor = { r = 0, g = 0, b = 0, a = 1 }
+    panel.borderColor = { r = 0, g = 0, b = 0, a = 0 }
+    panel:setAlwaysOnTop(true)
+    panel:addToUIManager()
+    recovery.creationTransition = panel
+end
+
+function ParadiseDev.Reincarnate.setCreationBackground()
+    local panel = CoopCharacterCreation and CoopCharacterCreation.instance or nil
+    if not panel then return end
+    panel.background = true
+    panel.backgroundColor = { r = 0, g = 0, b = 0, a = 1 }
+    panel.borderColor = { r = 0, g = 0, b = 0, a = 0 }
+end
+
+function ParadiseDev.Reincarnate.clearCreationState(plNum)
+    recovery.creationBlackout = false
+    if plNum ~= nil then
+        recovery.creationInProgress[plNum] = nil
+    else
+        recovery.creationInProgress = {}
+    end
+    recovery.removeCreationTransition()
+end
+
 function recovery.onCreatePlayer(playerNum, pl)
     if isServer and isServer() then return end
     pl = pl or (getPlayer and getPlayer() or nil)
+    ParadiseDev.Reincarnate.clearCreationState(playerNum)
+    recovery.deathSubmitted[playerNum] = nil
     recovery.resumeDeathAudio()
     recovery.setBaseline(pl)
     if not recovery.isShouldReincarnate() then
@@ -738,9 +786,13 @@ end
 
 function recovery.onPlayerDeath(pl)
     recovery.pauseDeathAudio(pl)
+    if not pl then return end
+    local plNum = pl:getPlayerNum()
+    if recovery.creationInProgress[plNum] or recovery.deathSubmitted[plNum] then return end
+    recovery.deathSubmitted[plNum] = true
     if pl and recovery.isShouldReincarnate() then
         recovery.pending = recovery.pending or {}
-        recovery.pending[pl:getPlayerNum()] = true
+        recovery.pending[plNum] = true
     end
     if isClient and isClient() then
         if pl and pl.isLocalPlayer and pl:isLocalPlayer() then
@@ -859,12 +911,25 @@ end
 function recovery.onContinueAsNew(panel)
     recovery.pending = recovery.pending or {}
     recovery.pending[panel.playerIndex] = nil
+    recovery.creationBlackout = true
+    recovery.creationInProgress[panel.playerIndex] = true
     if ParadiseLimbo and ParadiseLimbo.report then ParadiseLimbo.report(2) end
-    return recovery.onRespawnHook(panel)
+    local result = recovery.onRespawnHook(panel)
+    recovery.setCreationBackground()
+    return result
 end
 
 function recovery.onEventRespawn()
     if ParadiseLimbo and ParadiseLimbo.report then ParadiseLimbo.report(5) end
+end
+
+function recovery.getDeathTexture()
+    local now = getTimestampMs and getTimestampMs() or os.time() * 1000
+    local frame = math.floor(now / recovery.deathTextureFrameMs) % recovery.deathTextureCount + 1
+    if not recovery.deathTextures[frame] then
+        recovery.deathTextures[frame] = getTexture("media/ui/Paradise/DeathAnim/DeathAnim_" .. string.format("%03d", frame) .. ".png")
+    end
+    return recovery.deathTextures[frame]
 end
 
 function recovery.layoutPostDeath(panel)
@@ -933,7 +998,8 @@ function recovery.renderPostDeath(panel)
     local reservedTextHeight = minimal and 38 or getTextManager():getFontHeight(UIFont.Large) + getTextManager():getFontHeight(UIFont.Small) * #(panel.lines or {}) + 22
     local textureSize = math.floor(math.min(width * (compact and 0.28 or 0.24), contentHeight - reservedTextHeight, 360))
     textureSize = math.max(16, textureSize)
-    if panel.deathTexture then panel:drawTextureScaled(panel.deathTexture, math.floor((width - textureSize) / 2), textureY, textureSize, textureSize, 1, 1, 1, 1) end
+    local deathTexture = recovery.getDeathTexture()
+    if deathTexture then panel:drawTextureScaled(deathTexture, math.floor((width - textureSize) / 2), textureY, textureSize, textureSize, 1, 1, 1, 1) end
     local titleY = textureY + textureSize + math.max(8, math.floor(height * 0.015))
     local titleFont = minimal and UIFont.Small or UIFont.Large
     panel:drawTextCentre(panel.deathMessage, width / 2, titleY, 1, 1, 1, 1, titleFont)
@@ -956,6 +1022,8 @@ function recovery.installHooks()
     recovery.onRespawnHook = ISPostDeathUI.onRespawn
     recovery.onExitHook = ISPostDeathUI.onExit
     recovery.onConfirmQuitToDesktopHook = ISPostDeathUI.onConfirmQuitToDesktop
+    recovery.coopAcceptHook = CoopCharacterCreation and CoopCharacterCreation.accept or nil
+    recovery.coopCancelHook = CoopCharacterCreation and CoopCharacterCreation.cancel or nil
     function ISPostDeathUI:createChildren()
         recovery.createChildrenHook(self)
         self.buttonRespawn:setTitle("Reincarnate")
@@ -968,16 +1036,16 @@ function recovery.installHooks()
         self.buttonContinue = ISButton:new(0, 0, 100, 25, "Continue as New Character", self, recovery.onContinueAsNew)
         self:configButton(self.buttonContinue)
         self:addChild(self.buttonContinue)
-        self.deathTexture = getTexture("media/ui/Progress/MaleWalk2.png")
-        self.deathMessage = recovery.deathMessages[ZombRand(#recovery.deathMessages) + 1]
+        local tab = ParadiseDev.Reincarnate.getDeathMessages()
+        self.deathMessage = tab[ZombRand(#tab) + 1]
         recovery.layoutPostDeath(self)
     end
     function ISPostDeathUI:prerender()
+        self:drawRect(0, 0, self.screenWidth, self.screenHeight, 1, 0, 0, 0)
         recovery.prerenderHook(self)
         recovery.layoutPostDeath(self)
         self.buttonEventRespawn:setVisible(self.buttonRespawn:isVisible())
         self.buttonContinue:setVisible(self.buttonRespawn:isVisible())
-        self:drawRect(0, 0, self.screenWidth, self.screenHeight, 1, 0, 0, 0)
     end
     function ISPostDeathUI:render()
         return recovery.renderPostDeath(self)
@@ -991,12 +1059,39 @@ function recovery.installHooks()
         return recovery.onRespawnHook(self)
     end
     function ISPostDeathUI:onExit()
+        ParadiseDev.Reincarnate.clearCreationState()
+        recovery.resumeDeathAudio()
+        if CoopCharacterCreation and CoopCharacterCreation.setVisibleAllUI then CoopCharacterCreation.setVisibleAllUI(true) end
         if ParadiseLimbo and ParadiseLimbo.report then ParadiseLimbo.report(3) end
         return recovery.onExitHook(self)
     end
     function ISPostDeathUI:onConfirmQuitToDesktop(button)
-        if button and button.internal == "YES" and ParadiseLimbo and ParadiseLimbo.report then ParadiseLimbo.report(4) end
+        if button and button.internal == "YES" then
+            ParadiseDev.Reincarnate.clearCreationState()
+            recovery.resumeDeathAudio()
+            if CoopCharacterCreation and CoopCharacterCreation.setVisibleAllUI then CoopCharacterCreation.setVisibleAllUI(true) end
+            if ParadiseLimbo and ParadiseLimbo.report then ParadiseLimbo.report(4) end
+        end
         return recovery.onConfirmQuitToDesktopHook(self, button)
+    end
+    if recovery.coopAcceptHook then
+        function CoopCharacterCreation:accept()
+            recovery.showCreationTransition()
+            local result = recovery.coopAcceptHook(self)
+            if CoopCharacterCreation.instance then
+                recovery.removeCreationTransition()
+            else
+                recovery.creationBlackout = false
+            end
+            return result
+        end
+    end
+    if recovery.coopCancelHook then
+        function CoopCharacterCreation:cancel()
+            local result = recovery.coopCancelHook(self)
+            ParadiseDev.Reincarnate.clearCreationState(self.playerIndex)
+            return result
+        end
     end
 end
 

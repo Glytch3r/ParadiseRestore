@@ -609,6 +609,14 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
             "media/ui/Paradise/ContextIcon.png"
         )
     end
+    if ParadiseLimboRecords and ParadiseLimboRecords.OpenPanel then
+        ParadiseDev.Context.addOption(
+            panelsMenu,
+            "Paradise Limbo Records",
+            ParadiseLimboRecords.OpenPanel,
+            "media/ui/Paradise/ContextIcon.png"
+        )
+    end
     if ParadiseDev.Zones and ParadiseDev.Zones.OpenPanel then
         ParadiseDev.Context.addOption(
             panelsMenu,
