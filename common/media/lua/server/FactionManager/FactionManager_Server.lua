@@ -117,17 +117,28 @@ function FactionManager.getColor(faction)
 end
 
 function FactionManager.updateRecord(record, faction)
-    record.name = faction:getName()
-    record.owner = faction:getOwner()
-    record.members = FactionManager.getMembers(faction)
-    record.tag = faction:getTag()
-    record.color = FactionManager.getColor(faction)
+    local name, owner, tag = faction:getName(), faction:getOwner(), faction:getTag()
+    local members, color = FactionManager.getMembers(faction), FactionManager.getColor(faction)
+    local sameMembers = type(record.members) == "table" and #record.members == #members
+    if sameMembers then
+        for i, member in ipairs(members) do
+            if record.members[i] ~= member then sameMembers = false; break end
+        end
+    end
+    local sameColor = record.color and record.color.r == color.r
+        and record.color.g == color.g and record.color.b == color.b
+    local state = FactionManager.states[record.state] and record.state or "active"
+    local changed = record.name ~= name or record.owner ~= owner or record.tag ~= tag
+        or not sameMembers or not sameColor or record.note == nil or record.labels == nil
+        or record.state ~= state
+    record.name, record.owner, record.tag = name, owner, tag
+    if not sameMembers then record.members = members end
+    if not sameColor then record.color = color end
     record.note = record.note or ""
     record.labels = record.labels or {}
-    record.state = FactionManager.states[record.state] and record.state or "active"
-    return record
+    record.state = state
+    return record, changed
 end
-
 function FactionManager.newRecord(faction, createdAt)
     local record = {
         createdAt = createdAt,
@@ -148,11 +159,12 @@ function FactionManager.setRecordState(record, state, reason)
     return true
 end
 
-function FactionManager.reconcile()
+function FactionManager.reconcile(onlyChanges)
     local data = FactionManager.getData()
     local current = {}
     local factions = Faction.getFactions()
     local firstInstall = data.initialized ~= true
+    local changed = firstInstall
     for int = 0, factions:size() - 1 do
         local faction = factions:get(int)
         local name = faction:getName()
@@ -161,11 +173,13 @@ function FactionManager.reconcile()
         if not record and not FactionManager.pendingRenames[name] and not FactionManager.pendingDeletes[name] then
             record = FactionManager.newRecord(faction, firstInstall and nil or FactionManager.now())
             data.factions[name] = record
+            changed = true
             if not firstInstall then
                 FactionManager.log(name, "active", tostring(faction:getOwner()) .. " created " .. name)
             end
         elseif record then
-            FactionManager.updateRecord(record, faction)
+            local _, updated = FactionManager.updateRecord(record, faction)
+            changed = updated or changed
         end
     end
     for oldName, newName in pairs(FactionManager.pendingRenames) do
@@ -174,14 +188,22 @@ function FactionManager.reconcile()
     for name in pairs(FactionManager.pendingDeletes) do
         if not current[name] then FactionManager.pendingDeletes[name] = nil end
     end
+    -- A rename moves our record before the client acknowledges the vanilla rename.
+    -- Protect its destination as well as its source during that pending interval.
+    local pendingDestinations = {}
+    for _, newName in pairs(FactionManager.pendingRenames) do pendingDestinations[newName] = true end
     for name, record in pairs(data.factions) do
-        if record.state ~= "deleted" and not current[name] and not FactionManager.pendingRenames[name] then
+        if record.state ~= "deleted" and not current[name] and not FactionManager.pendingRenames[name]
+            and not pendingDestinations[name] then
             record.deletedAt = FactionManager.now()
-            FactionManager.setRecordState(record, "deleted", name .. " disbanded")
+            changed = FactionManager.setRecordState(record, "deleted", name .. " disbanded") or changed
         end
     end
     data.initialized = true
-    ModData.transmit(FactionManager.storeName)
+    -- Requests and mutation paths retain their existing explicit refresh semantics.
+    -- The periodic reconciliation publishes only discovered changes.
+    if changed or not onlyChanges then ModData.transmit(FactionManager.storeName) end
+    return changed
 end
 
 function FactionManager.getInactiveSeconds()
@@ -199,7 +221,12 @@ function FactionManager.checkInactivity()
             changed = FactionManager.setRecordState(record, "inactive", record.name .. " inactivity label") or changed
         end
     end
-    if changed then FactionManager.broadcastState() end
+    if changed then
+        -- Publish the notification independently of admin panel subscribers.
+        -- Periodic reconciliation no longer retransmits unchanged records.
+        ModData.transmit(FactionManager.storeName)
+        FactionManager.broadcastState()
+    end
 end
 Events.EveryHours.Remove(FactionManager.checkInactivity)
 Events.EveryHours.Add(FactionManager.checkInactivity)
@@ -451,7 +478,7 @@ function FactionManager.onTick()
     FactionManager.tick = FactionManager.tick + 1
     if FactionManager.tick < 300 then return end
     FactionManager.tick = 0
-    FactionManager.reconcile()
+    FactionManager.reconcile(true)
 end
 Events.OnTick.Remove(FactionManager.onTick)
 Events.OnTick.Add(FactionManager.onTick)

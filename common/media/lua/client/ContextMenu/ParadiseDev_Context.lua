@@ -1,3 +1,4 @@
+require "ParadiseProductionDiagnostics"
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Context = ParadiseDev.Context or {}
 ParadiseZ = ParadiseZ or {}
@@ -575,6 +576,7 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     if not pl or not pl:isAlive() or not ParadiseRestore.isAdm(pl) then
         return
     end
+    local diagnostics = ParadiseProductionDiagnostics.isEnabled()
     local main = context:addOptionOnTop("ParadiseZ")
     main.iconTexture = getTexture("media/ui/Paradise/ContextIcon.png")
     local menu = ISContextMenu:getNew(context)
@@ -591,7 +593,7 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
         zoneVisuals.iconTexture = getTexture("media/ui/Paradise/ZoneContextIcon.png")
     end
 
-    if ParadiseDev.Reincarnate and ParadiseDev.Reincarnate.addTestOptions then
+    if diagnostics and ParadiseDev.Reincarnate and ParadiseDev.Reincarnate.addTestOptions then
         ParadiseDev.Reincarnate.addTestOptions(menu, pl)
     end
 
@@ -693,12 +695,14 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
                 "media/ui/Paradise/ContextIcon.png"
             )
         end
-        ParadiseDev.Context.addOption(
-            panelsMenu,
-            "Mod Active Check",
-            ParadiseDev.Panels.ModActiveCheck.OpenPanel,
-            "media/ui/Paradise/ContextIcon.png"
-        )
+        if diagnostics then
+            ParadiseDev.Context.addOption(
+                panelsMenu,
+                "Mod Active Check",
+                ParadiseDev.Panels.ModActiveCheck.OpenPanel,
+                "media/ui/Paradise/ContextIcon.png"
+            )
+        end
         ParadiseDev.Context.addOption(
             panelsMenu,
             "Paradise Playtime Checker",
@@ -706,12 +710,14 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
             "media/ui/Paradise/ContextIcon.png"
         )
 
-        ParadiseDev.Context.addOption(
-            panelsMenu,
-            "Lua Reset Tool",
-            LuaResetTool.OpenPanel,
-            "media/ui/Paradise/ContextIcon.png"
-        )
+        if diagnostics then
+            ParadiseDev.Context.addOption(
+                panelsMenu,
+                "Lua Reset Tool",
+                LuaResetTool.OpenPanel,
+                "media/ui/Paradise/ContextIcon.png"
+            )
+        end
 
         ParadiseDev.Context.addOption(
             panelsMenu,
@@ -720,7 +726,7 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
             "media/ui/Paradise/ContextIcon.png"
         )
 
-        if getCore():getDebug() then
+        if diagnostics and getCore():getDebug() then
             ParadiseDev.Context.addOption(
                 panelsMenu,
                 "AnimMonitor",
@@ -810,33 +816,35 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
         pl
     )
 
-    local rateOfFireRoot = menu:addOption("Rate of Fire Test")
-    rateOfFireRoot.iconTexture = getTexture("media/ui/LootableMaps/map_bullets.png")
-    local rateOfFireMenu = ISContextMenu:getNew(context)
-    menu:addSubMenu(rateOfFireRoot, rateOfFireMenu)
-    ParadiseDev.Context.addOption(
-        rateOfFireMenu,
-        "RPS (rounds per sec)",
-        ParadiseDev.Context.setRateOfFireTestMode,
-        "media/ui/LootableMaps/map_bullets.png",
-        "RPS"
-    )
-    ParadiseDev.Context.addOption(
-        rateOfFireMenu,
-        "RPM (rounds per min)",
-        ParadiseDev.Context.setRateOfFireTestMode,
-        "media/ui/LootableMaps/map_bullets.png",
-        "RPM"
-    )
-    ParadiseDev.Context.addOption(
-        rateOfFireMenu,
-        "Disable",
-        ParadiseDev.Context.setRateOfFireTestMode,
-        "media/ui/LootableMaps/map_bullets.png",
-        "Disable"
-    )
+    if diagnostics then
+        local rateOfFireRoot = menu:addOption("Rate of Fire Test")
+        rateOfFireRoot.iconTexture = getTexture("media/ui/LootableMaps/map_bullets.png")
+        local rateOfFireMenu = ISContextMenu:getNew(context)
+        menu:addSubMenu(rateOfFireRoot, rateOfFireMenu)
+        ParadiseDev.Context.addOption(
+            rateOfFireMenu,
+            "RPS (rounds per sec)",
+            ParadiseDev.Context.setRateOfFireTestMode,
+            "media/ui/LootableMaps/map_bullets.png",
+            "RPS"
+        )
+        ParadiseDev.Context.addOption(
+            rateOfFireMenu,
+            "RPM (rounds per min)",
+            ParadiseDev.Context.setRateOfFireTestMode,
+            "media/ui/LootableMaps/map_bullets.png",
+            "RPM"
+        )
+        ParadiseDev.Context.addOption(
+            rateOfFireMenu,
+            "Disable",
+            ParadiseDev.Context.setRateOfFireTestMode,
+            "media/ui/LootableMaps/map_bullets.png",
+            "Disable"
+        )
+    end
 
-    if ParadiseDev.Visual then
+    if diagnostics and ParadiseDev.Visual then
         local visualRoot = menu:addOption("Visual Tests")
         visualRoot.iconTexture = getTexture("media/ui/Paradise/ContextIcon.png")
         local visualMenu = ISContextMenu:getNew(context)
