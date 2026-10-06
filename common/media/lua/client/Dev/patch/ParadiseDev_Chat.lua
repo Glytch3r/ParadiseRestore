@@ -134,6 +134,9 @@ function ParadiseDev.Chat.isHandledCommand(command)
 end
 
 function ParadiseDev.Chat.onCommandEntered(self)
+    if ParadiseRestore.isCageRestricted and ParadiseRestore.isCageRestricted() then
+        return ParadiseRestore.onCageChatEntered(self)
+    end
     local chat = ISChat.instance
     local command = chat and chat.textEntry and chat.textEntry:getText() or nil
     if ParadiseDev.Chat.isHandledCommand(command) then

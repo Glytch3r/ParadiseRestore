@@ -2,7 +2,7 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.TraitSyncer = ParadiseDev.TraitSyncer or {}
 local Syncer = ParadiseDev.TraitSyncer
 Syncer.StoreName = "ParadiseDev_TraitSyncer"
-Syncer.Traits = {"ParadiseDev:TheRangeStaff", "ParadiseDev:Caged", "ParadiseDev:InjuredPvP", "ParadiseDev:PvE", "ParadiseDev:Reincarnate"}
+Syncer.Traits = {"ParadiseDev:TheRangeStaff", "ParadiseDev:Caged", "ParadiseDev:InjuredPvP", "ParadiseDev:PvE"}
 function Syncer.getStore()
     local store = ModData.getOrCreate(Syncer.StoreName); store.players = store.players or {}; return store
 end

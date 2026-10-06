@@ -466,6 +466,7 @@
   "Sandbox_ParadiseZ_FactionInactiveDays_tooltip": "Real-world days without a qualifying faction login before the faction is marked inactive.",
   "Sandbox_ParadiseZ_FactionActivityTracksMembers": "Faction Activity Tracks Members",
   "Sandbox_ParadiseZ_FactionActivityTracksMembers_tooltip": "When enabled, any faction member login refreshes faction activity. When disabled, only the faction owner login refreshes activity.",
+  "Sandbox_ParadiseZ_isShouldReincarnate": "Enable Reincarnation",
   "Sandbox_ParadiseZ_ReincarnateKeepSurvivalTime": "Reincarnate Keeps Survival Time",
   "Sandbox_ParadiseZ_ReincarnateKeepZombieKills": "Reincarnate Keeps Zombie Kills",
   "Sandbox_ParadiseZ_isSpawnAtDeathLoc": "Reincarnate At Death Location"

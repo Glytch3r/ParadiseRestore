@@ -4,7 +4,15 @@ ParadiseDev.Reincarnate = ParadiseDev.Reincarnate or {}
 local recovery = ParadiseDev.Reincarnate
 recovery.module = "ParadiseDevSkillRecovery"
 recovery.storeName = "ParadiseDev_SkillRecovery"
-recovery.trait = "ParadiseDev:Reincarnate"
+recovery.deathAudioPaused = recovery.deathAudioPaused or false
+recovery.wideLayoutWidth = 900
+recovery.deathMessages = recovery.deathMessages or {
+    "THAT WAS PARADISE.",
+    "PARADISE ALWAYS COLLECTS.",
+    "ANOTHER SOUL LEAVES PARADISE.",
+    "THE CHAIR REMEMBERS.",
+    "YOU MADE IT TO PARADISE. BRIEFLY.",
+}
 
 function recovery.getStore()
     local store = ModData.getOrCreate(recovery.storeName)
@@ -332,14 +340,9 @@ function recovery.findPlayer(user, fallback)
     return fallback and recovery.getUsername(fallback) == user and fallback or nil
 end
 
-function recovery.getReincarnateTrait()
-    if not CharacterTrait or not ResourceLocation then return nil end
-    return CharacterTrait.get(ResourceLocation.of(recovery.trait))
-end
-
-function recovery.hasReincarnate(pl)
-    local trait = recovery.getReincarnateTrait()
-    return pl and trait and pl.hasTrait and pl:hasTrait(trait) or false
+function recovery.isShouldReincarnate()
+    local sand = SandboxVars and SandboxVars.ParadiseZ or nil
+    return not sand or sand.isShouldReincarnate ~= false
 end
 
 function recovery.setBaseline(pl)
@@ -447,14 +450,14 @@ function recovery.onClientCommand(module, command, sender, args)
         recovery.saveDeath(target)
     elseif command == "retrieve" and ParadiseRestore.isAdm(sender) then
         recovery.retrieve(target)
-    elseif command == "autoStart" and recovery.hasReincarnate(sender) then
+    elseif command == "autoStart" and recovery.isShouldReincarnate() then
         recovery.setBaseline(sender)
         local skills = recovery.getPlan(sender)
         local lifeCount = recovery.getLifeCount(sender)
         if isServer and isServer() then sendServerCommand(sender, recovery.module, "recoveryPlan", { skills = skills, lifeCount = lifeCount }) else recovery.queueRecovery(sender, skills, lifeCount) end
-    elseif command == "recoverSkill" and recovery.hasReincarnate(sender) and args and args.perkID then
+    elseif command == "recoverSkill" and recovery.isShouldReincarnate() and args and args.perkID then
         recovery.applySkill(sender, args.perkID)
-    elseif command == "autoComplete" and recovery.hasReincarnate(sender) then
+    elseif command == "autoComplete" and recovery.isShouldReincarnate() then
         recovery.completeRecovery(sender, args and args.lifeCount)
     elseif command == "death" then
         recovery.recordDeath(sender)
@@ -636,10 +639,6 @@ function recovery.requestOption(_, command, username, key)
     recovery.request(command, username)
 end
 
-function recovery.addTraitOption(_, pl)
-    ParadiseDev.setTrait(recovery.trait, true, pl)
-end
-
 function recovery.retrieveOption(_, pl)
     local record = recovery.getRecord(pl)
     recovery.applyRecordExact(pl, record)
@@ -658,7 +657,6 @@ function recovery.addTestOptions(menu, pl)
     local root = menu:addOption("ReincarnateTest")
     local sub = ISContextMenu:getNew(menu)
     menu:addSubMenu(root, sub)
-    sub:addOption("Add Reincarnate Trait", nil, recovery.addTraitOption, pl)
     sub:addOption("doReincarnate", nil, recovery.retrieveOption, pl)
     sub:addOption("Save Record", nil, recovery.requestOption, "saveRecord", recovery.getUsername(pl))
     sub:addOption("randomizeName", nil, recovery.randomizeNameOption, pl)
@@ -708,11 +706,26 @@ function recovery.onTick()
     queue.delay = 30
 end
 
+function recovery.pauseDeathAudio(pl)
+    if isServer and isServer() then return end
+    if not pl or not pl.isLocalPlayer or not pl:isLocalPlayer() then return end
+    if recovery.deathAudioPaused then return end
+    recovery.deathAudioPaused = true
+    pauseSoundAndMusic()
+end
+
+function recovery.resumeDeathAudio()
+    if not recovery.deathAudioPaused then return end
+    recovery.deathAudioPaused = false
+    resumeSoundAndMusic()
+end
+
 function recovery.onCreatePlayer(playerNum, pl)
     if isServer and isServer() then return end
     pl = pl or (getPlayer and getPlayer() or nil)
+    recovery.resumeDeathAudio()
     recovery.setBaseline(pl)
-    if not recovery.hasReincarnate(pl) then
+    if not recovery.isShouldReincarnate() then
         return
     end
     recovery.applyStats(pl)
@@ -724,7 +737,8 @@ function recovery.onCreatePlayer(playerNum, pl)
 end
 
 function recovery.onPlayerDeath(pl)
-    if pl and recovery.hasReincarnate(pl) then
+    recovery.pauseDeathAudio(pl)
+    if pl and recovery.isShouldReincarnate() then
         recovery.pending = recovery.pending or {}
         recovery.pending[pl:getPlayerNum()] = true
     end
@@ -735,6 +749,86 @@ function recovery.onPlayerDeath(pl)
         return
     end
     recovery.recordDeath(pl)
+end
+
+function recovery.getPlayerByUsername(username)
+    if not username then return nil end
+    local target = getPlayerFromUsername and getPlayerFromUsername(username) or nil
+    if target then return target end
+    local players = getOnlinePlayers and getOnlinePlayers() or nil
+    if not players then return nil end
+    username = string.lower(tostring(username))
+    for index = 0, players:size() - 1 do
+        local pl = players:get(index)
+        local user = recovery.getUsername(pl)
+        if user and string.lower(user) == username then return pl end
+    end
+    return nil
+end
+
+function recovery.getCagedRespawnLoc(username)
+    local pl = recovery.getPlayerByUsername(username)
+    local engine = ParadiseDev and ParadiseDev.Zones and ParadiseDev.Zones.Engine or nil
+    if not pl or not engine or not ParadiseDev.Cage or not ParadiseDev.Cage.isCaged or not ParadiseDev.Cage.isCaged(pl) then return nil end
+    local steamID = engine.playerSteamId and engine.playerSteamId(pl) or nil
+    local zoneID = steamID and engine.cageAssignments and engine.cageAssignments[steamID] or nil
+    local zone = zoneID and engine.zones and engine.zones[zoneID] or nil
+    if not zone and engine.nearestCageZone then zone = engine.nearestCageZone(pl) end
+    if not zone then return nil end
+    local point = engine.getCageRebound and engine.getCageRebound(pl, zone) or nil
+    if point then return point.x, point.y, point.z end
+    local region = engine.nearestRegion and engine.nearestRegion(zone, pl:getX(), pl:getY()) or nil
+    if not region then return nil end
+    local x, y = engine.regionCenter(region)
+    local z = zone.zMode == "floor" and zone.zMin or pl:getZ()
+    return x, y, z
+end
+
+function recovery.getLoreEventRespawnLoc(username)
+    --[[
+    LoreEvents respawn condition and location resolver goes here when that system is written.
+    --]]
+    return nil
+end
+
+function recovery.getSafehouseRespawnLoc(username)
+    local safehouse = username and SafeHouse and SafeHouse.hasSafehouse and SafeHouse.hasSafehouse(username) or nil
+    if not safehouse then return nil end
+    return safehouse:getX() + safehouse:getW() / 2, safehouse:getY() + safehouse:getH() / 2, 0
+end
+
+function recovery.getServerRespawnLoc()
+    local options = getServerOptions and getServerOptions() or nil
+    local value = options and options.getOption and options:getOption("SpawnPoint") or nil
+    local xyz = value and value:split(",") or nil
+    if not xyz or #xyz ~= 3 then return nil end
+    local x, y, z = tonumber(xyz[1]), tonumber(xyz[2]), tonumber(xyz[3])
+    if not x or not y or not z or x == 0 and y == 0 then return nil end
+    return x, y, z
+end
+
+function recovery.getVanillaRespawnLoc()
+    local regions = SpawnRegionMgr and SpawnRegionMgr.getSpawnRegions and SpawnRegionMgr.getSpawnRegions() or nil
+    local region = regions and regions[1] or nil
+    local points = region and region.points or nil
+    local spawn = points and (points.unemployed or points[CharacterProfession and CharacterProfession.UNEMPLOYED and CharacterProfession.UNEMPLOYED:getName()]) or nil
+    if not spawn or #spawn == 0 then return nil end
+    local point = spawn[ZombRand(#spawn) + 1]
+    local x = point.worldX and point.worldX * 300 + point.posX or point.posX
+    local y = point.worldY and point.worldY * 300 + point.posY or point.posY
+    return x, y, point.posZ or 0
+end
+
+function recovery.getRespawnLoc(username)
+    local x, y, z = recovery.getCagedRespawnLoc(username)
+    if x then return x, y, z end
+    x, y, z = recovery.getLoreEventRespawnLoc(username)
+    if x then return x, y, z end
+    x, y, z = recovery.getSafehouseRespawnLoc(username)
+    if x then return x, y, z end
+    x, y, z = recovery.getServerRespawnLoc()
+    if x then return x, y, z end
+    return recovery.getVanillaRespawnLoc()
 end
 
 function recovery.doReincarnate(plNum)
@@ -761,14 +855,124 @@ function recovery.doReincarnate(plNum)
     return true
 end
 
+function recovery.onContinueAsNew(panel)
+    recovery.pending = recovery.pending or {}
+    recovery.pending[panel.playerIndex] = nil
+    return recovery.onRespawnHook(panel)
+end
+
+function recovery.layoutPostDeath(panel)
+    local width = panel.screenWidth
+    local height = panel.screenHeight
+    panel:setX(panel.screenX)
+    panel:setY(panel.screenY)
+    panel:setWidth(width)
+    panel:setHeight(height)
+    local margin = math.max(12, math.floor(math.min(width, height) * 0.025))
+    local normalButtonHgt = math.max(28, getTextManager():getFontHeight(UIFont.Small) + 12)
+    local buttonHgt = normalButtonHgt
+    local buttons = { panel.buttonRespawn, panel.buttonEventRespawn, panel.buttonContinue, panel.buttonExit, panel.buttonQuit }
+    if width >= recovery.wideLayoutWidth and height >= 500 then
+        local gap = margin
+        local primaryWidth = math.min(260, math.floor((width - margin * 4) / 3))
+        local primaryTotal = primaryWidth * 3 + gap * 2
+        local primaryX = math.floor((width - primaryTotal) / 2)
+        local primaryY = height - buttonHgt * 2 - margin * 2
+        for index = 1, 3 do
+            local button = buttons[index]
+            button:setX(primaryX + (index - 1) * (primaryWidth + gap))
+            button:setY(primaryY)
+            button:setWidth(primaryWidth)
+            button:setHeight(buttonHgt)
+        end
+        local secondaryWidth = math.min(220, math.floor((width - margin * 3) / 2))
+        local secondaryX = math.floor((width - secondaryWidth * 2 - gap) / 2)
+        for index = 4, 5 do
+            local button = buttons[index]
+            button:setX(secondaryX + (index - 4) * (secondaryWidth + gap))
+            button:setY(primaryY + buttonHgt + margin)
+            button:setWidth(secondaryWidth)
+            button:setHeight(buttonHgt)
+        end
+    else
+        local buttonWidth = math.max(1, math.min(width - margin * 2, 420))
+        local gap = height < 350 and 4 or math.max(4, math.floor(margin / 2))
+        local buttonArea = height < 350 and math.floor(height * 0.58) or height - margin * 2
+        buttonHgt = math.max(18, math.min(normalButtonHgt, math.floor((buttonArea - gap * (#buttons - 1)) / #buttons)))
+        local totalHeight = buttonHgt * #buttons + gap * (#buttons - 1)
+        local buttonX = math.floor((width - buttonWidth) / 2)
+        local buttonY = height - totalHeight - margin
+        for index, button in ipairs(buttons) do
+            button:setX(buttonX)
+            button:setY(buttonY + (index - 1) * (buttonHgt + gap))
+            button:setWidth(buttonWidth)
+            button:setHeight(buttonHgt)
+        end
+    end
+    panel.deathContentBottom = buttons[1]:getY() - margin
+end
+
+function recovery.renderPostDeath(panel)
+    ISPanelJoypad.render(panel)
+    if panel.quitToDesktopDialog and panel.quitToDesktopDialog:isReallyVisible() then
+        panel:clearStencilRect()
+        return
+    end
+    local width = panel.screenWidth
+    local height = panel.screenHeight
+    local compact = width < recovery.wideLayoutWidth or height < 500
+    local textureY = math.max(16, math.floor(height * (compact and 0.06 or 0.08)))
+    local contentHeight = math.max(48, (panel.deathContentBottom or height * 0.65) - textureY)
+    local minimal = contentHeight < 190
+    local reservedTextHeight = minimal and 38 or getTextManager():getFontHeight(UIFont.Large) + getTextManager():getFontHeight(UIFont.Small) * #(panel.lines or {}) + 22
+    local textureSize = math.floor(math.min(width * (compact and 0.28 or 0.24), contentHeight - reservedTextHeight, 360))
+    textureSize = math.max(16, textureSize)
+    if panel.deathTexture then panel:drawTextureScaled(panel.deathTexture, math.floor((width - textureSize) / 2), textureY, textureSize, textureSize, 1, 1, 1, 1) end
+    local titleY = textureY + textureSize + math.max(8, math.floor(height * 0.015))
+    local titleFont = minimal and UIFont.Small or UIFont.Large
+    panel:drawTextCentre(panel.deathMessage, width / 2, titleY, 1, 1, 1, 1, titleFont)
+    if not minimal then
+        local lineY = titleY + getTextManager():getFontHeight(titleFont) + 8
+        for _, line in ipairs(panel.lines or {}) do
+            panel:drawTextCentre(line, width / 2, lineY, 0.85, 0.85, 0.85, 1, UIFont.Small)
+            lineY = lineY + getTextManager():getFontHeight(UIFont.Small) + 2
+        end
+    end
+    panel:clearStencilRect()
+end
+
 function recovery.installHooks()
     if not ISPostDeathUI or recovery.hooksInstalled then return end
     recovery.hooksInstalled = true
     recovery.createChildrenHook = ISPostDeathUI.createChildren
+    recovery.prerenderHook = ISPostDeathUI.prerender
+    recovery.renderHook = ISPostDeathUI.render
     recovery.onRespawnHook = ISPostDeathUI.onRespawn
     function ISPostDeathUI:createChildren()
         recovery.createChildrenHook(self)
-        if recovery.pending and recovery.pending[self.playerIndex] then self.buttonRespawn:setTitle("Reincarnate") end
+        self.buttonRespawn:setTitle("Reincarnate")
+        self.buttonRespawn:setEnable(recovery.pending and recovery.pending[self.playerIndex] == true)
+        self.buttonEventRespawn = ISButton:new(0, 0, 100, 25, "Event Respawn", self, nil)
+        self:configButton(self.buttonEventRespawn)
+        self.buttonEventRespawn:setEnable(false)
+        self.buttonEventRespawn:enableDisabledColor()
+        self:addChild(self.buttonEventRespawn)
+        self.buttonContinue = ISButton:new(0, 0, 100, 25, "Continue as New Character", self, recovery.onContinueAsNew)
+        self:configButton(self.buttonContinue)
+        self:addChild(self.buttonContinue)
+        self.deathTexture = getTexture("media/ui/Progress/MaleWalk2.png")
+        self.deathMessage = recovery.deathMessages[ZombRand(#recovery.deathMessages) + 1]
+        recovery.layoutPostDeath(self)
+    end
+    function ISPostDeathUI:prerender()
+        recovery.prerenderHook(self)
+        recovery.layoutPostDeath(self)
+        self.buttonEventRespawn:setVisible(self.buttonRespawn:isVisible())
+        self.buttonContinue:setVisible(self.buttonRespawn:isVisible())
+        self:drawRect(0, 0, self.screenWidth, self.screenHeight, 1, 0, 0, 0)
+    end
+    function ISPostDeathUI:render()
+        return recovery.renderPostDeath(self)
     end
     function ISPostDeathUI:onRespawn()
         if recovery.pending and recovery.pending[self.playerIndex] and recovery.doReincarnate(self.playerIndex) then return end

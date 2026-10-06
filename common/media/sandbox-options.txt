@@ -189,6 +189,11 @@ option ParadiseZ.ShowPvETag
 	type = boolean, default = true,
 	page = ParadiseZ, translation = ParadiseZ_ShowPvETag,
 }
+option ParadiseZ.isShouldReincarnate
+{
+    type = boolean, default = true,
+    page = ParadiseZ, translation = ParadiseZ_isShouldReincarnate,
+}
 option ParadiseZ.ReincarnateKeepSurvivalTime
 {
     type = boolean, default = true,

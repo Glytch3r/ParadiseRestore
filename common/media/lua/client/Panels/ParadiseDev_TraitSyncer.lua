@@ -12,7 +12,6 @@ Syncer.Traits = {
     "ParadiseDev:Caged",
     "ParadiseDev:InjuredPvP",
     "ParadiseDev:PvE",
-    "ParadiseDev:Reincarnate",
 }
 Syncer.window = nil
 Syncer.entries = {}

@@ -1,33 +1,151 @@
+require "Chat/ISChat"
+require "ISUI/ISPanel"
+
 ParadiseDev = ParadiseDev or {}
 ParadiseBan = ParadiseBan or {}
 ParadiseBan.MODULE = "ParadiseBan"
+ParadiseRestore.disablerState = ParadiseRestore.disablerState or {}
 
-function ParadiseRestore.Disabler(targ, disabled)
+ParadiseRestore.CageInputBlocker = ParadiseRestore.CageInputBlocker or ISPanel:derive("ParadiseRestore_CageInputBlocker")
+
+function ParadiseRestore.CageInputBlocker:onMouseDown()
+    return true
+end
+
+function ParadiseRestore.CageInputBlocker:onMouseUp()
+    return true
+end
+
+function ParadiseRestore.CageInputBlocker:onRightMouseDown()
+    return true
+end
+
+function ParadiseRestore.CageInputBlocker:onRightMouseUp()
+    return true
+end
+
+function ParadiseRestore.CageInputBlocker:onMouseWheel()
+    return true
+end
+
+function ParadiseRestore.CageInputBlocker:onKeyPress(key)
+    if ISChat.instance and getCore():isKey(KeybindId.TOGGLE_CHAT, key) then
+        ISChat.instance.currentTabID = 1
+        if ISChat.instance.tabs and ISChat.instance.tabs[1] then
+            ISChat.instance.panel:activateView(ISChat.instance.tabs[1].tabTitle)
+            ISChat.instance:onActivateView()
+        end
+        ISChat.instance:focus()
+    end
+    return true
+end
+
+function ParadiseRestore.CageInputBlocker:onKeyRepeat()
+    return true
+end
+
+function ParadiseRestore.CageInputBlocker:onKeyRelease()
+    return true
+end
+
+function ParadiseRestore.CageInputBlocker:new()
+    local blocker = ISPanel.new(self, 0, 0, getCore():getScreenWidth(), getCore():getScreenHeight())
+    blocker.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
+    blocker.borderColor = { r = 0, g = 0, b = 0, a = 0 }
+    blocker:setWantKeyEvents(true)
+    return blocker
+end
+
+function ParadiseRestore.isCageRestricted()
+    local pl = getPlayer and getPlayer() or nil
+    local state = pl and ParadiseRestore.disablerState[pl] or nil
+    return state and state.isCageRestricted == true or false
+end
+
+function ParadiseRestore.setCageInputBlocker(enabled)
+    if enabled then
+        if not ParadiseRestore.cageInputBlocker then
+            ParadiseRestore.cageInputBlocker = ParadiseRestore.CageInputBlocker:new()
+            ParadiseRestore.cageInputBlocker:initialise()
+            ParadiseRestore.cageInputBlocker:addToUIManager()
+        end
+        ParadiseRestore.cageInputBlocker:setWidth(getCore():getScreenWidth())
+        ParadiseRestore.cageInputBlocker:setHeight(getCore():getScreenHeight())
+        ParadiseRestore.cageInputBlocker:setVisible(true)
+        ParadiseRestore.cageInputBlocker:bringToTop()
+        if ISChat.instance then ISChat.instance:bringToTop() end
+        return
+    end
+    if ParadiseRestore.cageInputBlocker then
+        ParadiseRestore.cageInputBlocker:setVisible(false)
+        ParadiseRestore.cageInputBlocker:removeFromUIManager()
+        ParadiseRestore.cageInputBlocker = nil
+    end
+end
+
+function ParadiseRestore.onCageChatEntered(self)
+    local chat = ISChat.instance
+    local str = chat and chat.textEntry and chat.textEntry:getText() or ""
+    str = string.gsub(str, "^/%a+%s*", "")
+    str = string.gsub(str, "[\n\r]", " ")
+    if chat then
+        chat:unfocus()
+        chat.timerTextEntry = 20
+    end
+    if str ~= "" and str ~= " " then processSayMessage(str) end
+    doKeyPress(false)
+end
+
+function ParadiseRestore.refreshCageRestriction(pl)
+    if not pl or pl ~= getPlayer() then return end
+    local isCaged = ParadiseDev.Cage and ParadiseDev.Cage.isTargetCaged and ParadiseDev.Cage.isTargetCaged(pl) or false
+    local state = ParadiseRestore.disablerState[pl]
+    if state and state.isCageRestricted == isCaged then
+        if isCaged then ParadiseRestore.setCageInputBlocker(true) end
+        return
+    end
+    ParadiseRestore.Disabler(pl, isCaged, true)
+end
+
+function ParadiseRestore.Disabler(targ, disabled, isCageRestricted)
     if not targ then return end
-    if disabled then
+    isCageRestricted = isCageRestricted == true
+    local state = ParadiseRestore.disablerState[targ] or { disabled = false, isCageRestricted = false }
+    if isCageRestricted then
+        state.isCageRestricted = disabled == true
+    else
+        state.disabled = disabled == true
+    end
+    ParadiseRestore.disablerState[targ] = state
+    local effectiveDisabled = state.disabled or state.isCageRestricted
+    if effectiveDisabled then
         ISTimedActionQueue.clear(targ)
         targ:setAutoWalk(false)
     end
-    targ:setIgnoreInputsForDirection(disabled)
-    targ:setAuthorizeMeleeAction(not disabled)
-    targ:setIgnoreMovement(disabled)
-    targ:setCanShout(not disabled)
-    targ:setBlockMovement(disabled)
-    JoypadState.disableClimbOver = disabled
-    JoypadState.disableSmashWindow = disabled
-    JoypadState.disableReload = disabled
-    JoypadState.disableGrab = disabled
-    JoypadState.disableInvInteraction = disabled
-    JoypadState.disableYInventory = disabled
-    JoypadState.disableControllerPrompt = disabled
-    JoypadState.disableMovement = disabled
-    ISBackButtonWheel.disablePlayerInfo = disabled
-    ISBackButtonWheel.disableCrafting = disabled
-    ISBackButtonWheel.disableTime = disabled
-    ISBackButtonWheel.disableMoveable = disabled
-    ISBackButtonWheel.disableZoomOut = disabled
-    ISBackButtonWheel.disableZoomIn = disabled
+    targ:setIgnoreInputsForDirection(effectiveDisabled)
+    targ:setAuthorizeMeleeAction(not effectiveDisabled)
+    targ:setIgnoreMovement(effectiveDisabled)
+    targ:setCanShout(not effectiveDisabled)
+    targ:setBlockMovement(effectiveDisabled)
+    JoypadState.disableClimbOver = effectiveDisabled
+    JoypadState.disableSmashWindow = effectiveDisabled
+    JoypadState.disableReload = effectiveDisabled
+    JoypadState.disableGrab = effectiveDisabled
+    JoypadState.disableInvInteraction = effectiveDisabled
+    JoypadState.disableYInventory = effectiveDisabled
+    JoypadState.disableControllerPrompt = effectiveDisabled
+    JoypadState.disableMovement = effectiveDisabled
+    ISBackButtonWheel.disablePlayerInfo = effectiveDisabled
+    ISBackButtonWheel.disableCrafting = effectiveDisabled
+    ISBackButtonWheel.disableTime = effectiveDisabled
+    ISBackButtonWheel.disableMoveable = effectiveDisabled
+    ISBackButtonWheel.disableZoomOut = effectiveDisabled
+    ISBackButtonWheel.disableZoomIn = effectiveDisabled
+    if targ == getPlayer() then ParadiseRestore.setCageInputBlocker(state.isCageRestricted) end
 end
+
+Events.OnPlayerUpdate.Remove(ParadiseRestore.refreshCageRestriction)
+Events.OnPlayerUpdate.Add(ParadiseRestore.refreshCageRestriction)
 
 ParadiseBanTimedAction = ISBaseTimedAction:derive("ParadiseBanTimedAction")
 
@@ -98,4 +216,5 @@ function ParadiseBan.onServerCommand(module, command, args)
     end
 end
 
+Events.OnServerCommand.Remove(ParadiseBan.onServerCommand)
 Events.OnServerCommand.Add(ParadiseBan.onServerCommand)
