@@ -1,3 +1,4 @@
+require "ParadiseProductionDiagnostics"
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
 ParadiseDev.Zones.Engine = ParadiseDev.Zones.Engine or {}
@@ -676,9 +677,14 @@ function ParadiseDev.Zones.Engine.onPlayerUpdate(pl)
     ParadiseDev.Zones.Engine.log("vehicle-rebounded", pl, zone)
 end
 
--- Bounded aggregate diagnostics; no player identifiers or command arguments.
-local boundaryPerf = { started = getTimestampMs(), total = 0, boundary = 0, cage = 0, state = 0, other = 0 }
+-- Bounded opt-in diagnostics; no player identifiers or command arguments.
+local boundaryPerf = nil
+local function newBoundaryPerf()
+    return { started = getTimestampMs(), total = 0, boundary = 0, cage = 0, state = 0, other = 0 }
+end
 local function countBoundaryCommand(module, command)
+    if not ParadiseProductionDiagnostics.isEnabled() then return end
+    boundaryPerf = boundaryPerf or newBoundaryPerf()
     boundaryPerf.total = boundaryPerf.total + 1
     if module == "PZZoneEngine" then
         if command == "boundaryCheck" then boundaryPerf.boundary = boundaryPerf.boundary + 1
@@ -687,7 +693,12 @@ local function countBoundaryCommand(module, command)
         else boundaryPerf.other = boundaryPerf.other + 1 end
     end
 end
-local function reportBoundaryCommands()
+-- Retain callback identities on the public Engine table for duplicate-free reloads.
+if ParadiseDev.Zones.Engine.reportBoundaryCommands then
+    Events.OnTick.Remove(ParadiseDev.Zones.Engine.reportBoundaryCommands)
+end
+function ParadiseDev.Zones.Engine.reportBoundaryCommands()
+    if not ParadiseProductionDiagnostics.isEnabled() or not boundaryPerf then return end
     local now = getTimestampMs()
     if now < boundaryPerf.started then boundaryPerf.started = now end
     if now - boundaryPerf.started < 60000 then return end
@@ -696,7 +707,18 @@ local function reportBoundaryCommands()
     boundaryPerf.started = now
     boundaryPerf.total, boundaryPerf.boundary, boundaryPerf.cage, boundaryPerf.state, boundaryPerf.other = 0, 0, 0, 0, 0
 end
-Events.OnTick.Add(reportBoundaryCommands)
+if ParadiseDev.Zones.Engine.configureBoundaryDiagnostics then
+    Events.OnServerStarted.Remove(ParadiseDev.Zones.Engine.configureBoundaryDiagnostics)
+end
+function ParadiseDev.Zones.Engine.configureBoundaryDiagnostics()
+    Events.OnTick.Remove(ParadiseDev.Zones.Engine.reportBoundaryCommands)
+    boundaryPerf = nil
+    if ParadiseProductionDiagnostics.isEnabled() then
+        boundaryPerf = newBoundaryPerf()
+        Events.OnTick.Add(ParadiseDev.Zones.Engine.reportBoundaryCommands)
+    end
+end
+Events.OnServerStarted.Add(ParadiseDev.Zones.Engine.configureBoundaryDiagnostics)
 
 function ParadiseDev.Zones.Engine.onClientCommand(module, command, pl, args)
     countBoundaryCommand(module, command)

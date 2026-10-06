@@ -860,3 +860,9 @@ option ParadiseZ.FactionActivityTracksMembers
     type = boolean, default = false,
     page = ParadiseZ, translation = ParadiseZ_FactionActivityTracksMembers,
 }
+
+option ParadiseZ.ProductionDiagnostics
+{
+    type = boolean, default = false,
+    page = ParadiseZ, translation = ParadiseZ_ProductionDiagnostics,
+}

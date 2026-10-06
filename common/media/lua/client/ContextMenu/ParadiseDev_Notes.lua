@@ -1,6 +1,19 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Notes = ParadiseDev.Notes or {}
 
+-- Replace registered function identities before redefining them on a Lua reload.
+-- World notes remain enabled; only their automatic map annotations are removed.
+local previousNotes = ParadiseDev.Notes
+local function removePrevious(event, callback)
+    if event and callback then event.Remove(callback) end
+end
+removePrevious(Events.OnFillWorldObjectContextMenu, previousNotes.addWorldContext)
+removePrevious(Events.OnPostUIDraw, previousNotes.draw)
+removePrevious(Events.OnTick, previousNotes.onTick)
+removePrevious(Events.OnTick, previousNotes.syncMap)
+removePrevious(Events.OnGameStart, previousNotes.onGameStart)
+removePrevious(Events.OnReceiveGlobalModData, previousNotes.onReceiveGlobalModData)
+
 ParadiseDev.Notes.module = "ParadiseDevNotes"
 ParadiseDev.Notes.key = "ParadiseDevNote"
 ParadiseDev.Notes.colorKey = "ParadiseDevNoteColor"
@@ -14,7 +27,7 @@ ParadiseDev.Notes.cache = ParadiseDev.Notes.cache or {}
 ParadiseDev.Notes.mapLabels = ParadiseDev.Notes.mapLabels or {}
 ParadiseDev.Notes.mapAPI = ParadiseDev.Notes.mapAPI or nil
 ParadiseDev.Notes.tick = 0
-ParadiseDev.Notes.mapDirty = true
+ParadiseDev.Notes.mapDirty = false
 ParadiseDev.Notes.settings = ParadiseDev.Notes.settings or { font = UIFont.Medium, showText = true }
 
 function ParadiseDev.Notes.getMaxLength()
@@ -297,40 +310,24 @@ function ParadiseDev.Notes.getGlobalNotes()
     return data and data.notes or {}
 end
 
+-- Compatibility entry points: map-note display is permanently disabled.
+-- Retain historical discovery data but never create/transmit it for map labels.
 function ParadiseDev.Notes.getDiscovery()
     local pl = getPlayer and getPlayer() or nil
-    if not pl or not pl.getModData then return {} end
-    local md = pl:getModData()
-    md.ParadiseDevNotesDiscovery = md.ParadiseDevNotesDiscovery or {}
-    return md.ParadiseDevNotesDiscovery
+    local md = pl and pl.getModData and pl:getModData() or nil
+    return md and md.ParadiseDevNotesDiscovery or {}
 end
 
 function ParadiseDev.Notes.rememberFloor(flr)
-    local key, owner = ParadiseDev.Notes.getFloorKey(flr), ParadiseDev.Notes.getOwner(flr)
-    if not key or not owner or owner == ParadiseDev.Notes.getUsername() then return end
-    local discovered = ParadiseDev.Notes.getDiscovery()
-    if not discovered[key] then
-        discovered[key] = { show = true }
-        local pl = getPlayer and getPlayer() or nil
-        if pl and pl.transmitModData then pl:transmitModData() end
-    end
+    return false
 end
 
 function ParadiseDev.Notes.isMapVisible(flr)
-    if ParadiseDev.Notes.getOwner(flr) == ParadiseDev.Notes.getUsername() then return true end
-    local state = ParadiseDev.Notes.getDiscovery()[ParadiseDev.Notes.getFloorKey(flr)]
-    return state and state.show == true or false
+    return false
 end
 
 function ParadiseDev.Notes.toggleMapVisible(flr)
-    local key = ParadiseDev.Notes.getFloorKey(flr)
-    if not key or ParadiseDev.Notes.getOwner(flr) == ParadiseDev.Notes.getUsername() then return end
-    local discovered = ParadiseDev.Notes.getDiscovery()
-    discovered[key] = discovered[key] or {}
-    discovered[key].show = not (discovered[key].show == true)
-    local pl = getPlayer and getPlayer() or nil
-    if pl and pl.transmitModData then pl:transmitModData() end
-    ParadiseDev.Notes.mapDirty = true
+    return false
 end
 
 function ParadiseDev.Notes.requestGlobal(flr, note, color)
@@ -414,11 +411,6 @@ function ParadiseDev.Notes.addWorldContext(plNum, context, worldobjects, test)
         globalColor.iconTexture = ParadiseDev.Notes.getIcon("context_noteRGB")
         globalColor.notAvailable = not globalNote
     end
-    if ParadiseDev.Notes.getNote(flr) and ParadiseDev.Notes.getOwner(flr) ~= ParadiseDev.Notes.getUsername() then
-        ParadiseDev.Notes.rememberFloor(flr)
-        local mapOption = submenu:addOption(ParadiseDev.Notes.isMapVisible(flr) and "Hide Note On Map" or "Show Note On Map", flr, ParadiseDev.Notes.toggleMapVisible)
-        mapOption.iconTexture = ParadiseDev.Notes.getIcon("context_note")
-    end
     ParadiseDev.Notes.addSettings(submenu, flr)
 end
 
@@ -440,11 +432,9 @@ function ParadiseDev.Notes.refresh(force)
             local key = note and ParadiseDev.Notes.getFloorKey(flr) or nil
             if key then
                 ParadiseDev.Notes.cache[key] = flr
-                ParadiseDev.Notes.rememberFloor(flr)
             end
         end
     end
-    ParadiseDev.Notes.mapDirty = true
 end
 
 function ParadiseDev.Notes.canDraw()
@@ -485,69 +475,58 @@ function ParadiseDev.Notes.draw()
     end
 end
 
+-- Notes are world content only: never obtain map APIs or create map symbols.
+-- Removing the single symbol producer covers both the world map and minimap.
 function ParadiseDev.Notes.getSymbolsAPI()
-    local map = ISWorldMap_instance
-    local api = map and map.mapAPI or nil
-    if not api and map and map.javaObject and map.javaObject.getAPIv3 then api = map.javaObject:getAPIv3() end
-    return api and api.getSymbolsAPIv2 and api:getSymbolsAPIv2() or nil
+    return nil
 end
 
 function ParadiseDev.Notes.clearMapLabels()
-    if ParadiseDev.Notes.mapAPI then
-        for _, label in pairs(ParadiseDev.Notes.mapLabels) do ParadiseDev.Notes.mapAPI:removeSymbol(label) end
-        if ParadiseDev.Notes.mapAPI.invalidateLayout then ParadiseDev.Notes.mapAPI:invalidateLayout() end
+    local api = ParadiseDev.Notes.mapAPI
+    local labels = ParadiseDev.Notes.mapLabels or {}
+    local removed = false
+    if api and api.removeSymbol then
+        for _, label in pairs(labels) do
+            -- These exact handles were created by this notes module. A stale
+            -- handle may already have been removed during map recreation.
+            -- Never clear all symbols or guess ownership by text/coordinates.
+            if label then
+                local ok = pcall(function() api:removeSymbol(label) end)
+                removed = removed or ok
+            end
+        end
+        if removed and api.invalidateLayout then
+            pcall(function() api:invalidateLayout() end)
+        end
     end
     ParadiseDev.Notes.mapLabels = {}
-end
-
-function ParadiseDev.Notes.addMapLabel(api, key, text, ref, color)
-    local label = api:addUntranslatedText(text, "text-place", ref.x, ref.y)
-    if not label then return end
-    color = ParadiseDev.Notes.normalizeColor(color)
-    label:setRGBA(color.r, color.g, color.b, 1)
-    label:setAnchor(0.5, 0.5)
-    label:setScale(0.6)
-    label:setRotation(0)
-    label:setMatchPerspective(true)
-    label:setApplyZoom(true)
-    label:setMinZoom(0)
-    label:setMaxZoom(24)
-    label:setUserDefined(false)
-    ParadiseDev.Notes.mapLabels[key] = label
-end
-
-function ParadiseDev.Notes.syncMap()
-    local api = ParadiseDev.Notes.getSymbolsAPI()
-    if not api then return end
-    if api ~= ParadiseDev.Notes.mapAPI then
-        ParadiseDev.Notes.mapAPI = api
-        ParadiseDev.Notes.mapLabels = {}
-        ParadiseDev.Notes.mapDirty = true
-    end
-    if not ParadiseDev.Notes.mapDirty then return end
-    ParadiseDev.Notes.clearMapLabels()
-    for key, flr in pairs(ParadiseDev.Notes.cache) do
-        local ref, note = ParadiseDev.Notes.getSquareRef(flr:getSquare()), ParadiseDev.Notes.getNote(flr)
-        if ref and note and ParadiseDev.Notes.isMapVisible(flr) then ParadiseDev.Notes.addMapLabel(api, "player:" .. key, note, ref, ParadiseDev.Notes.getColor(flr)) end
-    end
-    for key, entry in pairs(ParadiseDev.Notes.getGlobalNotes()) do
-        if entry.text and tonumber(entry.x) and tonumber(entry.y) then ParadiseDev.Notes.addMapLabel(api, "global:" .. key, tostring(entry.text), entry, entry.color) end
-    end
-    if api.invalidateLayout then api:invalidateLayout() end
+    ParadiseDev.Notes.mapAPI = nil
     ParadiseDev.Notes.mapDirty = false
 end
 
+function ParadiseDev.Notes.addMapLabel(api, key, text, ref, color)
+    return nil
+end
+
+function ParadiseDev.Notes.syncMap()
+    -- Safe compatibility call for old callers; no scan, API lookup or rebuild.
+    if ParadiseDev.Notes.mapAPI then ParadiseDev.Notes.clearMapLabels() end
+end
+
+-- Clean retained note-owned handles when updating in an existing Lua session.
+ParadiseDev.Notes.clearMapLabels()
+
 function ParadiseDev.Notes.onGameStart()
+    ParadiseDev.Notes.clearMapLabels()
     if ModData and ModData.request then ModData.request(ParadiseDev.Notes.globalStore) end
 end
 
 function ParadiseDev.Notes.onReceiveGlobalModData(name)
-    if name == ParadiseDev.Notes.globalStore then ParadiseDev.Notes.mapDirty = true end
+    -- World drawing reads the synchronized note store directly; no map rebuild.
 end
 
 function ParadiseDev.Notes.onTick()
     ParadiseDev.Notes.refresh()
-    ParadiseDev.Notes.syncMap()
 end
 
 Events.OnFillWorldObjectContextMenu.Remove(ParadiseDev.Notes.addWorldContext)
