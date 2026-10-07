@@ -30,6 +30,8 @@ ParadiseZ.publicImageTags = ParadiseZ.publicImageTags or {}
 ParadiseZ.survivorTags = ParadiseZ.survivorTags or {}
 ParadiseZ.ownTagTextures = ParadiseZ.ownTagTextures or {}
 ParadiseZ.adminTagStates = ParadiseZ.adminTagStates or {}
+ParadiseZ.onlinePlayers = ParadiseZ.onlinePlayers or {}
+ParadiseZ.onlinePlayersCheckedAt = nil
 ParadiseZ.tagScreenPos = ParadiseZ.tagScreenPos or Vector2.new()
 ParadiseZ.tagHeadOffset = 128 / (2 / Core.getTileScale())
 ParadiseZ.tagSpacer = 4
@@ -294,6 +296,7 @@ Events.OnPostRender.Add(ParadiseZ.renderSuspectTags)
 
 function ParadiseZ.renderPublicTextTags()
     if not isIngameState() then return end
+    ParadiseZ.refreshOnlinePlayers()
     for key, data in pairs(ParadiseZ.publicTextTags) do
         local targ = data.target
         if not targ or not ParadiseZ.isShouldShow(targ) then
@@ -309,6 +312,7 @@ Events.OnPostRender.Add(ParadiseZ.renderPublicTextTags)
 
 function ParadiseZ.renderPublicImageTags()
     if not isIngameState() then return end
+    ParadiseZ.refreshOnlinePlayers()
     for key, data in pairs(ParadiseZ.publicImageTags) do
         local targ = data.target
         if not targ or not ParadiseZ.isShouldShow(targ) then
@@ -459,7 +463,31 @@ function ParadiseZ.setTempTag(targ)
         ParadiseZ.removeTag(targ)
     end)
 end
+
+function ParadiseZ.isLivePlayer(targ)
+    if not targ or not instanceof(targ, "IsoPlayer") then return false end
+    if targ.isDead and targ:isDead() then return false end
+    if not isClient or not isClient() then return true end
+    return ParadiseZ.onlinePlayers[targ] == true
+end
+
+function ParadiseZ.refreshOnlinePlayers()
+    if not isClient or not isClient() then return end
+    local now = getTimestampMs()
+    if ParadiseZ.onlinePlayersCheckedAt and now - ParadiseZ.onlinePlayersCheckedAt < 1000 then return end
+    ParadiseZ.onlinePlayersCheckedAt = now
+    local onlinePlayers = {}
+    local players = getOnlinePlayers and getOnlinePlayers() or nil
+    if players then
+        for index = 0, players:size() - 1 do
+            onlinePlayers[players:get(index)] = true
+        end
+    end
+    ParadiseZ.onlinePlayers = onlinePlayers
+end
+
 function ParadiseZ.isShouldShow(targ)
+    if targ and instanceof(targ, "IsoPlayer") and not ParadiseZ.isLivePlayer(targ) then return false end
     local pl = getPlayer()
     if pl and targ and ((pl.CanSee and pl:CanSee(targ)) or pl == targ) then
         local x, y = targ:getX(), targ:getY()
