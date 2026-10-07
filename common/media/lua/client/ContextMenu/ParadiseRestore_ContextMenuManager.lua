@@ -161,7 +161,7 @@ function ParadiseRestore.ContextMenuManager.getSubMenu(menu, option)
     return menu:getSubMenu(option.subOption)
 end
 
-function ParadiseRestore.ContextMenuManager.scan(kind, menu, parts, depth, properties, visibleDepth, rootContext)
+function ParadiseRestore.ContextMenuManager.scan(kind, menu, parts, depth, properties, visibleDepth, rootContext, rootOption, rootLabel)
     if not menu then return end
     depth = depth or 0
     visibleDepth = visibleDepth or depth
@@ -187,6 +187,8 @@ function ParadiseRestore.ContextMenuManager.scan(kind, menu, parts, depth, prope
                 option = option,
                 subMenu = subMenu,
                 rootContext = rootContext,
+                rootOption = rootOption,
+                rootLabel = rootLabel,
             }
         end
         if subMenu then
@@ -197,7 +199,9 @@ function ParadiseRestore.ContextMenuManager.scan(kind, menu, parts, depth, prope
                 depth + 1,
                 properties,
                 isDynamic and visibleDepth or visibleDepth + 1,
-                rootContext
+                rootContext,
+                rootOption,
+                rootLabel
             )
         end
         if not isDynamic and not ParadiseRestore.ContextMenuManager.isVisible(key, revealHidden) then
@@ -222,8 +226,22 @@ function ParadiseRestore.ContextMenuManager.registerParent(kind, key, parentMenu
         option = rootOption,
         subMenu = subMenu,
         rootContext = parentMenu,
+        rootOption = rootOption,
+        rootLabel = label,
     }
-    if subMenu then ParadiseRestore.ContextMenuManager.scan(kind, subMenu, {key or label}, 1, properties, nil, parentMenu) end
+    if subMenu then
+        ParadiseRestore.ContextMenuManager.scan(
+            kind,
+            subMenu,
+            {key or label},
+            1,
+            properties,
+            nil,
+            parentMenu,
+            rootOption,
+            label
+        )
+    end
     if not ParadiseRestore.ContextMenuManager.isVisible(rootKey, ParadiseRestore.ContextMenuManager.isShiftHeld()) then
         ParadiseRestore.ContextMenuManager.removeOption(parentMenu, rootOption)
     end
@@ -270,13 +288,22 @@ function ParadiseRestore.ContextMenuManager.hasFavoriteAncestor(entry)
     return false
 end
 
+function ParadiseRestore.ContextMenuManager.isCurrentEntry(entry, context)
+    if not entry or entry.rootContext ~= context or not entry.rootOption then return false end
+    if tostring(entry.rootOption.name) ~= tostring(entry.rootLabel) then return false end
+    for _, option in ipairs(context.options or {}) do
+        if option == entry.rootOption then return true end
+    end
+    return false
+end
+
 function ParadiseRestore.ContextMenuManager.addFavorites(kind, context)
     local profile = ParadiseRestore.ContextMenuManager.profile
     if not profile.favoritesEnabled then return end
     local entries = ParadiseRestore.ContextMenuManager.getEntries(kind, true)
     local selected = {}
     for _, entry in ipairs(entries) do
-        if entry.option and entry.menu and entry.rootContext == context and
+        if entry.option and entry.menu and ParadiseRestore.ContextMenuManager.isCurrentEntry(entry, context) and
             not ParadiseRestore.ContextMenuManager.hasFavoriteAncestor(entry) then
             selected[#selected + 1] = entry
         end
