@@ -27,6 +27,9 @@ function Syncer.has(player, traitId)
 end
 
 function Syncer.setLocal(player, traitId, enabled)
+    -- Native server trait packets own PvE state in multiplayer. Sending SyncXp
+    -- from an ordinary owner's client is not the synchronization path.
+    if traitId == "ParadiseDev:PvE" and isClient and isClient() then return false end
     if not player or not player.getCharacterTraits then return false end
     if Syncer.has(player, traitId) == enabled then return false end
     local changed = ParadiseDev.setTrait(traitId, enabled, player)
@@ -182,6 +185,27 @@ function Syncer.requestState()
     if sendClientCommand then sendClientCommand("ParadiseDevTraitSyncer", "list", {}) end
     if ParadiseDev.Cage and ParadiseDev.Cage.requestState then ParadiseDev.Cage.requestState() end
 end
+
+function Syncer.getTargetPvEState(target)
+    local username = target and (target.username or (target.getUsername and target:getUsername()))
+    if not username then return false, false end
+    for _, entry in ipairs(Syncer.entries or {}) do
+        if string.lower(tostring(entry.username or "")) == string.lower(tostring(username))
+            and type(entry.traits) == "table" and type(entry.traits["ParadiseDev:PvE"]) == "boolean" then
+            return entry.traits["ParadiseDev:PvE"], true
+        end
+    end
+    local owner = getPlayer and getPlayer() or nil
+    if target == owner then return Syncer.has(owner, "ParadiseDev:PvE"), true end
+    return false, false
+end
+
+function Syncer.requestMenuState()
+    local now = getTimestampMs and getTimestampMs() or 0
+    if Syncer.lastMenuRequest and now >= Syncer.lastMenuRequest and now - Syncer.lastMenuRequest < 1000 then return end
+    Syncer.lastMenuRequest = now
+    if sendClientCommand then sendClientCommand("ParadiseDevTraitSyncer", "list", {}) end
+end
 function Syncer.onServerCommand(module, command, args)
     if module == "ParadiseDevCage" and command == "state" then
         -- Consume this packet directly so event-handler order cannot leave an old panel row.
@@ -190,13 +214,31 @@ function Syncer.onServerCommand(module, command, args)
         return
     end
     if module ~= "ParadiseDevTraitSyncer" then return end
-    if command == "state" then Syncer.entries = args and args.entries or {}; Syncer.refreshPanel() end
+    if command == "state" and type(args) == "table" and type(args.entries) == "table" then
+        Syncer.entries = args.entries
+        Syncer.refreshPanel()
+    elseif command == "error" and type(args) == "table" and type(args.message) == "string" then
+        local player = getPlayer and getPlayer() or nil
+        if player and player.setHaloNote then player:setHaloNote(args.message) end
+    end
 end
 function Syncer.onPlayerUpdate(player)
     if not player or player ~= getPlayer() then return end
     local now = getTimestampMs and getTimestampMs() or 0
     if now - Syncer.lastSync < 1000 then return end
     Syncer.lastSync = now; Syncer.syncPlayer(player)
+    local pve = Syncer.has(player, "ParadiseDev:PvE")
+    if Syncer.lastOwner ~= player or Syncer.lastOwnerPvE ~= pve then
+        Syncer.lastOwner, Syncer.lastOwnerPvE = player, pve
+        if triggerEvent then triggerEvent("OnTraitsSync", "ParadiseDev:PvE", pve) end
+    end
 end
+function Syncer.onConnected()
+    Syncer.entries = {}; Syncer.lastMenuRequest = nil
+    local player = getPlayer and getPlayer() or nil
+    if player and ParadiseRestore and ParadiseRestore.isAdm(player) then Syncer.requestMenuState() end
+end
+Events.OnConnected.Remove(Syncer.onConnected)
+Events.OnConnected.Add(Syncer.onConnected)
 Events.OnServerCommand.Add(Syncer.onServerCommand)
 Events.OnPlayerUpdate.Add(Syncer.onPlayerUpdate)

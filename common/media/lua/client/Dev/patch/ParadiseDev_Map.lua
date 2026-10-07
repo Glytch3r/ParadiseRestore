@@ -41,6 +41,34 @@ local function drawMapLine(map, x1, y1, x2, y2, r, g, b, a, half)
         x2 - nx, y2 - ny, x1 - nx, y1 - ny, r, g, b, a)
 end
 
+-- Resolve overlapping map regions consistently: priority, segment area, then id.
+-- Full-map selection spans its drawn floors; this is display, not access authority.
+-- The tooltip name and bright border use the same winner.
+function ParadiseDev.Map.getHoveredZone(wx, wy, pl, mini)
+    local visuals = ParadiseDev.Zones and ParadiseDev.Zones.Visualization
+    if not visuals or not visuals.zones or not wx or not wy or not pl then return nil end
+    local winner, winnerPriority, winnerArea, winnerId
+    local z = math.floor(pl:getZ())
+    for _, zone in ipairs(visuals.zones) do
+        if not mini or visuals.zoneOnLevel(zone, z) then
+            for _, region in ipairs(zone.regions or {}) do
+                if (not mini or visuals.regionNearPlayer(region, pl, visuals.VISIBLE_RADIUS))
+                    and visuals.regionContains(region, wx, wy) then
+                    local priority = tonumber(zone.priority) or 0
+                    local area = (region.xMax - region.xMin) * (region.yMax - region.yMin)
+                    local id = tostring(zone.id or "")
+                    if not winner or priority > winnerPriority
+                        or (priority == winnerPriority and area < winnerArea)
+                        or (priority == winnerPriority and area == winnerArea and id < winnerId) then
+                        winner, winnerPriority, winnerArea, winnerId = zone, priority, area, id
+                    end
+                end
+            end
+        end
+    end
+    return winner
+end
+
 local function drawZoneOverlay(map, mini)
     if not map or not map.mapAPI then return end
     local visuals = ParadiseDev.Zones and ParadiseDev.Zones.Visualization
@@ -63,13 +91,7 @@ local function drawZoneOverlay(map, mini)
             and visuals.regionNearPlayer(region, pl, visuals.VISIBLE_RADIUS))
     end
     if prefs.zoneHighlight and wx and wy then
-        for _, zone in ipairs(visuals.zones) do
-            for _, region in ipairs(zone.regions or {}) do
-                if visibleRegion(zone, region) and visuals.regionContains(region, wx, wy) then
-                    hoveredZone = zone
-                end
-            end
-        end
+        hoveredZone = ParadiseDev.Map.getHoveredZone(wx, wy, pl, mini)
     end
     for _, zone in ipairs(visuals.zones) do
         for _, region in ipairs(zone.regions or {}) do
@@ -176,19 +198,7 @@ if ISMiniMapInner and not ParadiseDev.Map.miniMapHooked then
         ParadiseDev.Map.miniMapRender(self, ...)
         withMapStencil(self, drawMinimapOverlays)
     end
-    local vanillaMiniRightMouseUp = ISMiniMapInner.onRightMouseUp
-    function ISMiniMapInner:onRightMouseUp(x, y)
-        local wasDown = self.rightMouseDown
-        local result = vanillaMiniRightMouseUp and vanillaMiniRightMouseUp(self, x, y)
-        if not wasDown or not getSpecificPlayer(0) then return result end
-        -- Vanilla already creates (and may hide) this menu. Creating it again clears its options.
-        local context = getPlayerContextMenu(0)
-        if context then
-            ParadiseDev.Map.addContextOptions(context, mapPlayer(self))
-            context:setVisible(true)
-        end
-        return result
-    end
+
 end
 
 function ParadiseDev.Map.drawZoneBorders(self)
@@ -201,8 +211,14 @@ function ParadiseDev.Map.drawCoordinates(self)
     if mx < 0 or my < 0 or mx > self:getWidth() or my > self:getHeight() then return end
     local wx, wy = self.mapAPI:uiToWorldX(mx, my), self.mapAPI:uiToWorldY(mx, my)
     if not wx or not wy then return end
-    self:drawText("X: " .. tostring(math.floor(wx)) .. "  |  Y: " .. tostring(math.floor(wy)),
-        mx + 14, my + 38, 1, 1, 1, 1, UIFont.Small)
+    local text = "X: " .. tostring(math.floor(wx)) .. "  |  Y: " .. tostring(math.floor(wy))
+    local zone = ParadiseDev.Map.getHoveredZone(wx, wy, mapPlayer(self), false)
+    if zone then
+        -- Zone names are plain tooltip text, never map annotations/rich text.
+        local name = tostring(zone.name or zone.id or ""):gsub("%c", " ")
+        if name ~= "" then text = name .. "  |  " .. text end
+    end
+    self:drawText(text, mx + 14, my + 38, 1, 1, 1, 1, UIFont.Small)
 end
 
 function ParadiseDev.Map.addContextOptions(context, pl)
@@ -217,7 +233,7 @@ function ParadiseDev.Map.addContextOptions(context, pl)
         tooltip:setDescription(description)
         option.toolTip = tooltip
     end
-    add("Coordinate tool-tip", "coordinates", "Show coordinates under the pointer on the full map.")
+    add("Coordinate tool-tip", "coordinates", "Show coordinates and the hovered zone name on the full map.")
     add("Zone visibility", "zoneVisibility", "Light fill inside zones.")
     add("Zone highlight", "zoneHighlight", "Zone borders, brighter under the pointer.")
     add("Apply zone settings to mini-map", "applyToMinimap",

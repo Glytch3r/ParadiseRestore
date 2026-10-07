@@ -11,7 +11,7 @@ function ISMiniScoreboardUI:doPlayerListContextMenu(player, x,y)
     local username = player and player.username or nil
     if username and ParadiseRestore.isAdm(self.admin) then
         if ParadiseDev.TargContext and ParadiseDev.TargContext.addPlayerActions then
-            ParadiseDev.TargContext.addPlayerActions(context, player, self.admin)
+            ParadiseDev.TargContext.addPlayerActions(context, player, self.admin, false)
         end
     end
 end 

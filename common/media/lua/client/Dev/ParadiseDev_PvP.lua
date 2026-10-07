@@ -1,3 +1,4 @@
+require "Dev/ParadiseDev_PvEPolicy"
 
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.PvP = ParadiseDev.PvP or {}
@@ -17,11 +18,11 @@ ParadiseDev.PvP.defaultShotguns = {
 }
 
 function ParadiseDev.PvP.isProtected(pl)
-    return ParadiseDev.LifeBar.isPvE(pl) or ParadiseDev.LifeBar.isPvEZone(pl)
+    return ParadiseDev.PvEPolicy.isProtected(pl)
 end
 
 function ParadiseDev.PvP.isHitProtected(char, targ)
-    return ParadiseDev.LifeBar.isPvE(char) or ParadiseDev.LifeBar.isPvE(targ) or ParadiseDev.LifeBar.isPvEZone(char) or ParadiseDev.LifeBar.isPvEZone(targ)
+    return ParadiseDev.PvEPolicy.isHitProtected(char,targ)
 end
 
 function ParadiseDev.PvP.isUnarmed(pl)

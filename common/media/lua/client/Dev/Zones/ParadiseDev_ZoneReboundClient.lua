@@ -109,6 +109,69 @@ function Client.moveVehicle(vehicle, x, y)
     return true
 end
 
+-- Both prediction and directed corrections use the same native owner exit.
+-- The native VehicleExit packet, not a custom ACK, synchronizes the server/peers.
+function Client.exitPassenger(pl, vehicle, args, state, predicted)
+    local border = ParadiseDev.Zones.Border
+    local seat = vehicle:getSeat(pl)
+    local function currentPermission()
+        if pl ~= getPlayer() or not pl:isAlive() or Client.correctionState ~= state
+            or not border or not border.isFresh(args.stateRevision) then return false end
+        local ride = Client.observeRide(pl)
+        local driver = vehicle:getCharacter(0)
+        if pl:getVehicle() ~= vehicle or not ride or ride.token ~= args.rideToken
+            or ride.vehicleId ~= args.vehicleId or ride.seat ~= args.seat or ride.seat < 1
+            or ride.driverId ~= args.driverId or not driver or not driver:isAlive() or driver == pl then return false end
+        local x,y = Client.vehiclePosition(vehicle)
+        local zone = border.authorityAt(x,y,pl:getZ(),2)
+        if not zone or zone.allowed ~= false or zone.id ~= args.zoneId then return false end
+        if predicted then
+            local stamp = border.passengerRide
+            if border.cagedZoneId or zone.driverAllowed ~= true or type(stamp) ~= "table"
+                or stamp.rideToken ~= args.rideToken or stamp.vehicleId ~= args.vehicleId
+                or stamp.seat ~= args.seat or stamp.driverId ~= args.driverId then return false end
+        end
+        return true
+    end
+    if not currentPermission() then return false end
+    local beforeX,beforeY,beforeZ = pl:getX(),pl:getY(),pl:getZ()
+    local beforeRide = Client.ride
+    -- Stop handlers can exit, change seats, or replace the local actor. Recheck
+    -- after cancelling; never enqueue the animated/door-gated ordinary exit.
+    if ISTimedActionQueue and ISTimedActionQueue.clear then ISTimedActionQueue.clear(pl) end
+    if pl ~= getPlayer() or not pl:isAlive() or Client.correctionState ~= state then return false end
+    local currentVehicle = pl:getVehicle()
+    if currentVehicle then
+        if currentVehicle ~= vehicle or not currentPermission() then return false end
+        vehicle:exit(pl)
+        if pl:getVehicle() then return false end
+    elseif pl:getX() ~= beforeX or pl:getY() ~= beforeY or pl:getZ() ~= beforeZ
+        or Client.ride ~= beforeRide then
+        -- A stop handler completed its own exit or relocated the actor. Leave
+        -- that transition alone instead of placing them beside the old car.
+        return false
+    end
+    -- Place at the current car position, never an old correction destination.
+    vehicle:setCharacterPosition(pl,seat,"outside")
+    pl:PlayAnim("Idle")
+    triggerEvent("OnExitVehicle",pl)
+    vehicle:updateHasExtendOffsetForExitEnd(pl)
+    return true
+end
+
+function Client.predictPassengerExit(pl, zone)
+    local border, state = ParadiseDev.Zones.Border, Client.correctionState
+    local stamp = border and border.passengerRide
+    if not state.revision or not border or not border.isFresh(state.revision)
+        or not zone or zone.allowed ~= false or zone.driverAllowed ~= true
+        or border.cagedZoneId or type(stamp) ~= "table" then return false end
+    local vehicle, ride = pl:getVehicle(), Client.observeRide(pl)
+    if not vehicle or not ride or ride.token ~= stamp.rideToken or ride.vehicleId ~= stamp.vehicleId
+        or ride.seat ~= stamp.seat or ride.seat < 1 or ride.driverId ~= stamp.driverId then return false end
+    return Client.exitPassenger(pl,vehicle,{rideToken=stamp.rideToken,vehicleId=stamp.vehicleId,
+        seat=stamp.seat,driverId=stamp.driverId,stateRevision=state.revision,zoneId=zone.id},state,true)
+end
+
 function Client.applyCorrection(args)
     if not validStamp(args) or not finite(args.seq) or args.seq < 1 or args.seq ~= math.floor(args.seq)
         or not finite(args.x) or not finite(args.y) or not finite(args.z)
@@ -154,32 +217,7 @@ function Client.applyCorrection(args)
     if args.kind == "vehicle" then
         applied = Client.moveVehicle(vehicle,args.x,args.y)
     elseif args.kind == "passenger" then
-        local seat = vehicle:getSeat(pl)
-        -- Cancel entry/seat actions before detaching; their stop handlers may exit.
-        if ISTimedActionQueue and ISTimedActionQueue.clear then ISTimedActionQueue.clear(pl) end
-        if pl ~= getPlayer() or not pl:isAlive() or Client.correctionState ~= state then return false end
-        local currentVehicle = pl:getVehicle()
-        if currentVehicle and currentVehicle ~= vehicle then return obsolete() end
-        if currentVehicle then
-            local ride = Client.observeRide(pl)
-            local driver = vehicle:getCharacter(0)
-            if ride.token ~= args.rideToken or ride.seat ~= seat or ride.driverId ~= args.driverId
-                or not driver or not driver:isAlive() or driver == pl then return obsolete() end
-            if not border.isFresh(args.stateRevision) then return false end
-            local currentX,currentY = Client.vehiclePosition(vehicle)
-            local currentZone = border.authorityAt(currentX,currentY,pl:getZ(),2)
-            if not currentZone or currentZone.allowed or currentZone.id ~= args.zoneId then return obsolete() end
-            -- Native owner exit sends the normal seat transition to the server.
-            vehicle:exit(pl)
-            if pl:getVehicle() then return false end
-        end
-        -- Never use a fixed destination from an earlier car position. Ordinary
-        -- local foot prediction and server checks handle the current exit position.
-        vehicle:setCharacterPosition(pl,seat,"outside")
-        pl:PlayAnim("Idle")
-        triggerEvent("OnExitVehicle",pl)
-        vehicle:updateHasExtendOffsetForExitEnd(pl)
-        applied = true
+        applied = Client.exitPassenger(pl,vehicle,args,state,false)
     else
         applied = Client.applyFoot(pl,args.x,args.y,args.z)
     end
@@ -241,6 +279,7 @@ function Client.onConnected()
     if ParadiseDev.Zones.Border then
         ParadiseDev.Zones.Border.stateReceivedAt = nil
         ParadiseDev.Zones.Border.stateRequestedAt = nil
+        ParadiseDev.Zones.Border.passengerRide = nil
     end
 end
 function Client.onPlayerDeath(pl)

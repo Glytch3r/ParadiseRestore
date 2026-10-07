@@ -94,17 +94,13 @@ function ParadiseDev.TargContext.spectate(_, username)
     if ParadiseZ and ParadiseZ.setSpectate then ParadiseZ.setSpectate(username) end
 end
 
-function ParadiseDev.TargContext.togglePvE(_, target)
-    local username = ParadiseDev.TargContext.getUsername(target)
-    if not username or not ParadiseDev.TraitSyncer then return end
-    local traitId = "ParadiseDev:PvE"
-    local enabled = ParadiseDev.TraitSyncer.isTargetTrait and ParadiseDev.TraitSyncer.isTargetTrait(target, traitId)
-    if ParadiseDev.TraitSyncer.requestSet then
-        ParadiseDev.TraitSyncer.requestSet(username, traitId, not enabled)
-    end
+function ParadiseDev.TargContext.setPvE(_, username, enabled)
+    local syncer = ParadiseDev.TraitSyncer
+    if not username or type(enabled) ~= "boolean" or not syncer or not syncer.requestSet then return end
+    syncer.requestSet(username, "ParadiseDev:PvE", enabled)
 end
 
-function ParadiseDev.TargContext.addPlayerActions(menu, target, localPlayer)
+function ParadiseDev.TargContext.addPlayerActions(menu, target, localPlayer, includePvE)
     if not menu or not target or not localPlayer then return end
     local username = ParadiseDev.TargContext.getUsername(target)
     if not username then return end
@@ -120,10 +116,20 @@ function ParadiseDev.TargContext.addPlayerActions(menu, target, localPlayer)
         menu:addOption("Spectate: " .. username, nil, ParadiseDev.TargContext.spectate, username)
     end
 
-    local pve = ParadiseDev.TraitSyncer and ParadiseDev.TraitSyncer.isTargetTrait and
-        ParadiseDev.TraitSyncer.isTargetTrait(target, "ParadiseDev:PvE") or false
-    menu:addOption((pve and "Disable PvE: " or "Enable PvE: ") .. username, nil,
-        ParadiseDev.TargContext.togglePvE, target)
+    if includePvE ~= false then
+        local syncer = ParadiseDev.TraitSyncer
+        if syncer and syncer.requestMenuState then syncer.requestMenuState() end
+        local pve, known
+        if syncer and syncer.getTargetPvEState then pve, known = syncer.getTargetPvEState(target) end
+        if known then
+            -- Preserve the displayed action if a newer state arrives before click.
+            menu:addOption((pve and "Disable PvE: " or "Enable PvE: ") .. username, nil,
+                ParadiseDev.TargContext.setPvE, username, not pve)
+        else
+            local option = menu:addOption("PvE status loading: " .. username)
+            option.notAvailable = true
+        end
+    end
 
     local suspect = ParadiseDev.TargContext.isSuspect(target)
     menu:addOption((suspect and "Remove Suspect Role: " or "Assign Suspect Role: ") .. username, nil,

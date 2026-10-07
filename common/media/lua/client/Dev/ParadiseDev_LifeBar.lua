@@ -1,3 +1,4 @@
+require "Dev/ParadiseDev_PvEPolicy"
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.LifeBar = ParadiseDev.LifeBar or {}
 
@@ -13,9 +14,7 @@ function ParadiseDev.LifeBar.isPvE(pl)
 end
 
 function ParadiseDev.LifeBar.isPvEZone(pl)
-    local border = ParadiseDev.Zones and ParadiseDev.Zones.Border
-    local zone = border and border.getZoneFor and border.getZoneFor(pl) or nil
-    return zone and zone.features and zone.features.isPvE == true or false
+    return ParadiseDev.PvEPolicy.isPvEZone(pl or getPlayer())
 end
 
 function ParadiseDev.LifeBar.getConditionRGB(condition)

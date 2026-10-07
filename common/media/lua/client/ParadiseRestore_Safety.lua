@@ -1,59 +1,64 @@
+require "Dev/ParadiseDev_PvEPolicy"
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.PvE = ParadiseDev.PvE or {}
 ParadiseDev.PvE.Safety = ParadiseDev.PvE.Safety or {}
 
 function ParadiseDev.PvE.Safety.isLocked(pl)
-    pl = pl or getPlayer()
-    if not pl or not ParadiseDev.LifeBar then return false end
-    if ParadiseDev.LifeBar.isPvE(pl) then return true end
-    local inPvE = ParadiseDev.LifeBar.isPvEZone(pl)
-    local border = ParadiseDev.Zones and ParadiseDev.Zones.Border
-    local zone = border and border.getZoneFor and border.getZoneFor(pl) or nil
-    local inKos = zone and zone.features and zone.features.isKos == true or false
-    return inPvE or inKos
+    return ParadiseDev.PvEPolicy.safetyState(pl or getPlayer())
 end
 
+-- Compatibility entry point. The server bridge owns entry/exit transitions and
+-- replication; clients never spam toggle packets while waiting for a countdown.
 function ParadiseDev.PvE.updateSafety(pl)
-    if not isIngameState() or not pl or not pl.getSafety or not ParadiseDev.LifeBar then return end
+    return ParadiseDev.PvEPolicy.safetyState(pl)
+end
 
-    local safety = pl:getSafety()
-    if not safety or not safety.isEnabled then return end
-
-    local hasPvETrait = ParadiseDev.LifeBar.isPvE(pl)
-    local inPvE = ParadiseDev.LifeBar.isPvEZone(pl)
-    local border = ParadiseDev.Zones and ParadiseDev.Zones.Border
-    local zone = border and border.getZoneFor and border.getZoneFor(pl) or nil
-    local inKos = zone and zone.features and zone.features.isKos == true or false
-
-    local shouldBeOn
-    if hasPvETrait then
-        shouldBeOn = true
-    elseif inPvE then
-        shouldBeOn = true
-    elseif inKos then
-        shouldBeOn = false
-    else
-        return
+function ParadiseDev.PvE.Safety.updateButton(panel)
+    local button=panel and panel.safetyBtn
+    if not button then return end
+    local locked,enabled,reason,zone=ParadiseDev.PvE.Safety.isLocked(panel.chr or getPlayer())
+    if locked then
+        if not button.paradisePvELocked then
+            button.paradisePvEPreviousEnabled=button:isEnabled()
+            button.paradisePvELocked=true
+            button:setEnable(false)
+        end
+        local name=zone and type(zone.name)=="string" and zone.name:gsub("[%c]"," "):sub(1,120) or nil
+        if not name or name:match("^%s*$") then name=reason=="KoS zone" and "this KoS zone" or "this PvE zone" end
+        local tooltip
+        if reason=="PvE character" then tooltip="Your PvE character cannot deal or receive PvP damage. Safety is locked on."
+        elseif reason=="Safe zone" then tooltip="PvP is disabled in this native safe zone. Safety is locked on."
+        elseif enabled then tooltip="PvP is disabled in "..name..". Safety is locked on."
+        else tooltip="PvP is enabled in "..name..". Safety is locked off." end
+        button:setTooltip(tooltip)
+    elseif button.paradisePvELocked then
+        button:setEnable(button.paradisePvEPreviousEnabled ~= false)
+        button.paradisePvELocked,button.paradisePvEPreviousEnabled=nil,nil
+        -- Vanilla prerender already restored its own tooltip for this location.
     end
-
-    if safety:isEnabled() ~= shouldBeOn then safety:toggleSafety() end
 end
 
 function ParadiseDev.PvE.Safety.installHooks()
-    if ParadiseDev.PvE.Safety.hooked or not ISEquippedItem then return end
-
-    ParadiseDev.PvE.Safety.originalToggleSafety = ISEquippedItem.toggleSafety
+    local safety=ParadiseDev.PvE.Safety
+    if safety.hooked or not ISEquippedItem then return end
+    safety.originalToggleSafety=ISEquippedItem.toggleSafety
     function ISEquippedItem:toggleSafety()
-        if ParadiseDev.PvE.Safety.isLocked(getPlayer()) then return end
+        if ParadiseDev.PvE.Safety.isLocked(self.chr or getPlayer()) then return end
         return ParadiseDev.PvE.Safety.originalToggleSafety(self)
     end
-
-    ParadiseDev.PvE.Safety.originalOnKeyPressed = ISEquippedItem.onKeyPressed
-    ISEquippedItem.onKeyPressed = function(key)
-        if getCore():isKey("Toggle Safety", key) and ParadiseDev.PvE.Safety.isLocked(getPlayer()) then return end
+    safety.originalOnKeyPressed=ISEquippedItem.onKeyPressed
+    ISEquippedItem.onKeyPressed=function(key)
+        local toggleKey=KeybindId and KeybindId.TOGGLE_SAFETY or "Toggle Safety"
+        if getCore():isKey(toggleKey,key) and ParadiseDev.PvE.Safety.isLocked(getPlayer()) then return end
         return ParadiseDev.PvE.Safety.originalOnKeyPressed(key)
     end
-    ParadiseDev.PvE.Safety.hooked = true
+    safety.originalPrerender=ISEquippedItem.prerender
+    function ISEquippedItem:prerender()
+        local result=ParadiseDev.PvE.Safety.originalPrerender(self)
+        ParadiseDev.PvE.Safety.updateButton(self)
+        return result
+    end
+    safety.hooked=true
 end
 
 function ParadiseDev.PvE.isThrowable(item)
@@ -80,7 +85,6 @@ function ParadiseDev.PvE.updateThrowableRestriction(pl)
 end
 
 Events.OnPlayerUpdate.Remove(ParadiseDev.PvE.updateSafety)
-Events.OnPlayerUpdate.Add(ParadiseDev.PvE.updateSafety)
 Events.OnPlayerUpdate.Remove(ParadiseDev.PvE.updateThrowableRestriction)
 Events.OnPlayerUpdate.Add(ParadiseDev.PvE.updateThrowableRestriction)
 Events.OnGameStart.Remove(ParadiseDev.PvE.Safety.installHooks)

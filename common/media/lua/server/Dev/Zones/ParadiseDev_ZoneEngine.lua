@@ -1,3 +1,4 @@
+require "Dev/ParadiseDev_PvEPolicy"
 require "ParadiseProductionDiagnostics"
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
@@ -29,6 +30,14 @@ local function boundaryNow()
     return getTimestampMs()
 end
 
+-- One revision also fences the ride-specific prediction permission. Refreshing a
+-- ride timestamp alone does not invalidate or resend the full zone snapshot.
+function Engine.invalidateBoundaryState(state)
+    Engine.boundaryRevision = Engine.boundaryRevision + 1
+    state.stateRevision = Engine.boundaryRevision
+    state.pending, state.episode, state.stateSent = nil, nil, false
+end
+
 function Engine.boundarySignature(pl)
     -- setProfile/zone edits call save(); reference changes also invalidate. Avoid
     -- sorting/copying every profile tag for every boundary request.
@@ -37,7 +46,8 @@ function Engine.boundarySignature(pl)
     local signature = tostring(Engine.zoneRevision) .. "|" .. tostring(profile) .. "|" ..
         tostring(ParadiseDev.hasTrait and ParadiseDev.hasTrait(pl, pve) or false) .. "|" ..
         tostring(ParadiseRestore.isAdm(pl)) .. "|" .. tostring(Engine.adminBypassEnabled()) .. "|" ..
-        tostring(Engine.cageAssignments[Engine.playerSteamId(pl)])
+        tostring(Engine.cageAssignments[Engine.playerSteamId(pl)]) .. "|" ..
+        tostring(ParadiseDev.Cage and ParadiseDev.Cage.isCaged(pl) or false)
     local vehicle = pl:getVehicle()
     local driver = vehicle and vehicle:getCharacter(0) or nil
     if driver and driver ~= pl then
@@ -47,7 +57,8 @@ function Engine.boundarySignature(pl)
             tostring(Engine.profiles[Engine.userName(driver)]) .. "|" ..
             tostring(ParadiseDev.hasTrait and ParadiseDev.hasTrait(driver, pve) or false) .. "|" ..
             tostring(ParadiseRestore.isAdm(driver)) .. "|" ..
-            tostring(Engine.cageAssignments[Engine.playerSteamId(driver)])
+            tostring(Engine.cageAssignments[Engine.playerSteamId(driver)]) .. "|" ..
+            tostring(ParadiseDev.Cage and ParadiseDev.Cage.isCaged(driver) or false)
     end
     return signature
 end
@@ -64,9 +75,8 @@ function Engine.boundaryActor(pl)
     end
     local signature = Engine.boundarySignature(pl)
     if state.signature ~= signature then
-        Engine.boundaryRevision = Engine.boundaryRevision + 1
-        state.signature, state.stateRevision = signature, Engine.boundaryRevision
-        state.pending, state.episode, state.stateSent = nil, nil, false
+        state.signature = signature
+        Engine.invalidateBoundaryState(state)
     end
     return state
 end
@@ -79,8 +89,10 @@ local function boundedInteger(value, minimum)
 end
 
 function Engine.clearBoundaryRide(state)
-    state.ride = nil
-    if state.pending and state.pending.args.kind == "passenger" then
+    if state.ride then
+        state.ride = nil
+        Engine.invalidateBoundaryState(state)
+    elseif state.pending and state.pending.args.kind == "passenger" then
         state.pending, state.episode = nil, nil
     end
 end
@@ -91,7 +103,7 @@ function Engine.observeBoundaryRide(pl, state)
     local vehicle = pl:getVehicle()
     local driver = vehicle and vehicle:getCharacter(0) or nil
     local now = boundaryNow()
-    if vehicle ~= ride.vehicle or not driver or driver ~= ride.driver or
+    if vehicle ~= ride.vehicle or not driver or not driver:isAlive() or driver ~= ride.driver or
         vehicle:getSeat(pl) ~= ride.seat or vehicle:getId() ~= ride.vehicleId or
         driver:getOnlineID() ~= ride.driverId or now < ride.seenAt or now - ride.seenAt > 2000 then
         Engine.clearBoundaryRide(state)
@@ -119,10 +131,10 @@ function Engine.receiveBoundaryRide(pl, args)
         Engine.observeBoundaryRide(pl, state)
         return
     end
-    local ride = state.ride
+    local ride = Engine.observeBoundaryRide(pl, state)
     local changed = not ride or ride.token ~= args.rideToken or ride.vehicle ~= vehicle or
         ride.seat ~= args.seat or ride.driver ~= driver or ride.driverId ~= args.driverId
-    if changed then Engine.clearBoundaryRide(state) end
+    if changed then Engine.invalidateBoundaryState(state) end
     state.latestRideToken = args.rideToken
     state.ride = {token=args.rideToken,vehicle=vehicle,vehicleId=args.vehicleId,
         seat=args.seat,driver=driver,driverId=args.driverId,seenAt=boundaryNow()}
@@ -130,6 +142,8 @@ end
 
 function Engine.ensureBoundaryState(pl)
     local state = Engine.boundaryActor(pl)
+    -- Never renew a prediction lease for a departed or expired ride.
+    Engine.observeBoundaryRide(pl, state)
     local now = boundaryNow()
     if not state.stateSent then
         Engine.syncBoundaryState(pl)
@@ -260,6 +274,7 @@ function ParadiseDev.Zones.Engine.save()
     store.profiles = ParadiseDev.Zones.Engine.profiles
     store.vehicleMode = ParadiseDev.Zones.Engine.vehicleMode
     ModData.transmit(ParadiseDev.Zones.Engine.storeName)
+    ParadiseDev.PvEPolicy.onZonesChanged()
 end
 
 function ParadiseDev.Zones.Engine.load()
@@ -272,6 +287,7 @@ function ParadiseDev.Zones.Engine.load()
     ParadiseDev.Zones.Engine.profiles = store.profiles
     ParadiseDev.Zones.Engine.vehicleMode = "rebound"
     ParadiseDev.Zones.Engine.rebuildIndex()
+    ParadiseDev.PvEPolicy.onZonesChanged()
 end
 
 function ParadiseDev.Zones.Engine.userName(pl)
@@ -491,21 +507,16 @@ function ParadiseDev.Zones.Engine.getProfile(pl)
 end
 
 function ParadiseDev.Zones.Engine.isOnZoneLevel(zone, z)
-    return zone.zMode == "all" or (z >= zone.zMin and z < zone.zMaxExclusive)
+    return ParadiseDev.PvEPolicy.onLevel(zone,z)
 end
 
 function ParadiseDev.Zones.Engine.regionContains(region, x, y, padding)
-    padding = padding or 0
-    return x >= region.xMin - padding and x < region.xMax + padding and
-        y >= region.yMin - padding and y < region.yMax + padding
+    return ParadiseDev.PvEPolicy.contains(region,x,y,padding)
 end
 
 function ParadiseDev.Zones.Engine.zoneContains(zone, x, y, z, padding)
-    if not ParadiseDev.Zones.Engine.isOnZoneLevel(zone, z) then return false end
-    for _, region in ipairs(zone.regions) do
-        if ParadiseDev.Zones.Engine.regionContains(region, x, y, padding) then return true, region end
-    end
-    return false, nil
+    local region=ParadiseDev.PvEPolicy.containingRegion(zone,x,y,z,padding)
+    return region ~= nil,region
 end
 
 function ParadiseDev.Zones.Engine.getCandidateZones(x, y, padding)
@@ -578,6 +589,13 @@ end
 function ParadiseDev.Zones.Engine.syncBoundaryState(pl)
     if not pl then return end
     local state = Engine.boundaryActor(pl)
+    local ride = Engine.observeBoundaryRide(pl, state)
+    local riderCaged = ParadiseDev.Cage and ParadiseDev.Cage.isCaged(pl)
+    local passengerRide = not riderCaged and ride and {rideToken=ride.token,vehicleId=ride.vehicleId,
+        seat=ride.seat,driverId=ride.driverId} or nil
+    -- A cage has its own enforcement. It must never authorize ordinary passenger
+    -- prediction, including the brief interval before a cage zone is assigned.
+    local driverCaged = ride and ParadiseDev.Cage and ParadiseDev.Cage.isCaged(ride.driver)
     local zones = {}
     for _, zone in pairs(ParadiseDev.Zones.Engine.zones) do
         local regions = {}
@@ -596,6 +614,7 @@ function ParadiseDev.Zones.Engine.syncBoundaryState(pl)
             zMin = zone.zMin,
             zMaxExclusive = zone.zMaxExclusive,
             allowed = ParadiseDev.Zones.Engine.isAllowed(zone, pl),
+            driverAllowed = ride ~= nil and not driverCaged and Engine.isAllowed(zone, ride.driver) == true,
             restricted = deniedReason ~= nil,
             deniedReason = deniedReason,
             features = ParadiseDev.Zones.Engine.copyFeatures(zone.features),
@@ -606,6 +625,7 @@ function ParadiseDev.Zones.Engine.syncBoundaryState(pl)
         session = state.session, sessionOrder = state.sessionOrder, stateRevision = state.stateRevision,
         borderWidth = ParadiseDev.Zones.Engine.BORDER_WIDTH,
         vehicleMode = ParadiseDev.Zones.Engine.vehicleMode,
+        passengerRide = passengerRide,
         cagedZoneId = ParadiseDev.Zones.Engine.cageAssignments[ParadiseDev.Zones.Engine.playerSteamId(pl)],
         zones = zones,
     })
@@ -624,9 +644,7 @@ function ParadiseDev.Zones.Engine.getAuthority(x, y, z, padding)
     for _, zone in ipairs(ParadiseDev.Zones.Engine.getCandidateZones(x, y, padding)) do
         local inside, region = ParadiseDev.Zones.Engine.zoneContains(zone, x, y, z, padding)
         if inside then
-            if not winner or zone.priority > winner.priority or
-                (zone.priority == winner.priority and ParadiseDev.Zones.Engine.area(region) < ParadiseDev.Zones.Engine.area(winnerRegion)) or
-                (zone.priority == winner.priority and ParadiseDev.Zones.Engine.area(region) == ParadiseDev.Zones.Engine.area(winnerRegion) and zone.id < winner.id) then
+            if ParadiseDev.PvEPolicy.better(zone,region,winner,winnerRegion) then
                 winner, winnerRegion = zone, region
             end
         end

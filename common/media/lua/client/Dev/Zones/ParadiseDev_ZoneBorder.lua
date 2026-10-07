@@ -1,3 +1,4 @@
+require "Dev/ParadiseDev_PvEPolicy"
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
 ParadiseDev.Zones.Border = ParadiseDev.Zones.Border or {}
@@ -44,12 +45,11 @@ function ParadiseDev.Zones.Border.area(region)
 end
 
 function ParadiseDev.Zones.Border.onLevel(zone, z)
-    return zone.zMode == "all" or (z >= zone.zMin and z < zone.zMaxExclusive)
+    return ParadiseDev.PvEPolicy.onLevel(zone,z)
 end
 
 function ParadiseDev.Zones.Border.contains(region, x, y, padding)
-    return x >= region.xMin - padding and x < region.xMax + padding and
-        y >= region.yMin - padding and y < region.yMax + padding
+    return ParadiseDev.PvEPolicy.contains(region,x,y,padding)
 end
 
 function ParadiseDev.Zones.Border.rebuildIndex()
@@ -82,9 +82,7 @@ function ParadiseDev.Zones.Border.authorityAt(x, y, z, padding)
     for _, candidate in ipairs(bucket) do
         local zone, region = candidate.zone, candidate.region
         if ParadiseDev.Zones.Border.onLevel(zone, z) and ParadiseDev.Zones.Border.contains(region, x, y, padding) and
-            (not winner or zone.priority > winner.priority or
-            (zone.priority == winner.priority and ParadiseDev.Zones.Border.area(region) < ParadiseDev.Zones.Border.area(winnerRegion)) or
-            (zone.priority == winner.priority and ParadiseDev.Zones.Border.area(region) == ParadiseDev.Zones.Border.area(winnerRegion) and zone.id < winner.id)) then
+            ParadiseDev.PvEPolicy.better(zone,region,winner,winnerRegion) then
             winner, winnerRegion = zone, region
         end
     end
@@ -228,8 +226,13 @@ function ParadiseDev.Zones.Border.onPlayerUpdate(pl)
         ParadiseDev.Zones.Border.noticeZoneId = nil
     end
     if not zone or zone.allowed then return end
-    -- Passengers retain notices and server checks, but never predict an exit or move.
-    if vehicle and vehicle:getCharacter(0) ~= pl then return end
+    -- A fresh server snapshot already decided both occupants' permissions for
+    -- this exact ride. Exit locally on contact; normal VehicleExit synchronizes
+    -- everyone. Missing/stale ride authority leaves the server fallback in charge.
+    if vehicle and vehicle:getCharacter(0) ~= pl then
+        if client and client.predictPassengerExit then client.predictPassengerExit(pl,zone) end
+        return
+    end
 
     local outX, outY = ParadiseDev.Zones.Border.safeOutside(x, y, pl:getZ(), padding)
     if not outX then return end
@@ -249,6 +252,7 @@ function ParadiseDev.Zones.Border.onServerCommand(module, command, args)
     ParadiseDev.Zones.Border.borderWidth = tonumber(args.borderWidth) or 2
     ParadiseDev.Zones.Border.vehicleMode = args.vehicleMode or "observe"
     ParadiseDev.Zones.Border.cagedZoneId = args.cagedZoneId
+    ParadiseDev.Zones.Border.passengerRide = args.passengerRide
     ParadiseDev.Zones.Border.stateRevision = args.stateRevision
     ParadiseDev.Zones.Border.stateReceivedAt = getTimestampMs()
     ParadiseDev.Zones.Border.rebuildIndex()
