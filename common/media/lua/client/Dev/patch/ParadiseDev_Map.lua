@@ -1,10 +1,10 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.PlayerMapMaxZoom = ParadiseDev.PlayerMapMaxZoom or 18
 ParadiseDev.Map = ParadiseDev.Map or {}
-ParadiseDev.Map.zoneVisuals = ParadiseDev.Map.zoneVisuals ~= false
-ParadiseDev.Map.coordinates = ParadiseDev.Map.coordinates ~= false
 
 require "ISUI/Maps/ISMiniMap"
+require "Dev/patch/ParadiseDev_MapPreferences"
+require "ISUI/ISToolTip"
 
 ParadiseDev.Map.vanillaInstantiate = ParadiseDev.Map.vanillaInstantiate or ISWorldMap.instantiate
 
@@ -27,41 +27,72 @@ local function mapZoneColor(zone)
     return 0.03, 0.55, 0.03
 end
 
-local function drawMinimapZoneBorders(minimap)
-    if not minimap or not minimap.mapAPI then return end
+local function mapPlayer(map)
+    local playerNum = map.playerNum or 0
+    return getSpecificPlayer and getSpecificPlayer(playerNum) or getPlayer()
+end
+
+local function drawMapLine(map, x1, y1, x2, y2, r, g, b, a, half)
+    local dx, dy = x2 - x1, y2 - y1
+    local length = math.sqrt(dx * dx + dy * dy)
+    if length <= 0 then return end
+    local nx, ny = -dy / length * half, dx / length * half
+    map:drawPolygon(nil, x1 + nx, y1 + ny, x2 + nx, y2 + ny,
+        x2 - nx, y2 - ny, x1 - nx, y1 - ny, r, g, b, a)
+end
+
+local function drawZoneOverlay(map, mini)
+    if not map or not map.mapAPI then return end
     local visuals = ParadiseDev.Zones and ParadiseDev.Zones.Visualization
     if not visuals or not visuals.zones then return end
-    local pl = getSpecificPlayer and getSpecificPlayer(minimap.playerNum) or getPlayer()
+    local pl = mapPlayer(map)
     if not pl then return end
+    local prefs = ParadiseDev.MapPreferences.get(pl)
+    if mini and not prefs.applyToMinimap then return end
+    if not prefs.zoneVisibility and not prefs.zoneHighlight then return end
     if not visuals.canRenderMap or not visuals.canRenderMap(pl) then return end
-    local absoluteX = minimap:getAbsoluteX()
-    local absoluteY = minimap:getAbsoluteY()
+    local width, height = map:getWidth(), map:getHeight()
+    local mx, my = map:getMouseX(), map:getMouseY()
+    local wx, wy, hoveredZone
+    if mx >= 0 and my >= 0 and mx <= width and my <= height then
+        wx, wy = map.mapAPI:uiToWorldX(mx, my), map.mapAPI:uiToWorldY(mx, my)
+    end
     local z = math.floor(pl:getZ())
-    for _, zone in ipairs(visuals.zones) do
-        if visuals.zoneOnLevel(zone, z) then
+    local function visibleRegion(zone, region)
+        return not mini or (visuals.zoneOnLevel(zone, z)
+            and visuals.regionNearPlayer(region, pl, visuals.VISIBLE_RADIUS))
+    end
+    if prefs.zoneHighlight and wx and wy then
+        for _, zone in ipairs(visuals.zones) do
             for _, region in ipairs(zone.regions or {}) do
-                if visuals.regionNearPlayer(region, pl, visuals.VISIBLE_RADIUS) then
+                if visibleRegion(zone, region) and visuals.regionContains(region, wx, wy) then
+                    hoveredZone = zone
+                end
+            end
+        end
+    end
+    for _, zone in ipairs(visuals.zones) do
+        for _, region in ipairs(zone.regions or {}) do
+            if visibleRegion(zone, region) then
+                local api = map.mapAPI
+                local x1, y1 = api:worldToUIX(region.xMin, region.yMin), api:worldToUIY(region.xMin, region.yMin)
+                local x2, y2 = api:worldToUIX(region.xMax, region.yMin), api:worldToUIY(region.xMax, region.yMin)
+                local x3, y3 = api:worldToUIX(region.xMax, region.yMax), api:worldToUIY(region.xMax, region.yMax)
+                local x4, y4 = api:worldToUIX(region.xMin, region.yMax), api:worldToUIY(region.xMin, region.yMax)
+                if x1 and y1 and x2 and y2 and x3 and y3 and x4 and y4
+                    and math.max(x1, x2, x3, x4) >= -2 and math.min(x1, x2, x3, x4) <= width + 2
+                    and math.max(y1, y2, y3, y4) >= -2 and math.min(y1, y2, y3, y4) <= height + 2 then
                     local r, g, b = mapZoneColor(zone)
-                    local function line(x1, y1, x2, y2)
-                        local sx1 = minimap.mapAPI:worldToUIX(x1, y1) + absoluteX
-                        local sy1 = minimap.mapAPI:worldToUIY(x1, y1) + absoluteY
-                        local sx2 = minimap.mapAPI:worldToUIX(x2, y2) + absoluteX
-                        local sy2 = minimap.mapAPI:worldToUIY(x2, y2) + absoluteY
-                        if sx1 and sy1 and sx2 and sy2 then
-                            local dx, dy = sx2 - sx1, sy2 - sy1
-                            local length = math.sqrt(dx * dx + dy * dy)
-                            if length > 0 then
-                                local half = 1.0
-                                local nx, ny = -dy / length * half, dx / length * half
-                                getRenderer():renderPoly(sx1 + nx, sy1 + ny, sx2 + nx, sy2 + ny,
-                                    sx2 - nx, sy2 - ny, sx1 - nx, sy1 - ny, r, g, b, 0.75)
-                            end
-                        end
+                    if prefs.zoneVisibility then
+                        map:drawPolygon(nil, x1, y1, x2, y2, x3, y3, x4, y4, r, g, b, 0.11)
                     end
-                    line(region.xMin, region.yMin, region.xMax, region.yMin)
-                    line(region.xMax, region.yMin, region.xMax, region.yMax)
-                    line(region.xMax, region.yMax, region.xMin, region.yMax)
-                    line(region.xMin, region.yMax, region.xMin, region.yMin)
+                    if prefs.zoneHighlight then
+                        local a, half = zone == hoveredZone and 0.95 or 0.50, mini and 1.0 or 1.5
+                        drawMapLine(map, x1, y1, x2, y2, r, g, b, a, half)
+                        drawMapLine(map, x2, y2, x3, y3, r, g, b, a, half)
+                        drawMapLine(map, x3, y3, x4, y4, r, g, b, a, half)
+                        drawMapLine(map, x4, y4, x1, y1, r, g, b, a, half)
+                    end
                 end
             end
         end
@@ -121,74 +152,99 @@ local function drawSuspectMarkers(map)
     end
 end
 
+local function drawMinimapOverlays(map)
+    drawZoneOverlay(map, true)
+    drawSuspectMarkers(map)
+    if ParadiseRestore and ParadiseRestore.DeadTracker then
+        ParadiseRestore.DeadTracker.drawMapMarkers(map)
+    end
+end
+
+local function withMapStencil(map, draw)
+    local cx, cy, cw, ch = map:clampStencilRectToParent(0, 0, map:getWidth(), map:getHeight())
+    local ok, err = pcall(draw, map)
+    -- This stencil is shared with parent panels; restore it even if an overlay fails.
+    map:clearStencilRect()
+    map:repaintStencilRect(cx, cy, cw, ch)
+    if not ok then error(err) end
+end
+
 if ISMiniMapInner and not ParadiseDev.Map.miniMapHooked then
     ParadiseDev.Map.miniMapHooked = true
     ParadiseDev.Map.miniMapRender = ISMiniMapInner.render
     function ISMiniMapInner:render(...)
         ParadiseDev.Map.miniMapRender(self, ...)
-        self:setStencilRect(0, 0, self:getWidth(), self:getHeight())
-        drawMinimapZoneBorders(self)
-        drawSuspectMarkers(self)
-        if ParadiseRestore and ParadiseRestore.DeadTracker then
-            ParadiseRestore.DeadTracker.drawMapMarkers(self)
-        end
-        self:clearStencilRect()
+        withMapStencil(self, drawMinimapOverlays)
     end
-end
-
-local function drawMapLine(self, x1, y1, x2, y2, r, g, b, a)
-    local dx, dy = x2 - x1, y2 - y1
-    local length = math.sqrt(dx * dx + dy * dy)
-    if length <= 0 then return end
-    local half = 1.5
-    local nx, ny = -dy / length * half, dx / length * half
-    getRenderer():renderPoly(x1 + nx, y1 + ny, x2 + nx, y2 + ny,
-        x2 - nx, y2 - ny, x1 - nx, y1 - ny, r, g, b, a)
+    local vanillaMiniRightMouseUp = ISMiniMapInner.onRightMouseUp
+    function ISMiniMapInner:onRightMouseUp(x, y)
+        local wasDown = self.rightMouseDown
+        local result = vanillaMiniRightMouseUp and vanillaMiniRightMouseUp(self, x, y)
+        if not wasDown or not getSpecificPlayer(0) then return result end
+        -- Vanilla already creates (and may hide) this menu. Creating it again clears its options.
+        local context = getPlayerContextMenu(0)
+        if context then
+            ParadiseDev.Map.addContextOptions(context, mapPlayer(self))
+            context:setVisible(true)
+        end
+        return result
+    end
 end
 
 function ParadiseDev.Map.drawZoneBorders(self)
-    if not ParadiseDev.Map.zoneVisuals then return end
-    local visuals = ParadiseDev.Zones and ParadiseDev.Zones.Visualization
-    if not visuals or not visuals.canRenderMap(getSpecificPlayer(0)) then return end
-    local mx, my = self:getMouseX(), self:getMouseY()
-    local wx, wy = self.mapAPI:uiToWorldX(mx, my), self.mapAPI:uiToWorldY(mx, my)
-    if not wx or not wy then return end
-    local hoveredZone
-    for _, zone in ipairs(visuals.zones or {}) do
-        for _, region in ipairs(zone.regions or {}) do
-            if visuals.regionContains(region, wx, wy) then hoveredZone = zone end
-        end
-    end
-
-    for _, zone in ipairs(visuals.zones or {}) do
-        for _, region in ipairs(zone.regions or {}) do
-            local r, g, b = mapZoneColor(zone)
-            local a = (zone == hoveredZone) and 0.95 or 0.50
-            local x1 = self.mapAPI:worldToUIX(region.xMin, region.yMin)
-            local y1 = self.mapAPI:worldToUIY(region.xMin, region.yMin)
-            local x2 = self.mapAPI:worldToUIX(region.xMax, region.yMin)
-            local y2 = self.mapAPI:worldToUIY(region.xMax, region.yMin)
-            local x3 = self.mapAPI:worldToUIX(region.xMax, region.yMax)
-            local y3 = self.mapAPI:worldToUIY(region.xMax, region.yMax)
-            local x4 = self.mapAPI:worldToUIX(region.xMin, region.yMax)
-            local y4 = self.mapAPI:worldToUIY(region.xMin, region.yMax)
-            if x1 and y1 and x2 and y2 and x3 and y3 and x4 and y4 then
-                drawMapLine(self, x1, y1, x2, y2, r, g, b, a)
-                drawMapLine(self, x2, y2, x3, y3, r, g, b, a)
-                drawMapLine(self, x3, y3, x4, y4, r, g, b, a)
-                drawMapLine(self, x4, y4, x1, y1, r, g, b, a)
-            end
-        end
-    end
+    drawZoneOverlay(self, false)
 end
 
 function ParadiseDev.Map.drawCoordinates(self)
-    if not ParadiseDev.Map.coordinates then return end
+    if not ParadiseDev.MapPreferences.get(mapPlayer(self)).coordinates then return end
     local mx, my = self:getMouseX(), self:getMouseY()
+    if mx < 0 or my < 0 or mx > self:getWidth() or my > self:getHeight() then return end
     local wx, wy = self.mapAPI:uiToWorldX(mx, my), self.mapAPI:uiToWorldY(mx, my)
     if not wx or not wy then return end
     self:drawText("X: " .. tostring(math.floor(wx)) .. "  |  Y: " .. tostring(math.floor(wy)),
         mx + 14, my + 38, 1, 1, 1, 1, UIFont.Small)
+end
+
+function ParadiseDev.Map.addContextOptions(context, pl)
+    local prefs = ParadiseDev.MapPreferences.get(pl)
+    local function add(label, key, description)
+        local option = context:addOption(label, pl, function(player)
+            ParadiseDev.MapPreferences.toggle(key, player)
+        end)
+        context:setOptionChecked(option, prefs[key])
+        local tooltip = ISToolTip:new()
+        tooltip:initialise()
+        tooltip:setDescription(description)
+        option.toolTip = tooltip
+    end
+    add("Coordinate tool-tip", "coordinates", "Show coordinates under the pointer on the full map.")
+    add("Zone visibility", "zoneVisibility", "Light fill inside zones.")
+    add("Zone highlight", "zoneHighlight", "Zone borders, brighter under the pointer.")
+    add("Apply zone settings to mini-map", "applyToMinimap",
+        "Show the same zone fill and borders on the mini-map; off hides its zone overlay.")
+    if ParadiseRestore and ParadiseRestore.DeadTracker and ParadiseRestore.DeadTracker.isAdminViewer() then
+        local option = context:addOption("Hide DeadTracker Dots", nil, ParadiseRestore.DeadTracker.toggleVisibility)
+        context:setOptionChecked(option, not ParadiseRestore.DeadTracker.visible)
+    end
+end
+
+local function callMapRightMouseUp(vanilla, map, x, y)
+    -- Vanilla returns true both for a consumed symbols-tool click and an admin menu.
+    -- Observe the single native tool dispatch, then restore the instance even if it fails.
+    if not vanilla then return nil, false end
+    local symbols = map.symbolsUI
+    local original = symbols and symbols.onRightMouseUpMap
+    if not original then return vanilla(map, x, y), false end
+    local ownMethod, consumed = rawget(symbols, "onRightMouseUpMap"), false
+    symbols.onRightMouseUpMap = function(self, ...)
+        local result = original(self, ...)
+        if result then consumed = true end
+        return result
+    end
+    local ok, result = pcall(vanilla, map, x, y)
+    symbols.onRightMouseUpMap = ownMethod
+    if not ok then error(result) end
+    return result, consumed
 end
 
 function ParadiseDev.Map.hookWorldMap()
@@ -198,7 +254,7 @@ function ParadiseDev.Map.hookWorldMap()
     local vanillaMapRender = ISWorldMap.render
     ISWorldMap.render = function(self, ...)
         vanillaMapRender(self, ...)
-        ParadiseDev.Map.drawZoneBorders(self)
+        withMapStencil(self, ParadiseDev.Map.drawZoneBorders)
         ParadiseDev.Map.drawCoordinates(self)
         drawSuspectMarkers(self)
         if ParadiseRestore and ParadiseRestore.DeadTracker then
@@ -208,21 +264,18 @@ function ParadiseDev.Map.hookWorldMap()
 
     local vanillaMapRightMouseUp = ISWorldMap.onRightMouseUp
     function ISWorldMap:onRightMouseUp(x, y)
-        if vanillaMapRightMouseUp and vanillaMapRightMouseUp(self, x, y) == true then return true end
-        local context = ISContextMenu.get(0, x + self:getAbsoluteX(), y + self:getAbsoluteY())
-        if not context then return true end
-        local option = context:addOption("Hide Zone Visuals", self, function()
-            ParadiseDev.Map.zoneVisuals = not ParadiseDev.Map.zoneVisuals
-        end)
-        context:setOptionChecked(option, not ParadiseDev.Map.zoneVisuals)
-        option = context:addOption("Hide Coordinates", self, function()
-            ParadiseDev.Map.coordinates = not ParadiseDev.Map.coordinates
-        end)
-        context:setOptionChecked(option, not ParadiseDev.Map.coordinates)
-        if ParadiseRestore and ParadiseRestore.DeadTracker and ParadiseRestore.DeadTracker.isAdminViewer() then
-            option = context:addOption("Hide DeadTracker Dots", self, ParadiseRestore.DeadTracker.toggleVisibility)
-            context:setOptionChecked(option, not ParadiseRestore.DeadTracker.visible)
+        local result, consumed = callMapRightMouseUp(vanillaMapRightMouseUp, self, x, y)
+        if consumed then return result end
+        local pl = getSpecificPlayer(0)
+        if not pl then return result end
+        local context
+        if result == true then
+            context = getPlayerContextMenu(0)
+        else
+            context = ISContextMenu.get(0, x + self:getAbsoluteX(), y + self:getAbsoluteY())
         end
+        if not context then return result end
+        ParadiseDev.Map.addContextOptions(context, pl)
         return true
     end
 end

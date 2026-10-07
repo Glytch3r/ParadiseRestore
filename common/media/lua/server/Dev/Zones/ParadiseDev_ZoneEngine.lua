@@ -15,6 +15,225 @@ ParadiseDev.Zones.Engine.storeName = "ParadiseDev_Zones"
 
 ParadiseDev.Zones.Engine.BORDER_WIDTH = 2
 
+-- Boundary-only transport. Shared TP remains the admin/cage path.
+local Engine = ParadiseDev.Zones.Engine
+Engine.boundaryActors = setmetatable({}, { __mode = "k" })
+Engine.boundarySessionOrder = Engine.boundarySessionOrder or 0
+Engine.boundaryRevision = Engine.boundaryRevision or 0
+Engine.zoneRevision = Engine.zoneRevision or 0
+Engine.BOUNDARY_RETRY_MS = 250
+Engine.BOUNDARY_ATTEMPTS = 4
+Engine.BOUNDARY_REISSUE_MS = 1000
+
+local function boundaryNow()
+    return getTimestampMs()
+end
+
+function Engine.boundarySignature(pl)
+    -- setProfile/zone edits call save(); reference changes also invalidate. Avoid
+    -- sorting/copying every profile tag for every boundary request.
+    local profile = Engine.profiles[Engine.userName(pl)]
+    local pve = ParadiseDev.getTrait and ParadiseDev.getTrait("ParadiseDev:PvE") or "ParadiseDev:PvE"
+    local signature = tostring(Engine.zoneRevision) .. "|" .. tostring(profile) .. "|" ..
+        tostring(ParadiseDev.hasTrait and ParadiseDev.hasTrait(pl, pve) or false) .. "|" ..
+        tostring(ParadiseRestore.isAdm(pl)) .. "|" .. tostring(Engine.adminBypassEnabled()) .. "|" ..
+        tostring(Engine.cageAssignments[Engine.playerSteamId(pl)])
+    local vehicle = pl:getVehicle()
+    local driver = vehicle and vehicle:getCharacter(0) or nil
+    if driver and driver ~= pl then
+        -- A passenger directive also depends on the driver's permission. Track
+        -- its cheap scalar/reference inputs without recursively scanning zones.
+        signature = signature .. "|driver:" .. tostring(driver) .. "|" .. tostring(driver:isAlive()) .. "|" ..
+            tostring(Engine.profiles[Engine.userName(driver)]) .. "|" ..
+            tostring(ParadiseDev.hasTrait and ParadiseDev.hasTrait(driver, pve) or false) .. "|" ..
+            tostring(ParadiseRestore.isAdm(driver)) .. "|" ..
+            tostring(Engine.cageAssignments[Engine.playerSteamId(driver)])
+    end
+    return signature
+end
+
+function Engine.boundaryActor(pl)
+    local state = Engine.boundaryActors[pl]
+    if not state then
+        Engine.boundarySessionOrder = math.max(Engine.boundarySessionOrder + 1, boundaryNow())
+        state = { session = "zone:" .. tostring(Engine.boundarySessionOrder),
+            sessionOrder = Engine.boundarySessionOrder, seq = 0 }
+        Engine.boundaryActors[pl] = state
+        -- A reconnect must not inherit a previous character's safe location.
+        Engine.lastValid[Engine.userName(pl)] = nil
+    end
+    local signature = Engine.boundarySignature(pl)
+    if state.signature ~= signature then
+        Engine.boundaryRevision = Engine.boundaryRevision + 1
+        state.signature, state.stateRevision = signature, Engine.boundaryRevision
+        state.pending, state.episode, state.stateSent = nil, nil, false
+    end
+    return state
+end
+
+-- This stamp correlates a directive to the owner's current ride. It never grants
+-- zone access: vehicle/seat/driver and both permissions are read on the server.
+local function boundedInteger(value, minimum)
+    return type(value) == "number" and value == value and value >= minimum and
+        value <= 2147483647 and value == math.floor(value)
+end
+
+function Engine.clearBoundaryRide(state)
+    state.ride = nil
+    if state.pending and state.pending.args.kind == "passenger" then
+        state.pending, state.episode = nil, nil
+    end
+end
+
+function Engine.observeBoundaryRide(pl, state)
+    local ride = state.ride
+    if not ride then return nil end
+    local vehicle = pl:getVehicle()
+    local driver = vehicle and vehicle:getCharacter(0) or nil
+    local now = boundaryNow()
+    if vehicle ~= ride.vehicle or not driver or driver ~= ride.driver or
+        vehicle:getSeat(pl) ~= ride.seat or vehicle:getId() ~= ride.vehicleId or
+        driver:getOnlineID() ~= ride.driverId or now < ride.seenAt or now - ride.seenAt > 2000 then
+        Engine.clearBoundaryRide(state)
+        return nil
+    end
+    return ride
+end
+
+function Engine.receiveBoundaryRide(pl, args)
+    if not pl or not pl:isAlive() then return end
+    local state = Engine.boundaryActor(pl)
+    local vehicle = pl:getVehicle()
+    local driver = vehicle and vehicle:getCharacter(0) or nil
+    if type(args) ~= "table" or not boundedInteger(args.rideToken, 1) or
+        not boundedInteger(args.vehicleId, 0) or not boundedInteger(args.seat, 1) or
+        not boundedInteger(args.driverId, 0) then
+        Engine.observeBoundaryRide(pl, state)
+        return
+    end
+    -- Unordered old boundary requests cannot replace a newer ride stamp.
+    if state.latestRideToken and args.rideToken < state.latestRideToken then return end
+    if not vehicle or not driver or driver == pl or not driver:isAlive() or
+        vehicle:getId() ~= args.vehicleId or vehicle:getSeat(pl) ~= args.seat or
+        driver:getOnlineID() ~= args.driverId then
+        Engine.observeBoundaryRide(pl, state)
+        return
+    end
+    local ride = state.ride
+    local changed = not ride or ride.token ~= args.rideToken or ride.vehicle ~= vehicle or
+        ride.seat ~= args.seat or ride.driver ~= driver or ride.driverId ~= args.driverId
+    if changed then Engine.clearBoundaryRide(state) end
+    state.latestRideToken = args.rideToken
+    state.ride = {token=args.rideToken,vehicle=vehicle,vehicleId=args.vehicleId,
+        seat=args.seat,driver=driver,driverId=args.driverId,seenAt=boundaryNow()}
+end
+
+function Engine.ensureBoundaryState(pl)
+    local state = Engine.boundaryActor(pl)
+    local now = boundaryNow()
+    if not state.stateSent then
+        Engine.syncBoundaryState(pl)
+    elseif not state.leaseAt or now < state.leaseAt or now - state.leaseAt >= 1000 then
+        sendServerCommand(pl, "PZZoneEngine", "boundaryLease", {
+            session = state.session, sessionOrder = state.sessionOrder, stateRevision = state.stateRevision,
+        })
+        state.leaseAt = now
+    end
+    return state
+end
+
+function Engine.clearBoundaryCorrection(pl)
+    local state = Engine.boundaryActors[pl]
+    if state then state.pending, state.episode = nil, nil end
+end
+
+-- Only server-observed location/permissions end an enforcement episode. No ACK
+-- or coordinates supplied by a client are accepted as proof of permission.
+function Engine.sendBoundaryCorrection(pl, kind, zone, vehicle, fromX, fromY, fromZ, x, y, z, apply, ride)
+    local state = Engine.ensureBoundaryState(pl)
+    local now = boundaryNow()
+    local vehicleId = vehicle and vehicle:getId() or nil
+    local episode = kind .. ":" .. tostring(zone.id) .. ":" .. tostring(vehicleId)
+    if ride then episode = episode .. ":" .. tostring(ride.token) .. ":" .. tostring(ride.seat) .. ":" .. tostring(ride.driverId) end
+    local pending = state.pending
+    local same = pending and pending.episode == episode and
+        (kind == "passenger" or (math.abs(pending.args.x - x) < 0.25 and
+        math.abs(pending.args.y - y) < 0.25 and pending.args.z == z))
+    -- Even movement along the same edge must not create one correction per request.
+    if pending and pending.episode == episode and now >= pending.sent and
+        now - pending.created < Engine.BOUNDARY_REISSUE_MS and now - pending.sent < Engine.BOUNDARY_RETRY_MS then
+        return true, false
+    end
+    if same and now >= pending.created and now - pending.created < Engine.BOUNDARY_REISSUE_MS then
+        if pending.attempts >= Engine.BOUNDARY_ATTEMPTS or now - pending.sent < Engine.BOUNDARY_RETRY_MS then
+            return true, false
+        end
+        pending.sent, pending.attempts = now, pending.attempts + 1
+        sendServerCommand(pl, "PZZoneEngine", "boundaryCorrection", pending.args)
+        return true, false
+    end
+    if apply and not apply() then return false, false end
+    state.seq = state.seq + 1
+    local args = { session = state.session, sessionOrder = state.sessionOrder,
+        seq = state.seq, stateRevision = state.stateRevision,
+        kind = kind, zoneId = zone.id, vehicleId = vehicleId,
+        fromX = fromX, fromY = fromY, fromZ = fromZ, x = x, y = y, z = z }
+    if ride then args.rideToken, args.seat, args.driverId = ride.token, ride.seat, ride.driverId end
+    state.pending = { episode = episode, vehicle = vehicle, args = args, created = now, sent = now, attempts = 1 }
+    local first = state.episode ~= episode
+    state.episode = episode
+    sendServerCommand(pl, "PZZoneEngine", "boundaryCorrection", args)
+    return true, first
+end
+
+-- Reuse the previously validated destination during a short unchanged denial.
+-- Callers have already made a fresh server position/driver/permission decision.
+-- This avoids edge searches and transforms on each coalesced request.
+function Engine.retryBoundaryCorrection(pl, kind, zone, vehicle, x, y, z)
+    local state = Engine.ensureBoundaryState(pl)
+    local pending = state.pending
+    local now = boundaryNow()
+    if not pending or pending.args.kind ~= kind or pending.args.zoneId ~= zone.id or
+        pending.vehicle ~= vehicle or pending.args.fromZ ~= z or now < pending.created or
+        now - pending.created >= Engine.BOUNDARY_REISSUE_MS then return false end
+    local dx, dy = x - pending.args.fromX, y - pending.args.fromY
+    if dx * dx + dy * dy > 4 then return false end
+    Engine.sendBoundaryCorrection(pl, kind, zone, vehicle, x, y, z, pending.args.x, pending.args.y, pending.args.z)
+    return true
+end
+
+function Engine.boundaryOutside(pl, region, x, y, z, padding)
+    -- Explore alternative edges instead of bouncing between two overlapping zones.
+    -- At most 32 indexed authority queries, never a scan of the whole zone store.
+    local queue, seen = { region }, { [region] = true }
+    local cursor, queries = 1, 0
+    local bestX, bestY, bestDistance
+    while queue[cursor] and queries < 32 do
+        local current = queue[cursor]
+        cursor = cursor + 1
+        local left, right = current.xMin - padding, current.xMax + padding
+        local top, bottom = current.yMin - padding, current.yMax + padding
+        local cx, cy = math.max(left, math.min(x, right)), math.max(top, math.min(y, bottom))
+        local points = { {left - 0.05, cy}, {right + 0.05, cy}, {cx, top - 0.05}, {cx, bottom + 0.05} }
+        for _, point in ipairs(points) do
+            if queries >= 32 then break end
+            queries = queries + 1
+            local nextZone, nextRegion = Engine.getAuthority(point[1], point[2], z, padding)
+            if not nextZone or Engine.isAllowed(nextZone, pl) then
+                local dx, dy = point[1] - x, point[2] - y
+                local distance = dx * dx + dy * dy
+                if not bestDistance or distance < bestDistance then
+                    bestX, bestY, bestDistance = point[1], point[2], distance
+                end
+            elseif nextRegion and not seen[nextRegion] then
+                seen[nextRegion] = true
+                queue[#queue + 1] = nextRegion
+            end
+        end
+    end
+    return bestX, bestY
+end
+
 ParadiseDev.Zones.Engine.FEATURE_KEYS = {
     "isKos", "isPvE", "isSafe", "isBlocked", "isRad", "isHunt",
     "isBlaze", "isFrost", "isBomb", "isMine", "isNoCamp", "isNoFire",
@@ -35,6 +254,7 @@ function ParadiseDev.Zones.Engine.getStore()
 end
 
 function ParadiseDev.Zones.Engine.save()
+    Engine.zoneRevision = Engine.zoneRevision + 1
     local store = ParadiseDev.Zones.Engine.getStore()
     store.zones = ParadiseDev.Zones.Engine.zones
     store.profiles = ParadiseDev.Zones.Engine.profiles
@@ -43,6 +263,7 @@ function ParadiseDev.Zones.Engine.save()
 end
 
 function ParadiseDev.Zones.Engine.load()
+    Engine.zoneRevision = Engine.zoneRevision + 1
     local store = ParadiseDev.Zones.Engine.getStore()
     ParadiseDev.Zones.Engine.zones = store.zones
     for _, zone in pairs(ParadiseDev.Zones.Engine.zones) do
@@ -356,6 +577,7 @@ end
 
 function ParadiseDev.Zones.Engine.syncBoundaryState(pl)
     if not pl then return end
+    local state = Engine.boundaryActor(pl)
     local zones = {}
     for _, zone in pairs(ParadiseDev.Zones.Engine.zones) do
         local regions = {}
@@ -381,11 +603,13 @@ function ParadiseDev.Zones.Engine.syncBoundaryState(pl)
         }
     end
     sendServerCommand(pl, "PZZoneEngine", "boundaryState", {
+        session = state.session, sessionOrder = state.sessionOrder, stateRevision = state.stateRevision,
         borderWidth = ParadiseDev.Zones.Engine.BORDER_WIDTH,
         vehicleMode = ParadiseDev.Zones.Engine.vehicleMode,
         cagedZoneId = ParadiseDev.Zones.Engine.cageAssignments[ParadiseDev.Zones.Engine.playerSteamId(pl)],
         zones = zones,
     })
+    state.stateSent, state.leaseAt, state.fullAt = true, boundaryNow(), boundaryNow()
 end
 function ParadiseDev.Zones.Engine.syncAllBoundaryStates()
     local players = getOnlinePlayers and getOnlinePlayers() or nil
@@ -473,15 +697,66 @@ function ParadiseDev.Zones.Engine.teleportPlayer(pl, x, y, z)
 end
 
 function ParadiseDev.Zones.Engine.reboundPlayer(pl, zone, region, x, y, z)
-    local last = ParadiseDev.Zones.Engine.lastValid[ParadiseDev.Zones.Engine.userName(pl)]
-    if last and not ParadiseDev.Zones.Engine.zoneContains(zone, last.x, last.y, last.z) then
-        ParadiseDev.Zones.Engine.teleportPlayer(pl, last.x, last.y, last.z)
-        ParadiseDev.Zones.Engine.log("rebound-last-valid", pl, zone)
-        return
+    if Engine.retryBoundaryCorrection(pl, "foot", zone, nil, x, y, z) then return true end
+    local last = Engine.lastValid[Engine.userName(pl)]
+    local outX, outY, outZ
+    if last then
+        local priorZone = Engine.getAuthority(last.x, last.y, last.z, 0)
+        if not priorZone or Engine.isAllowed(priorZone, pl) then
+            outX, outY, outZ = last.x, last.y, last.z
+        end
     end
-    local outX, outY = ParadiseDev.Zones.Engine.nearestOutside(region, x, y, 0)
-    ParadiseDev.Zones.Engine.teleportPlayer(pl, outX, outY, z)
-    ParadiseDev.Zones.Engine.log("rebound-edge", pl, zone)
+    if not outX then outX, outY = Engine.boundaryOutside(pl, region, x, y, z, 0); outZ = z end
+    if not outX then return false end
+    local ok, first = Engine.sendBoundaryCorrection(pl, "foot", zone, nil, x, y, z, outX, outY, outZ)
+    if first then Engine.log("rebound-boundary", pl, zone) end
+    return ok
+end
+
+function Engine.reboundBoundaryVehicle(driver, vehicle, zone, region, x, y, z)
+    if not driver or driver:getVehicle() ~= vehicle or vehicle:getCharacter(0) ~= driver or Engine.isAllowed(zone, driver) then return false end
+    if Engine.retryBoundaryCorrection(driver, "vehicle", zone, vehicle, x, y, z) then return true end
+    local outX, outY = Engine.boundaryOutside(driver, region, x, y, z, 2.0)
+    if not outX then return false end
+    local ok, first = Engine.sendBoundaryCorrection(driver, "vehicle", zone, vehicle, x, y, z, outX, outY, z, function()
+        -- No generic vehicleTeleport packet: one sequenced correction to the driver.
+        -- Transforming the vehicle keeps every seat/occupant attached.
+        local transform = BaseVehicle.allocTransform()
+        vehicle:getWorldTransform(transform)
+        local origin = transform:getOrigin()
+        -- getX/getY can lag the latest transform until native update. WorldPos
+        -- reads that transform now, avoiding cumulative relative corrections.
+        local current = BaseVehicle.allocVector3f()
+        vehicle:getWorldPos(0, 0, 0, current)
+        local deltaX, deltaY = outX - current:x(), outY - current:y()
+        BaseVehicle.releaseVector3f(current)
+        origin:set(origin:x() + deltaX, origin:y(), origin:z() + deltaY)
+        vehicle:setWorldTransform(transform)
+        BaseVehicle.releaseTransform(transform)
+        return true
+    end)
+    if first then Engine.log("vehicle-rebounded", driver, zone) end
+    return ok
+end
+
+function Engine.ejectBoundaryPassenger(pl, vehicle, zone, region, x, y, z)
+    local driver = vehicle and vehicle:getCharacter(0) or nil
+    if not driver or not driver:isAlive() or driver == pl or pl:getVehicle() ~= vehicle or
+        not Engine.isAllowed(zone, driver) or Engine.isAllowed(zone, pl) then return false end
+    local state = Engine.ensureBoundaryState(pl)
+    local ride = Engine.observeBoundaryRide(pl, state)
+    -- A driver callback can precede the passenger's first boundary request. Wait
+    -- for that existing request to supply the current ride stamp; do not guess.
+    if not ride or ride.vehicle ~= vehicle or ride.driver ~= driver then return false end
+    -- Owner-first native exit is replicated by the game's VehicleExit packet.
+    -- Server-side BaseVehicle.exit alone leaves the owning client seated. Keep
+    -- server state intact so retries remain live until a native exit is observed.
+    -- This directive is exit-only; foot enforcement handles the actual current
+    -- position afterward, avoiding teleporting a moving passenger to an old edge.
+    local ok, first = Engine.sendBoundaryCorrection(pl, "passenger", zone, vehicle,
+        x, y, z, x, y, z, nil, ride)
+    if first then Engine.log("passenger-exit-requested", pl, zone, "seat=" .. tostring(ride.seat)) end
+    return ok
 end
 
 function ParadiseDev.Zones.Engine.reboundVehicle(vehicle, x, y, outX, outY, pl)
@@ -618,8 +893,14 @@ function ParadiseDev.Zones.Engine.enforceCage(pl, zone, x, y, z)
 end
 
 function ParadiseDev.Zones.Engine.onPlayerUpdate(pl)
-    if not pl or not pl:isAlive() then return end
+    if not pl then return end
+    if not pl:isAlive() then
+        Engine.boundaryActors[pl] = nil
+        return
+    end
     if ParadiseDev and ParadiseDev.Cage then ParadiseDev.Cage.syncPlayer(pl) end
+    local boundaryState = Engine.ensureBoundaryState(pl)
+    Engine.observeBoundaryRide(pl, boundaryState)
     local vehicle = pl:getVehicle()
     local x, y = pl:getX(), pl:getY()
     if vehicle then x, y = vehicle:getX(), vehicle:getY() end
@@ -646,35 +927,44 @@ function ParadiseDev.Zones.Engine.onPlayerUpdate(pl)
         ParadiseDev.Zones.Engine.syncBoundaryState(pl)
     end
 
-    local zone, region = ParadiseDev.Zones.Engine.getAuthority(x, y, z, vehicle and 2.0 or 0)
-    if not zone or ParadiseDev.Zones.Engine.isAllowed(zone, pl) then
-        ParadiseDev.Zones.Engine.lastValid[ParadiseDev.Zones.Engine.userName(pl)] = { x = x, y = y, z = z }
+    local zone, region = Engine.getAuthority(x, y, z, vehicle and 2.0 or 0)
+    if vehicle and zone then
+        local driver = vehicle:getCharacter(0)
+        -- Driver denial owns the whole vehicle, even when the passenger callback
+        -- arrives first. A driverless vehicle is never passenger-ejected.
+        if driver and driver:isAlive() then
+            local driverKey = Engine.playerSteamId(driver)
+            local driverCageId = driverKey and Engine.cageAssignments[driverKey]
+            local driverCage = driverCageId and Engine.zones[driverCageId]
+            if driver ~= pl and driverCage and driverCage.features and driverCage.features.isCage and
+                ParadiseDev.Cage and ParadiseDev.Cage.isCaged(driver) then
+                Engine.enforceCage(driver, driverCage, x, y, driver:getZ())
+                return
+            end
+            if not Engine.isAllowed(zone, driver) then
+                Engine.reboundBoundaryVehicle(driver, vehicle, zone, region, x, y, driver:getZ())
+                return
+            end
+            if not Engine.isAllowed(zone, pl) then
+                Engine.ejectBoundaryPassenger(pl, vehicle, zone, region, x, y, z)
+                return
+            end
+        elseif not Engine.isAllowed(zone, pl) then
+            Engine.clearBoundaryCorrection(pl)
+            return
+        end
+    end
+    if not zone or Engine.isAllowed(zone, pl) then
+        Engine.clearBoundaryCorrection(pl)
+        Engine.lastValid[Engine.userName(pl)] = { x = x, y = y, z = z }
         if ParadiseDev.TP and ParadiseDev.TP.saveRebound then ParadiseDev.TP.saveRebound(pl, "Zone Rebound") end
         if vehicle and vehicle:getCharacter(0) == pl and
-            ParadiseDev.Zones.PassengerScan and
-            ParadiseDev.Zones.PassengerScan.ejectDeniedPassengersOnDriverMove then
+            ParadiseDev.Zones.PassengerScan and ParadiseDev.Zones.PassengerScan.ejectDeniedPassengersOnDriverMove then
             ParadiseDev.Zones.PassengerScan.ejectDeniedPassengersOnDriverMove(pl)
         end
         return
     end
-
-    if not vehicle then
-        ParadiseDev.Zones.Engine.reboundPlayer(pl, zone, region, x, y, z)
-        return
-    end
-
-    local driver = vehicle:getCharacter(0)
-    if driver ~= pl then
-        local outX, outY = ParadiseDev.Zones.Engine.nearestOutside(region, x, y, 2.0)
-        if ParadiseDev.Zones.Engine.forcePassengerOut(pl, outX, outY, z) then
-            ParadiseDev.Zones.Engine.log("passenger-ejected", pl, zone)
-        end
-        return
-    end
-
-    local outX, outY = ParadiseDev.Zones.Engine.nearestOutside(region, x, y, 2.0)
-    ParadiseDev.Zones.Engine.reboundVehicle(vehicle, x, y, outX, outY, pl)
-    ParadiseDev.Zones.Engine.log("vehicle-rebounded", pl, zone)
+    if not vehicle then Engine.reboundPlayer(pl, zone, region, x, y, z) end
 end
 
 -- Bounded opt-in diagnostics; no player identifiers or command arguments.
@@ -723,9 +1013,17 @@ Events.OnServerStarted.Add(ParadiseDev.Zones.Engine.configureBoundaryDiagnostics
 function ParadiseDev.Zones.Engine.onClientCommand(module, command, pl, args)
     countBoundaryCommand(module, command)
     if module == "PZZoneEngine" and command == "requestBoundaryState" then
-        ParadiseDev.Zones.Engine.syncBoundaryState(pl)
+        if not pl then return end
+        local state = Engine.boundaryActor(pl)
+        local now = boundaryNow()
+        if not state.stateSent or not state.fullAt or now < state.fullAt or now - state.fullAt >= 1000 then
+            Engine.syncBoundaryState(pl)
+        else
+            Engine.ensureBoundaryState(pl)
+        end
     elseif module == "PZZoneEngine" and
         (command == "boundaryCheck" or command == "cageBoundary") then
+        if command == "boundaryCheck" then Engine.receiveBoundaryRide(pl, args) end
         ParadiseDev.Zones.Engine.onPlayerUpdate(pl)
     end
 end

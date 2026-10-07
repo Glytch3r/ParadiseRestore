@@ -9,15 +9,14 @@ function ParadiseDev.Zones.PassengerScan.ejectDeniedPassengersOnDriverMove(pl)
 
     local x, y, z = vehicle:getX(), vehicle:getY(), pl:getZ()
     local zone, region = ParadiseDev.Zones.Engine.getAuthority(x, y, z, 2.0)
-    if not zone then return end
+    if not zone or not ParadiseDev.Zones.Engine.isAllowed(zone, pl) then return end
 
-    local outX, outY = ParadiseDev.Zones.Engine.nearestOutside(region, x, y, 2.0)
     for seat = 1, vehicle:getMaxPassengers() - 1 do
         local passenger = vehicle:getCharacter(seat)
         if passenger and not ParadiseDev.Zones.Engine.isAllowed(zone, passenger) then
-            if ParadiseDev.Zones.Engine.forcePassengerOut(passenger, outX, outY, z) then
-                ParadiseDev.Zones.Engine.log("passenger-ejected", passenger, zone, "seat=" .. tostring(seat))
-            end
+            -- This helper rechecks both permissions and the current seat immediately
+            -- before exit; the driver's denial always moves the car as a unit.
+            ParadiseDev.Zones.Engine.ejectBoundaryPassenger(passenger, vehicle, zone, region, x, y, z)
         end
     end
 end

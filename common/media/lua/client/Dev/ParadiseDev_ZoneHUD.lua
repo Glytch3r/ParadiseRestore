@@ -63,7 +63,6 @@ function ParadiseDev.ZoneHUD.getSettings(pl)
     settings.zoneFontSize = ParadiseDev.ZoneHUD.fonts[settings.zoneFontSize] and settings.zoneFontSize or (ParadiseDev.ZoneHUD.fonts[settings.fontSize] and settings.fontSize or "Medium")
     if settings.zoneVisible == nil then settings.zoneVisible = settings.visible ~= false end
     if settings.hpVisible == nil then settings.hpVisible = true end
-    if settings.mapZoneVisuals == nil then settings.mapZoneVisuals = true end
     if settings.worldZoneVisuals == nil then settings.worldZoneVisuals = true end
     modData.HUDSettings = settings
     modData.ParadiseZHUDSettings = settings
@@ -74,12 +73,6 @@ function ParadiseDev.ZoneHUD.saveSettings(pl, settings)
     pl:getModData().HUDSettings = settings
     pl:getModData().ParadiseZHUDSettings = settings
     if pl.transmitModData then pl:transmitModData() end
-end
-
-function ParadiseDev.ZoneHUD.applyVisualSettings(settings)
-    if ParadiseDev.Zones and ParadiseDev.Zones.MapText and ParadiseDev.Zones.MapText.setEnabled then
-        ParadiseDev.Zones.MapText.setEnabled(settings.mapZoneVisuals)
-    end
 end
 
 function ParadiseDev.ZoneHUD.getCurrentZone(pl)
@@ -207,7 +200,7 @@ end
 ParadiseDev.ZoneHUD.SettingsPanel = ISPanel:derive("ParadiseDev.ZoneHUD.SettingsPanel")
 
 function ParadiseDev.ZoneHUD.SettingsPanel:new(pl)
-    local width, height = 360, 380
+    local width, height = 360, 355
     local panel = ISPanel:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height)
     setmetatable(panel, self)
     self.__index = self
@@ -268,13 +261,6 @@ function ParadiseDev.ZoneHUD.SettingsPanel:onHPVisibleChanged(option, enabled)
     ParadiseDev.ZoneHUD.saveSettings(self.player, settings)
 end
 
-function ParadiseDev.ZoneHUD.SettingsPanel:onMapZoneVisualsChanged(option, enabled)
-    local settings = ParadiseDev.ZoneHUD.getSettings(self.player)
-    settings.mapZoneVisuals = enabled
-    ParadiseDev.ZoneHUD.saveSettings(self.player, settings)
-    ParadiseDev.ZoneHUD.applyVisualSettings(settings)
-end
-
 function ParadiseDev.ZoneHUD.SettingsPanel:onWorldZoneVisualsChanged(option, enabled)
     if ParadiseDev.Zones and ParadiseDev.Zones.Visualization and ParadiseDev.Zones.Visualization.setPlayerEnabled then
         ParadiseDev.Zones.Visualization.setPlayerEnabled(self.player, enabled)
@@ -285,9 +271,8 @@ function ParadiseDev.ZoneHUD.SettingsPanel:onReset()
     local settings = ParadiseDev.ZoneHUD.getSettings(self.player)
     settings.zoneX, settings.zoneY, settings.zoneFontSize, settings.zoneVisible = ParadiseDev.ZoneHUD.defaultX, ParadiseDev.ZoneHUD.defaultY, "Medium", true
     settings.hpX, settings.hpY, settings.hpVisible = settings.zoneX, settings.zoneY + 100, true
-    settings.mapZoneVisuals, settings.worldZoneVisuals = true, true
+    settings.worldZoneVisuals = true
     ParadiseDev.ZoneHUD.saveSettings(self.player, settings)
-    ParadiseDev.ZoneHUD.applyVisualSettings(settings)
     if ParadiseDev.Zones and ParadiseDev.Zones.Visualization and ParadiseDev.Zones.Visualization.setPlayerEnabled and
         ParadiseRestore.isAdm(self.player) then
         ParadiseDev.Zones.Visualization.setPlayerEnabled(self.player, true)
@@ -303,7 +288,6 @@ function ParadiseDev.ZoneHUD.SettingsPanel:onReset()
     self.fontSize:setSelectedData(settings.zoneFontSize)
     self.zoneVisible.selected[1] = true
     self.hpVisible.selected[1] = true
-    self.mapZoneVisuals.selected[1] = true
     if self.worldZoneVisuals then self.worldZoneVisuals.selected[1] = true end
 end
 
@@ -388,25 +372,19 @@ function ParadiseDev.ZoneHUD.SettingsPanel:createChildren()
     self.hpVisible:addOption("Show HP Bar")
     self.hpVisible.selected[1] = settings.hpVisible
     self:addChild(self.hpVisible)
-    self.mapZoneVisuals = ISTickBox:new(12, 290, self.width - 24, 22, "", self, ParadiseDev.ZoneHUD.SettingsPanel.onMapZoneVisualsChanged)
-    self.mapZoneVisuals:initialise()
-    self.mapZoneVisuals:instantiate()
-    self.mapZoneVisuals:addOption("Show Map Zone Visuals")
-    self.mapZoneVisuals.selected[1] = settings.mapZoneVisuals
-    self:addChild(self.mapZoneVisuals)
     if ParadiseRestore.isAdm(self.player) then
-        self.worldZoneVisuals = ISTickBox:new(12, 315, self.width - 24, 22, "", self, ParadiseDev.ZoneHUD.SettingsPanel.onWorldZoneVisualsChanged)
+        self.worldZoneVisuals = ISTickBox:new(12, 290, self.width - 24, 22, "", self, ParadiseDev.ZoneHUD.SettingsPanel.onWorldZoneVisualsChanged)
         self.worldZoneVisuals:initialise()
         self.worldZoneVisuals:instantiate()
         self.worldZoneVisuals:addOption("Show World Zone Visuals")
         self.worldZoneVisuals.selected[1] = ParadiseDev.Zones.Visualization.isEnabledForPlayer(self.player)
         self:addChild(self.worldZoneVisuals)
     end
-    self.resetButton = ISButton:new(12, 340, 120, 26, "Reset", self, ParadiseDev.ZoneHUD.SettingsPanel.onReset)
+    self.resetButton = ISButton:new(12, 315, 120, 26, "Reset", self, ParadiseDev.ZoneHUD.SettingsPanel.onReset)
     self.resetButton:initialise()
     self.resetButton:instantiate()
     self:addChild(self.resetButton)
-    self.closeButton = ISButton:new(self.width - 132, 340, 120, 26, "Close", self, ParadiseDev.ZoneHUD.SettingsPanel.onClose)
+    self.closeButton = ISButton:new(self.width - 132, 315, 120, 26, "Close", self, ParadiseDev.ZoneHUD.SettingsPanel.onClose)
     self.closeButton:initialise()
     self.closeButton:instantiate()
     self:addChild(self.closeButton)
@@ -472,8 +450,6 @@ function ParadiseDev.ZoneHUD.layoutUserPanel()
 end
 
 function ParadiseDev.ZoneHUD.onGameStart()
-    local pl = getPlayer()
-    if pl then ParadiseDev.ZoneHUD.applyVisualSettings(ParadiseDev.ZoneHUD.getSettings(pl)) end
     if isClient() then sendClientCommand("PZZoneEngine", "requestBoundaryState", {}) end
 end
 

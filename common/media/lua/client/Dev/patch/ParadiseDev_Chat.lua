@@ -134,11 +134,14 @@ function ParadiseDev.Chat.isHandledCommand(command)
 end
 
 function ParadiseDev.Chat.onCommandEntered(self)
-    if ParadiseRestore.isCageRestricted and ParadiseRestore.isCageRestricted() then
-        return ParadiseRestore.onCageChatEntered(self)
-    end
     local chat = ISChat.instance
     local command = chat and chat.textEntry and chat.textEntry:getText() or nil
+    if ParadiseRestore.isCageRestricted and ParadiseRestore.isCageRestricted() then
+        local keyword = type(command) == "string" and command:match("^%s*(/%S+)") or nil
+        local canManageCage = keyword and string.lower(keyword) == "/cage"
+            and ParadiseRestore.isAdm(getPlayer())
+        if not canManageCage then return ParadiseRestore.onCageChatEntered(self) end
+    end
     if ParadiseDev.Chat.isHandledCommand(command) then
         ParadiseDev.chatCmd(command)
         ParadiseDev.hook.ISChat_logChatCommand(chat, command)

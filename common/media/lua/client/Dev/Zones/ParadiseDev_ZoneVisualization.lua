@@ -32,7 +32,9 @@ function ParadiseDev.Zones.Visualization.canRenderWorld(pl)
 end
 
 function ParadiseDev.Zones.Visualization.canRenderMap(pl)
-    if not ParadiseDev.Zones.Visualization.isEnabledForPlayer(pl) then return false end
+    -- World floor highlights and map overlays have independent client controls.
+    -- Keep the server's existing visibility permission for non-admins.
+    if not pl then return false end
     if ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) then return true end
     return SandboxVars and SandboxVars.ParadiseZ and SandboxVars.ParadiseZ.ShowZoneDrawToNonAdmins == true
 end

@@ -1,3 +1,5 @@
+if isClient and isClient() then return end
+
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
 ParadiseDev.Zones.Harness = ParadiseDev.Zones.Harness or {}
@@ -271,13 +273,15 @@ function ParadiseDev.Zones.Harness.onClientCommand(module, command, pl, args)
         if not target then ParadiseDev.Zones.Harness.reply(pl, "Target player is not online.") return end
         local zone = ParadiseDev.Zones.Harness.nearestFeatureZone(engine, target, "isCage")
         if not zone then ParadiseDev.Zones.Harness.reply(pl, "No Cage zone exists.") return end
-        local ok, cageError = ParadiseDev.Zones.Engine.assignCage(target, zone)
+        if not ParadiseDev.Cage or not ParadiseDev.Cage.set then ParadiseDev.Zones.Harness.reply(pl, "Cage service is unavailable.") return end
+        local ok, cageError = ParadiseDev.Cage.set(target, true, zone)
         if not ok then ParadiseDev.Zones.Harness.reply(pl, tostring(cageError)) return end
         ParadiseDev.Zones.Harness.reply(pl, "Caged " .. target:getUsername() .. " in nearest Cage zone: " .. zone.name .. ".")
     elseif command == "uncagePlayer" then
         local target = ParadiseDev.Zones.Harness.findOnlinePlayer(args and args.username, pl)
         if not target then ParadiseDev.Zones.Harness.reply(pl, "Target player is not online.") return end
-        if ParadiseDev.Zones.Engine.releaseCage(target) then
+        if not ParadiseDev.Cage or not ParadiseDev.Cage.set then ParadiseDev.Zones.Harness.reply(pl, "Cage service is unavailable.") return end
+        if ParadiseDev.Cage.set(target, false) then
             ParadiseDev.Zones.Harness.reply(pl, "Released " .. target:getUsername() .. " from Cage assignment.")
         else
             ParadiseDev.Zones.Harness.reply(pl, target:getUsername() .. " is not caged.")

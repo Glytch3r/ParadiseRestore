@@ -15,6 +15,7 @@ Syncer.Traits = {
 }
 Syncer.window = nil
 Syncer.entries = {}
+Syncer.cageEntries = nil
 Syncer.lastSync = 0
 
 function Syncer.getStore()
@@ -51,6 +52,16 @@ function Syncer.syncPlayer(player)
 end
 
 function Syncer.requestSet(username, traitId, enabled)
+    if traitId == "ParadiseDev:Caged" then
+        local cage = ParadiseDev.Cage
+        if not cage then return end
+        local entry = cage.getEntry and cage.getEntry(username) or nil
+        if entry and entry.key and cage.requestKeySet then
+            return cage.requestKeySet(entry.key, username, enabled == true)
+        end
+        if cage.requestSet then return cage.requestSet(username, enabled == true) end
+        return
+    end
     if sendClientCommand then
         sendClientCommand("ParadiseDevTraitSyncer", "set", {
             username = tostring(username), trait = traitId, enabled = enabled == true,
@@ -137,19 +148,47 @@ end
 function Syncer.refreshPanel()
     if not Syncer.window or not Syncer.window.list then return end
     Syncer.window.list:clear()
+    local cageEntries = Syncer.cageEntries
+    local cages, seen, entries = {}, {}, {}
+    for _, entry in ipairs(cageEntries or {}) do
+        cages[string.lower(tostring(entry.username or ""))] = entry
+    end
     for _, entry in ipairs(Syncer.entries) do
+        entries[#entries + 1] = entry
+        seen[string.lower(tostring(entry.username or ""))] = true
+    end
+    for _, entry in ipairs(cageEntries or {}) do
+        if not seen[string.lower(tostring(entry.username or ""))] then
+            entries[#entries + 1] = {username = entry.username, cageOnly = true}
+            seen[string.lower(tostring(entry.username or ""))] = true
+        end
+    end
+    for _, entry in ipairs(entries) do
         for _, traitId in ipairs(Syncer.Traits) do
-            local enabled = entry.traits and entry.traits[traitId] == true
-            Syncer.window.list:addItem(tostring(entry.username) .. " | " .. traitId .. " | " .. (enabled and "TRUE" or "FALSE"), {
-                username = entry.username, trait = traitId, enabled = enabled,
-            })
+            if not entry.cageOnly or traitId == "ParadiseDev:Caged" then
+                local enabled = entry.traits and entry.traits[traitId] == true
+                if traitId == "ParadiseDev:Caged" and cageEntries ~= nil then
+                    local cageEntry = cages[string.lower(tostring(entry.username or ""))]
+                    enabled = cageEntry and cageEntry.isCaged == true or false
+                end
+                Syncer.window.list:addItem(tostring(entry.username) .. " | " .. traitId .. " | " .. (enabled and "TRUE" or "FALSE"), {
+                    username = entry.username, trait = traitId, enabled = enabled,
+                })
+            end
         end
     end
 end
 function Syncer.requestState()
     if sendClientCommand then sendClientCommand("ParadiseDevTraitSyncer", "list", {}) end
+    if ParadiseDev.Cage and ParadiseDev.Cage.requestState then ParadiseDev.Cage.requestState() end
 end
 function Syncer.onServerCommand(module, command, args)
+    if module == "ParadiseDevCage" and command == "state" then
+        -- Consume this packet directly so event-handler order cannot leave an old panel row.
+        Syncer.cageEntries = type(args) == "table" and type(args.entries) == "table" and args.entries or {}
+        Syncer.refreshPanel()
+        return
+    end
     if module ~= "ParadiseDevTraitSyncer" then return end
     if command == "state" then Syncer.entries = args and args.entries or {}; Syncer.refreshPanel() end
 end

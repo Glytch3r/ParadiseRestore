@@ -63,6 +63,9 @@ function ParadiseRestore.isCageRestricted()
 end
 
 function ParadiseRestore.setCageInputBlocker(enabled)
+    -- Cage movement rules still apply to admins, but their release controls must stay usable.
+    local pl = getPlayer and getPlayer() or nil
+    if enabled and pl and ParadiseRestore.isAdm(pl) then enabled = false end
     if enabled then
         if not ParadiseRestore.cageInputBlocker then
             ParadiseRestore.cageInputBlocker = ParadiseRestore.CageInputBlocker:new()

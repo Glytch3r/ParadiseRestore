@@ -105,12 +105,17 @@ function ParadiseDev.Cage.isTargetCaged(targ)
     local player = targ
     local username = targ.username or (targ.getUsername and targ:getUsername())
     if not player.getCharacterTraits then
-        player = username and getPlayerFromUsername(username) or nil
+        player = username and getPlayerFromUsername and getPlayerFromUsername(username) or nil
     end
     local trait = ParadiseDev.getTrait and ParadiseDev.getTrait("ParadiseDev:Caged") or nil
-    if player and trait and ParadiseDev.hasTrait and ParadiseDev.hasTrait(player, trait) then return true end
+    -- Native trait packets reach the owner's connection, not observing admins.
+    -- Own input restrictions follow that packet; remote menus follow the server list.
+    local isLocal = player and (player == (getPlayer and getPlayer() or nil)
+        or (player.isLocalPlayer and player:isLocalPlayer()))
+    if isLocal and trait and ParadiseDev.hasTrait then return ParadiseDev.hasTrait(player, trait) == true end
     local entry = ParadiseDev.Cage.getEntry(username)
-    return entry and entry.isCaged == true or false
+    if entry then return entry.isCaged == true end
+    return player and trait and ParadiseDev.hasTrait and ParadiseDev.hasTrait(player, trait) == true or false
 end
 
 Events.OnServerCommand.Remove(ParadiseDev.Cage.onServerCommand)

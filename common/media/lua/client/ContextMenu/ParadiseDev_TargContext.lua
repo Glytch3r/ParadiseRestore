@@ -84,6 +84,12 @@ function ParadiseDev.TargContext.toggleCage(_, target)
     if ParadiseDev.Cage and ParadiseDev.Cage.requestToggle then ParadiseDev.Cage.requestToggle(target) end
 end
 
+function ParadiseDev.TargContext.setCage(_, username, isCaged)
+    if ParadiseDev.Cage and ParadiseDev.Cage.requestSet then
+        ParadiseDev.Cage.requestSet(username, isCaged)
+    end
+end
+
 function ParadiseDev.TargContext.spectate(_, username)
     if ParadiseZ and ParadiseZ.setSpectate then ParadiseZ.setSpectate(username) end
 end
@@ -104,7 +110,9 @@ function ParadiseDev.TargContext.addPlayerActions(menu, target, localPlayer)
     if not username then return end
     target = ParadiseDev.TargContext.resolveTarget(target)
     local caged = ParadiseDev.Cage and ParadiseDev.Cage.isTargetCaged and ParadiseDev.Cage.isTargetCaged(target) or false
-    menu:addOption((caged and "Uncage: " or "Cage: ") .. username, nil, ParadiseDev.TargContext.toggleCage, target)
+    -- Keep the displayed action fixed even if a state update arrives before the click.
+    menu:addOption((caged and "Uncage: " or "Cage: ") .. username, nil,
+        ParadiseDev.TargContext.setCage, username, not caged)
 
     if ParadiseZ and ParadiseZ.isSpectating and ParadiseZ.isSpectating(localPlayer) then
         menu:addOption("Stop Spectating", nil, ParadiseZ.stopSpectate)
