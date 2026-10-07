@@ -15,6 +15,24 @@ end
 
 ParadisePanels.table = {
     {
+        key = "contextMenuManager",
+        isAdmOnly = true,
+        getModule = function() return ParadiseRestore and ParadiseRestore.ContextMenuManager end,
+        getInstance = function() return ParadiseRestore and ParadiseRestore.ContextMenuManager and ParadiseRestore.ContextMenuManager.instance end,
+        setInstance = function(instance) ParadiseRestore.ContextMenuManager.instance = instance end,
+        create = function()
+            local width = math.min(900, getCore():getScreenWidth() - 40)
+            local height = math.min(620, getCore():getScreenHeight() - 40)
+            return initialise(ParadiseRestore.ContextMenuManager.Panel:new(
+                math.floor((getCore():getScreenWidth() - width) / 2),
+                math.floor((getCore():getScreenHeight() - height) / 2),
+                width,
+                height
+            ))
+        end,
+        onOpen = function(panel) panel:refresh() end,
+    },
+    {
         key = "recordsPanel",
         isAdmOnly = true,
         getModule = function() return RecordsPanel end,

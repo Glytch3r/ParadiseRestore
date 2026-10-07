@@ -412,6 +412,9 @@ function ParadiseDev.Notes.addWorldContext(plNum, context, worldobjects, test)
         globalColor.notAvailable = not globalNote
     end
     ParadiseDev.Notes.addSettings(submenu, flr)
+    if ParadiseRestore.ContextMenuManager then
+        ParadiseRestore.ContextMenuManager.registerParent("world", "Notes", context, option, submenu)
+    end
 end
 
 function ParadiseDev.Notes.refresh(force)

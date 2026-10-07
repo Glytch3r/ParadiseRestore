@@ -107,13 +107,20 @@ function ParadiseDev.TargContext.addPlayerActions(menu, target, localPlayer, inc
     target = ParadiseDev.TargContext.resolveTarget(target)
     local caged = ParadiseDev.Cage and ParadiseDev.Cage.isTargetCaged and ParadiseDev.Cage.isTargetCaged(target) or false
     -- Keep the displayed action fixed even if a state update arrives before the click.
-    menu:addOption((caged and "Uncage: " or "Cage: ") .. username, nil,
+    local cageOption = menu:addOption((caged and "Uncage: " or "Cage: ") .. username, nil,
         ParadiseDev.TargContext.setCage, username, not caged)
+    cageOption.paradiseManagerKey = "Cage"
+    cageOption.paradiseManagerLabel = "Cage / Uncage"
 
+    local spectateOption
     if ParadiseZ and ParadiseZ.isSpectating and ParadiseZ.isSpectating(localPlayer) then
-        menu:addOption("Stop Spectating", nil, ParadiseZ.stopSpectate)
+        spectateOption = menu:addOption("Stop Spectating", nil, ParadiseZ.stopSpectate)
     elseif username ~= localPlayer:getUsername() and ParadiseZ and ParadiseZ.setSpectate then
-        menu:addOption("Spectate: " .. username, nil, ParadiseDev.TargContext.spectate, username)
+        spectateOption = menu:addOption("Spectate: " .. username, nil, ParadiseDev.TargContext.spectate, username)
+    end
+    if spectateOption then
+        spectateOption.paradiseManagerKey = "Spectate"
+        spectateOption.paradiseManagerLabel = "Spectate / Stop Spectating"
     end
 
     if includePvE ~= false then
@@ -121,19 +128,24 @@ function ParadiseDev.TargContext.addPlayerActions(menu, target, localPlayer, inc
         if syncer and syncer.requestMenuState then syncer.requestMenuState() end
         local pve, known
         if syncer and syncer.getTargetPvEState then pve, known = syncer.getTargetPvEState(target) end
+        local pveOption
         if known then
             -- Preserve the displayed action if a newer state arrives before click.
-            menu:addOption((pve and "Disable PvE: " or "Enable PvE: ") .. username, nil,
+            pveOption = menu:addOption((pve and "Disable PvE: " or "Enable PvE: ") .. username, nil,
                 ParadiseDev.TargContext.setPvE, username, not pve)
         else
-            local option = menu:addOption("PvE status loading: " .. username)
-            option.notAvailable = true
+            pveOption = menu:addOption("PvE status loading: " .. username)
+            pveOption.notAvailable = true
         end
+        pveOption.paradiseManagerKey = "PvE"
+        pveOption.paradiseManagerLabel = "Enable / Disable PvE"
     end
 
     local suspect = ParadiseDev.TargContext.isSuspect(target)
-    menu:addOption((suspect and "Remove Suspect Role: " or "Assign Suspect Role: ") .. username, nil,
+    local suspectOption = menu:addOption((suspect and "Remove Suspect Role: " or "Assign Suspect Role: ") .. username, nil,
         ParadiseDev.TargContext.toggleSuspect, target)
+    suspectOption.paradiseManagerKey = "Suspect Role"
+    suspectOption.paradiseManagerLabel = "Assign / Remove Suspect Role"
 end
 --[[ 
         ISPlayerStatsUI.instance.char:getCharacterTraits():add(trait:getType());
@@ -163,6 +175,9 @@ function ParadiseDev.TargContext.addWorldContext(plNum, context, worldobjects, t
     context:addSubMenu(root, menu)
     for _, target in ipairs(players) do
         ParadiseDev.TargContext.addPlayerMenu(menu, target, localPlayer)
+    end
+    if ParadiseRestore.ContextMenuManager then
+        ParadiseRestore.ContextMenuManager.registerParent("world", "Target Player", context, root, menu, {dynamicLevels = {[1] = true}})
     end
 end
 

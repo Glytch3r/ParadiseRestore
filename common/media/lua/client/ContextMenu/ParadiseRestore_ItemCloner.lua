@@ -19,10 +19,13 @@ function ParadiseCloner.inventoryContext(playerNum, context, items)
         if instanceof(item, "InventoryItem") then selected[#selected + 1] = { item = item, location = "inventory" } end
     end
     if #selected == 0 then return end
-    context:addOption("Record Paradise Loadout", nil, function()
+    local root = context:addOption("Record Paradise Loadout", nil, function()
         ParadiseCloner.pendingItems = selected
         labelPrompt("Record Loadout", ParadiseCloner.onLabel)
     end)
+    if ParadiseRestore.ContextMenuManager then
+        ParadiseRestore.ContextMenuManager.registerParent("inventory", "Item Cloner", context, root)
+    end
 end
 
 function ParadiseCloner.addTargetOption(context, target)
