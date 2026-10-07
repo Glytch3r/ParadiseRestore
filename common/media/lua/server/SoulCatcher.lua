@@ -131,6 +131,7 @@ function SoulCatcher.writeLog(pl, soul, reportMsg)
 end
 
 function SoulCatcher.recordSpawn(pl)
+    if ParadiseDev and ParadiseDev.LifeProfilesServer and ParadiseDev.Reincarnate.isShouldReincarnate() then return false end
     local reincarnating = SoulCatcher.isReincarnating(pl)
     local soul = reincarnating and SoulCatcher.getCurrentSoul(pl) or nil
     if not soul then soul = SoulCatcher.createSoul(pl) end
@@ -142,6 +143,7 @@ function SoulCatcher.recordSpawn(pl)
 end
 
 function SoulCatcher.recordDeath(pl)
+    if ParadiseDev and ParadiseDev.LifeProfilesServer and ParadiseDev.Reincarnate.isShouldReincarnate() then return false end
     local soul = SoulCatcher.getCurrentSoul(pl) or SoulCatcher.createSoul(pl)
     if not soul then return false end
     local hours = pl and pl.getHoursSurvived and tonumber(pl:getHoursSurvived()) or 0
@@ -173,3 +175,30 @@ function SoulCatcher.onCreatePlayer(_, pl)
 end
 Events.OnCreatePlayer.Remove(SoulCatcher.onCreatePlayer)
 Events.OnCreatePlayer.Add(SoulCatcher.onCreatePlayer)
+
+-- The unified server controller calls this only after a durable transition.
+-- Native client-only death/spawn events must not count a second life on reconnect.
+function SoulCatcher.recordLifeProfile(pl, slot, kind)
+    local identity = SoulCatcher.getIdentity(pl)
+    if not identity then return false end
+    local store = SoulCatcher.getStore()
+    local key = "life-profile:" .. slot.id
+    local soul = store.souls[key]
+    if not soul then
+        soul = {soulKey=key,createdTimestamp=getTimestamp(),lifeStartHours=0}
+        store.souls[key] = soul
+    end
+    local eventKey = kind .. ":" .. tostring(slot.revision)
+    if soul.profileEvent == eventKey then return true end
+    local snapshot = kind == "death" and slot.death or slot.checkpoint
+    SoulCatcher.updateIdentity(soul, identity)
+    soul.reincarnatedTimes = slot.incarnations
+    soul.totalHours = snapshot.hoursSurvived
+    soul.lifeHours = math.max(0,snapshot.hoursSurvived-(soul.lifeStartHours or 0))
+    soul.lastRecordedHours = snapshot.hoursSurvived
+    if kind == "spawn" then soul.lifeStartHours = snapshot.hoursSurvived end
+    soul.profileEvent = eventKey
+    store.players[identity.idOrUser] = {username=identity.username,currentSoulKey=key}
+    -- Existing audit consumers retain their established timestamp/log format.
+    return SoulCatcher.writeLog(pl,soul,kind == "death" and "Profile Death" or "Profile Spawned")
+end

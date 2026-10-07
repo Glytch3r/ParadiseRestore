@@ -17,6 +17,32 @@ Syncer.window = nil
 Syncer.entries = {}
 Syncer.cageEntries = nil
 Syncer.lastSync = 0
+Syncer.lastStateRevision = -1
+Syncer.lastOwnerRevision = -1
+Syncer.ownerPvE = nil
+
+-- Apply only a live, server-confirmed PvE assignment. This trait has no XP
+-- boosts; mutating its native collection must never call the admin SyncXp API.
+function Syncer.applyConfirmedPvE(player, enabled)
+    if not player or type(enabled) ~= "boolean" or not player.getCharacterTraits then return false end
+    local trait = ParadiseDev.getTrait and ParadiseDev.getTrait("ParadiseDev:PvE")
+    local traits = player:getCharacterTraits()
+    if not trait or not traits or not player.hasTrait then return false end
+    if player:hasTrait(trait) ~= enabled then
+        if enabled then traits:add(trait) else traits:remove(trait) end
+        if player == (getPlayer and getPlayer()) and triggerEvent then
+            Syncer.lastOwner, Syncer.lastOwnerPvE = player, enabled
+            triggerEvent("OnTraitsSync", "ParadiseDev:PvE", enabled)
+        end
+    end
+    return player:hasTrait(trait) == enabled
+end
+
+function Syncer.refreshTraitsUI()
+    if ISPlayerStatsUI and ISPlayerStatsUI.instance and ISPlayerStatsUI.instance.loadTraits then
+        ISPlayerStatsUI.instance:loadTraits()
+    end
+end
 
 function Syncer.getStore()
     return ModData.get(Syncer.StoreName) or ModData.getOrCreate(Syncer.StoreName)
@@ -49,9 +75,7 @@ function Syncer.syncPlayer(player)
             Syncer.setLocal(player, traitId, record[traitId] == true)
         end
     end
-    if ISPlayerStatsUI and ISPlayerStatsUI.instance and ISPlayerStatsUI.instance.loadTraits then
-        ISPlayerStatsUI.instance:loadTraits()
-    end
+    Syncer.refreshTraitsUI()
 end
 
 function Syncer.requestSet(username, traitId, enabled)
@@ -215,8 +239,28 @@ function Syncer.onServerCommand(module, command, args)
     end
     if module ~= "ParadiseDevTraitSyncer" then return end
     if command == "state" and type(args) == "table" and type(args.entries) == "table" then
+        local revision = tonumber(args.revision)
+        if not revision or revision < Syncer.lastStateRevision then return end
+        Syncer.lastStateRevision = revision
         Syncer.entries = args.entries
+        local owner = getPlayer and getPlayer() or nil
+        for _, entry in ipairs(Syncer.entries) do
+            local target = type(entry.username) == "string" and getPlayerFromUsername and getPlayerFromUsername(entry.username)
+            if target and target ~= owner and type(entry.traits) == "table" then
+                Syncer.applyConfirmedPvE(target, entry.traits["ParadiseDev:PvE"])
+            end
+        end
         Syncer.refreshPanel()
+        Syncer.refreshTraitsUI()
+    elseif command == "pve" and type(args) == "table" then
+        local player = getPlayer and getPlayer() or nil
+        local revision = tonumber(args.revision)
+        if not player or args.username ~= player:getUsername() or type(args.enabled) ~= "boolean"
+            or not revision or revision < Syncer.lastOwnerRevision then return end
+        Syncer.lastOwnerRevision = revision
+        Syncer.ownerPvE = {player = player, enabled = args.enabled}
+        Syncer.applyConfirmedPvE(player, args.enabled)
+        Syncer.refreshTraitsUI()
     elseif command == "error" and type(args) == "table" and type(args.message) == "string" then
         local player = getPlayer and getPlayer() or nil
         if player and player.setHaloNote then player:setHaloNote(args.message) end
@@ -226,7 +270,13 @@ function Syncer.onPlayerUpdate(player)
     if not player or player ~= getPlayer() then return end
     local now = getTimestampMs and getTimestampMs() or 0
     if now - Syncer.lastSync < 1000 then return end
-    Syncer.lastSync = now; Syncer.syncPlayer(player)
+    Syncer.lastSync = now
+    -- A late native packet must not undo a newer confirmed assignment. This
+    -- session value is cleared on reconnect and never read from old ModData.
+    if Syncer.ownerPvE and Syncer.ownerPvE.player == player then
+        Syncer.applyConfirmedPvE(player, Syncer.ownerPvE.enabled)
+    end
+    Syncer.syncPlayer(player)
     local pve = Syncer.has(player, "ParadiseDev:PvE")
     if Syncer.lastOwner ~= player or Syncer.lastOwnerPvE ~= pve then
         Syncer.lastOwner, Syncer.lastOwnerPvE = player, pve
@@ -235,6 +285,7 @@ function Syncer.onPlayerUpdate(player)
 end
 function Syncer.onConnected()
     Syncer.entries = {}; Syncer.lastMenuRequest = nil
+    Syncer.lastStateRevision = -1; Syncer.lastOwnerRevision = -1; Syncer.ownerPvE = nil
     local player = getPlayer and getPlayer() or nil
     if player and ParadiseRestore and ParadiseRestore.isAdm(player) then Syncer.requestMenuState() end
 end

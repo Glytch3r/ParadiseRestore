@@ -126,12 +126,6 @@ option ParadiseZ.TrailerBrakeFix
 	page = ParadiseZ, translation = ParadiseZ_TrailerBrakeFix,
 	valueTranslation = ParadiseZ_TrailerBrakeFix,
 }
-option ParadiseZ.RecoverySystem
-{
-    type = enum, numValues = 6, default = 1,
-    page = ParadiseZ, translation = ParadiseZ_RecoverySystem,
-    valueTranslation = ParadiseZ_RecoverySystem,
-}
 option ParadiseZ.AdminBypassZoneRestrictions
 {
 	type = boolean, default = true,
@@ -203,16 +197,6 @@ option ParadiseZ.reloginDelayMins
 {
     type = integer, min = 0, max = 10080, default = 0,
     page = ParadiseZ, translation = ParadiseZ_reloginDelayMins,
-}
-option ParadiseZ.ReincarnateKeepSurvivalTime
-{
-    type = boolean, default = true,
-    page = ParadiseZ, translation = ParadiseZ_ReincarnateKeepSurvivalTime,
-}
-option ParadiseZ.ReincarnateKeepZombieKills
-{
-    type = boolean, default = true,
-    page = ParadiseZ, translation = ParadiseZ_ReincarnateKeepZombieKills,
 }
 option ParadiseZ.isSpawnAtDeathLoc
 {
@@ -880,4 +864,15 @@ option ParadiseZ.ProductionDiagnostics
 {
     type = boolean, default = false,
     page = ParadiseZ, translation = ParadiseZ_ProductionDiagnostics,
+}
+
+option ParadiseZ.LifeProfileCount
+{
+    type = integer, min = 1, max = 32, default = 3,
+    page = ParadiseZ, translation = ParadiseZ_LifeProfileCount,
+}
+option ParadiseZ.LifeProfileSaveSeconds
+{
+    type = integer, min = 10, max = 300, default = 30,
+    page = ParadiseZ, translation = ParadiseZ_LifeProfileSaveSeconds,
 }

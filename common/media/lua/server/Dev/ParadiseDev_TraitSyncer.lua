@@ -4,6 +4,8 @@ if isClient and isClient() then return end
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.TraitSyncer = ParadiseDev.TraitSyncer or {}
 local Syncer = ParadiseDev.TraitSyncer
+Syncer.stateRevision = Syncer.stateRevision or 0
+Syncer.pveSent = setmetatable({}, {__mode="k"})
 Syncer.StoreName = "ParadiseDev_TraitSyncer"
 Syncer.Traits = {"ParadiseDev:TheRangeStaff", "ParadiseDev:Caged", "ParadiseDev:InjuredPvP", "ParadiseDev:PvE"}
 function Syncer.getStore()
@@ -70,13 +72,13 @@ function Syncer.getStateEntries()
     return entries
 end
 function Syncer.sendState(player)
-    sendServerCommand(player, "ParadiseDevTraitSyncer", "state", {entries = Syncer.getStateEntries()})
+    sendServerCommand(player, "ParadiseDevTraitSyncer", "state", {entries = Syncer.getStateEntries(), revision = Syncer.stateRevision})
 end
 function Syncer.sendAdminStates(requester)
     local players = getOnlinePlayers and getOnlinePlayers() or nil
     local sent = false
     if players then
-        local state = {entries = Syncer.getStateEntries()}
+        local state = {entries = Syncer.getStateEntries(), revision = Syncer.stateRevision}
         for i = 0, players:size() - 1 do
             local player = players:get(i)
             if ParadiseRestore.isAdm(player) then
@@ -108,10 +110,32 @@ function Syncer.applyOnline(username, traitId, enabled)
         ParadiseDev.Cage.set(target, enabled)
         return
     end
-    if not target:getCharacterTraits() or not ParadiseDev.setTrait or not ParadiseDev.hasTrait then return false end
-    if ParadiseDev.hasTrait(target, traitId) ~= enabled then ParadiseDev.setTrait(traitId, enabled, target) end
+    if not target:getCharacterTraits() or not ParadiseDev.hasTrait then return false end
+    if traitId == "ParadiseDev:PvE" then
+        -- This status trait has no XP boosts. Resolve its registered B42 type
+        -- directly; neither display-label lookup nor the admin SyncXp path is needed.
+        local trait = ParadiseDev.getTrait and ParadiseDev.getTrait(traitId)
+        if not trait then return false end
+        if target:hasTrait(trait) ~= enabled then
+            if enabled then target:getCharacterTraits():add(trait)
+            else target:getCharacterTraits():remove(trait) end
+        end
+    elseif ParadiseDev.hasTrait(target, traitId) ~= enabled then
+        if not ParadiseDev.setTrait then return false end
+        ParadiseDev.setTrait(traitId, enabled, target)
+    end
     if ParadiseDev.hasTrait(target, traitId) ~= enabled then return false end
     if sendSyncPlayerFields then sendSyncPlayerFields(target, 2) end
+    if traitId == "ParadiseDev:PvE" then
+        Syncer.stateRevision = Syncer.stateRevision + 1
+        Syncer.pveSent[target] = enabled
+        -- Native trait fields go only to their owner, not other administrators.
+        -- Confirm the current assignment as well, without asking the owner to
+        -- send a capability-restricted XP packet back to the server.
+        sendServerCommand(target, "ParadiseDevTraitSyncer", "pve", {
+            username = tostring(target:getUsername()), enabled = enabled, revision = Syncer.stateRevision,
+        })
+    end
     if traitId == "ParadiseDev:PvE" and ParadiseDev.PvEPolicy and ParadiseDev.PvEPolicy.refreshPlayer then
         ParadiseDev.PvEPolicy.refreshPlayer(target)
     end
@@ -155,6 +179,7 @@ function Syncer.onClientCommand(module, command, player, args)
     if recordKey and recordKey ~= username then store.players[recordKey] = nil end
     store.players[username] = record
     record[args.trait] = args.enabled
+    if not target then Syncer.stateRevision = Syncer.stateRevision + 1 end
     ModData.transmit(Syncer.StoreName); Syncer.sendAdminStates(player)
 end
 -- Replay server-owned PvE assignments after reconnect. The client must not
@@ -169,7 +194,7 @@ function Syncer.onPlayerUpdate(player)
     local record = Syncer.getStoredRecord(tostring(player:getUsername()))
     local enabled = record and record["ParadiseDev:PvE"]
     if type(enabled) ~= "boolean" or not ParadiseDev.hasTrait then return end
-    if ParadiseDev.hasTrait(player, "ParadiseDev:PvE") ~= enabled then
+    if Syncer.pveSent[player] ~= enabled or ParadiseDev.hasTrait(player, "ParadiseDev:PvE") ~= enabled then
         if Syncer.applyOnline(tostring(player:getUsername()), "ParadiseDev:PvE", enabled) then Syncer.sendAdminStates() end
     end
 end

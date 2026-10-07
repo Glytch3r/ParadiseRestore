@@ -2,6 +2,9 @@ require "ISUI/ISCollapsableWindow"
 require "ISUI/ISButton"
 require "ISUI/ISTickBox"
 require "ISUI/ISScrollingListBox"
+require "ISUI/ISContextMenu"
+require "ISUI/ISWorldObjectContextMenu"
+require "ISUI/ISInventoryPaneContextMenu"
 
 ParadiseRestore = ParadiseRestore or {}
 ParadiseRestore.ContextMenuManager = ParadiseRestore.ContextMenuManager or {}
@@ -30,6 +33,50 @@ end
 ParadiseRestore.ContextMenuManager.profile = ParadiseRestore.ContextMenuManager.profile or ParadiseRestore.ContextMenuManager.newProfile()
 ParadiseRestore.ContextMenuManager.registry = ParadiseRestore.ContextMenuManager.registry or {world = {}, inventory = {}}
 ParadiseRestore.ContextMenuManager.instance = ParadiseRestore.ContextMenuManager.instance or nil
+-- Catalogue entries and preferences survive menu openings. Actions do not:
+-- native context menus, submenus and option tables are pooled and reused.
+ParadiseRestore.ContextMenuManager.openingSerial = ParadiseRestore.ContextMenuManager.openingSerial or 0
+
+function ParadiseRestore.ContextMenuManager.beginOpening(context)
+    local manager = ParadiseRestore.ContextMenuManager
+    manager.openingSerial = manager.openingSerial + 1
+    context.paradiseManagerOpening = {serial = manager.openingSerial, context = context,
+        bindings = {world = {}, inventory = {}}, finished = {}}
+    return context.paradiseManagerOpening
+end
+
+function ParadiseRestore.ContextMenuManager.getOpening(context)
+    return context.paradiseManagerOpening or ParadiseRestore.ContextMenuManager.beginOpening(context)
+end
+
+function ParadiseRestore.ContextMenuManager.snapshotOption(menu, option)
+    local snapshot = {name = option.name, target = option.target, onSelect = option.onSelect,
+        iconTexture = option.iconTexture, checkMark = option.checkMark,
+        notAvailable = option.notAvailable, toolTip = option.toolTip}
+    for index = 1, 10 do snapshot['param' .. index] = option['param' .. index] end
+    local subMenu = ParadiseRestore.ContextMenuManager.getSubMenu(menu, option)
+    if subMenu then
+        snapshot.children = {}
+        for _, child in ipairs(subMenu.options or {}) do
+            snapshot.children[#snapshot.children + 1] = ParadiseRestore.ContextMenuManager.snapshotOption(subMenu, child)
+        end
+    end
+    return snapshot
+end
+
+function ParadiseRestore.ContextMenuManager.registerEntry(entry, menu, option, context, targetLabel)
+    local manager = ParadiseRestore.ContextMenuManager
+    -- Never put mutable native option/menu objects into the persistent catalogue.
+    manager.registry[entry.kind][entry.key] = entry
+    -- An opening only needs action snapshots for selected favorites. Discovering
+    -- the catalogue while Favorites are disabled should not copy entire menus.
+    if not manager.profile.favoritesEnabled or not manager.profile.favorites[entry.key] then return end
+    local opening = manager.getOpening(context)
+    local variants = opening.bindings[entry.kind][entry.key] or {}
+    opening.bindings[entry.kind][entry.key] = variants
+    variants[#variants + 1] = {entry = entry, opening = opening, context = context,
+        targetLabel = targetLabel, snapshot = manager.snapshotOption(menu, option)}
+end
 
 function ParadiseRestore.ContextMenuManager.getProfileFilename()
     local pl = getPlayer and getPlayer() or nil
@@ -161,7 +208,7 @@ function ParadiseRestore.ContextMenuManager.getSubMenu(menu, option)
     return menu:getSubMenu(option.subOption)
 end
 
-function ParadiseRestore.ContextMenuManager.scan(kind, menu, parts, depth, properties, visibleDepth, rootContext, rootOption, rootLabel)
+function ParadiseRestore.ContextMenuManager.scan(kind, menu, parts, depth, properties, visibleDepth, rootContext, targetLabel)
     if not menu then return end
     depth = depth or 0
     visibleDepth = visibleDepth or depth
@@ -175,21 +222,9 @@ function ParadiseRestore.ContextMenuManager.scan(kind, menu, parts, depth, prope
         if not isDynamic then optionParts[#optionParts + 1] = option.paradiseManagerKey or option.name end
         local key = ParadiseRestore.ContextMenuManager.makeKey(kind, optionParts)
         local subMenu = ParadiseRestore.ContextMenuManager.getSubMenu(menu, option)
-        if not isDynamic then
-            ParadiseRestore.ContextMenuManager.registry[kind][key] = {
-                key = key,
-                kind = kind,
-                label = tostring(option.paradiseManagerLabel or option.name),
-                depth = visibleDepth,
-                parentKey = ParadiseRestore.ContextMenuManager.makeKey(kind, parts),
-                hasChildren = subMenu ~= nil,
-                menu = menu,
-                option = option,
-                subMenu = subMenu,
-                rootContext = rootContext,
-                rootOption = rootOption,
-                rootLabel = rootLabel,
-            }
+        local childTarget = targetLabel
+        if isDynamic then
+            childTarget = targetLabel and (targetLabel .. " / " .. tostring(option.name)) or tostring(option.name)
         end
         if subMenu then
             ParadiseRestore.ContextMenuManager.scan(
@@ -200,9 +235,17 @@ function ParadiseRestore.ContextMenuManager.scan(kind, menu, parts, depth, prope
                 properties,
                 isDynamic and visibleDepth or visibleDepth + 1,
                 rootContext,
-                rootOption,
-                rootLabel
+                childTarget
             )
+        end
+        if not isDynamic then
+            ParadiseRestore.ContextMenuManager.registerEntry({
+                key = key, kind = kind,
+                label = tostring(option.paradiseManagerLabel or option.name),
+                depth = visibleDepth,
+                parentKey = ParadiseRestore.ContextMenuManager.makeKey(kind, parts),
+                hasChildren = subMenu ~= nil,
+            }, menu, option, rootContext, targetLabel)
         end
         if not isDynamic and not ParadiseRestore.ContextMenuManager.isVisible(key, revealHidden) then
             ParadiseRestore.ContextMenuManager.removeOption(menu, option)
@@ -215,20 +258,14 @@ function ParadiseRestore.ContextMenuManager.registerParent(kind, key, parentMenu
     if not parentMenu or not rootOption then return nil end
     local label = tostring(rootOption.name or key)
     local rootKey = ParadiseRestore.ContextMenuManager.makeKey(kind, {key or label})
-    ParadiseRestore.ContextMenuManager.registry[kind][rootKey] = {
-        key = rootKey,
-        kind = kind,
-        label = label,
-        depth = 0,
-        parentKey = kind,
-        hasChildren = subMenu ~= nil,
-        menu = parentMenu,
-        option = rootOption,
-        subMenu = subMenu,
-        rootContext = parentMenu,
-        rootOption = rootOption,
-        rootLabel = label,
-    }
+    local bindings = ParadiseRestore.ContextMenuManager.getOpening(parentMenu).bindings[kind]
+    local previous = {}
+    for registeredKey in pairs(bindings) do
+        if registeredKey == rootKey or string.sub(registeredKey, 1, #rootKey + 1) == rootKey .. "/" then
+            previous[#previous + 1] = registeredKey
+        end
+    end
+    for _, registeredKey in ipairs(previous) do bindings[registeredKey] = nil end
     if subMenu then
         ParadiseRestore.ContextMenuManager.scan(
             kind,
@@ -237,22 +274,32 @@ function ParadiseRestore.ContextMenuManager.registerParent(kind, key, parentMenu
             1,
             properties,
             nil,
-            parentMenu,
-            rootOption,
-            label
+            parentMenu
         )
     end
+    ParadiseRestore.ContextMenuManager.registerEntry({
+        key = rootKey, kind = kind, label = label, depth = 0,
+        parentKey = kind, hasChildren = subMenu ~= nil,
+    }, parentMenu, rootOption, parentMenu)
     if not ParadiseRestore.ContextMenuManager.isVisible(rootKey, ParadiseRestore.ContextMenuManager.isShiftHeld()) then
         ParadiseRestore.ContextMenuManager.removeOption(parentMenu, rootOption)
     end
     return rootKey
 end
 
-function ParadiseRestore.ContextMenuManager.cloneOption(sourceMenu, sourceOption, targetMenu)
+function ParadiseRestore.ContextMenuManager.cloneSnapshot(sourceOption, targetMenu, binding)
+    local callback = sourceOption.onSelect
+    local guarded
+    if callback then
+        guarded = function(...)
+            if not ParadiseRestore.ContextMenuManager.isCurrentEntry(binding, binding.context) then return end
+            return callback(...)
+        end
+    end
     local option = targetMenu:addOption(
         sourceOption.name,
         sourceOption.target,
-        sourceOption.onSelect,
+        guarded,
         sourceOption.param1,
         sourceOption.param2,
         sourceOption.param3,
@@ -268,12 +315,11 @@ function ParadiseRestore.ContextMenuManager.cloneOption(sourceMenu, sourceOption
     option.checkMark = sourceOption.checkMark
     option.notAvailable = sourceOption.notAvailable
     option.toolTip = sourceOption.toolTip
-    local sourceSubMenu = ParadiseRestore.ContextMenuManager.getSubMenu(sourceMenu, sourceOption)
-    if sourceSubMenu then
+    if sourceOption.children then
         local targetSubMenu = ISContextMenu:getNew(targetMenu)
         targetMenu:addSubMenu(option, targetSubMenu)
-        for _, child in ipairs(sourceSubMenu.options or {}) do
-            ParadiseRestore.ContextMenuManager.cloneOption(sourceSubMenu, child, targetSubMenu)
+        for _, child in ipairs(sourceOption.children) do
+            ParadiseRestore.ContextMenuManager.cloneSnapshot(child, targetSubMenu, binding)
         end
     end
     return option
@@ -289,23 +335,25 @@ function ParadiseRestore.ContextMenuManager.hasFavoriteAncestor(entry)
 end
 
 function ParadiseRestore.ContextMenuManager.isCurrentEntry(entry, context)
-    if not entry or entry.rootContext ~= context or not entry.rootOption then return false end
-    if tostring(entry.rootOption.name) ~= tostring(entry.rootLabel) then return false end
-    for _, option in ipairs(context.options or {}) do
-        if option == entry.rootOption then return true end
-    end
-    return false
+    return entry ~= nil and context ~= nil and entry.context == context and
+        entry.opening == context.paradiseManagerOpening
 end
 
 function ParadiseRestore.ContextMenuManager.addFavorites(kind, context)
     local profile = ParadiseRestore.ContextMenuManager.profile
     if not profile.favoritesEnabled then return end
+    local opening = context.paradiseManagerOpening
+    if not opening then return end
     local entries = ParadiseRestore.ContextMenuManager.getEntries(kind, true)
     local selected = {}
     for _, entry in ipairs(entries) do
-        if entry.option and entry.menu and ParadiseRestore.ContextMenuManager.isCurrentEntry(entry, context) and
-            not ParadiseRestore.ContextMenuManager.hasFavoriteAncestor(entry) then
-            selected[#selected + 1] = entry
+        if not ParadiseRestore.ContextMenuManager.hasFavoriteAncestor(entry) then
+            local variants = opening.bindings[kind][entry.key] or {}
+            for _, binding in ipairs(variants) do
+                if ParadiseRestore.ContextMenuManager.isCurrentEntry(binding, context) then
+                    selected[#selected + 1] = {binding = binding, multiple = #variants > 1}
+                end
+            end
         end
     end
     if #selected == 0 then return end
@@ -313,9 +361,14 @@ function ParadiseRestore.ContextMenuManager.addFavorites(kind, context)
     root.iconTexture = getTexture("media/ui/ContextManager/favorite_on.png")
     local menu = ISContextMenu:getNew(context)
     context:addSubMenu(root, menu)
-    for _, entry in ipairs(selected) do
-        ParadiseRestore.ContextMenuManager.cloneOption(entry.menu, entry.option, menu)
+    for _, selectedEntry in ipairs(selected) do
+        local binding = selectedEntry.binding
+        local option = ParadiseRestore.ContextMenuManager.cloneSnapshot(binding.snapshot, menu, binding)
+        if selectedEntry.multiple and binding.targetLabel then
+            option.name = binding.targetLabel .. ": " .. tostring(option.name)
+        end
     end
+    if menu.calcWidth and menu.setWidth then menu:setWidth(menu:calcWidth()) end
 end
 
 function ParadiseRestore.ContextMenuManager.getEntries(kind, favoritesOnly)
@@ -562,12 +615,21 @@ function ParadiseRestore.ContextMenuManager.OpenPanel()
 end
 
 function ParadiseRestore.ContextMenuManager.addManagerOption(kind, plNum, context)
+    if type(context) ~= "table" or not context.options then return end
+    local opening = ParadiseRestore.ContextMenuManager.getOpening(context)
+    if opening.finished[kind] then return end
+    opening.finished[kind] = true
     local pl = getSpecificPlayer and getSpecificPlayer(plNum) or getPlayer()
     if not pl or not ParadiseRestore.isAdm or not ParadiseRestore.isAdm(pl) then return end
+    local count = #context.options
     ParadiseRestore.ContextMenuManager.addFavorites(kind, context)
-    if not ParadiseRestore.ContextMenuManager.isShiftHeld() then return end
-    local option = context:addOption("Context Menu Manager", nil, ParadiseRestore.ContextMenuManager.OpenPanel)
-    option.iconTexture = getTexture("media/ui/ContextManager/manager.png")
+    if ParadiseRestore.ContextMenuManager.isShiftHeld() then
+        local option = context:addOption("Context Menu Manager", nil, ParadiseRestore.ContextMenuManager.OpenPanel)
+        option.iconTexture = getTexture("media/ui/ContextManager/manager.png")
+    end
+    -- Vanilla hides an empty world menu before returning it. A favorite from a
+    -- hidden parent can make it useful again after our finalization.
+    if #context.options > count and context.setVisible then context:setVisible(true) end
 end
 
 function ParadiseRestore.ContextMenuManager.addWorldManager(plNum, context, worldobjects, test)
@@ -581,6 +643,50 @@ end
 
 function ParadiseRestore.ContextMenuManager.init()
     ParadiseRestore.ContextMenuManager.load()
+    ParadiseRestore.ContextMenuManager.installHooks()
+end
+
+function ParadiseRestore.ContextMenuManager.installHooks()
+    local manager = ParadiseRestore.ContextMenuManager
+    manager.hooks = manager.hooks or {}
+    local function pack(...) return {n = select('#', ...), ...} end
+    local function wrap(owner, name, id, kind)
+        if not owner or type(owner[name]) ~= "function" then return end
+        local oldHook = manager.hooks[id]
+        if oldHook and owner[name] == oldHook.wrapper then return end
+        local original = owner[name]
+        local wrapper
+        if kind then
+            wrapper = function(...)
+                local arguments = pack(...)
+                local results = pack(original(...))
+                local isTest = kind == "world" and arguments[5]
+                if not isTest then manager.addManagerOption(kind, arguments[1], results[1]) end
+                return unpack(results, 1, results.n)
+            end
+        else
+            wrapper = function(...)
+                local results = pack(original(...))
+                if type(results[1]) == "table" then manager.beginOpening(results[1]) end
+                return unpack(results, 1, results.n)
+            end
+        end
+        manager.hooks[id] = {wrapper = wrapper}
+        owner[name] = wrapper
+    end
+    -- Invalidate every root opening, including another UI reusing that root.
+    -- Finalize only world/inventory builders, after every OnFill handler returns.
+    wrap(ISContextMenu, "get", "root")
+    wrap(ISWorldObjectContextMenu, "createMenu", "world", "world")
+    wrap(ISInventoryPaneContextMenu, "createMenu", "inventory", "inventory")
+end
+
+-- Release bindings retained by a previous version during Lua hot reload.
+for _, entries in pairs(ParadiseRestore.ContextMenuManager.registry) do
+    for _, entry in pairs(entries) do
+        entry.menu, entry.option, entry.subMenu = nil, nil, nil
+        entry.rootContext, entry.rootOption, entry.rootLabel = nil, nil, nil
+    end
 end
 
 if Events and Events.OnGameStart then
@@ -589,9 +695,8 @@ if Events and Events.OnGameStart then
 end
 if Events and Events.OnFillWorldObjectContextMenu then
     Events.OnFillWorldObjectContextMenu.Remove(ParadiseRestore.ContextMenuManager.addWorldManager)
-    Events.OnFillWorldObjectContextMenu.Add(ParadiseRestore.ContextMenuManager.addWorldManager)
 end
 if Events and Events.OnFillInventoryObjectContextMenu then
     Events.OnFillInventoryObjectContextMenu.Remove(ParadiseRestore.ContextMenuManager.addInventoryManager)
-    Events.OnFillInventoryObjectContextMenu.Add(ParadiseRestore.ContextMenuManager.addInventoryManager)
 end
+ParadiseRestore.ContextMenuManager.installHooks()
