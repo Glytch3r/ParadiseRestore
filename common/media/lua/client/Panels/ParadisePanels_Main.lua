@@ -116,6 +116,6 @@ function ParadisePanels.OpenRulesAdmin()
     if JimsRulesAdmin and JimsRulesAdmin.OpenPanel then return JimsRulesAdmin.OpenPanel() end
 end
 
-function ParadisePanels.OpenLimboRecords()
-    if ParadiseLimboRecords and ParadiseLimboRecords.OpenPanel then return ParadiseLimboRecords.OpenPanel() end
+function ParadisePanels.OpenRecordsPanel()
+    if RecordsPanel and RecordsPanel.OpenPanel then return RecordsPanel.OpenPanel() end
 end

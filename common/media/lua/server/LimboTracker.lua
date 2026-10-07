@@ -26,6 +26,22 @@ function LimboTracker.getIdOrUser(pl)
     return username and string.lower(username) or nil
 end
 
+function LimboTracker.getIdentity(pl)
+    local idOrUser = LimboTracker.getIdOrUser(pl)
+    local username = LimboTracker.getUsername(pl)
+    local desc = pl and pl.getDescriptor and pl:getDescriptor() or nil
+    if not idOrUser or not username or not desc then return nil end
+    local prof = desc.getCharacterProfession and desc:getCharacterProfession() or nil
+    return {
+        idOrUser = idOrUser,
+        username = username,
+        firstname = desc.getForename and tostring(desc:getForename() or "") or "",
+        surname = desc.getSurname and tostring(desc:getSurname() or "") or "",
+        profKey = prof and prof.getName and tostring(prof:getName() or "")
+            or (desc.getProfession and tostring(desc:getProfession() or "") or ""),
+    }
+end
+
 function LimboTracker.getPing(pl, args)
     local ping = args and tonumber(args.ping) or 0
     return math.max(0, math.floor(ping or 0))
@@ -37,14 +53,13 @@ function LimboTracker.getFPS(args)
 end
 
 function LimboTracker.getRecord(pl)
-    local idOrUser = LimboTracker.getIdOrUser(pl)
-    if not idOrUser then return nil end
+    local identity = LimboTracker.getIdentity(pl)
+    if not identity then return nil end
     local store = LimboTracker.getStore()
-    local record = store.players[idOrUser]
+    local record = store.players[identity.idOrUser]
     if not record then
         record = {
-            idOrUser = idOrUser,
-            username = LimboTracker.getUsername(pl),
+            idOrUser = identity.idOrUser,
             fps = 0,
             ping = 0,
             serverTimestamp = getTimestamp(),
@@ -56,13 +71,46 @@ function LimboTracker.getRecord(pl)
             initialized = false,
             deathTimestamp = nil,
         }
-        store.players[idOrUser] = record
+        store.players[identity.idOrUser] = record
     end
+    record.username = identity.username
+    record.firstname = identity.firstname
+    record.surname = identity.surname
+    record.profKey = identity.profKey
     return record
 end
 
 function LimboTracker.clean(value)
-    return tostring(value or ""):gsub("[%c%s]+", "_")
+    return tostring(value or ""):gsub("[%c|]", "_")
+end
+
+function LimboTracker.getExitModeLabel(exitMode)
+    local labels = {
+        [-1] = "Possible Force Exit or Crash",
+        [0] = "Character Died",
+        [1] = "Reincarnate Selected",
+        [2] = "New Character Selected",
+        [3] = "Exit to Main Menu",
+        [4] = "Quit to Desktop",
+        [5] = "Event Respawn Selected",
+    }
+    return labels[tonumber(exitMode)]
+end
+
+function LimboTracker.formatLog(record)
+    if not record then return nil end
+    local exitMode = tonumber(record.exitMode) or -1
+    local exitLabel = LimboTracker.getExitModeLabel(exitMode)
+    if not exitLabel then return nil end
+    return "[LimboTracker]|time:" .. os.date("%H:%M:%S")
+        .. "|key:" .. LimboTracker.clean(record.idOrUser)
+        .. "|username:" .. LimboTracker.clean(record.username)
+        .. "|firstname:" .. LimboTracker.clean(record.firstname)
+        .. "|surname:" .. LimboTracker.clean(record.surname)
+        .. "|profKey:" .. LimboTracker.clean(record.profKey)
+        .. "|fps:" .. tostring(tonumber(record.fps) or 0)
+        .. "|ping:" .. tostring(tonumber(record.ping) or 0)
+        .. "|exitmode:" .. tostring(exitMode) .. ":" .. exitLabel .. "\n"
 end
 
 function LimboTracker.writeLog(record)
@@ -70,18 +118,19 @@ function LimboTracker.writeLog(record)
     local path = "ParadiseLimboTracker/" .. os.date("%Y-%m-%d") .. ".log"
     local writer = getFileWriter(path, true, true)
     if not writer then return false end
-    local line = os.date("%H:%M:%S") .. " "
-        .. LimboTracker.clean(record.idOrUser) .. " "
-        .. tostring(tonumber(record.fps) or 0) .. " "
-        .. tostring(tonumber(record.ping) or 0) .. " "
-        .. tostring(tonumber(record.exitMode) or -1) .. "\n"
+    local line = LimboTracker.formatLog(record)
+    if not line then writer:close() return false end
     writer:write(line)
     writer:close()
     return true
 end
 
-function LimboTracker.save(record)
+function LimboTracker.persist()
     if ModData.transmit then ModData.transmit(LimboTracker.StoreName) end
+end
+
+function LimboTracker.save(record)
+    LimboTracker.persist()
     LimboTracker.writeLog(record)
 end
 
@@ -118,7 +167,7 @@ function LimboTracker.release(pl, record)
     record.limboCage = false
     record.releaseTimestamp = nil
     record.serverTimestamp = getTimestamp()
-    LimboTracker.save(record)
+    LimboTracker.persist()
     return true
 end
 
@@ -133,8 +182,11 @@ function LimboTracker.onCreatePlayer(_, pl)
     local record = LimboTracker.getRecord(pl)
     if not record then return end
     local now = getTimestamp()
+    local wasInitialized = record.initialized == true
+    local previousExitMode = tonumber(record.exitMode)
+    if wasInitialized and previousExitMode == -1 then LimboTracker.writeLog(record) end
     LimboTracker.releaseExpired(pl, record, now)
-    local exitMode = tonumber(record.exitMode)
+    local exitMode = previousExitMode
     local cooldown = LimboTracker.getCooldownSeconds()
     local shouldRestrict = record.initialized and exitMode == -1
         or record.limboActive and LimboTracker.isRestrictedMode(exitMode)
@@ -157,7 +209,7 @@ function LimboTracker.onCreatePlayer(_, pl)
     record.limboActive = false
     record.initialized = true
     record.serverTimestamp = now
-    LimboTracker.save(record)
+    LimboTracker.persist()
 end
 
 function LimboTracker.checkExpired()

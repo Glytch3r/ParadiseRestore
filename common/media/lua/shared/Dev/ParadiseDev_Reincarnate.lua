@@ -11,6 +11,9 @@ recovery.deathTextureCount = 60
 recovery.deathTextureFrameMs = 30
 recovery.creationInProgress = recovery.creationInProgress or {}
 recovery.deathSubmitted = recovery.deathSubmitted or {}
+recovery.reincarnating = recovery.reincarnating or {}
+recovery.serverReincarnating = recovery.serverReincarnating or {}
+recovery.serverRecoveryPlans = recovery.serverRecoveryPlans or {}
 
 function recovery.getStore()
     local store = ModData.getOrCreate(recovery.storeName)
@@ -119,7 +122,8 @@ function recovery.saveDeath(pl)
     local store = recovery.getStore()
     local record = recovery.normalizeRecord(store.players[user]) or { lives = {} }
     local life = { skills = {}, earned = {}, total = 0 }
-    local baseline = pl:getModData().ParadiseDevSkillRecoveryBaseline or {}
+    local data = pl:getModData()
+    local baseline = data.ParadiseDevSkillRecoveryEarnedBaseline or data.ParadiseDevSkillRecoveryBaseline or {}
     recovery.forEachPerk(function(perk, perkID)
         local maxXP = recovery.getMaxXP(perk)
         local current = math.min(maxXP, math.max(0, tonumber(xp:getXP(perk)) or 0))
@@ -275,7 +279,7 @@ function recovery.getRecoveryXP(record, perkID)
     if mode == 5 or #lives == 0 then return 0 end
     local result = 0
     if mode == 1 then
-        result = (tonumber(lives[#lives].skills and lives[#lives].skills[perkID]) or 0) * 0.9
+        result = (tonumber(lives[#lives].earned and lives[#lives].earned[perkID]) or 0) * 0.9
     elseif mode == 4 then
         result = (tonumber(lives[#lives].earned and lives[#lives].earned[perkID]) or 0) * 0.5
     elseif mode == 2 then
@@ -312,6 +316,10 @@ function recovery.applySkill(pl, perkID)
         xp:AddXP(perk, rawAmount, false, false, true)
     end
     local awarded = math.max(0, (tonumber(xp:getXP(perk)) or current) - current)
+    local data = pl:getModData()
+    local earnedBaseline = data.ParadiseDevSkillRecoveryEarnedBaseline or {}
+    earnedBaseline[perkID] = math.max(0, tonumber(earnedBaseline[perkID]) or startingXP) + awarded
+    data.ParadiseDevSkillRecoveryEarnedBaseline = earnedBaseline
     recovery.log("AWARD " .. tostring(perkID) .. " requested=" .. tostring(rawAmount), recovery.getUsername(pl), awarded)
     return awarded
 end
@@ -359,10 +367,14 @@ function recovery.setBaseline(pl)
     local xp = pl and pl.getXp and pl:getXp() or nil
     if not xp then return end
     local data = pl:getModData()
-    if type(data.ParadiseDevSkillRecoveryBaseline) == "table" then return end
-    local baseline = {}
-    recovery.forEachPerk(function(perk, perkID) baseline[perkID] = math.max(0, tonumber(xp:getXP(perk)) or 0) end)
-    data.ParadiseDevSkillRecoveryBaseline = baseline
+    if type(data.ParadiseDevSkillRecoveryBaseline) ~= "table" then
+        local baseline = {}
+        recovery.forEachPerk(function(perk, perkID) baseline[perkID] = math.max(0, tonumber(xp:getXP(perk)) or 0) end)
+        data.ParadiseDevSkillRecoveryBaseline = baseline
+    end
+    if type(data.ParadiseDevSkillRecoveryEarnedBaseline) ~= "table" then
+        data.ParadiseDevSkillRecoveryEarnedBaseline = recovery.copyTab(data.ParadiseDevSkillRecoveryBaseline)
+    end
 end
 
 function recovery.getLifeCount(pl)
@@ -453,6 +465,49 @@ function recovery.request(command, username, perkID, lifeCount)
     return true
 end
 
+function recovery.selectReincarnation(plNum, pl)
+    recovery.reincarnating[plNum] = true
+    if isClient and isClient() then
+        recovery.request("selectReincarnate", recovery.getUsername(pl))
+    end
+end
+
+function recovery.consumeReincarnation(plNum)
+    if recovery.reincarnating[plNum] ~= true then return false end
+    recovery.reincarnating[plNum] = nil
+    return true
+end
+
+function recovery.consumeServerReincarnation(pl)
+    local user = recovery.getUsername(pl)
+    if not user or recovery.serverReincarnating[user] ~= true then return false end
+    recovery.serverReincarnating[user] = nil
+    return true
+end
+
+function recovery.setServerRecoveryPlan(pl, skills, lifeCount)
+    local user = recovery.getUsername(pl)
+    if not user then return end
+    local allowed = {}
+    for _, perkID in ipairs(skills or {}) do allowed[perkID] = true end
+    recovery.serverRecoveryPlans[user] = { skills = allowed, lifeCount = lifeCount }
+end
+
+function recovery.consumeServerRecoverySkill(pl, perkID)
+    local plan = recovery.serverRecoveryPlans[recovery.getUsername(pl)]
+    if not plan or plan.skills[perkID] ~= true then return false end
+    plan.skills[perkID] = nil
+    return true
+end
+
+function recovery.completeServerRecoveryPlan(pl, lifeCount)
+    local user = recovery.getUsername(pl)
+    local plan = recovery.serverRecoveryPlans[user]
+    if not plan or tonumber(plan.lifeCount) ~= tonumber(lifeCount) then return false end
+    recovery.serverRecoveryPlans[user] = nil
+    return true
+end
+
 function recovery.onClientCommand(module, command, sender, args)
     if module ~= recovery.module or not sender then return end
     local target = recovery.findPlayer(args and args.username, sender)
@@ -460,16 +515,28 @@ function recovery.onClientCommand(module, command, sender, args)
         recovery.saveDeath(target)
     elseif command == "retrieve" and ParadiseRestore.isAdm(sender) then
         recovery.retrieve(target)
+    elseif command == "selectReincarnate" and recovery.isShouldReincarnate() and sender.isDead and sender:isDead() and recovery.getRecord(sender) then
+        recovery.serverReincarnating[recovery.getUsername(sender)] = true
     elseif command == "autoStart" and recovery.isShouldReincarnate() then
+        if isServer and isServer() and not recovery.consumeServerReincarnation(sender) then return end
         recovery.setBaseline(sender)
         local skills = recovery.getPlan(sender)
         local lifeCount = recovery.getLifeCount(sender)
-        if isServer and isServer() then sendServerCommand(sender, recovery.module, "recoveryPlan", { skills = skills, lifeCount = lifeCount }) else recovery.queueRecovery(sender, skills, lifeCount) end
+        if isServer and isServer() then
+            recovery.setServerRecoveryPlan(sender, skills, lifeCount)
+            sendServerCommand(sender, recovery.module, "recoveryPlan", { skills = skills, lifeCount = lifeCount })
+        else
+            recovery.queueRecovery(sender, skills, lifeCount)
+        end
     elseif command == "recoverSkill" and recovery.isShouldReincarnate() and args and args.perkID then
+        if isServer and isServer() and not recovery.consumeServerRecoverySkill(sender, args.perkID) then return end
         recovery.applySkill(sender, args.perkID)
     elseif command == "autoComplete" and recovery.isShouldReincarnate() then
+        if isServer and isServer() and not recovery.completeServerRecoveryPlan(sender, args and args.lifeCount) then return end
         recovery.completeRecovery(sender, args and args.lifeCount)
-    elseif command == "death" then
+    elseif command == "death" and sender.isDead and sender:isDead() then
+        recovery.serverReincarnating[recovery.getUsername(sender)] = nil
+        recovery.serverRecoveryPlans[recovery.getUsername(sender)] = nil
         recovery.recordDeath(sender)
     elseif command == "saveRecord" and ParadiseRestore.isAdm(sender) then
         local key = recovery.getRecordKeyStr(target)
@@ -769,11 +836,13 @@ end
 function recovery.onCreatePlayer(playerNum, pl)
     if isServer and isServer() then return end
     pl = pl or (getPlayer and getPlayer() or nil)
+    recovery.queue = nil
+    local reincarnating = recovery.consumeReincarnation(playerNum)
     ParadiseDev.Reincarnate.clearCreationState(playerNum)
     recovery.deathSubmitted[playerNum] = nil
     recovery.resumeDeathAudio()
     recovery.setBaseline(pl)
-    if not recovery.isShouldReincarnate() then
+    if not reincarnating or not recovery.isShouldReincarnate() then
         return
     end
     recovery.applyStats(pl)
@@ -786,6 +855,7 @@ end
 
 function recovery.onPlayerDeath(pl)
     recovery.pauseDeathAudio(pl)
+    recovery.queue = nil
     if not pl then return end
     local plNum = pl:getPlayerNum()
     if recovery.creationInProgress[plNum] or recovery.deathSubmitted[plNum] then return end
@@ -889,6 +959,7 @@ function recovery.doReincarnate(plNum)
     local record = recovery.getRecord(pl)
     local life = record and record.lives and record.lives[#record.lives] or nil
     if not life then return false end
+    recovery.selectReincarnation(plNum, pl)
     local desc = SurvivorFactory.CreateSurvivor()
     desc:setForename(life.forename or desc:getForename())
     desc:setSurname(life.surname or desc:getSurname())
@@ -911,6 +982,7 @@ end
 function recovery.onContinueAsNew(panel)
     recovery.pending = recovery.pending or {}
     recovery.pending[panel.playerIndex] = nil
+    recovery.reincarnating[panel.playerIndex] = nil
     recovery.creationBlackout = true
     recovery.creationInProgress[panel.playerIndex] = true
     if ParadiseLimbo and ParadiseLimbo.report then ParadiseLimbo.report(2) end
