@@ -119,3 +119,9 @@ end
 function ParadisePanels.OpenRecordsPanel()
     if RecordsPanel and RecordsPanel.OpenPanel then return RecordsPanel.OpenPanel() end
 end
+
+function ParadisePanels.OpenContextMenuManager()
+    if ParadiseRestore and ParadiseRestore.ContextMenuManager and ParadiseRestore.ContextMenuManager.OpenPanel then
+        return ParadiseRestore.ContextMenuManager.OpenPanel()
+    end
+end

@@ -1039,6 +1039,10 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
         ParadiseDev.Context.clearAndSave,
         "media/ui/Paradise/ClearContextIcon.png"
     )
+    if ParadiseRestore.ContextMenuManager then
+        ParadiseRestore.ContextMenuManager.registerParent("world", "ParadiseZ", context, main, menu)
+        ParadiseRestore.ContextMenuManager.registerParent("world", "Paradise Clear", context, clearRoot, clearMenu)
+    end
 end
 
 
@@ -1046,6 +1050,7 @@ ParadiseZ.dbgSoundHandler = ParadiseDev.Context.dbgSoundHandler
 Events.OnWorldSound.Add(ParadiseDev.Context.dbgSoundHandler)
 
 ParadiseZ.context = ParadiseDev.Context.context
+Events.OnFillWorldObjectContextMenu.Remove(ParadiseDev.Context.context)
 Events.OnFillWorldObjectContextMenu.Add(ParadiseDev.Context.context)
 
 
