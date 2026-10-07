@@ -380,6 +380,8 @@
   "Sandbox_ParadiseZ_DefaultCageCoords": "Paradise Z Default Cage Coords",
   "Sandbox_ParadiseZ_DefaultCageReturnCoords": "Paradise Z Default Cage Return Coords",
   "Sandbox_ParadiseZ_ShowPvETag": "Paradise Z Show Pv ETag",
+  "Sandbox_ParadiseZ_TagHandlerRefreshRate": "Tag Handler Refresh Rate",
+  "Sandbox_ParadiseZ_TagHandlerRefreshRate_tooltip": "Seconds between local player tag refreshes. Lower values update tags faster but use more client processing.",
   "Sandbox_ParadiseZ_ShowModdedAdminTag": "Show Modded Admin Tag",
   "Sandbox_ParadiseZ_HiderList": "Paradise Z Hider List",
   "Sandbox_ParadiseZ_RadSuitList": "Paradise Z Rad Suit List",

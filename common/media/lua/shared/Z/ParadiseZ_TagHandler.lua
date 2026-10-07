@@ -32,6 +32,7 @@ ParadiseZ.ownTagTextures = ParadiseZ.ownTagTextures or {}
 ParadiseZ.adminTagStates = ParadiseZ.adminTagStates or {}
 ParadiseZ.onlinePlayers = ParadiseZ.onlinePlayers or {}
 ParadiseZ.onlinePlayersCheckedAt = nil
+ParadiseZ.lastTagHandlerAt = nil
 ParadiseZ.tagScreenPos = ParadiseZ.tagScreenPos or Vector2.new()
 ParadiseZ.tagHeadOffset = 128 / (2 / Core.getTileScale())
 ParadiseZ.tagSpacer = 4
@@ -474,7 +475,7 @@ end
 function ParadiseZ.refreshOnlinePlayers()
     if not isClient or not isClient() then return end
     local now = getTimestampMs()
-    if ParadiseZ.onlinePlayersCheckedAt and now - ParadiseZ.onlinePlayersCheckedAt < 1000 then return end
+    if ParadiseZ.onlinePlayersCheckedAt and now - ParadiseZ.onlinePlayersCheckedAt < ParadiseZ.getTagHandlerRefreshRate() * 1000 then return end
     ParadiseZ.onlinePlayersCheckedAt = now
     local onlinePlayers = {}
     local players = getOnlinePlayers and getOnlinePlayers() or nil
@@ -527,10 +528,20 @@ function ParadiseZ.tagHandler()
     end
 end
 
-Events.EveryOneMinute.Remove(ParadiseZ.tagHandler)
-Events.EveryOneMinute.Add(ParadiseZ.tagHandler)
-Events.OnPlayerUpdate.Remove(ParadiseZ.doTagCheck)
-Events.OnPlayerUpdate.Add(ParadiseZ.doTagCheck)
+function ParadiseZ.getTagHandlerRefreshRate()
+    local value = SandboxVars and SandboxVars.ParadiseZ and SandboxVars.ParadiseZ.TagHandlerRefreshRate or 0.10
+    return math.max(0.10, math.min(60.00, tonumber(value) or 0.10))
+end
+
+function ParadiseZ.updateTagHandler()
+    local now = getTimestampMs()
+    local delay = ParadiseZ.getTagHandlerRefreshRate() * 1000
+    if ParadiseZ.lastTagHandlerAt and now - ParadiseZ.lastTagHandlerAt < delay then return end
+    ParadiseZ.lastTagHandlerAt = now
+    ParadiseZ.tagHandler()
+end
+Events.OnTick.Remove(ParadiseZ.updateTagHandler)
+Events.OnTick.Add(ParadiseZ.updateTagHandler)
 
 
 function ParadiseZ.init()
