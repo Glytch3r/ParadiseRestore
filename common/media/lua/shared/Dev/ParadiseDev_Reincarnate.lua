@@ -59,8 +59,8 @@ function recovery.getPlayerByUsername(username)
     return nil
 end
 
-function recovery.getCagedRespawnLoc(username)
-    local pl = recovery.getPlayerByUsername(username)
+function recovery.getCagedRespawnLoc(username, player)
+    local pl = player or recovery.getPlayerByUsername(username)
     local engine = ParadiseDev and ParadiseDev.Zones and ParadiseDev.Zones.Engine or nil
     if not pl or not engine or not ParadiseDev.Cage or not ParadiseDev.Cage.isCaged or not ParadiseDev.Cage.isCaged(pl) then return nil end
     local steamID = engine.playerSteamId and engine.playerSteamId(pl) or nil
@@ -85,17 +85,26 @@ function recovery.getLoreEventRespawnLoc(username)
 end
 
 function recovery.getSafehouseRespawnLoc(username)
-    local safehouse = username and SafeHouse and SafeHouse.hasSafehouse and SafeHouse.hasSafehouse(username) or nil
-    if not safehouse then return nil end
-    return safehouse:getX() + safehouse:getW() / 2, safehouse:getY() + safehouse:getH() / 2, 0
+    local options = getServerOptions and getServerOptions() or nil
+    if not username or not options or not options.getBoolean or not options:getBoolean("SafehouseAllowRespawn") then return nil end
+    local houses = SafeHouse and SafeHouse.getSafehouseList and SafeHouse.getSafehouseList() or nil
+    if not houses then return nil end
+    for index = 0, houses:size() - 1 do
+        local safehouse = houses:get(index)
+        local members = safehouse and safehouse.getPlayers and safehouse:getPlayers() or nil
+        local member = safehouse and safehouse.getOwner and safehouse:getOwner() == username
+            or members and members.contains and members:contains(username)
+        if member and safehouse.isRespawnInSafehouse and safehouse:isRespawnInSafehouse(username) then
+            return safehouse:getX() + safehouse:getW() / 2, safehouse:getY() + safehouse:getH() / 2, 0
+        end
+    end
 end
 
 function recovery.getServerRespawnLoc()
     local options = getServerOptions and getServerOptions() or nil
     local value = options and options.getOption and options:getOption("SpawnPoint") or nil
-    local xyz = value and value:split(",") or nil
-    if not xyz or #xyz ~= 3 then return nil end
-    local x, y, z = tonumber(xyz[1]), tonumber(xyz[2]), tonumber(xyz[3])
+    local sx, sy, sz = tostring(value or ""):match("^%s*([^,]+),([^,]+),([^,]+)%s*$")
+    local x, y, z = tonumber(sx), tonumber(sy), tonumber(sz)
     if not x or not y or not z or x == 0 and y == 0 then return nil end
     return x, y, z
 end

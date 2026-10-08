@@ -220,4 +220,49 @@ function S.save(key, account, expectedRevision)
     return true, { status = "saved", revision = account.revision, bank = bank, path = path }
 end
 
+-- Deletion acknowledgement requires both recovery banks to contain the current
+-- post-delete state. Call only after the ordinary revisioned save succeeded.
+-- Never replace the sole verified current bank, or create an unsaved revision.
+function S.mirrorCurrent(key, account)
+    if client() then return nil, "profile store is server-only" end
+    local ok, err = M.validateAccount(account)
+    if not ok then return nil, err end
+    local encoded; encoded, err = S.accountFileKey(key)
+    if not encoded then return nil, err end
+    local raw; raw, err = envelope(account)
+    if not raw then return nil, err end
+    local paths = { A = S.PREFIX .. encoded .. "_A.txt", B = S.PREFIX .. encoded .. "_B.txt" }
+    local banks = { A = readBank(paths.A), B = readBank(paths.B) }
+    local source
+    for _, bank in ipairs({"A", "B"}) do
+        local value = banks[bank]
+        if value.raw == nil and not value.missing then return nil, "Profile recovery bank could not be read; retry deletion verification" end
+        if value.account then
+            if value.account.revision > account.revision then return nil, "Profile revision changed before deletion verification" end
+            if value.account.revision == account.revision and value.raw ~= raw then return nil, "Conflicting profile generation prevents deletion verification" end
+            if value.raw == raw then source = source or bank end
+        end
+    end
+    if not source then return nil, "No verified current profile generation; reload before deletion verification" end
+    local other = source == "A" and "B" or "A"
+    if banks[other].raw ~= raw or not banks[other].account then
+        -- Recheck both observations before touching the older/damaged bank.
+        -- Lua lifecycle writes are serialized; external edits must fail closed.
+        local retained, destination = readBank(paths[source]), readBank(paths[other])
+        if not retained.account or retained.raw ~= raw then return nil, "Current profile source changed before deletion verification" end
+        local previous = banks[other]
+        if destination.raw ~= previous.raw or destination.missing ~= previous.missing or destination.error ~= previous.error then
+            return nil, "Profile recovery bank changed before deletion verification"
+        end
+        local wrote, result, detail = pcall(S.io.write, paths[other], raw)
+        if not wrote or not result then return nil, detail or "Profile recovery write failed; retry deletion verification" end
+    end
+    local verifiedA, verifiedB = readBank(paths.A), readBank(paths.B)
+    if not verifiedA.account or not verifiedB.account or verifiedA.raw ~= raw or verifiedB.raw ~= raw then
+        return nil, "Both profile recovery banks must verify; retry deletion verification"
+    end
+    -- Exact close/readback evidence through the cache API, not an fsync promise.
+    return true, { status = "mirrored", revision = account.revision, banks = {"A", "B"} }
+end
+
 return S

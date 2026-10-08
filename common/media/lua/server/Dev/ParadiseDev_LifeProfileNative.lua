@@ -1,11 +1,19 @@
 -- B42 server adapter. Profile decisions and disk transactions live in the controller.
 if isClient and isClient() then return end
 require "Dev/ParadiseDev_LifeProfiles"
+require "Dev/ParadiseDev_LifeAmbitions"
+require "Dev/ParadiseDev_LifeStartingOutfit"
 ParadiseDev.LifeProfileNative = ParadiseDev.LifeProfileNative or {}
 local N = ParadiseDev.LifeProfileNative
 local M = ParadiseDev.LifeProfiles
+local A = ParadiseDev.LifeAmbitions
+local O = ParadiseDev.LifeStartingOutfit
+N.ambitions = setmetatable({}, {__mode="k"})
 N.applying = setmetatable({}, {__mode="k"})
 N.MAX_PERSISTENT_BYTES = 131072
+N.CARRY_MARKER="ParadiseLifeProfileWandererCarry"
+N.OUTFIT_MARKER="ParadiseLifeProfileStartingOutfit"
+N.outfitBodies=N.outfitBodies or setmetatable({}, {__mode="k"})
 -- Native ResourceLocation IDs are lowercase; saved assignment keys retain
 -- their existing spelling in TraitSyncer's account store.
 local managed = { ["paradisedev:caged"]="ParadiseDev:Caged", ["paradisedev:therangestaff"]="ParadiseDev:TheRangeStaff",
@@ -27,6 +35,52 @@ local function checked(fn, ...)
     return value, detail
 end
 local function typeId(kind) return string.lower(tostring(kind)) end
+
+-- Called exclusively during the authoritative native OnNewGame event. The
+-- ordinary checkpoint/death capture and ready/application paths never dress.
+function N.captureStartingOutfit(pl)
+    return checked(O.capture,pl:getWornItems())
+end
+function N.applyStartingOutfit(pl,outfit,birthKey)
+    return checked(function()
+        if isClient and isClient() then error("Starting outfit requires the server") end
+        if not pl or pl:isDead() or type(birthKey)~="string" or #birthKey==0 or #birthKey>256 then error("Invalid starting outfit body") end
+        local complete=pl:getModData()[N.OUTFIT_MARKER]
+        if complete then
+            if type(complete)~="table" or complete.key~=birthKey then error("Starting outfit is already bound to this body") end
+            return true,complete.outfit
+        end
+        local receipt=N.outfitBodies[pl]
+        if receipt and receipt.key~=birthKey then error("Starting outfit belongs to another creation") end
+        if not receipt then
+            local plan,err=O.resolve(outfit)
+            if not plan then error(err) end
+            local previous={}
+            local worn=pl:getWornItems()
+            for i=0,worn:size()-1 do
+                local item=worn:getItemByIndex(i)
+                if item and item:IsClothing() then previous[#previous+1]=item end
+            end
+            receipt={key=birthKey,plan=plan,previous=previous}
+            N.outfitBodies[pl]=receipt
+        end
+        local worn,inventory=pl:getWornItems(),pl:getInventory()
+        for _,item in ipairs(receipt.previous) do worn:remove(item);inventory:Remove(item) end
+        for _,item in ipairs(receipt.plan.items) do
+            -- If an earlier application failed halfway, reuse the exact fresh
+            -- item objects instead of issuing an additional set on retry.
+            if not inventory:getItems():contains(item) then inventory:AddItem(item) end
+            -- Match native Dressup before the body has its online identity.
+            -- IsoGameCharacter:setWornItem broadcasts even with false supplied.
+            worn:setItem(item:getBodyLocation(),item)
+        end
+        pl:onWornItemsChanged()
+        pl:getModData()[N.OUTFIT_MARKER]={key=birthKey,outfit=receipt.plan.outfit}
+        if receipt.plan.fallback then print("[LifeProfiles] Starting clothing unavailable; basic starter outfit used (review saved profile clothing types).") end
+        N.outfitBodies[pl]=nil
+        return true,receipt.plan.outfit
+    end)
+end
 local function eachPerk(fn)
     for index=1, Perks.getMaxIndex()-1 do
         local perk=Perks.fromIndex(index)
@@ -112,7 +166,7 @@ local transientKeys={lifepoints=true,lifebar=true,rebound=true,paradisezrebound=
     admin=true,staff=true,role=true,accesslevel=true,capabilities=true,godmode=true,isghost=true,isnoclip=true,
     paradisezhidemodel=true,paradisezspectatetarget=true,paradisezspectateoffset=true,
     paradisedevflash=true,lastcheatstate=true,paradisedevsafehousevehicle=true,
-    paradisedevnotesdiscovery=true}
+    paradisedevnotesdiscovery=true,lsbmwpc=true,lscdwpc=true,lstpwpc=true}
 function N.isPersistentKey(key)
     if type(key)~="string" then return type(key)=="number" end
     local lower=string.lower(key)
@@ -126,7 +180,11 @@ end
 function N.persistentData(data)
     local result={}
     for key,value in pairs(data or {}) do
-        if N.isPersistentKey(key) then result[key]=value end
+        if key=="Ambitions" then
+            local payload,err=A.validate({version=A.VERSION,ambitions=value})
+            if not payload then error(err) end
+            result[key]=payload.ambitions
+        elseif N.isPersistentKey(key) then result[key]=value end
     end
     result=boundedCopy(result)
     -- Native player saves also contain inventory and have a separate total
@@ -149,6 +207,76 @@ function N.persistentData(data)
     end
     measure(result)
     return result
+end
+
+-- Only the life-bound controller calls this after ownership/sequence checks.
+-- A later unversioned Lifestyle SavePlayerData cannot replace accepted progress.
+local function carryTarget(value)
+    return finite(value) and value==math.floor(value) and value>=1 and value<=2147483647
+end
+local function applyCarryFloor(pl,value)
+    if not carryTarget(value) then error("Invalid saved Wanderer carry target") end
+    if pl:getMaxWeightBase()<value then pl:setMaxWeightBase(value) end
+end
+function N.acceptAmbitions(pl,payload)
+    local accepted,err=A.validate(payload)
+    if not accepted then return nil,err end
+    local receipt=pl:getModData()[N.CARRY_MARKER]
+    if receipt~=nil and (type(receipt)~="table" or not carryTarget(receipt.target) or type(receipt.source)~="string") then return nil,"Invalid current-body carry receipt" end
+    local wanderer=accepted.ambitions.LSWanderer
+    if wanderer and wanderer.completed then
+        if not receipt and wanderer.newWeight then
+            local base=pl:getMaxWeightBase()
+            if not carryTarget(base) then return nil,"Invalid native carry capacity" end
+            if wanderer.newWeight and wanderer.newWeight>base then return nil,"Wanderer carry reward is awaiting native synchronization" end
+            -- Existing Lifestyle completion may have set native capacity first.
+            -- Record only the actual server value, never a proposed client one.
+            receipt={source="native",target=base}
+            pl:getModData()[N.CARRY_MARKER]=receipt
+        end
+        -- Network samples report progress; they do not revise a server-issued
+        -- carry reward for this native body.
+        if receipt then wanderer.newWeight=receipt.target end
+    end
+    N.ambitions[pl]=accepted
+    pl:getModData().Ambitions=boundedCopy(accepted.ambitions)
+    return true
+end
+function N.seedAmbitions(pl,payload)
+    local accepted,err=A.validate(payload)
+    if not accepted then return nil,err end
+    local wanderer=accepted.ambitions.LSWanderer
+    if wanderer and wanderer.completed and wanderer.newWeight~=nil and wanderer.newWeight~=false then
+        if not carryTarget(wanderer.newWeight) then return nil,"Invalid saved Wanderer carry target" end
+        -- Native maxWeightBase is not serialized. The server checkpoint is the
+        -- durable absolute target; reconnect restores it without adding again.
+        local data=pl:getModData()
+        local receipt=data[N.CARRY_MARKER]
+        if receipt~=nil and (type(receipt)~="table" or not carryTarget(receipt.target) or type(receipt.source)~="string") then return nil,"Invalid current-body carry receipt" end
+        if not data[N.CARRY_MARKER] then data[N.CARRY_MARKER]={target=wanderer.newWeight,source=wanderer._paradiseRestoreKey or "checkpoint"} end
+        applyCarryFloor(pl,data[N.CARRY_MARKER].target)
+    end
+    return N.acceptAmbitions(pl,accepted)
+end
+function N.carryWeight(pl)
+    local receipt=pl:getModData()[N.CARRY_MARKER]
+    return type(receipt)=="table" and carryTarget(receipt.target) and receipt.target or nil
+end
+local function capturePersistent(pl)
+    local raw={}
+    for key,value in pairs(pl:getModData()) do raw[key]=value end
+    local accepted=N.ambitions[pl]
+    if accepted then raw.Ambitions=accepted.ambitions end
+    return N.persistentData(raw)
+end
+local function restorePersistent(snapshot)
+    local persistent=N.persistentData(snapshot.modData)
+    if persistent.Ambitions~=nil then
+        local ambitions,err=A.forRestore(persistent.Ambitions,snapshot.skills or {},snapshot.zombieKills or 0,snapshot.characterKey)
+        if not ambitions then error(err) end
+        persistent.Ambitions=ambitions
+    end
+    return persistent
 end
 
 function N.creationXP(pl)
@@ -197,7 +325,10 @@ function N.capture(pl,kind,characterKey,creationXP)
         local snapshot={skills=skills,identity=identity,recipes=listStrings(pl:getKnownRecipes()),
             hoursSurvived=number(pl:getHoursSurvived(),"survival time"),zombieKills=number(pl:getZombieKills(),"zombie kills"),
             location={x=pl:getX(),y=pl:getY(),z=pl:getZ()},capturedAt=getTimestampMs(),kind=kind,characterKey=characterKey,
-            modData=N.persistentData(pl:getModData())}
+            modData=capturePersistent(pl)}
+        local weight=number(pl:getNutrition():getWeight(),"body weight")
+        if weight<35 then error("Body weight is below the native safe restoration minimum") end
+        snapshot.physical={weight=weight}
         if creationXP then snapshot.creationXP=boundedCopy(creationXP) end
         local ok,err=M.validateSnapshot(snapshot)
         if not ok then error(err) end
@@ -255,11 +386,6 @@ local function prepare(pl,snapshot)
         end
     end
     for id,enabled in pairs(authority) do if enabled then traitSet[id]=true end end
-    for id in pairs(traitSet) do
-        local definition=traitDefinition(id)
-        if not definition then error("Saved trait is unavailable: "..id) end
-        traits[#traits+1]=definition:getType()
-    end
     local perks,seen={},{}
     eachPerk(function(perk,id)
         local amount=snapshot.skills[id]
@@ -272,8 +398,33 @@ local function prepare(pl,snapshot)
         seen[id]=true
     end)
     for id in pairs(snapshot.skills) do if not seen[id] then error("Saved skill is unavailable: "..tostring(id)) end end
+    -- setPerkLevelDebug deliberately avoids LevelPerk's side effects. Reconcile
+    -- only the native traits derived from the restored Strength/Fitness levels.
+    local derived={Strength={CharacterTrait.WEAK,CharacterTrait.FEEBLE,CharacterTrait.STOUT,CharacterTrait.STRONG},
+        Fitness={CharacterTrait.UNFIT,CharacterTrait.OUT_OF_SHAPE,CharacterTrait.FIT,CharacterTrait.ATHLETIC}}
+    for _,entry in ipairs(perks) do
+        local group=derived[entry.id]
+        if group then
+            for _,kind in ipairs(group) do traitSet[typeId(kind)]=nil end
+            local n=entry.level
+            local index=n<=1 and 1 or n<=4 and 2 or n>=9 and 4 or n>=6 and 3 or nil
+            if index then traitSet[typeId(group[index])]=true end
+        end
+    end
+    for id in pairs(traitSet) do
+        local definition=traitDefinition(id)
+        if not definition then error("Saved trait is unavailable: "..id) end
+        traits[#traits+1]=definition:getType()
+    end
     for _,recipe in ipairs(snapshot.recipes) do if type(recipe)~="string" then error("Invalid saved recipe") end end
-    local persistent=N.persistentData(snapshot.modData)
+    local persistent=restorePersistent(snapshot)
+    local wanderer=persistent.Ambitions and persistent.Ambitions.LSWanderer
+    if wanderer and wanderer.completed then
+        local receipt=pl:getModData()[N.CARRY_MARKER]
+        if receipt~=nil and (type(receipt)~="table" or not carryTarget(receipt.target) or type(receipt.source)~="string") then error("Invalid current-body carry receipt") end
+        local base=pl:getMaxWeightBase()
+        if not carryTarget(base) or base>=2147483647 then error("Invalid new-body carry capacity") end
+    end
     local visual=identity.visual
     if visual~=nil then
         if type(visual)~="table" then error("Invalid saved appearance") end
@@ -337,14 +488,32 @@ function N.apply(pl,snapshot)
         for i=0,existing:size()-1 do nativeTraits:remove(existing:get(i)) end
         for _,kind in ipairs(plan.traits) do if not nativeTraits:get(kind) then nativeTraits:add(kind) end end
         for _,entry in ipairs(plan.perks) do N.setExactXP(pl,entry) end
+        if snapshot.physical then
+            local nutrition=pl:getNutrition()
+            nutrition:setWeight(snapshot.physical.weight)
+            nutrition:applyTraitFromWeight()
+        end
         local recipes=pl:getKnownRecipes(); recipes:clear()
         for _,recipe in ipairs(snapshot.recipes) do recipes:add(recipe) end
         pl:setHoursSurvived(snapshot.hoursSurvived); pl:setZombieKills(snapshot.zombieKills)
         local data=pl:getModData()
+        local wanderer=plan.persistent.Ambitions and plan.persistent.Ambitions.LSWanderer
+        if wanderer and wanderer.completed then
+            local receipt=data[N.CARRY_MARKER]
+            if not receipt or receipt.source~=snapshot.characterKey then
+                local base=pl:getMaxWeightBase()
+                if not carryTarget(base) or base>=2147483647 then error("Invalid new-body carry capacity") end
+                receipt={source=snapshot.characterKey,target=base+1}
+                data[N.CARRY_MARKER]=receipt
+            end
+            applyCarryFloor(pl,receipt.target)
+            wanderer.newWeight=receipt.target
+        end
         local remove={}
         for key in pairs(data) do if N.isPersistentKey(key) then remove[#remove+1]=key end end
         for _,key in ipairs(remove) do data[key]=nil end
         for key,value in pairs(plan.persistent) do data[key]=boundedCopy(value) end
+        N.ambitions[pl]=plan.persistent.Ambitions and {version=A.VERSION,ambitions=boundedCopy(plan.persistent.Ambitions)} or nil
         applyVisual(pl:getHumanVisual(),identity.visual)
         applyVisual(desc:getHumanVisual(),identity.visual)
         pl:resetModelNextFrame()
@@ -379,8 +548,11 @@ function N.mirror(snapshot)
     return checked(function()
         local identity=boundedCopy(snapshot.identity)
         identity.traits=nil; identity.xpBoosts=nil
+        local wanderer=snapshot.modData and snapshot.modData.Ambitions and snapshot.modData.Ambitions.LSWanderer
+        local carry=type(wanderer)=="table" and wanderer.completed and wanderer.newWeight or nil
+        if carry~=nil and carry~=false and not carryTarget(carry) then error("Invalid saved Wanderer carry target") end
         return {identity=identity,recipes=boundedCopy(snapshot.recipes),hoursSurvived=snapshot.hoursSurvived,
-            zombieKills=snapshot.zombieKills,modData=N.persistentData(snapshot.modData)}
+            zombieKills=snapshot.zombieKills,modData=N.persistentData(snapshot.modData),physical=boundedCopy(snapshot.physical),carryWeight=carry or nil}
     end)
 end
 return N

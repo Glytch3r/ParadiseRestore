@@ -710,8 +710,8 @@ function ParadiseDev.Zones.Engine.nearestCageZone(pl)
     return winner
 end
 
-function ParadiseDev.Zones.Engine.teleportPlayer(pl, x, y, z)
-    return ParadiseDev and ParadiseDev.TP and ParadiseDev.TP.teleportPlayer(pl, x, y, z) or false
+function ParadiseDev.Zones.Engine.teleportPlayer(pl, x, y, z, onArrive)
+    return ParadiseDev and ParadiseDev.TP and ParadiseDev.TP.teleportPlayer(pl, x, y, z, onArrive) or false
 end
 
 function ParadiseDev.Zones.Engine.reboundPlayer(pl, zone, region, x, y, z)
@@ -785,8 +785,8 @@ function ParadiseDev.Zones.Engine.forcePassengerOut(pl, x, y, z)
     return ParadiseDev and ParadiseDev.TP and ParadiseDev.TP.exitVehicleAndTeleport(pl, x, y, z, true) or false
 end
 
-function ParadiseDev.Zones.Engine.forceVehicleExit(pl, x, y, z)
-    return ParadiseDev and ParadiseDev.TP and ParadiseDev.TP.exitVehicleAndTeleport(pl, x, y, z, false) or false
+function ParadiseDev.Zones.Engine.forceVehicleExit(pl, x, y, z, onArrive)
+    return ParadiseDev and ParadiseDev.TP and ParadiseDev.TP.exitVehicleAndTeleport(pl, x, y, z, false, onArrive) or false
 end
 
 function ParadiseDev.Zones.Engine.captureCageReturn(pl)
@@ -825,15 +825,11 @@ function ParadiseDev.Zones.Engine.restoreCageReturn(pl)
     local modData = pl:getModData()
     local returnPoint = modData.ParadiseDevCageReturn
     if not returnPoint then return false end
-    local vehicle = pl:getVehicle()
-    if vehicle then
-        local restored = ParadiseDev.Zones.Engine.forceVehicleExit(pl, returnPoint.x, returnPoint.y, returnPoint.z)
-        if restored then modData.ParadiseDevCageReturn = nil end
-        return restored
-    end
-    local restored = ParadiseDev.Zones.Engine.teleportPlayer(pl, returnPoint.x, returnPoint.y, returnPoint.z)
-    if restored then modData.ParadiseDevCageReturn = nil end
-    return restored
+    -- Retain the durable return point until the server sees actual arrival.
+    -- A disconnect or a superseded queued transfer must not discard it.
+    return ParadiseDev.Zones.Engine.forceVehicleExit(pl, returnPoint.x, returnPoint.y, returnPoint.z, function()
+        if modData.ParadiseDevCageReturn == returnPoint then modData.ParadiseDevCageReturn = nil end
+    end)
 end
 
 function ParadiseDev.Zones.Engine.assignCage(pl, zone)
@@ -852,11 +848,13 @@ function ParadiseDev.Zones.Engine.assignCage(pl, zone)
     if not ParadiseDev.Zones.Engine.zoneContains(zone, x, y, z, 0) then
         x, y = ParadiseDev.Zones.Engine.nearestInside(region, x, y, 1)
     end
+    ParadiseDev.Zones.Engine.captureCageReturn(pl)
+    if not ParadiseDev.Zones.Engine.forceVehicleExit(pl, x, y, z) then
+        return false, "The server could not start the cage transfer."
+    end
     ParadiseDev.Zones.Engine.cageAssignments[steamId] = zone.id
     ParadiseDev.Zones.Engine.lastValid[ParadiseDev.Zones.Engine.userName(pl)] = nil
-    ParadiseDev.Zones.Engine.captureCageReturn(pl)
     ParadiseDev.Zones.Engine.saveCageRebound(pl, zone, x, y, z)
-    ParadiseDev.Zones.Engine.forceVehicleExit(pl, x, y, z)
     ParadiseDev.Zones.Engine.syncBoundaryState(pl)
     ParadiseDev.Zones.Engine.log("caged", pl, zone)
     return true
@@ -892,22 +890,14 @@ function ParadiseDev.Zones.Engine.enforceCage(pl, zone, x, y, z)
 
     local vehicle = pl:getVehicle()
     if not vehicle then
-        ParadiseDev.Zones.Engine.teleportPlayer(pl, point.x, point.y, point.z)
-        ParadiseDev.Zones.Engine.log("cage-teleport", pl, zone)
-        return true
+        local accepted, sent = ParadiseDev.TP.teleportPlayer(pl, point.x, point.y, point.z)
+        if sent then ParadiseDev.Zones.Engine.log("cage-teleport", pl, zone) end
+        return accepted
     end
 
-    if vehicle:getCharacter(0) == pl then
-        if ParadiseDev.Zones.Engine.reboundVehicle(vehicle, x, y, point.x, point.y, pl) then
-            ParadiseDev.Zones.Engine.log("cage-vehicle-rebounded-inward", pl, zone)
-        end
-        return true
-    end
-
-    if ParadiseDev.Zones.Engine.forcePassengerOut(pl, point.x, point.y, point.z) then
-        ParadiseDev.Zones.Engine.log("cage-passenger-ejected", pl, zone)
-    end
-    return true
+    local accepted, sent = ParadiseDev.TP.exitVehicleAndTeleport(pl, point.x, point.y, point.z, false)
+    if sent then ParadiseDev.Zones.Engine.log("cage-occupant-returned", pl, zone) end
+    return accepted
 end
 
 function ParadiseDev.Zones.Engine.onPlayerUpdate(pl)

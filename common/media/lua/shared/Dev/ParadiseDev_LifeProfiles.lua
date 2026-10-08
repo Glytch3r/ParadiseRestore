@@ -1,7 +1,9 @@
 -- Pure, bounded profile state machine. Callers persist returned copies before applying them.
+require "Dev/ParadiseDev_LifeStartingOutfit"
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.LifeProfiles = ParadiseDev.LifeProfiles or {}
 local M = ParadiseDev.LifeProfiles
+local O = ParadiseDev.LifeStartingOutfit
 M.VERSION = 1
 M.module = "ParadiseLifeProfiles"
 M.MAX_SLOTS = 32
@@ -72,6 +74,12 @@ function M.validateSnapshot(snapshot)
     for _, key in ipairs({ "x", "y", "z" }) do
         if not finite(snapshot.location[key]) then return nil, "invalid snapshot location" end
     end
+    if snapshot.physical~=nil then
+        if type(snapshot.physical)~="table" or not finite(snapshot.physical.weight) or snapshot.physical.weight<35 then
+            return nil,"invalid physical weight"
+        end
+        for key in pairs(snapshot.physical)do if key~="weight" then return nil,"unsupported physical field" end end
+    end
     return true
 end
 
@@ -92,6 +100,10 @@ function M.validateAccount(account)
         if slot.phase ~= "alive" and slot.phase ~= "dead" then return nil, "invalid profile phase" end
         if not integer(slot.revision, 1, account.revision) or not integer(slot.deathSeq, 0, 9007199254740000) or not integer(slot.incarnations, 0, 9007199254740000) then return nil, "invalid profile counters" end
         if type(slot.creationIdentity) ~= "table" then return nil, "creation identity missing" end
+        if slot.startingOutfit~=nil then
+            local outfit,why=O.validate(slot.startingOutfit)
+            if not outfit then return nil,why end
+        end
         local ok; ok, err = xpMap(slot.creationXP)
         if not ok then return nil, err end
         ok, err = M.validateSnapshot(slot.checkpoint)
@@ -104,7 +116,19 @@ function M.validateAccount(account)
         if slot.phase == "alive" and account.activeSlot ~= index then return nil, "inactive profile cannot be alive" end
     end
     if account.activeSlot ~= nil and (not integer(account.activeSlot, 1, M.MAX_SLOTS) or not account.slots[account.activeSlot]) then return nil, "active profile missing" end
-    if count > 0 and account.activeSlot == nil then return nil, "active slot missing" end
+    if count > 0 and account.activeSlot == nil and not account.deletedDeath then return nil, "active slot missing" end
+    if account.deletedDeath~=nil then
+        local d=account.deletedDeath
+        if type(d)~="table" or not text(d.characterKey) or not integer(d.revision,1,account.revision)
+                or account.activeSlot~=nil or account.enrollmentDeath~=nil or type(d.location)~="table" then
+            return nil,"invalid deleted-profile death"
+        end
+        for key in pairs(d) do
+            if key~="characterKey" and key~="revision" and key~="location" then return nil,"unexpected deleted-profile data" end
+        end
+        for key in pairs(d.location) do if key~="x" and key~="y" and key~="z" then return nil,"unexpected deleted-profile location" end end
+        for _,key in ipairs({"x","y","z"}) do if not finite(d.location[key]) then return nil,"invalid deleted-profile location" end end
+    end
     if account.enrollmentDeath ~= nil then
         local ok; ok, err = M.validateSnapshot(account.enrollmentDeath)
         if not ok or account.enrollmentDeath.kind ~= "death" or count ~= 0 or account.activeSlot ~= nil then return nil, err or "invalid enrollment death" end
@@ -115,6 +139,14 @@ function M.validateAccount(account)
         local source = account.slots[account.activeSlot]
         if type(p) ~= "table" or not text(p.id) or not integer(p.slot, 1, M.MAX_SLOTS) or (p.status ~= "prepared" and p.status ~= "applying") then return nil, "invalid pending transition" end
         if p.status == "applying" and (not text(p.newCharacterKey) or p.newCharacterKey == p.sourceCharacterKey or p.newCharacterKey == p.targetCharacterKey) then return nil, "invalid bound transition character" end
+        if p.spawnSelection ~= nil then
+            local spawn = p.spawnSelection
+            if type(spawn) ~= "table" or not text(spawn.id) or type(spawn.location) ~= "table" then return nil, "invalid spawn selection" end
+            if spawn.regionName ~= nil and not text(spawn.regionName) then return nil, "invalid spawn region" end
+            for _, axis in ipairs({"x", "y", "z"}) do
+                if not finite(spawn.location[axis]) then return nil, "invalid spawn coordinates" end
+            end
+        end
         if p.failedBodies ~= nil then
             if type(p.failedBodies) ~= "table" or not integer(p.retryCount, 1, 9007199254740000) then return nil, "invalid transition retry history" end
             local failedCount = 0
@@ -131,8 +163,18 @@ function M.validateAccount(account)
             ok, err = xpMap(p.creationXP)
             if not ok then return nil, err end
         end
+        for _,field in ipairs({"targetStartingOutfit","creationStartingOutfit"}) do
+            if p[field]~=nil then
+                local outfit,why=O.validate(p[field])
+                if not outfit then return nil,why end
+            end
+        end
         if p.sourceKind == "enrollment" then
             if source or count ~= 0 or not account.enrollmentDeath or p.sourceSlot ~= nil or p.sourceCharacterKey ~= account.enrollmentDeath.characterKey or p.sourceDeathSeq ~= 1 or p.sourceRevision ~= account.enrollmentRevision or p.kind ~= "create" then return nil, "pending enrollment does not match death" end
+        elseif p.sourceKind == "deleted" then
+            local d=account.deletedDeath
+            if source or not d or p.sourceSlot~=nil or p.sourceCharacterKey~=d.characterKey
+                    or p.sourceDeathSeq~=1 or p.sourceRevision~=d.revision then return nil,"pending deleted-profile death changed" end
         elseif p.sourceKind == "profile" then
             if not source or source.phase ~= "dead" or p.sourceSlot ~= account.activeSlot or p.sourceCharacterKey ~= source.death.characterKey or p.sourceDeathSeq ~= source.deathSeq or p.sourceRevision ~= source.revision then return nil, "pending source does not match death" end
         else return nil, "invalid transition source kind" end
@@ -149,6 +191,13 @@ function M.validateAccount(account)
         local last = account.lastCompletion
         if type(last) ~= "table" or not text(last.id) or not text(last.characterKey) or not integer(last.slot, 1, M.MAX_SLOTS) then return nil, "invalid completion receipt" end
     end
+    if account.lastDeletion~=nil then
+        local d=account.lastDeletion
+        if type(d)~="table" or not text(d.id) or not text(d.profileId) or not text(d.deathToken,512)
+                or not integer(d.slot,1,M.MAX_SLOTS) or not integer(d.profileRevision,1,account.revision)
+                or not integer(d.expectedRevision,1,account.revision) or not integer(d.revision,1,account.revision)
+                or d.revision~=d.expectedRevision+1 then return nil,"invalid deletion receipt" end
+    end
     return true
 end
 
@@ -164,7 +213,7 @@ local function finish(account, value)
     return account, value
 end
 
-function M.ensureSlot(account, index, id, creationXP, snapshot)
+function M.ensureSlot(account, index, id, creationXP, snapshot, startingOutfit)
     local nextAccount, err = cloneAccount(account)
     if not nextAccount then return nil, err end
     if not integer(index, 1, M.MAX_SLOTS) or not text(id) then return nil, "invalid slot identity" end
@@ -177,9 +226,13 @@ function M.ensureSlot(account, index, id, creationXP, snapshot)
         if existing.id == id and nextAccount.activeSlot == index and existing.phase == "alive" and existing.checkpoint.characterKey == snapshot.characterKey then return nextAccount, existing end
         return nil, "slot already exists"
     end
-    if nextAccount.pending or nextAccount.activeSlot or nextAccount.enrollmentDeath then return nil, "creation must use a death selection" end
+    if nextAccount.pending or nextAccount.activeSlot or nextAccount.enrollmentDeath or nextAccount.deletedDeath then return nil, "creation must use a death selection" end
     nextAccount.revision = nextAccount.revision + 1
     local slot = { id = id, slot = index, phase = "alive", creationXP = M.copy(creationXP), creationIdentity = M.copy(snapshot.identity), checkpoint = M.copy(snapshot), deathSeq = 0, incarnations = 0, revision = nextAccount.revision }
+    if startingOutfit~=nil then
+        slot.startingOutfit,err=O.validate(startingOutfit)
+        if not slot.startingOutfit then return nil,err end
+    end
     nextAccount.slots[index], nextAccount.activeSlot = slot, index
     return finish(nextAccount, slot)
 end
@@ -214,6 +267,9 @@ function M.recordDeath(account, index, snapshot)
 end
 
 function M.deathToken(account)
+    if account and account.deletedDeath then
+        return "deleted:"..tostring(account.deletedDeath.revision)..":"..account.deletedDeath.characterKey
+    end
     if account and account.enrollmentDeath then
         return "enrollment:" .. tostring(account.enrollmentRevision) .. ":" .. account.enrollmentDeath.characterKey
     end
@@ -222,12 +278,49 @@ function M.deathToken(account)
     return tostring(slot.slot) .. ":" .. slot.id .. ":" .. tostring(slot.deathSeq) .. ":" .. slot.death.characterKey
 end
 
+-- Logical deletion is a normal revisioned server commit. Preserve only the
+-- current corpse's authorization/location when its profile is removed: never
+-- reuse another profile's body or retain the deleted XP/identity as a new life.
+function M.deleteProfile(account,index,profileId,profileRevision,expectedRevision,deathToken,requestId)
+    local nextAccount,err=cloneAccount(account)
+    if not nextAccount then return nil,err end
+    if not integer(index,1,M.MAX_SLOTS) or not text(profileId) or not text(requestId)
+            or not integer(profileRevision,1,9007199254740000) or not integer(expectedRevision,1,9007199254740000)
+            or not text(deathToken,512) then return nil,"Invalid profile deletion" end
+    local last=nextAccount.lastDeletion
+    if last and last.id==requestId then
+        if last.slot==index and last.profileId==profileId and last.profileRevision==profileRevision
+                and last.expectedRevision==expectedRevision and last.deathToken==deathToken then return nextAccount,last end
+        return nil,"Deletion request was already used for another profile"
+    end
+    if nextAccount.pending then return nil,"Cancel your pending selection before deleting a profile" end
+    if expectedRevision~=nextAccount.revision or deathToken~=M.deathToken(nextAccount) then
+        return nil,"Your profiles changed. Review the refreshed list before deleting"
+    end
+    local slot=nextAccount.slots[index]
+    if not slot or slot.phase~="dead" or slot.id~=profileId or slot.revision~=profileRevision then
+        return nil,"The selected profile changed. Review it before deleting"
+    end
+    nextAccount.revision=nextAccount.revision+1
+    if nextAccount.activeSlot==index then
+        nextAccount.deletedDeath={characterKey=slot.death.characterKey,revision=nextAccount.revision,
+            location={x=slot.death.location.x,y=slot.death.location.y,z=slot.death.location.z}}
+        nextAccount.activeSlot=nil
+    end
+    nextAccount.slots[index]=nil
+    if nextAccount.lastCompletion and nextAccount.lastCompletion.slot==index then nextAccount.lastCompletion=nil end
+    nextAccount.lastDeletion={id=requestId,slot=index,profileId=profileId,profileRevision=profileRevision,
+        expectedRevision=expectedRevision,deathToken=deathToken,revision=nextAccount.revision}
+    return finish(nextAccount,nextAccount.lastDeletion)
+end
+
 function M.recordUnenrolledDeath(account, snapshot)
     local nextAccount, err = cloneAccount(account)
     if not nextAccount then return nil, err end
     local ok; ok, err = M.validateSnapshot(snapshot)
     if not ok or snapshot.kind ~= "death" then return nil, err or "enrollment requires death snapshot" end
     if nextAccount.activeSlot then return nil, "account is already enrolled" end
+    if nextAccount.deletedDeath then return nil,"Deleted profile death is already sealed" end
     for _ in pairs(nextAccount.slots) do return nil, "account is already enrolled" end
     if nextAccount.enrollmentDeath then
         if nextAccount.enrollmentDeath.characterKey == snapshot.characterKey then return nextAccount, nextAccount.enrollmentDeath end
@@ -262,14 +355,17 @@ function M.select(account, index, deathToken, requestId, maxSlots)
     if nextAccount.lastCompletion and nextAccount.lastCompletion.id == requestId then return nil, "request already completed" end
     local source = nextAccount.slots[nextAccount.activeSlot]
     local enrollment = nextAccount.enrollmentDeath
-    if (not enrollment and (not source or source.phase ~= "dead")) or deathToken ~= M.deathToken(nextAccount) then return nil, "selection requires current death token" end
+    local deleted=nextAccount.deletedDeath
+    if (not enrollment and not deleted and (not source or source.phase ~= "dead")) or deathToken ~= M.deathToken(nextAccount) then return nil, "selection requires current death token" end
     local target = nextAccount.slots[index]
     if target and target.phase ~= "dead" then return nil, "cannot switch to a living profile" end
     if not target and index > maxSlots then return nil, "profile slot limit reached" end
-    local p = { id = requestId, slot = index, sourceKind = enrollment and "enrollment" or "profile", sourceSlot = nextAccount.activeSlot, sourceCharacterKey = enrollment and enrollment.characterKey or source.death.characterKey, sourceDeathSeq = enrollment and 1 or source.deathSeq, sourceRevision = enrollment and nextAccount.enrollmentRevision or source.revision, deathToken = deathToken, status = "prepared", kind = target and "restore" or "create" }
+    local p = { id = requestId, slot = index, sourceKind = enrollment and "enrollment" or deleted and "deleted" or "profile", sourceSlot = nextAccount.activeSlot, sourceCharacterKey = enrollment and enrollment.characterKey or deleted and deleted.characterKey or source.death.characterKey, sourceDeathSeq = (enrollment or deleted) and 1 or source.deathSeq, sourceRevision = enrollment and nextAccount.enrollmentRevision or deleted and deleted.revision or source.revision, deathToken = deathToken, status = "prepared", kind = target and "restore" or "create" }
     if target then
         p.targetSnapshot, err = M.penalizedSnapshot(target)
         if not p.targetSnapshot then return nil, err end
+        p.targetStartingOutfit,err=O.forProfile(target.startingOutfit)
+        if not p.targetStartingOutfit then return nil,err end
         p.targetRevision, p.targetDeathSeq, p.targetCharacterKey = target.revision, target.deathSeq, target.death.characterKey
     end
     nextAccount.pending, nextAccount.revision = p, nextAccount.revision + 1
@@ -278,6 +374,23 @@ end
 
 function M.xpTolerance(target)
     return math.max(0.001, math.abs(tonumber(target) or 0) * 1.2e-7)
+end
+
+-- Only the server policy may supply a resolved destination. Selection changes
+-- neither the frozen death snapshot nor its XP penalty. Cancel to choose again.
+function M.chooseSpawn(account, requestId, selection)
+    local nextAccount, err = cloneAccount(account)
+    if not nextAccount then return nil, err end
+    local p = nextAccount.pending
+    if not p or p.id ~= requestId or p.status ~= "prepared" then return nil, "spawn selection requires a prepared transition" end
+    if type(selection) ~= "table" or not text(selection.id) then return nil, "invalid spawn selection" end
+    if p.spawnSelection then
+        if p.spawnSelection.id ~= selection.id then return nil, "Cancel this selection before choosing a different destination" end
+        return nextAccount, p.spawnSelection
+    end
+    p.spawnSelection = {id=selection.id, regionName=selection.regionName, location=M.copy(selection.location)}
+    nextAccount.revision = nextAccount.revision + 1
+    return finish(nextAccount, p.spawnSelection)
 end
 
 function M.xpEqual(actual, target)
@@ -303,6 +416,8 @@ function M.complete(account, requestId, snapshot, creationXP, newProfileId)
         ok, err = xpMap(creationXP)
         if not ok or not text(newProfileId) then return nil, err or "new profile identity missing" end
         slot = { id = newProfileId, slot = p.slot, creationXP = M.copy(creationXP), creationIdentity = M.copy(snapshot.identity), deathSeq = 0, incarnations = 0 }
+        -- Freeze only the first native creation outfit, never completion/death wear.
+        slot.startingOutfit=M.copy(p.creationStartingOutfit)
         nextAccount.slots[p.slot] = slot
     else
         -- The adapter must verify native application before acknowledging. The model
@@ -319,6 +434,7 @@ function M.complete(account, requestId, snapshot, creationXP, newProfileId)
     slot.phase, slot.checkpoint, slot.revision = "alive", M.copy(snapshot), nextAccount.revision
     nextAccount.activeSlot, nextAccount.pending = p.slot, nil
     nextAccount.enrollmentDeath, nextAccount.enrollmentRevision = nil, nil
+    nextAccount.deletedDeath=nil
     nextAccount.lastCompletion = { id = requestId, slot = p.slot, characterKey = snapshot.characterKey }
     return finish(nextAccount, slot)
 end

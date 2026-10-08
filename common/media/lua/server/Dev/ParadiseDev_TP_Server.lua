@@ -52,10 +52,103 @@ function ParadiseDev.TP.validCoordinates(x, y, z)
     return finite(x) and finite(y) and finite(z)
 end
 
-function ParadiseDev.TP.teleportPlayer(pl, x, y, z)
-    if not pl or not ParadiseDev.TP.validCoordinates(x, y, z) then return false end
-    sendServerCommand(pl, ParadiseDev.TP.module, "teleport", { x = tonumber(x), y = tonumber(y), z = tonumber(z) })
-    return true
+-- One native transfer in flight per player. Native Teleport is reliable but not
+-- ordered; wait for its resulting position before sending a different target.
+ParadiseDev.TP.pendingTeleports = ParadiseDev.TP.pendingTeleports or {}
+
+local function sameDestination(a, b)
+    return a.x == b.x and a.y == b.y and a.z == b.z
+end
+
+local function arrived(pl, point)
+    return not pl:getVehicle() and math.abs(pl:getX() - point.x) <= 1.25 and
+        math.abs(pl:getY() - point.y) <= 1.25 and math.floor(pl:getZ()) == math.floor(point.z)
+end
+
+local function complete(point)
+    if point.onArrive then
+        local ok = pcall(point.onArrive)
+        if not ok then print('[ParadiseTP] Transfer arrived; completion callback failed.') end
+    end
+end
+
+local function sendNative(pl, point)
+    if type(ParadiseLifeBridge) ~= 'function' then
+        return false
+    end
+    local ok, accepted = pcall(ParadiseLifeBridge, 'teleport', pl, point.x, point.y, point.z)
+    return ok and accepted == true
+end
+
+function ParadiseDev.TP.teleportPlayer(pl, x, y, z, onArrive)
+    if not pl or not pl:isAlive() or not ParadiseDev.TP.validCoordinates(x, y, z) then return false end
+    local point = { x = tonumber(x), y = tonumber(y), z = tonumber(z), onArrive = onArrive }
+    if not isServer() then
+        if isClient() or not pl.teleportTo then return false end
+        pl:teleportTo(point.x, point.y, point.z)
+        complete(point)
+        return true, true
+    end
+    local pending = ParadiseDev.TP.pendingTeleports[pl]
+    if pending then
+        if sameDestination(pending.current, point) then
+            if onArrive then pending.current.onArrive = onArrive end
+            pending.next = nil
+        elseif pending.next and sameDestination(pending.next, point) then
+            if onArrive then pending.next.onArrive = onArrive end
+        else
+            pending.next = point
+        end
+        return true, false
+    end
+    if arrived(pl, point) then complete(point); return true, false end
+    if not sendNative(pl, point) then
+        local now = getTimestampMs()
+        if not ParadiseDev.TP.lastBridgeWarning or now - ParadiseDev.TP.lastBridgeWarning >= 30000 then
+            ParadiseDev.TP.lastBridgeWarning = now
+            print('[ParadiseTP] Native transfer unavailable; verify the Paradise life bridge installation.')
+        end
+        return false
+    end
+    ParadiseDev.TP.pendingTeleports[pl] = { current = point, started = getTimestampMs() }
+    return true, true
+end
+
+function ParadiseDev.TP.observeTeleports()
+    if not isServer() then return end
+    local now = getTimestampMs()
+    for pl, pending in pairs(ParadiseDev.TP.pendingTeleports) do
+        if not pl:isAlive() or getPlayerByOnlineID(pl:getOnlineID()) ~= pl then
+            ParadiseDev.TP.pendingTeleports[pl] = nil
+        elseif arrived(pl, pending.current) then
+            if not pending.completed then complete(pending.current); pending.completed = true end
+            local nextPoint = pending.next
+            if not nextPoint then
+                ParadiseDev.TP.pendingTeleports[pl] = nil
+            elseif arrived(pl, nextPoint) then
+                complete(nextPoint)
+                ParadiseDev.TP.pendingTeleports[pl] = nil
+            elseif not pending.retryAt or now >= pending.retryAt then
+                if sendNative(pl, nextPoint) then
+                    pending.current, pending.next, pending.started, pending.warned = nextPoint, nil, now, nil
+                    pending.completed, pending.retryAt = nil, nil
+                else
+                    pending.retryAt = now + 5000
+                    if not pending.warned then
+                        pending.warned = true
+                        print('[ParadiseTP] Queued native transfer unavailable; return location retained.')
+                    end
+                end
+            end
+        elseif now - pending.started >= 30000 and not pending.warned then
+            pending.warned = true
+            -- Do not send another unordered teleport on timeout. Keep watching
+            -- for arrival or disconnect, preserving any cage return metadata.
+            sendServerCommand(pl, ParadiseDev.TP.module, 'message', {
+                text = 'Transfer is still awaiting synchronization. Reconnect if it does not finish.'
+            })
+        end
+    end
 end
 
 function ParadiseDev.TP.saveRebound(pl, name)
@@ -113,17 +206,16 @@ function ParadiseDev.TP.teleportVehicleTo(vehicle, toX, toY, toZ, pl)
     return true
 end
 
-function ParadiseDev.TP.exitVehicleAndTeleport(pl, x, y, z, passengerOnly)
+function ParadiseDev.TP.exitVehicleAndTeleport(pl, x, y, z, passengerOnly, onArrive)
     if not pl then return false end
     local vehicle = pl:getVehicle()
-    if not vehicle then return ParadiseDev.TP.teleportPlayer(pl, x, y, z) end
-    local seat = vehicle:getSeat(pl)
-    if seat < 0 or (passengerOnly and seat <= 0) then return false end
-    vehicle:exit(pl)
-    vehicle:setCharacterPosition(pl, seat, "outside")
-    vehicle:transmitCharacterPosition(seat, "outside")
-    triggerEvent("OnExitVehicle", pl)
-    return ParadiseDev.TP.teleportPlayer(pl, x, y, z)
+    if vehicle then
+        local seat = vehicle:getSeat(pl)
+        if seat < 0 or (passengerOnly and seat <= 0) then return false end
+    end
+    -- The native teleport exits the owning client and its player update clears
+    -- the server seat. Do not detach only the server copy before that packet.
+    return ParadiseDev.TP.teleportPlayer(pl, x, y, z, onArrive)
 end
 
 function ParadiseDev.TP.parseFallbackRebound()
@@ -210,3 +302,6 @@ Events.OnClientCommand.Remove(ParadiseDev.Debug.onClientCommand)
 Events.OnClientCommand.Add(ParadiseDev.Debug.onClientCommand)
 Events.OnClientCommand.Remove(ParadiseDev.POI.onClientCommand)
 Events.OnClientCommand.Add(ParadiseDev.POI.onClientCommand)
+
+Events.OnTick.Remove(ParadiseDev.TP.observeTeleports)
+Events.OnTick.Add(ParadiseDev.TP.observeTeleports)

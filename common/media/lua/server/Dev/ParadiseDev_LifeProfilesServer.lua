@@ -5,10 +5,15 @@ require "Dev/ParadiseDev_Reincarnate"
 require "Dev/ParadiseDev_LifeProfiles"
 require "Dev/ParadiseDev_LifeProfileStore"
 require "Dev/ParadiseDev_LifeProfileNative"
+require "Dev/ParadiseDev_LifeSpawnPolicy"
+require "Dev/ParadiseDev_LifeAmbitions"
+require "Dev/ParadiseDev_LifeStartingOutfit"
 ParadiseDev.LifeProfilesServer = ParadiseDev.LifeProfilesServer or {}
 local S = ParadiseDev.LifeProfilesServer
 local M, N = ParadiseDev.LifeProfiles, ParadiseDev.LifeProfileNative
 local D, R = M.Store, ParadiseDev.Reincarnate
+local P = ParadiseDev.LifeSpawnPolicy
+local O = ParadiseDev.LifeStartingOutfit
 S.accounts, S.sessions, S.routes = {}, {}, {}
 S.sequence = 0
 S.MARKER = "ParadiseLifeProfileCharacterKey"
@@ -80,15 +85,29 @@ local function persist(entry,value)
 end
 S.persist=persist
 
+S.loadAccount=account
+
 local function currentSlot(entry) return entry.value.slots[entry.value.activeSlot] end
+local function isFailedBody(pending,key)
+    if not pending or pending.status~="prepared" or not text(key) then return false end
+    for _,failedKey in ipairs(pending.failedBodies or {}) do
+        if failedKey==key then return true end
+    end
+    return false
+end
 local function session(pl,entry)
     local state=S.sessions[pl]
     if state then return state end
     local slot=currentSlot(entry)
     local marker=pl:getModData()[S.MARKER]
     local pending=entry.value.pending
-    local key=slot and slot.phase=="alive" and slot.checkpoint.characterKey or uid("body")
+    local expected=slot and (slot.phase=="alive" and slot.checkpoint.characterKey or slot.death.characterKey)
+        or entry.value.deletedDeath and entry.value.deletedDeath.characterKey
+    local key=expected or uid("body")
+    if pending and marker==pending.sourceCharacterKey then key=marker end
     if pending and pending.status=="applying" and marker==pending.newCharacterKey then key=marker end
+    local failedBody=dead(pl) and isFailedBody(pending,marker)
+    if failedBody then key=marker end
     state={key=key,entry=entry,lastSave=now(),lastSeen=now(),bornObserved=now()}
     if entry.birth and entry.birth.key==marker then
         state.nativeNew=true;state.key=marker;state.birth=entry.birth
@@ -96,8 +115,15 @@ local function session(pl,entry)
     S.sessions[pl]=state
     -- A pending transaction's body must be bound explicitly by ready(); a
     -- client-provided mod-data marker is only a consistency hint, never authority.
-    if not entry.value.pending and slot and slot.phase=="alive" and marker~=key then
+    if not entry.value.pending and (slot or entry.value.deletedDeath) and marker~=key then
         state.creationError="This character does not match the active profile. Saved progress is retained for review"
+    elseif pending and not state.nativeNew then
+        local sourceBody=dead(pl) and marker==pending.sourceCharacterKey
+        local replacementBody=pending.status=="applying" and marker==pending.newCharacterKey
+        if not sourceBody and not replacementBody and not failedBody then
+            -- Refuse before claim() can retire the current connected owner.
+            state.creationError="This character does not match the pending profile. Saved progress is retained for review"
+        end
     end
     return state
 end
@@ -107,20 +133,52 @@ end
 -- checkpoint. A retired connection can never overwrite a newer incarnation.
 local function claim(pl,entry)
     local st=session(pl,entry)
+    -- A rejected object cannot retire the legitimate connected owner.
+    if st.creationError then return st end
     if entry.owner~=pl then
         local previous=entry.owner and S.sessions[entry.owner]
         if previous then previous.superseded=true end
         entry.owner=pl
     end
     st.wasOnline=true;st.disconnected=nil;st.superseded=nil
+    local slot=currentSlot(entry)
+    if not st.ambitionsSeeded and not entry.value.pending and slot and slot.phase=="alive"
+            and pl:getModData()[S.MARKER]==slot.checkpoint.characterKey then
+        if N.seedAmbitions and slot.checkpoint.modData and slot.checkpoint.modData.Ambitions then
+            N.seedAmbitions(pl,{version=1,ambitions=slot.checkpoint.modData.Ambitions})
+        end
+        st.ambitionsSeeded=true
+    end
     return st
+end
+
+-- One authorization boundary for every save/death entry point, including
+-- OnSave and disconnected-object cleanup. A native object is not authorized
+-- merely because its account name matches a durable profile.
+function S.authorizeLifecycle(pl,entry)
+    local st=session(pl,entry)
+    if st.creationError then return nil,st.creationError end
+    if not st.wasOnline or st.superseded or entry.owner~=pl then
+        return nil,"Only the current connected character can change this profile"
+    end
+    local a,p=entry.value,entry.value.pending
+    local slot=currentSlot(entry)
+    local expected=p and (p.status=="applying" and p.newCharacterKey or p.sourceCharacterKey)
+        or slot and (slot.phase=="alive" and slot.checkpoint.characterKey or slot.death.characterKey)
+        or a.deletedDeath and a.deletedDeath.characterKey
+    if p and st.key==p.sourceCharacterKey and dead(pl) then expected=p.sourceCharacterKey end
+    if dead(pl) and isFailedBody(p,st.key) then expected=st.key end
+    if expected and (st.key~=expected or pl:getModData()[S.MARKER]~=expected) then
+        return nil,"This body is not authorized to change the saved profile"
+    end
+    return true
 end
 
 local function summary(slot,index)
     if not slot then return {slot=index,phase="empty"} end
     local snapshot=slot.phase=="dead" and slot.death or slot.checkpoint
     local result={slot=index,id=slot.id,phase=slot.phase,revision=slot.revision,
-        identity=M.copy(snapshot.identity),recipes=M.copy(snapshot.recipes),
+        identity=M.copy(snapshot.identity),recipes=M.copy(snapshot.recipes),startingOutfit=O.forProfile(slot.startingOutfit),
         name=snapshot.identity.forename.." "..snapshot.identity.surname,
         hoursSurvived=snapshot.hoursSurvived,zombieKills=snapshot.zombieKills,
         incarnations=slot.incarnations+1,skills=M.copy(snapshot.skills),creationXP=M.copy(slot.creationXP),
@@ -132,22 +190,54 @@ local function summary(slot,index)
     return result
 end
 
+S.summarizeSlot=summary
+
 local function acceptance(pl,entry)
     local a,p=entry.value,entry.value.pending
     if not p then return nil end
-    local result={transactionId=p.id,requestId=p.id,kind=p.kind,profile=summary(a.slots[p.slot],p.slot)}
+    local result={transactionId=p.id,requestId=p.id,kind=p.kind,profile=summary(a.slots[p.slot],p.slot),
+        revision=a.revision,status=p.status,canCancel=p.status=="prepared"}
     if p.kind=="create" and p.creationSnapshot then
         -- Retry a failed new-profile body using its already-frozen creation
         -- identity. Do not invite a different profession/trait selection.
         local snapshot=p.creationSnapshot
         result.kind="restore"
         result.profile={slot=p.slot,id=p.profileId,phase="dead",identity=M.copy(snapshot.identity),
-            skills=M.copy(snapshot.skills),hoursSurvived=snapshot.hoursSurvived,zombieKills=snapshot.zombieKills}
+            skills=M.copy(snapshot.skills),hoursSurvived=snapshot.hoursSurvived,zombieKills=snapshot.zombieKills,
+            startingOutfit=O.forProfile(p.creationStartingOutfit)}
     end
-    -- Restore a profile's own last-death location only if enabled. Cage authority
-    -- remains first in the client resolver, and the server boundary guard persists.
-    if p.kind=="restore" and settings().isSpawnAtDeathLoc==true then result.spawn=M.copy(p.targetSnapshot.location) end
+    local options,err=P.options(pl,p,a)
+    result.spawnOptions=options
+    result.spawnError=err
+    if p.spawnSelection then
+        result.spawnId=p.spawnSelection.id
+        result.spawn=M.copy(p.spawnSelection.location)
+        result.spawnRegion=p.spawnSelection.regionName
+    end
     return result
+end
+
+S.acceptance=acceptance
+
+function S.chooseSpawn(pl,entry,id,spawnId)
+    if not dead(pl) then return nil,"Spawn destinations can only be selected after death" end
+    local a,p=entry.value,entry.value.pending
+    if not p or p.id~=id or not text(spawnId) then return nil,"No matching spawn selection" end
+    local options,err=P.options(pl,p,a)
+    if not options then return nil,err end
+    -- The list is server-owned. A forced destination cannot be bypassed with
+    -- a remembered body/region ID or coordinates supplied by a client.
+    local permitted=false
+    for _,option in ipairs(options.options or {}) do if option.id==spawnId then permitted=true end end
+    if not permitted then return nil,"Spawn destinations changed. Cancel and select your profile again" end
+    local resolved;resolved,err=P.resolve(pl,p,a,spawnId)
+    if not resolved then return nil,err end
+    local nextAccount;nextAccount,err=M.chooseSpawn(a,id,resolved)
+    if not nextAccount then return nil,err end
+    local ok;ok,err=persist(entry,nextAccount)
+    if not ok then return nil,err end
+    emit(pl,"spawnAccepted",acceptance(pl,entry))
+    return true
 end
 
 local function audit(pl,slot,kind)
@@ -157,11 +247,29 @@ local function audit(pl,slot,kind)
     end
 end
 
-function S.recordDeath(pl,entry)
+local function freezeDeath(pl,entry,state,slot)
+    if state.deathObservation then return state.deathObservation end
+    local snapshot,err=N.capture(pl,"death",state.key,slot and slot.creationXP)
+    if not snapshot and slot and slot.checkpoint then
+        snapshot=M.copy(slot.checkpoint)
+        snapshot.kind="death";snapshot.provenance="checkpoint"
+        snapshot.deathObservedAt=now();snapshot.fallbackReason=tostring(err)
+    end
+    if not snapshot then return nil,"Final character state could not be saved: "..tostring(err) end
+    -- Freeze native identity/XP/traits/counters at the first observed death.
+    -- Only the bounded final Lifestyle payload may replace Ambitions during
+    -- this short window; the rest of the snapshot is never recaptured.
+    state.deathObservation={snapshot=M.copy(snapshot),deadline=now()+1000}
+    return state.deathObservation
+end
+
+function S.recordDeath(pl,entry,force)
     if not dead(pl) then return nil,"Death has not been confirmed by the server" end
     entry=entry or account(pl)
     if not entry then return nil,"Profile storage unavailable" end
     local state=session(pl,entry)
+    local authorized,authorizationError=S.authorizeLifecycle(pl,entry)
+    if not authorized then return nil,authorizationError end
     local a=entry.value
     if state.superseded or (entry.owner and entry.owner~=pl) then return nil,"Superseded character cannot change this profile" end
     if a.pending then
@@ -175,18 +283,16 @@ function S.recordDeath(pl,entry)
         end
         -- The source corpse remains dead while its selection is in progress.
         if state.key==pending.sourceCharacterKey then return true end
+        if isFailedBody(pending,state.key) then return true end
         return nil,"Saved restoration belongs to another character"
     end
     local slot=currentSlot(entry)
     if slot and slot.phase=="dead" then return true end
-    if a.enrollmentDeath then return true end
-    local snapshot,err=N.capture(pl,"death",state.key,slot and slot.creationXP)
-    if not snapshot and slot and slot.checkpoint then
-        snapshot=M.copy(slot.checkpoint)
-        snapshot.kind="death";snapshot.provenance="checkpoint"
-        snapshot.deathObservedAt=now();snapshot.fallbackReason=tostring(err)
-    end
-    if not snapshot then return nil,"Final character state could not be saved: "..tostring(err) end
+    if a.enrollmentDeath or a.deletedDeath then return true end
+    local observation,err=freezeDeath(pl,entry,state,slot)
+    if not observation then return nil,err end
+    if not force and now()<observation.deadline then return true end
+    local snapshot=M.copy(observation.snapshot)
     local updated
     if slot then updated,err=M.recordDeath(a,a.activeSlot,snapshot)
     else updated,err=M.recordUnenrolledDeath(a,snapshot) end
@@ -198,7 +304,7 @@ function S.recordDeath(pl,entry)
     return true
 end
 
-function S.list(pl,entry)
+function S.list(pl,entry,observationId)
     entry=entry or account(pl)
     if not entry then return end
     if dead(pl) then S.recordDeath(pl,entry) end
@@ -207,18 +313,92 @@ function S.list(pl,entry)
     for i in pairs(a.slots) do maxSlots=math.max(maxSlots,i) end
     local result={revision=a.revision,deathToken=M.deathToken(a),activeSlot=a.activeSlot,maxSlots=maxSlots,slots={},
         canSelect=dead(pl) and M.deathToken(a)~=nil and a.pending==nil,
-        enrollmentRequired=a.activeSlot==nil,
+        enrollmentRequired=a.activeSlot==nil and a.deletedDeath==nil,
         enrollmentMessage="One-time transition: your current character finishes this life. Your next new character starts a profile; old progress is not restored."}
     for i=1,maxSlots do result.slots[i]=summary(a.slots[i],i) end
     result.pending=acceptance(pl,entry)
+    local st=session(pl,entry)
+    if S.authorizeLifecycle(pl,entry) then
+        result.characterKey=st.key;result.ambitionSeq=st.ambitionSeq or 0
+        if text(observationId) then
+            result.observationId=observationId
+            local slot=currentSlot(entry)
+            if not a.pending and slot and slot.phase=="alive" and slot.checkpoint.modData then
+                result.ambitionBootstrap=M.copy(slot.checkpoint.modData.Ambitions)
+                result.ambitionCarryWeight=N.carryWeight and N.carryWeight(pl) or nil
+            end
+        end
+    end
     -- Lost completion acknowledgement: resend only the latest transition, never
     -- apply XP again. The client asks ready and verifies native XP replication.
     local last=a.lastCompletion
-    if not result.pending and last and a.activeSlot==last.slot and currentSlot(entry).phase=="alive" then
-        local st=session(pl,entry)
-        if not st.observed then result.pending={transactionId=last.id,requestId=last.id,kind="restore",profile=summary(currentSlot(entry),last.slot)} end
+    local slot=currentSlot(entry)
+    if not result.pending and last and not dead(pl) and a.activeSlot==last.slot
+            and slot and slot.phase=="alive" and st.key==last.characterKey
+            and S.authorizeLifecycle(pl,entry) then
+        -- Completion recovery belongs to the living body, never to the next
+        -- death's spawn picker (the final-death grace can leave the slot alive).
+        if not st.observed then result.pending={transactionId=last.id,requestId=last.id,kind="restore",
+            profile=summary(slot,last.slot),revision=a.revision,status="complete",
+            completionReplay=true,canCancel=false} end
     end
     emit(pl,"profiles",result)
+end
+
+function S.resume(pl,entry,id)
+    if not dead(pl) then return nil,"Profiles can only be resumed after death" end
+    local authorized,err=S.authorizeLifecycle(pl,entry)
+    if not authorized then return nil,err end
+    if not text(id) then return nil,"Invalid selection identifier" end
+    local pending=entry.value.pending
+    if not pending or pending.id~=id then
+        -- A cached completion or cancelled reservation must never allocate a
+        -- new transition. Return authoritative state so the menu can recover.
+        S.list(pl,entry)
+        return true
+    end
+    if pending.status~="prepared" then return nil,"Restoration has already started. Refresh your profile status." end
+    emit(pl,"selectionAccepted",acceptance(pl,entry))
+    return true
+end
+
+function S.deleteProfile(pl,entry,args)
+    if not dead(pl) then return nil,"Profiles can only be deleted after death" end
+    -- A delete request identifies an existing server record. It can never
+    -- supply an account name, filename, replacement snapshot or progress.
+    local fields={playerIndex=true,slot=true,profileId=true,profileRevision=true,revision=true,deathToken=true,requestId=true}
+    for key in pairs(args) do if not fields[key] then return nil,"Unsupported profile deletion field" end end
+    local disk,meta=D.load(entry.key)
+    if not disk then entry.unavailable=true;return nil,"Profile storage is unreadable. Deletion is paused" end
+    entry.value,entry.meta=disk,meta
+    local authorized,err=S.authorizeLifecycle(pl,entry)
+    if not authorized then return nil,err end
+    local value,receipt=M.deleteProfile(entry.value,args.slot,args.profileId,args.profileRevision,
+        args.revision,args.deathToken,args.requestId)
+    if not value then return nil,receipt end
+    local changed=value.revision~=entry.value.revision
+    local ok;ok,err=persist(entry,value)
+    if not ok then return nil,err end
+    if changed then
+        local st=session(pl,entry)
+        st.deathObservation=nil
+        -- Log identifiers only. Deleted character progress is not copied into
+        -- a player-restorable archive or the next profile.
+        print("[LifeProfiles] profile_deleted account="..entry.key.." slot="..tostring(receipt.slot)
+            .." profile="..receipt.profileId.." revision="..tostring(receipt.revision))
+    end
+    -- Acknowledged deletion must survive either recovery bank being lost.
+    -- Keep this separate from persist(): one readable new generation alone
+    -- is not enough to prove that the old playable profile cannot reappear.
+    ok,err=D.mirrorCurrent(entry.key,entry.value)
+    if not ok then
+        emit(pl,"error",{requestId=receipt.id,retryableDeletion=true,
+            message="Deletion was saved, but its recovery copy could not be confirmed. Retry deletion: "..tostring(err)})
+        return true
+    end
+    emit(pl,"profileDeleted",{requestId=receipt.id,slot=receipt.slot,profileId=receipt.profileId,revision=receipt.revision})
+    S.list(pl,entry)
+    return true
 end
 
 local function restored(pl,entry,transactionId)
@@ -245,6 +425,7 @@ end
 function S.prepareNewBody(pl,entry)
     local a,p=entry.value,entry.value.pending
     local st=session(pl,entry)
+    if st.creationError or st.superseded then return nil,st.creationError or "Superseded character" end
     if not p then return nil,"No matching profile selection" end
     if p.status=="prepared" then
         if not st.nativeNew then return nil,"Waiting for server-confirmed character creation" end
@@ -261,6 +442,7 @@ function S.prepareNewBody(pl,entry)
             local first=M.copy(birth.snapshot);first.characterKey=nextAccount.pending.newCharacterKey
             nextAccount.pending.creationXP=M.copy(birth.xp);nextAccount.pending.creationSource=birth.source
             nextAccount.pending.creationSnapshot=first;nextAccount.pending.profileId=birth.profileId
+            nextAccount.pending.creationStartingOutfit=M.copy(birth.startingOutfit)
         end
         local ok;ok,err=persist(entry,nextAccount)
         if not ok then return nil,err end
@@ -279,7 +461,10 @@ function S.ready(pl,entry,id)
     local a,p=entry.value,entry.value.pending
     if dead(pl) then return nil,"A living replacement character is required" end
     local st=session(pl,entry)
+    if st.creationError or st.superseded or not st.wasOnline or entry.owner~=pl then return nil,st.creationError or "Unauthorized restoration body" end
     if not p then
+        local authorized,authorizationError=S.authorizeLifecycle(pl,entry)
+        if not authorized then return nil,authorizationError end
         local last=a.lastCompletion
         if last and last.id==id and a.activeSlot==last.slot and currentSlot(entry).phase=="alive" then return restored(pl,entry,id) end
         return nil,"No matching profile selection" end
@@ -314,29 +499,20 @@ function S.ready(pl,entry,id)
     return restored(pl,entry,id)
 end
 
-function S.birthSpawn(pl,pending)
-    local cage=ParadiseDev.Cage
-    if cage and cage.isCaged and cage.isCaged(pl) then
-        local engine=ParadiseDev.Zones and ParadiseDev.Zones.Engine
-        if engine then
-            local steam=engine.playerSteamId(pl)
-            local id=steam and engine.cageAssignments[steam]
-            local zone=id and engine.zones[id] or engine.nearestCageZone(pl)
-            local region=zone and engine.nearestRegion(zone,pl:getX(),pl:getY())
-            if region then
-                local x,y=engine.regionCenter(region)
-                return {x=x,y=y,z=zone.zMode=="floor" and zone.zMin or pl:getZ()}
-            end
-        end
-        local point={}
-        for value in string.gmatch(tostring(settings().DefaultCageCoords or ""),"[^;,]+") do point[#point+1]=tonumber(value) end
-        if #point==3 then return {x=point[1],y=point[2],z=point[3]} end
-        return nil,"No valid authoritative cage spawn is available"
+function S.birthSpawn(pl,pending,a)
+    local options,err=P.options(pl,pending,a)
+    if not options then return nil,err end
+    local id=options.forced and options.options[1] and options.options[1].id
+        or pending and pending.spawnSelection and pending.spawnSelection.id
+    -- Native first-time creation has already chosen a configured region. Only
+    -- forced policy may replace that destination. Reincarnation needs a choice.
+    if not id then
+        if pending then return nil,"Choose a spawn destination before creating this character" end
+        return nil
     end
-    if pending and settings().isSpawnAtDeathLoc==true then
-        local saved=pending.targetSnapshot or pending.creationSnapshot
-        if saved then return M.copy(saved.location) end
-    end
+    local resolved;resolved,err=P.resolve(pl,pending,a,id,true)
+    if not resolved then return nil,err end
+    return resolved.location
 end
 
 -- B42 CreatePlayerPacket.processServer raises OnNewGame after native creation
@@ -348,29 +524,48 @@ function S.onNewGame(pl)
     local entry,err=account(pl)
     if not entry then print("[LifeProfiles] Creation enrollment failed: "..tostring(err));return end
     local st=session(pl,entry)
+    if (entry.value.activeSlot or entry.value.enrollmentDeath or entry.value.deletedDeath) and not entry.value.pending then
+        st.creationError="Select a profile before creating a replacement character"
+        return
+    end
     st.nativeNew=true;st.key=uid("birth");st.deathHandled=nil;st.creationError=nil
     pl:getModData()[S.MARKER]=st.key
     local a=entry.value
     -- The B42 server chooses initial spawn independently of client LuaPos.
     -- Set the authoritative temporary body's coordinates before its database
     -- save and creation response; no client-selected teleport is accepted.
-    local spawn,spawnError=S.birthSpawn(pl,a.pending)
+    local spawn,spawnError=S.birthSpawn(pl,a.pending,a)
     if spawnError then st.creationError=spawnError;return end
     if spawn then pl:setX(spawn.x);pl:setY(spawn.y);pl:setZ(spawn.z) end
+    -- Clothing is issued only on a genuinely new native body, before its
+    -- database save/creation response. Network ready/retry never adds items.
+    local pending=a.pending
+    local startingOutfit
+    if pending and (pending.kind=="restore" or pending.creationSnapshot) then
+        local saved=pending.kind=="restore" and pending.targetStartingOutfit or pending.creationStartingOutfit
+        if pending.kind=="restore" and saved==nil then
+            saved=a.slots[pending.slot] and a.slots[pending.slot].startingOutfit
+        end
+        local dressed;dressed,startingOutfit=N.applyStartingOutfit(pl,saved,st.key)
+        if not dressed then st.creationError=startingOutfit;return end
+    else
+        startingOutfit,err=N.captureStartingOutfit(pl)
+        if not startingOutfit then st.creationError=err;return end
+    end
     -- Freeze creation while the authoritative native event is executing, before
     -- a disk write can fail or the temporary native creation object is replaced.
     local xp,source=N.creationXP(pl)
     if not xp then st.creationError=source;return end
     local first;first,err=N.capture(pl,"checkpoint",st.key,xp)
     if not first then st.creationError=err;return end
-    st.birth={key=st.key,xp=xp,source=source,snapshot=first,profileId=uid("profile")}
+    st.birth={key=st.key,xp=xp,source=source,snapshot=first,profileId=uid("profile"),startingOutfit=startingOutfit}
     entry.birth=st.birth
     if a.pending then
         local ok;ok,err=S.prepareNewBody(pl,entry)
         if not ok then st.lastCreationError=err end
         return
     end
-    if a.activeSlot or a.enrollmentDeath then
+    if a.activeSlot or a.enrollmentDeath or a.deletedDeath then
         st.creationError="Select a profile from the death screen before creating a replacement character"
         return
     end
@@ -380,7 +575,7 @@ end
 function S.enrollBirth(pl,entry,st)
     local birth=st.birth
     if not birth then return nil,"Original native creation snapshot is unavailable" end
-    local updated,err=M.ensureSlot(entry.value,1,birth.profileId,birth.xp,birth.snapshot)
+    local updated,err=M.ensureSlot(entry.value,1,birth.profileId,birth.xp,birth.snapshot,birth.startingOutfit)
     if not updated then st.creationError=err;return end
     updated.slots[1].creationSource=birth.source
     local ok;ok,err=persist(entry,updated)
@@ -396,7 +591,8 @@ function S.checkpoint(pl,entry)
     local a,slot=entry.value,currentSlot(entry)
     if a.pending or not slot or slot.phase~="alive" or dead(pl) then return true end
     local st=session(pl,entry)
-    if not st.wasOnline or st.superseded or st.creationError or entry.owner~=pl then return nil,"Only the current connected character can save this profile" end
+    local authorized,authorizationError=S.authorizeLifecycle(pl,entry)
+    if not authorized then return nil,authorizationError end
     local snapshot,err=N.capture(pl,"checkpoint",st.key,slot.creationXP)
     if not snapshot then return nil,err end
     local updated;updated,err=M.checkpoint(a,a.activeSlot,snapshot)
@@ -406,9 +602,56 @@ function S.checkpoint(pl,entry)
     return ok,err
 end
 
+-- Lifestyle owns these counters on the local character. Accept only its typed
+-- allowlist, bound to this authenticated body; XP and identity remain native.
+-- Acknowledgement means the resulting full checkpoint/death is durable.
+function S.receiveAmbitions(pl,entry,args,atDeath)
+    local ok,err=S.authorizeLifecycle(pl,entry)
+    if not ok then return nil,err end
+    local st=session(pl,entry)
+    local a,slot=entry.value,currentSlot(entry)
+    if a.pending or not slot or slot.phase~="alive" or (dead(pl) and not atDeath)
+            or (atDeath and not dead(pl)) then return nil,"Ambition progress requires this unsealed current life" end
+    if type(args)~="table" or args.characterKey~=st.key or type(args.seq)~="number"
+            or args.seq~=math.floor(args.seq) or args.seq<1 or args.seq>2147483647 then
+        return nil,"Invalid ambition life or sequence"
+    end
+    local A=ParadiseDev.LifeAmbitions
+    if not A or not N.acceptAmbitions then return nil,"Ambition compatibility is unavailable" end
+    local accepted;accepted,err=A.validate(args.payload)
+    if not accepted then return nil,err end
+    local encoded=D.encode(accepted)
+    if args.seq<=(st.ambitionSeq or 0) then
+        if args.seq==st.ambitionSeq and encoded==st.ambitionEncoded then
+            emit(pl,"ambitionsSaved",{characterKey=st.key,seq=args.seq});return true
+        end
+        return nil,"Ambition update belongs to an older observation"
+    end
+    if not atDeath and now()-(st.lastAmbitionSaved or -10000)<5000 then return true end
+    local observation
+    if atDeath then
+        observation,err=freezeDeath(pl,entry,st,slot)
+        if not observation then return nil,err end
+        if now()>observation.deadline or observation.final then
+            S.recordDeath(pl,entry,true)
+            return nil,"Final ambition observation arrived after the death window"
+        end
+        observation.snapshot.modData=observation.snapshot.modData or {}
+        observation.snapshot.modData.Ambitions=M.copy(accepted.ambitions)
+        observation.final=true
+    end
+    ok,err=N.acceptAmbitions(pl,accepted)
+    if not ok then return nil,err end
+    if atDeath then ok,err=S.recordDeath(pl,entry,true) else ok,err=S.checkpoint(pl,entry) end
+    if not ok then return nil,err end
+    st.ambitionSeq,st.ambitionEncoded,st.lastAmbitionSaved=args.seq,encoded,now()
+    emit(pl,"ambitionsSaved",{characterKey=st.key,seq=args.seq})
+    return true
+end
+
 function S.onClientCommand(module,command,pl,args)
     if module~=M.module or not enabled() or not pl or type(args)~="table" then return end
-    if command~="list" and command~="select" and command~="ready" and command~="cancel" and command~="death" and command~="observed" then return end
+    if command~="list" and command~="select" and command~="resume" and command~="chooseSpawn" and command~="ready" and command~="cancel" and command~="death" and command~="observed" and command~="ambitions" and command~="deleteProfile" then return end
     if S.unsupportedReason then failure(pl,S.unsupportedReason,args.requestId);return end
     local index=args.playerIndex
     if type(index)=="number" and index==math.floor(index) and index>=0 and index<=3 then S.routes[pl]=index end
@@ -420,8 +663,14 @@ function S.onClientCommand(module,command,pl,args)
     st.rates[command]=now()
     if st.creationError then failure(pl,st.creationError,args.requestId);return end
     local ok=true
-    if command=="list" then S.list(pl,entry);return
-    elseif command=="death" then ok,err=S.recordDeath(pl,entry);if ok then S.list(pl,entry) end
+    if command=="list" then S.list(pl,entry,args.observationId);return
+    elseif command=="death" then
+        -- Native death replication and the final Lua observation can arrive in
+        -- either order. The client retries this same observation briefly.
+        if not dead(pl) then return end
+        if type(args.ambitions)=="table" then S.receiveAmbitions(pl,entry,args.ambitions,true) end
+        ok,err=S.recordDeath(pl,entry);if ok then S.list(pl,entry) end
+    elseif command=="ambitions" then ok,err=S.receiveAmbitions(pl,entry,args,false)
     elseif command=="select" then
         if not dead(pl) then ok,err=nil,"Profiles can only be selected after death"
         elseif not text(args.requestId) then ok,err=nil,"Invalid selection identifier"
@@ -431,6 +680,12 @@ function S.onClientCommand(module,command,pl,args)
             if value then ok,err=persist(entry,value) else ok=nil end
             if ok then emit(pl,"selectionAccepted",acceptance(pl,entry)) end
         end
+    elseif command=="resume" then
+        ok,err=S.resume(pl,entry,args.transactionId)
+    elseif command=="deleteProfile" then
+        ok,err=S.deleteProfile(pl,entry,args)
+    elseif command=="chooseSpawn" then
+        ok,err=S.chooseSpawn(pl,entry,args.transactionId,args.spawnId)
     elseif command=="ready" then
         if not text(args.transactionId) then ok,err=nil,"Invalid selection identifier" else ok,err=S.ready(pl,entry,args.transactionId) end
     elseif command=="cancel" then
@@ -444,7 +699,10 @@ function S.onClientCommand(module,command,pl,args)
         local last=entry.value.lastCompletion
         if last and last.id==args.transactionId then st.observed=true end
     end
-    if not ok then failure(pl,err,args.requestId) end
+    if not ok then
+        failure(pl,err,args.requestId or args.transactionId)
+        if command=="deleteProfile" then S.list(pl,entry) end
+    end
 end
 
 local function pollPlayer(pl,seen)
@@ -452,7 +710,7 @@ local function pollPlayer(pl,seen)
     if not entry then return end
     local st=claim(pl,entry)
     st.lastSeen=now();seen[pl]=true
-    if st.nativeNew and st.birth and not entry.value.activeSlot and not entry.value.enrollmentDeath and not entry.value.pending then
+    if st.nativeNew and st.birth and not entry.value.activeSlot and not entry.value.enrollmentDeath and not entry.value.deletedDeath and not entry.value.pending then
         local ok;ok,err=S.enrollBirth(pl,entry,st)
         if not ok then return end
     end
@@ -461,7 +719,9 @@ local function pollPlayer(pl,seen)
         return
     end
     local ok=true
-    if dead(pl) and not st.deathHandled then ok,err=S.recordDeath(pl,entry)
+    if dead(pl) and not st.deathHandled then
+        ok,err=S.recordDeath(pl,entry)
+        if ok and st.deathHandled then S.list(pl,entry) end
     elseif now()-st.lastSave>=interval() then ok,err=S.checkpoint(pl,entry) end
     if not ok and now()-(st.lastError or 0)>30000 then
         st.lastError=now();print("[LifeProfiles] "..tostring(err));failure(pl,err)
@@ -479,7 +739,7 @@ function S.onTick()
         if not seen[pl] and st.wasOnline and not st.superseded and st.entry.owner==pl then
             -- Retain the native object briefly: death can remove it from the online
             -- list before the next poll. Never replace a sealed death with a checkpoint.
-            if dead(pl) and not st.deathHandled then S.recordDeath(pl,st.entry)
+            if dead(pl) and not st.deathHandled then S.recordDeath(pl,st.entry,true)
             elseif not st.disconnected then S.checkpoint(pl,st.entry) end
             st.disconnected=true
         end
@@ -491,7 +751,7 @@ function S.onSave()
     if not enabled() or S.unsupportedReason then return end
     for pl,st in pairs(S.sessions) do
         if st.wasOnline and not st.superseded and st.entry.owner==pl then
-            if dead(pl) then S.recordDeath(pl,st.entry) elseif not st.disconnected then S.checkpoint(pl,st.entry) end
+            if dead(pl) then S.recordDeath(pl,st.entry,true) elseif not st.disconnected then S.checkpoint(pl,st.entry) end
         end
     end
 end
@@ -511,4 +771,5 @@ Events.OnTick.Add(S.onTick)
 Events.OnSave.Add(S.onSave)
 Events.OnNewGame.Add(S.onNewGame)
 if Events.OnInitGlobalModData then Events.OnInitGlobalModData.Add(S.onInit) end
+require "Dev/ParadiseDev_LifeLoginServer"
 return S

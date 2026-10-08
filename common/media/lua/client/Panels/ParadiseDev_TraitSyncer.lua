@@ -39,9 +39,22 @@ function Syncer.applyConfirmedPvE(player, enabled)
 end
 
 function Syncer.refreshTraitsUI()
-    if ISPlayerStatsUI and ISPlayerStatsUI.instance and ISPlayerStatsUI.instance.loadTraits then
-        ISPlayerStatsUI.instance:loadTraits()
-    end
+    local ui = ISPlayerStatsUI and ISPlayerStatsUI.instance
+    if not ui or not ui.loadTraits or not ui.char or not ui.char.getCharacterTraits then return end
+    if ui.getIsVisible and not ui:getIsVisible() then return end
+    local traits = ui.char:getCharacterTraits()
+    local known = traits and traits:getKnownTraits()
+    if not known then return end
+    local ids = {}
+    for i = 0, known:size() - 1 do ids[#ids + 1] = tostring(known:get(i)) end
+    table.sort(ids)
+    local fingerprint = table.concat(ids, "\n")
+    -- Vanilla loadTraits destroys and recreates every icon, initially hidden.
+    -- Calling it on each one-second owner sync makes an unchanged list blink.
+    -- Watch the inspected player, including dynamic/native trait changes.
+    if ui.paradiseTraitsPlayer == ui.char and ui.paradiseTraitsFingerprint == fingerprint then return end
+    ui:loadTraits()
+    ui.paradiseTraitsPlayer, ui.paradiseTraitsFingerprint = ui.char, fingerprint
 end
 
 function Syncer.getStore()
