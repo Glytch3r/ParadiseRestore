@@ -13,6 +13,11 @@ RecordsPanel.loggers = {
         dir = "SoulCatcher",
         columns = { "time", "key", "username", "firstname", "surname", "profKey", "reportMsg", "reincarnatedTimes", "lifeHours", "totalHours", "x", "y", "z" },
     },
+    ParadiseEconomy = {
+        title = "Paradise Economy",
+        dir = "ParadiseEconomy",
+        columns = { "time", "username", "steamid", "action", "currency", "amount", "from", "to", "detail" },
+    },
 }
 
 function RecordsPanel.isLeapYear(year)
@@ -128,6 +133,10 @@ function RecordsPanel.isCompleteLabeledRow(loggerTag, row)
             and row.lifeHours ~= nil and row.totalHours ~= nil
             and row.x ~= nil and row.y ~= nil and row.z ~= nil
     end
+    if loggerTag == "ParadiseEconomy" then
+        return row.time ~= nil and row.username ~= nil and row.steamid ~= nil and row.action ~= nil
+            and row.currency ~= nil and row.amount ~= nil and row.from ~= nil and row.to ~= nil and row.detail ~= nil
+    end
     return false
 end
 
@@ -137,6 +146,7 @@ function RecordsPanel.parseLine(loggerTag, line)
     if row then return row.loggerTag == loggerTag and RecordsPanel.isCompleteLabeledRow(loggerTag, row) and row or nil end
     if loggerTag == "LimboTracker" then return RecordsPanel.parseLegacyLimbo(line) end
     if loggerTag == "SoulCatcher" then return RecordsPanel.parseLegacySoul(line) end
+    if loggerTag == "ParadiseEconomy" then return nil end
     return nil
 end
 

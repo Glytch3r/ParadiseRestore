@@ -5,6 +5,9 @@ ParadisePromo.PlayerPanel = ParadisePromo.PlayerPanel or {}
 ParadiseZTrailingLights = ParadiseZTrailingLights or {}
 JimsRulesAdmin = JimsRulesAdmin or {}
 RecordsPanel = RecordsPanel or {}
+ParadiseEconomy = ParadiseEconomy or {}
+ParadiseDev = ParadiseDev or {}
+ParadiseDev.SafehouseAdmin = ParadiseDev.SafehouseAdmin or {}
 
 local function initialise(panel, instantiate)
     if not panel then return nil end
@@ -14,6 +17,77 @@ local function initialise(panel, instantiate)
 end
 
 ParadisePanels.table = {
+    {
+        key = "economy",
+        isAdmOnly = false,
+        getModule = function() return ParadiseEconomy end,
+        getInstance = function() return ParadiseEconomy.instance end,
+        setInstance = function(instance) ParadiseEconomy.instance = instance end,
+        create = function()
+            local width, height = math.min(760, getCore():getScreenWidth() - 40), math.min(560, getCore():getScreenHeight() - 40)
+            return initialise(ParadiseEconomy.Panel:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height))
+        end,
+        onOpen = function() ParadiseEconomy.send("requestState") end,
+    },
+    {
+        key = "paradiseMart",
+        isAdmOnly = false,
+        getModule = function() return ParadiseEconomy.MartPanel end,
+        getInstance = function() return ParadiseEconomy.martInstance end,
+        setInstance = function(instance) ParadiseEconomy.martInstance = instance end,
+        create = function()
+            local width, height = math.min(700, getCore():getScreenWidth() - 40), math.min(560, getCore():getScreenHeight() - 40)
+            return initialise(ParadiseEconomy.MartPanel:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height))
+        end,
+        onOpen = function() ParadiseEconomy.send("requestState") end,
+    },
+    {
+        key = "economyAdmin",
+        isAdmOnly = true,
+        getModule = function() return ParadiseEconomy.AdminPanel end,
+        getInstance = function() return ParadiseEconomy.adminInstance end,
+        setInstance = function(instance) ParadiseEconomy.adminInstance = instance end,
+        create = function()
+            local width, height = math.min(760, getCore():getScreenWidth() - 40), math.min(560, getCore():getScreenHeight() - 40)
+            return initialise(ParadiseEconomy.AdminPanel:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height))
+        end,
+        onOpen = function() ParadiseEconomy.send("requestState") end,
+    },
+    {
+        key = "paradiseMartAdmin",
+        isAdmOnly = true,
+        getModule = function() return ParadiseEconomy.MartAdminPanel end,
+        getInstance = function() return ParadiseEconomy.martAdminInstance end,
+        setInstance = function(instance) ParadiseEconomy.martAdminInstance = instance end,
+        create = function()
+            local width, height = math.min(760, getCore():getScreenWidth() - 40), math.min(600, getCore():getScreenHeight() - 40)
+            return initialise(ParadiseEconomy.MartAdminPanel:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height))
+        end,
+    },
+    {
+        key = "safehouseAdmin",
+        isAdmOnly = true,
+        getModule = function() return ParadiseDev and ParadiseDev.SafehouseAdmin end,
+        getInstance = function() return ParadiseDev and ParadiseDev.SafehouseAdmin and ParadiseDev.SafehouseAdmin.instance end,
+        setInstance = function(instance) ParadiseDev.SafehouseAdmin.instance = instance end,
+        create = function(pl)
+            pl = pl or getPlayer()
+            local width = math.min(1000, getCore():getScreenWidth() - 40)
+            local height = math.min(620, getCore():getScreenHeight() - 40)
+            return initialise(ParadiseDev.SafehouseAdmin.Panel:new(
+                math.max(20, (getCore():getScreenWidth() - width) / 2),
+                math.max(20, (getCore():getScreenHeight() - height) / 2),
+                width,
+                height,
+                pl
+            ))
+        end,
+        onOpen = function(panel, pl, targetUser)
+            panel.pl = pl or getPlayer()
+            if panel.searchEntry and not targetUser then panel.searchEntry:setText("") end
+            panel:refresh(targetUser)
+        end,
+    },
     {
         key = "contextMenuManager",
         isAdmOnly = true,

@@ -100,11 +100,23 @@ function ParadiseDev.TargContext.setPvE(_, username, enabled)
     syncer.requestSet(username, "ParadiseDev:PvE", enabled)
 end
 
+function ParadiseDev.TargContext.openSafehouses(_, localPlayer, username)
+    if ParadiseDev.SafehouseAdmin and ParadiseDev.SafehouseAdmin.OpenPanel then
+        ParadiseDev.SafehouseAdmin.OpenPanel(localPlayer, username)
+    end
+end
+
 function ParadiseDev.TargContext.addPlayerActions(menu, target, localPlayer, includePvE)
     if not menu or not target or not localPlayer then return end
     local username = ParadiseDev.TargContext.getUsername(target)
     if not username then return end
     target = ParadiseDev.TargContext.resolveTarget(target)
+    if ParadiseDev.SafehouseAdmin and ParadiseDev.SafehouseAdmin.OpenPanel then
+        local safehouseOption = menu:addOption("View Safehouse: " .. username, nil,
+            ParadiseDev.TargContext.openSafehouses, localPlayer, username)
+        safehouseOption.paradiseManagerKey = "Safehouse Records"
+        safehouseOption.paradiseManagerLabel = "View Safehouse"
+    end
     local caged = ParadiseDev.Cage and ParadiseDev.Cage.isTargetCaged and ParadiseDev.Cage.isTargetCaged(target) or false
     -- Keep the displayed action fixed even if a state update arrives before the click.
     local cageOption = menu:addOption((caged and "Uncage: " or "Cage: ") .. username, nil,

@@ -125,3 +125,9 @@ function ParadisePanels.OpenContextMenuManager()
         return ParadiseRestore.ContextMenuManager.OpenPanel()
     end
 end
+
+function ParadisePanels.OpenSafehouseAdmin(pl, targetUser)
+    if ParadiseDev and ParadiseDev.SafehouseAdmin and ParadiseDev.SafehouseAdmin.OpenPanel then
+        return ParadiseDev.SafehouseAdmin.OpenPanel(pl, targetUser)
+    end
+end

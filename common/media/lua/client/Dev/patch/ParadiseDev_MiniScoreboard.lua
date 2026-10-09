@@ -3,11 +3,11 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.miniscoreboard = ParadiseDev.miniscoreboard or {}
 
 
-local hook1 = ISMiniScoreboardUI.doPlayerListContextMenu
+ParadiseDev.miniscoreboard.doPlayerListContextMenuHook = ParadiseDev.miniscoreboard.doPlayerListContextMenuHook or ISMiniScoreboardUI.doPlayerListContextMenu
 function ISMiniScoreboardUI:doPlayerListContextMenu(player, x,y)
     local playerNum = self.admin:getPlayerNum()
     local context = ISContextMenu.get(playerNum, x + self:getAbsoluteX(), y + self:getAbsoluteY());
-    hook1(self, player, x,y)
+    ParadiseDev.miniscoreboard.doPlayerListContextMenuHook(self, player, x,y)
     local username = player and player.username or nil
     if username and ParadiseRestore.isAdm(self.admin) then
         if ParadiseDev.TargContext and ParadiseDev.TargContext.addPlayerActions then
@@ -16,12 +16,12 @@ function ISMiniScoreboardUI:doPlayerListContextMenu(player, x,y)
     end
 end 
 
-local closeHook = ISMiniScoreboardUI.close
+ParadiseDev.miniscoreboard.closeHook = ParadiseDev.miniscoreboard.closeHook or ISMiniScoreboardUI.close
 function ISMiniScoreboardUI:close()
     local options = SandboxVars and SandboxVars.ParadiseZ or {}
     if options.StopSpectateOnScoreboardClose ~= false and
         ParadiseZ and ParadiseZ.isSpectating and ParadiseZ.isSpectating(self.admin) and ParadiseZ.stopSpectate then
         ParadiseZ.stopSpectate()
     end
-    closeHook(self)
+    ParadiseDev.miniscoreboard.closeHook(self)
 end

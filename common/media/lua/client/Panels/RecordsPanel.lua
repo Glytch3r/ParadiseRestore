@@ -5,7 +5,7 @@ require "ISUI/ISButton"
 
 RecordsPanel = RecordsPanel or {}
 RecordsPanel.module = "RecordsPanel"
-RecordsPanel.loggerOrder = { "LimboTracker", "SoulCatcher" }
+RecordsPanel.loggerOrder = { "LimboTracker", "SoulCatcher", "ParadiseEconomy" }
 RecordsPanel.loggers = {
     LimboTracker = {
         title = "Limbo Tracker",
@@ -38,6 +38,20 @@ RecordsPanel.loggers = {
             { key = "x", label = "X", width = 55 },
             { key = "y", label = "Y", width = 55 },
             { key = "z", label = "Z", width = 35 },
+        },
+    },
+    ParadiseEconomy = {
+        title = "Paradise Economy",
+        columns = {
+            { key = "time", label = "Time", width = 72 },
+            { key = "username", label = "Username", width = 110 },
+            { key = "steamid", label = "Steam ID", width = 145 },
+            { key = "action", label = "Action", width = 150 },
+            { key = "currency", label = "Currency", width = 90 },
+            { key = "amount", label = "Amount", width = 80 },
+            { key = "from", label = "From", width = 105 },
+            { key = "to", label = "To", width = 105 },
+            { key = "detail", label = "Detail", width = 210 },
         },
     },
 }
@@ -134,6 +148,10 @@ function RecordsPanel.Panel:createChildren()
     self.soulButton.internal = "SoulCatcher"
     self.soulButton:initialise()
     self:addChild(self.soulButton)
+    self.economyButton = ISButton:new(308, top, 160, 28, "Paradise Economy", self, RecordsPanel.Panel.onLoggerButton)
+    self.economyButton.internal = "ParadiseEconomy"
+    self.economyButton:initialise()
+    self:addChild(self.economyButton)
     self.yearEntry = self:createFilterEntry(12, 72)
     self.monthEntry = self:createFilterEntry(92, 52)
     self.dayEntry = self:createFilterEntry(152, 52)
@@ -189,6 +207,7 @@ function RecordsPanel.Panel:updateTabButtons()
     local inactive = { r = 0.10, g = 0.10, b = 0.10, a = 1 }
     self.limboButton.backgroundColor = self.loggerTag == "LimboTracker" and active or inactive
     self.soulButton.backgroundColor = self.loggerTag == "SoulCatcher" and active or inactive
+    self.economyButton.backgroundColor = self.loggerTag == "ParadiseEconomy" and active or inactive
 end
 
 function RecordsPanel.Panel:onLoggerButton(button)
