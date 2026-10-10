@@ -44,6 +44,17 @@ module ParadiseDev
         Texture = media/ui/Traits/trait_PvE.png,
     }
 
+    character_trait_definition ParadiseDev:Reincarnate
+    {
+        CharacterTrait = ParadiseDev:Reincarnate,
+        IsProfessionTrait = false,
+        DisabledInMultiplayer = false,
+        Cost = 0,
+        UIName = UI_trait_Reincarnate,
+        UIDescription = UI_trait_ReincarnateDesc,
+        Texture = media/ui/Traits/trait_Reincarnate.png,
+    }
+
 }
 
 

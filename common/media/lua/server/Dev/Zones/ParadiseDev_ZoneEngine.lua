@@ -1,4 +1,5 @@
 require "Dev/ParadiseDev_PvEPolicy"
+require "Dev/Zones/ParadiseDev_SafePlacement"
 require "ParadiseProductionDiagnostics"
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
@@ -35,19 +36,21 @@ end
 function Engine.invalidateBoundaryState(state)
     Engine.boundaryRevision = Engine.boundaryRevision + 1
     state.stateRevision = Engine.boundaryRevision
-    state.pending, state.episode, state.stateSent = nil, nil, false
+    state.pending, state.episode, state.stateSent, state.recoveryAt = nil, nil, false, nil
 end
 
 function Engine.boundarySignature(pl)
     -- setProfile/zone edits call save(); reference changes also invalidate. Avoid
     -- sorting/copying every profile tag for every boundary request.
     local profile = Engine.profiles[Engine.userName(pl)]
+    local context=ParadiseDev.SafePlacement.fromPlayer(pl)
     local pve = ParadiseDev.getTrait and ParadiseDev.getTrait("ParadiseDev:PvE") or "ParadiseDev:PvE"
     local signature = tostring(Engine.zoneRevision) .. "|" .. tostring(profile) .. "|" ..
         tostring(ParadiseDev.hasTrait and ParadiseDev.hasTrait(pl, pve) or false) .. "|" ..
         tostring(ParadiseRestore.isAdm(pl)) .. "|" .. tostring(Engine.adminBypassEnabled()) .. "|" ..
         tostring(Engine.cageAssignments[Engine.playerSteamId(pl)]) .. "|" ..
-        tostring(ParadiseDev.Cage and ParadiseDev.Cage.isCaged(pl) or false)
+        tostring(ParadiseDev.Cage and ParadiseDev.Cage.isCaged(pl) or false) .. "|" ..
+        tostring(context.contextId) .. "|" .. tostring(context.pveRevision) .. "|" .. tostring(context.ready)
     local vehicle = pl:getVehicle()
     local driver = vehicle and vehicle:getCharacter(0) or nil
     if driver and driver ~= pl then
@@ -217,35 +220,11 @@ function Engine.retryBoundaryCorrection(pl, kind, zone, vehicle, x, y, z)
 end
 
 function Engine.boundaryOutside(pl, region, x, y, z, padding)
-    -- Explore alternative edges instead of bouncing between two overlapping zones.
-    -- At most 32 indexed authority queries, never a scan of the whole zone store.
-    local queue, seen = { region }, { [region] = true }
-    local cursor, queries = 1, 0
-    local bestX, bestY, bestDistance
-    while queue[cursor] and queries < 32 do
-        local current = queue[cursor]
-        cursor = cursor + 1
-        local left, right = current.xMin - padding, current.xMax + padding
-        local top, bottom = current.yMin - padding, current.yMax + padding
-        local cx, cy = math.max(left, math.min(x, right)), math.max(top, math.min(y, bottom))
-        local points = { {left - 0.05, cy}, {right + 0.05, cy}, {cx, top - 0.05}, {cx, bottom + 0.05} }
-        for _, point in ipairs(points) do
-            if queries >= 32 then break end
-            queries = queries + 1
-            local nextZone, nextRegion = Engine.getAuthority(point[1], point[2], z, padding)
-            if not nextZone or Engine.isAllowed(nextZone, pl) then
-                local dx, dy = point[1] - x, point[2] - y
-                local distance = dx * dx + dy * dy
-                if not bestDistance or distance < bestDistance then
-                    bestX, bestY, bestDistance = point[1], point[2], distance
-                end
-            elseif nextRegion and not seen[nextRegion] then
-                seen[nextRegion] = true
-                queue[#queue + 1] = nextRegion
-            end
-        end
-    end
-    return bestX, bestY
+    if padding and padding~=0 then return nil,nil end
+    local safe=ParadiseDev.SafePlacement
+    local result=safe.find({x=x,y=y,z=z},safe.fromPlayer(pl),{allowFallback=false})
+    if result.status=="safe" then return result.location.x,result.location.y end
+    return nil,nil
 end
 
 ParadiseDev.Zones.Engine.FEATURE_KEYS = {
@@ -338,6 +317,13 @@ function ParadiseDev.Zones.Engine.setZoneFeature(id, key, enabled)
     local zone = ParadiseDev.Zones.Engine.zones[id]
     if not zone then return false, "zone not found" end
     if not ParadiseDev.Zones.Engine.featureKeySet[key] then return false, "unknown zone feature" end
+    local proposed=Engine.copyFeatures(zone.features)
+    proposed[key]=enabled==true
+    if enabled==true and key=="isPvE" then proposed.isKos=false end
+    if enabled==true and key=="isKos" then proposed.isPvE=false end
+    if proposed.isCage and (proposed.isKos or proposed.isBlocked) then
+        return false,"Cage zones cannot also be KoS or Blocked. Keep a safe confinement destination for every profile."
+    end
     zone.features = zone.features or ParadiseDev.Zones.Engine.copyFeatures(nil)
     zone.features[key] = enabled == true
     if enabled == true then
@@ -402,6 +388,9 @@ end
 
 function ParadiseDev.Zones.Engine.addRegion(id, x1, y1, x2, y2, options)
     options = options or {}
+    if options.features and options.features.isCage and (options.features.isKos or options.features.isBlocked) then
+        return nil,"Cage zones cannot also be KoS or Blocked."
+    end
     local xMin, xMax = math.min(x1, x2), math.max(x1, x2)
     local yMin, yMax = math.min(y1, y2), math.max(y1, y2)
     if xMin == xMax or yMin == yMax then return nil, "region has no area" end
@@ -437,6 +426,9 @@ function ParadiseDev.Zones.Engine.updateZone(id, options)
     local zone = ParadiseDev.Zones.Engine.zones[id]
     if not zone then return false, "zone not found" end
     options = options or {}
+    if options.features and options.features.isCage and (options.features.isKos or options.features.isBlocked) then
+        return false,"Cage zones cannot also be KoS or Blocked. Keep a safe confinement destination for every profile."
+    end
     if options.name ~= nil then zone.name = tostring(options.name) end
     if options.priority ~= nil then zone.priority = tonumber(options.priority) or zone.priority end
     if options.zMode ~= nil then zone.zMode = options.zMode == "floor" and "floor" or "all" end
@@ -541,41 +533,17 @@ function ParadiseDev.Zones.Engine.getCandidateZones(x, y, padding)
 end
 
 function ParadiseDev.Zones.Engine.getDeniedReason(zone, pl)
-    local profile = ParadiseDev.Zones.Engine.getProfile(pl)
-    local tags = profile.tags
-    local features = zone.features or {}
-    if features.isBlocked then return "Blocked zone" end
-    local pveTrait = ParadiseDev.getTrait and ParadiseDev.getTrait("ParadiseDev:PvE") or "ParadiseDev:PvE"
-    local hasPveTrait = ParadiseDev.hasTrait and ParadiseDev.hasTrait(pl, pveTrait) or false
-    if features.isKos and (tags.pve or hasPveTrait) then return "PvE profile cannot enter a KoS zone" end
-    if features.isHunt and not tags.range_staff and not tags.can_hunt then return "Hunt authorization required" end
-    for tag in pairs(zone.policy.denyTags or {}) do
-        if tags[tag] then return "Player profile is denied" end
-    end
-
-    local required = zone.policy.requireAnyTags or {}
-    local hasRequirement = false
-    for tag in pairs(required) do
-        hasRequirement = true
-        if tags[tag] then return nil end
-    end
-    if hasRequirement then return "Required zone authorization missing" end
-    return nil
+    local context=ParadiseDev.SafePlacement.fromPlayer(pl)
+    if not context.ready then return context.reason or "Character permissions are not ready" end
+    -- Diagnostics retain the rule reason even when an administrator may bypass.
+    context.admin=false
+    return ParadiseDev.SafePlacement.deniedReason(zone,context)
 end
 
 function ParadiseDev.Zones.Engine.isCanEnterZone(zone, pl)
     if not zone or not pl then return true end
-    local features = zone.features or {}
-    local profile = ParadiseDev.Zones.Engine.getProfile(pl)
-    local pveTrait = ParadiseDev.getTrait and ParadiseDev.getTrait("ParadiseDev:PvE") or "ParadiseDev:PvE"
-    local hasPveTrait = ParadiseDev.hasTrait and ParadiseDev.hasTrait(pl, pveTrait) or false
-    if features.isKos and ((profile.tags and profile.tags.pve) or hasPveTrait) then
-        return false
-    end
-    local deniedReason = ParadiseDev.Zones.Engine.getDeniedReason(zone, pl)
-    if not deniedReason then return true end
-    if features.isBlocked then return false end
-    return ParadiseRestore.isAdm(pl) and ParadiseDev.Zones.Engine.adminBypassEnabled() and zone.policy.adminBypass ~= false
+    local context=ParadiseDev.SafePlacement.fromPlayer(pl)
+    return context.ready==true and ParadiseDev.SafePlacement.deniedReason(zone,context)==nil
 end
 
 function ParadiseDev.Zones.Engine.adminBypassEnabled()
@@ -711,56 +679,63 @@ function ParadiseDev.Zones.Engine.nearestCageZone(pl)
 end
 
 function ParadiseDev.Zones.Engine.teleportPlayer(pl, x, y, z, onArrive)
-    return ParadiseDev and ParadiseDev.TP and ParadiseDev.TP.teleportPlayer(pl, x, y, z, onArrive) or false
+    return ParadiseDev and ParadiseDev.TP and ParadiseDev.TP.teleportPlayer(pl, x, y, z, onArrive,{recovery=true}) or false
 end
 
 function ParadiseDev.Zones.Engine.reboundPlayer(pl, zone, region, x, y, z)
-    if Engine.retryBoundaryCorrection(pl, "foot", zone, nil, x, y, z) then return true end
-    local last = Engine.lastValid[Engine.userName(pl)]
-    local outX, outY, outZ
-    if last then
-        local priorZone = Engine.getAuthority(last.x, last.y, last.z, 0)
-        if not priorZone or Engine.isAllowed(priorZone, pl) then
-            outX, outY, outZ = last.x, last.y, last.z
+    local state=Engine.ensureBoundaryState(pl)
+    local now=boundaryNow()
+    if state.recoveryAt and now>=state.recoveryAt and now-state.recoveryAt<1000 then return false end
+    state.recoveryAt=now
+    local safe=ParadiseDev.SafePlacement
+    local context=safe.fromPlayer(pl)
+    local result=safe.find({x=x,y=y,z=z},context,{previous=Engine.lastValid[Engine.userName(pl)]})
+    if result.status~="safe" then
+        if result.status=="pending" then safe.prepare(result) end
+        if not state.recoveryNotice or now-state.recoveryNotice>=10000 then
+            state.recoveryNotice=now
+            sendServerCommand(pl,"ParadiseDevTP","message",{text=result.reason or "Waiting for a safe recovery location"})
         end
+        return false
     end
-    if not outX then outX, outY = Engine.boundaryOutside(pl, region, x, y, z, 0); outZ = z end
-    if not outX then return false end
-    local ok, first = Engine.sendBoundaryCorrection(pl, "foot", zone, nil, x, y, z, outX, outY, outZ)
-    if first then Engine.log("rebound-boundary", pl, zone) end
+    local point=result.location
+    -- Re-read permission/terrain immediately before issuing the movement. Long
+    -- recovery uses native chunk-aware transfer, never direct client coordinates.
+    if safe.evaluate(point,safe.fromPlayer(pl)).status~="safe" then return false end
+    Engine.clearBoundaryCorrection(pl)
+    local distance=(point.x-x)^2+(point.y-y)^2
+    if not result.fallback and point.z==z and distance<=16 then
+        local ok,first=Engine.sendBoundaryCorrection(pl,"foot",zone,nil,x,y,z,point.x,point.y,point.z)
+        if first then Engine.log("rebound-boundary",pl,zone) end
+        return ok
+    end
+    local ok,sent=Engine.teleportPlayer(pl,point.x,point.y,point.z)
+    if sent then Engine.log("recovery-safe-ground",pl,zone) end
     return ok
 end
 
 function Engine.reboundBoundaryVehicle(driver, vehicle, zone, region, x, y, z)
-    if not driver or driver:getVehicle() ~= vehicle or vehicle:getCharacter(0) ~= driver or Engine.isAllowed(zone, driver) then return false end
-    if Engine.retryBoundaryCorrection(driver, "vehicle", zone, vehicle, x, y, z) then return true end
-    local outX, outY = Engine.boundaryOutside(driver, region, x, y, z, 2.0)
-    if not outX then return false end
-    local ok, first = Engine.sendBoundaryCorrection(driver, "vehicle", zone, vehicle, x, y, z, outX, outY, z, function()
-        -- No generic vehicleTeleport packet: one sequenced correction to the driver.
-        -- Transforming the vehicle keeps every seat/occupant attached.
-        local transform = BaseVehicle.allocTransform()
-        vehicle:getWorldTransform(transform)
-        local origin = transform:getOrigin()
-        -- getX/getY can lag the latest transform until native update. WorldPos
-        -- reads that transform now, avoiding cumulative relative corrections.
-        local current = BaseVehicle.allocVector3f()
-        vehicle:getWorldPos(0, 0, 0, current)
-        local deltaX, deltaY = outX - current:x(), outY - current:y()
-        BaseVehicle.releaseVector3f(current)
-        origin:set(origin:x() + deltaX, origin:y(), origin:z() + deltaY)
-        vehicle:setWorldTransform(transform)
-        BaseVehicle.releaseTransform(transform)
-        return true
-    end)
-    if first then Engine.log("vehicle-rebounded", driver, zone) end
-    return ok
+    if not driver or driver:getVehicle()~=vehicle or vehicle:getCharacter(0)~=driver or Engine.isAllowed(zone,driver) then return false end
+    -- No center-only geometric teleport: it cannot establish the safety of the
+    -- entire car or attached trailer. Preserve seats and hold for on-foot recovery.
+    vehicle:setForceBrake()
+    Engine.clearBoundaryCorrection(driver)
+    local state=Engine.ensureBoundaryState(driver)
+    local now=boundaryNow()
+    if not state.vehicleNotice or now-state.vehicleNotice>=10000 then
+        state.vehicleNotice=now
+        sendServerCommand(driver,"ParadiseDevTP","message",{text="This vehicle cannot enter the zone. Leave the vehicle for verified safe-ground recovery."})
+    end
+    return false
 end
 
 function Engine.ejectBoundaryPassenger(pl, vehicle, zone, region, x, y, z)
     local driver = vehicle and vehicle:getCharacter(0) or nil
     if not driver or not driver:isAlive() or driver == pl or pl:getVehicle() ~= vehicle or
         not Engine.isAllowed(zone, driver) or Engine.isAllowed(zone, pl) then return false end
+    -- A denied passenger must not be dropped onto water or inside a newly
+    -- forbidden area. The owner checks the exact native outside-seat point.
+    vehicle:setForceBrake()
     local state = Engine.ensureBoundaryState(pl)
     local ride = Engine.observeBoundaryRide(pl, state)
     -- A driver callback can precede the passenger's first boundary request. Wait
@@ -785,8 +760,9 @@ function ParadiseDev.Zones.Engine.forcePassengerOut(pl, x, y, z)
     return ParadiseDev and ParadiseDev.TP and ParadiseDev.TP.exitVehicleAndTeleport(pl, x, y, z, true) or false
 end
 
-function ParadiseDev.Zones.Engine.forceVehicleExit(pl, x, y, z, onArrive)
-    return ParadiseDev and ParadiseDev.TP and ParadiseDev.TP.exitVehicleAndTeleport(pl, x, y, z, false, onArrive) or false
+function ParadiseDev.Zones.Engine.forceVehicleExit(pl, x, y, z, onArrive, requiredZoneId)
+    return ParadiseDev and ParadiseDev.TP and ParadiseDev.TP.exitVehicleAndTeleport(pl, x, y, z, false, onArrive,
+        {recovery=true,requiredZoneId=requiredZoneId}) or false
 end
 
 function ParadiseDev.Zones.Engine.captureCageReturn(pl)
@@ -841,15 +817,21 @@ function ParadiseDev.Zones.Engine.assignCage(pl, zone)
     if ParadiseDev.Zones.Engine.cageAssignments[steamId] then
         return false, "Player is already assigned to a cage."
     end
-    local region = ParadiseDev.Zones.Engine.nearestRegion(zone, pl:getX(), pl:getY())
-    if not region then return false, "The Cage zone has no segments." end
-    local z = zone.zMode == "floor" and zone.zMin or pl:getZ()
-    local x, y = pl:getX(), pl:getY()
-    if not ParadiseDev.Zones.Engine.zoneContains(zone, x, y, z, 0) then
-        x, y = ParadiseDev.Zones.Engine.nearestInside(region, x, y, 1)
+    local state=Engine.ensureBoundaryState(pl)
+    local now=boundaryNow()
+    if state.cageRecoveryAt and now>=state.cageRecoveryAt and now-state.cageRecoveryAt<1000 then
+        return false,"Safe cage placement is still being checked."
     end
+    state.cageRecoveryAt=now
+    local safe=ParadiseDev.SafePlacement
+    local result=safe.findCage(pl,zone,{x=pl:getX(),y=pl:getY(),z=pl:getZ()})
+    if result.status~="safe" then
+        if result.status=="pending" then safe.prepare(result) end
+        return false,"Cage needs administrator attention: "..tostring(result.reason)
+    end
+    local x,y,z=result.location.x,result.location.y,result.location.z
     ParadiseDev.Zones.Engine.captureCageReturn(pl)
-    if not ParadiseDev.Zones.Engine.forceVehicleExit(pl, x, y, z) then
+    if not ParadiseDev.Zones.Engine.forceVehicleExit(pl, x, y, z,nil,zone.id) then
         return false, "The server could not start the cage transfer."
     end
     ParadiseDev.Zones.Engine.cageAssignments[steamId] = zone.id
@@ -874,28 +856,41 @@ function ParadiseDev.Zones.Engine.releaseCage(pl)
 end
 
 function ParadiseDev.Zones.Engine.enforceCage(pl, zone, x, y, z)
+    local state=Engine.ensureBoundaryState(pl)
+    local now=boundaryNow()
+    if state.cageRecoveryAt and now>=state.cageRecoveryAt and now-state.cageRecoveryAt<1000 then return false end
+    state.cageRecoveryAt=now
+    local safe=ParadiseDev.SafePlacement
+    local context=safe.fromPlayer(pl)
+    context.requiredZoneId=zone.id
     local inside = ParadiseDev.Zones.Engine.zoneContains(zone, x, y, z, 0)
-    if inside then
+    -- An already confined occupant needs no placement. Do not force an exit
+    -- simply because a foot-only ground check detects their own vehicle.
+    if inside and pl:getVehicle() and safe.evaluatePolicy({x=x,y=y,z=z},context).status=="safe" then return true end
+    if inside and safe.evaluate({x=x,y=y,z=z},context).status=="safe" then
         ParadiseDev.Zones.Engine.lastValid[ParadiseDev.Zones.Engine.userName(pl)] = { x = x, y = y, z = z }
         ParadiseDev.Zones.Engine.saveCageRebound(pl, zone, x, y, z)
         return true
     end
-    local point = ParadiseDev.Zones.Engine.getCageRebound(pl, zone)
-    if not point then
-        local region = ParadiseDev.Zones.Engine.nearestRegion(zone, x, y)
-        if not region then return false end
-        local cageX, cageY = ParadiseDev.Zones.Engine.nearestInside(region, x, y, 1)
-        point = { x = cageX, y = cageY, z = zone.zMode == "floor" and zone.zMin or z }
+    local result=safe.findCage(pl,zone,{x=x,y=y,z=z},Engine.getCageRebound(pl,zone))
+    if result.status~="safe" then
+        if result.status=="pending" then safe.prepare(result) end
+        if not state.cageNotice or now-state.cageNotice>=10000 then
+            state.cageNotice=now
+            sendServerCommand(pl,"ParadiseDevTP","message",{text="Cage needs administrator attention: "..tostring(result.reason)})
+        end
+        return false
     end
+    local point=result.location
 
     local vehicle = pl:getVehicle()
     if not vehicle then
-        local accepted, sent = ParadiseDev.TP.teleportPlayer(pl, point.x, point.y, point.z)
+        local accepted, sent = ParadiseDev.TP.teleportPlayer(pl, point.x, point.y, point.z,nil,{recovery=true,requiredZoneId=zone.id})
         if sent then ParadiseDev.Zones.Engine.log("cage-teleport", pl, zone) end
         return accepted
     end
 
-    local accepted, sent = ParadiseDev.TP.exitVehicleAndTeleport(pl, point.x, point.y, point.z, false)
+    local accepted, sent = ParadiseDev.TP.exitVehicleAndTeleport(pl, point.x, point.y, point.z, false,nil,{recovery=true,requiredZoneId=zone.id})
     if sent then ParadiseDev.Zones.Engine.log("cage-occupant-returned", pl, zone) end
     return accepted
 end
@@ -924,6 +919,11 @@ function ParadiseDev.Zones.Engine.onPlayerUpdate(pl)
             ParadiseDev.Zones.Engine.assignCage(pl, nearestCage)
             return
         end
+        if not boundaryState.cageNotice or boundaryNow()-boundaryState.cageNotice>=10000 then
+            boundaryState.cageNotice=boundaryNow()
+            sendServerCommand(pl,"ParadiseDevTP","message",{text="No valid cage zone is configured. An administrator must correct the cage before recovery."})
+        end
+        return
     end
     if cageId and ParadiseDev.Cage.isCaged(pl) then
         local cageZone = ParadiseDev.Zones.Engine.zones[cageId]
@@ -931,8 +931,16 @@ function ParadiseDev.Zones.Engine.onPlayerUpdate(pl)
             ParadiseDev.Zones.Engine.enforceCage(pl, cageZone, x, y, z)
             return
         end
-        ParadiseDev.Zones.Engine.cageAssignments[steamId] = nil
-        ParadiseDev.Zones.Engine.syncBoundaryState(pl)
+        if not boundaryState.cageNotice or boundaryNow()-boundaryState.cageNotice>=10000 then
+            boundaryState.cageNotice=boundaryNow()
+            sendServerCommand(pl,"ParadiseDevTP","message",{text="The assigned cage zone is unavailable. An administrator must correct it before recovery."})
+        end
+        return
+    end
+    local placementContext=ParadiseDev.SafePlacement.fromPlayer(pl)
+    if placementContext.ready~=true then
+        Engine.clearBoundaryCorrection(pl)
+        return
     end
 
     local zone, region = Engine.getAuthority(x, y, z, vehicle and 2.0 or 0)
@@ -964,8 +972,20 @@ function ParadiseDev.Zones.Engine.onPlayerUpdate(pl)
     end
     if not zone or Engine.isAllowed(zone, pl) then
         Engine.clearBoundaryCorrection(pl)
-        Engine.lastValid[Engine.userName(pl)] = { x = x, y = y, z = z }
-        if ParadiseDev.TP and ParadiseDev.TP.saveRebound then ParadiseDev.TP.saveRebound(pl, "Zone Rebound") end
+        -- A valid zone is not proof of valid ground. Keep only verified on-foot
+        -- tiles, checking once per new tile/revision; always recheck on reuse.
+        if not vehicle then
+            local prior=Engine.lastValid[Engine.userName(pl)]
+            if not prior or math.floor(prior.x)~=math.floor(x) or math.floor(prior.y)~=math.floor(y)
+                or prior.z~=z or prior.zoneRevision~=Engine.zoneRevision then
+                local point={x=x,y=y,z=z}
+                if ParadiseDev.SafePlacement.evaluate(point,placementContext).status=="safe" then
+                    point.zoneRevision=Engine.zoneRevision
+                    Engine.lastValid[Engine.userName(pl)]=point
+                    if ParadiseDev.TP and ParadiseDev.TP.saveRebound then ParadiseDev.TP.saveRebound(pl,"Zone Rebound") end
+                end
+            end
+        end
         if vehicle and vehicle:getCharacter(0) == pl and
             ParadiseDev.Zones.PassengerScan and ParadiseDev.Zones.PassengerScan.ejectDeniedPassengersOnDriverMove then
             ParadiseDev.Zones.PassengerScan.ejectDeniedPassengersOnDriverMove(pl)

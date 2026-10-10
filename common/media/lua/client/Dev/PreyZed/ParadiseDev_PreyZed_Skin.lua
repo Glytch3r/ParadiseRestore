@@ -1,6 +1,8 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.PreyZed = ParadiseDev.PreyZed or {}
 
+if ParadiseDev.PreyZed.skinHandler then Events.OnZombieUpdate.Remove(ParadiseDev.PreyZed.skinHandler) end
+
 ParadiseDev.PreyZed.skinTicks = ParadiseDev.PreyZed.skinTicks or 0
 ParadiseDev.PreyZed.skinInterval = 60
 ParadiseDev.PreyZed.SkinList_F = {
@@ -100,16 +102,16 @@ function ParadiseDev.PreyZed.setSkin(zed)
     if zed.resetModel then zed:resetModel() end
 end
 
-function ParadiseDev.PreyZed.skinHandler(zed)
+function ParadiseDev.PreyZed.skinHandler(zed, prey)
     ParadiseDev.PreyZed.skinTicks = ParadiseDev.PreyZed.skinTicks + 1
     if not zed then return end
     if zed.isReanimatedPlayer and zed:isReanimatedPlayer() then return end
-    if ParadiseDev.PreyZed.isPrey(zed) then ParadiseDev.PreyZed.applyAnimation(zed) end
+    if prey == nil then prey = ParadiseDev.PreyZed.isPrey(zed) end
+    if prey then ParadiseDev.PreyZed.applyAnimation(zed) end
     if ParadiseDev.PreyZed.skinTicks % ParadiseDev.PreyZed.skinInterval ~= 0 then return end
     local sq = zed:getSquare()
     if not sq or not ParadiseDev.PreyZed.isHuntZoneAt(sq:getX(), sq:getY(), sq:getZ()) then return end
-    if not ParadiseDev.PreyZed.isPrey(zed) then ParadiseDev.PreyZed.setSkin(zed) end
+    if not prey then ParadiseDev.PreyZed.setSkin(zed) end
 end
 
-Events.OnZombieUpdate.Remove(ParadiseDev.PreyZed.skinHandler)
-Events.OnZombieUpdate.Add(ParadiseDev.PreyZed.skinHandler)
+-- The behavior module dispatches skin work after behavior in the same update.

@@ -137,18 +137,9 @@ function ParadiseDev.TargContext.addPlayerActions(menu, target, localPlayer, inc
 
     if includePvE ~= false then
         local syncer = ParadiseDev.TraitSyncer
-        if syncer and syncer.requestMenuState then syncer.requestMenuState() end
-        local pve, known
-        if syncer and syncer.getTargetPvEState then pve, known = syncer.getTargetPvEState(target) end
         local pveOption
-        if known then
-            -- Preserve the displayed action if a newer state arrives before click.
-            pveOption = menu:addOption((pve and "Disable PvE: " or "Enable PvE: ") .. username, nil,
-                ParadiseDev.TargContext.setPvE, username, not pve)
-        else
-            pveOption = menu:addOption("PvE status loading: " .. username)
-            pveOption.notAvailable = true
-        end
+        if syncer and syncer.bindPvEMenu then pveOption=syncer.bindPvEMenu(menu,target)
+        else pveOption=menu:addOption("PvE status unavailable: "..username);pveOption.notAvailable=true end
         pveOption.paradiseManagerKey = "PvE"
         pveOption.paradiseManagerLabel = "Enable / Disable PvE"
     end

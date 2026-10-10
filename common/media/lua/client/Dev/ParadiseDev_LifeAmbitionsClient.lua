@@ -40,6 +40,19 @@ local function wandererWrapper(original)
         if CharacterTrait and CharacterTrait.OUTDOORSMAN and not pl:hasTrait(CharacterTrait.OUTDOORSMAN) then
             sendClientCommand(pl,"LS","ChangeTrait",{"OUTDOORSMAN","add"})
         end
+        local profiles=ParadiseDev.LifeProfilesClient
+        local reincarnate=ParadiseDev.Reincarnate
+        local bodyKey=pl:getModData().ParadiseLifeProfileCharacterKey
+        if profiles and reincarnate and reincarnate.isShouldReincarnate()
+                and type(bodyKey)=="string" and #bodyKey>0 then
+            -- Managed lives acknowledge progress through the authoritative
+            -- controller. Never send a client-computed capacity to Lifestyle.
+            -- Only a correlated server reply can populate this body's floor.
+            profiles.reconcileCarry(pl)
+            return
+        end
+        -- Preserve existing behavior for untracked legacy lives and servers
+        -- where Life Profiles is disabled; they have no profile acknowledgement.
         local key=ambt._paradiseRestoreKey or tostring(pl:getModData().ParadiseLifeProfileCharacterKey or "native")
         local state=C.weights[pl]
         local saved=finite(ambt.newWeight) and ambt.newWeight or nil

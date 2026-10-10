@@ -2,6 +2,7 @@
 -- created merely to obtain access to the account's saved profiles.
 if isServer and isServer() then return end
 require "Dev/ParadiseDev_Reincarnate"
+require "Dev/ParadiseDev_LifeCreationClient"
 require "OptionScreens/ConnectToServer"
 require "OptionScreens/MapSpawnSelect"
 require "ISUI/ISPanel"
@@ -59,7 +60,7 @@ function L.reset()
     end
     L.ownsState=false
     L.active=false;L.pendingRequest=nil;L.accepted=nil;L.profiles=nil
-    L.lastReplyPoll=nil
+    L.lastReplyPoll=nil;L.preparing=nil;L.preparationStarted=nil
 end
 function L.exit()
     L.reset()
@@ -89,13 +90,31 @@ function L.transmit()
     request.sentAt=now()
 end
 function L.query()
+    L.preparationStarted=nil;L.preparing=nil
     L.message="Checking your saved character..."
     L.send("query",{})
 end
 
+local function matchingResume(request,accepted)
+    local expected=request and request.resumeSelection
+    return request and request.command=="query" and expected and type(accepted)=="table"
+        and type(expected.transactionId)=="string" and accepted.transactionId==expected.transactionId
+        and accepted.kind==expected.kind
+        and (expected.kind~="login" or accepted.bodyFingerprint==expected.bodyFingerprint)
+end
+
 function L.chooseProfile()
     if L.pendingRequest then return end
-    if L.accepted then L.acceptSelection(L.accepted);return end
+    if L.accepted then
+        local accepted=L.accepted
+        L.message="Refreshing your selection and safe destinations..."
+        if L.send("query",{}) then
+            -- Keep the prepared selection; only a matching fresh reply may resume it.
+            L.pendingRequest.resumeSelection={kind=accepted.kind,transactionId=accepted.transactionId,
+                bodyFingerprint=accepted.bodyFingerprint}
+        end
+        return
+    end
     if not L.profiles or not L.profiles.canSelect then return end
     L.sequence=L.sequence+1
     L.message="Confirming your profile..."
@@ -104,6 +123,10 @@ function L.chooseProfile()
 end
 function L.cancelSelection()
     if L.pendingRequest then return end
+    if L.accepted and L.accepted.kind=="login" then
+        L.restoreScreens();MapSpawnSelect.instance:setVisible(false)
+        L.send("cancelLogin",{});L.accepted=nil;L.showPanel();L.refresh();return
+    end
     local id=L.accepted and L.accepted.transactionId
     MapSpawnSelect.instance:setVisible(false)
     MainScreen.instance.charCreationProfession:setVisible(false)
@@ -117,7 +140,7 @@ end
 
 function L.showPanel()
     if MapSpawnSelect.instance then MapSpawnSelect.instance:setVisible(false)end
-    if L.panel then L.panel:setVisible(true);return end
+    if L.panel then L.panel:setVisible(true);L.panel:bringToTop();return end
     local c=client()
     local sw,sh=getCore():getScreenWidth(),getCore():getScreenHeight()
     local w,h=math.min(920,sw-32),math.min(620,sh-32)
@@ -165,7 +188,11 @@ function L.showPanel()
         for _,button in ipairs(self.slotButtons)do button:setEnable(not L.pendingRequest and not L.accepted)end
     end
     function panel:update()L.onTick()end
-    panel:addToUIManager();L.panel=panel;L.refresh()
+    panel:addToUIManager()
+    -- MainScreen is a full-screen root that raises itself when clicked.
+    -- Keep this separate login dialog above it while the dialog is visible.
+    panel:setAlwaysOnTop(true);panel:bringToTop()
+    L.panel=panel;L.refresh()
 end
 function L.refresh()
     local panel=L.panel
@@ -182,6 +209,12 @@ function L.refresh()
         button.slot=slot;button:setVisible(slot<=max)
         button:setTitle("Profile "..slot..": "..(profile and profile.name or "Empty"))
         button.borderColor=L.selected==slot and {r=.4,g=.8,b=.65,a=1} or {r=.4,g=.4,b=.4,a=.5}
+        -- Native setEnable restores its cached color on every frame.
+        -- Leave first-time cache initialization to it, including the background.
+        if button.borderColorEnabled then
+            local color=button.borderColor
+            button.borderColorEnabled={r=color.r,g=color.g,b=color.b,a=color.a}
+        end
     end
     panel.previous:setVisible(max>3);panel.next:setVisible(max>3)
     panel.profileDetails:setVisible(L.profiles~=nil)
@@ -200,6 +233,37 @@ function L.loadExisting(accepted)
     return true
 end
 
+function L.restoreCreationIntent(intent)
+    local c=client()
+    local profile=type(intent)=="table" and intent.profile
+    if type(intent)~="table" or type(intent.id)~="string" or type(profile)~="table" or type(profile.identity)~="table" then
+        L.message="The interrupted creation could not be loaded. Retry; your saved data is retained."
+        L.showPanel();return
+    end
+    local desc=c.descriptor(profile.identity,false,profile.startingOutfit)
+    MainScreen.instance.desc=desc
+    getWorld():setLuaPlayerDesc(desc);getWorld():getLuaTraits():clear()
+    for _,id in ipairs(profile.identity.traits or {})do
+        local key=string.lower(tostring(id))
+        -- This is the original first birth, not a different profile. Keep its
+        -- chosen PvE trait too; unrelated account-managed statuses stay native.
+        if not c.isManagedTrait(id) or key=="paradisedev:pve" or key=="pve" then
+            getWorld():addLuaTrait(c.traitType(id))
+        end
+    end
+    local gate=ParadiseDev.LifeCreationClient
+    local hints=gate.hints(nil);hints.creationIntentId=intent.id
+    if L.panel then L.panel:setVisible(false)end
+    gate.begin(hints,function(result)
+        gate.setLocation(result)
+        L.closePanel();L.restoreScreens();L.active=false
+        GameWindow.doRenderEvent(false);forceChangeState(LoadingQueueState.new())
+    end,function()
+        L.message="Your original character creation is saved. Retry to continue it."
+        L.showPanel()
+    end)
+end
+
 function L.chooseSpawn(id)
     if L.pendingRequest or not L.accepted then return end
     if not client().spawnOption(L.accepted,id) then
@@ -207,13 +271,16 @@ function L.chooseSpawn(id)
         L.showPanel();return
     end
     L.message="Confirming your spawn location..."
-    L.send("chooseSpawn",{transactionId=L.accepted.transactionId,spawnId=id})
+    if L.accepted.kind=="login" then
+        L.send("chooseLogin",{bodyFingerprint=L.accepted.bodyFingerprint,policyToken=L.accepted.policyToken,spawnId=id})
+    else L.send("chooseSpawn",{transactionId=L.accepted.transactionId,spawnId=id}) end
 end
 function L.acceptSelection(accepted)
     if type(accepted)~="table" or type(accepted.transactionId)~="string" then return end
     L.restoreScreens()
     L.accepted=accepted
     local options=accepted.spawnOptions and accepted.spawnOptions.options or {}
+    if #options==0 then L.message=accepted.spawnError or "No verified safe destination is available. Retry shortly; your character is preserved.";L.showPanel();return end
     if accepted.spawnId then L.chooseSpawn(accepted.spawnId);return end
     if accepted.spawnOptions and accepted.spawnOptions.forced then
         if #options==1 then L.chooseSpawn(options[1].id)else L.message="The forced spawn location is unavailable.";L.showPanel()end
@@ -235,7 +302,13 @@ function L.acceptSelection(accepted)
     local nativePrerender=picker.prerender
     replace(picker,"prerender",function(self)
         nativePrerender(self);L.onTick()
-        self.nextButton:setEnable(not L.pendingRequest)
+        local item=self.listbox.items[self.listbox.selected]
+        self.nextButton:setEnable(not L.pendingRequest and item~=nil)
+        if accepted.kind=="login" then
+            local note=accepted.warning or "Choose a safe place. Your current character and belongings are preserved."
+            self.nextButton.tooltip=note
+            self:drawTextCentre("Continue the same character at a safe location",self.width/2,12,.9,.85,.7,1,UIFont.Small)
+        end
         self.backButton:setEnable(not L.pendingRequest)
     end)
     if L.panel then L.panel:setVisible(false)end
@@ -263,10 +336,18 @@ function L.acceptSpawn(accepted,request)
         MainScreen.instance.desc=desc
         getWorld():setLuaPlayerDesc(desc);getWorld():getLuaTraits():clear()
         for _,id in ipairs(accepted.profile.identity.traits or {})do
-            if not c.isManagedTrait(id)then getWorld():addLuaTrait(c.traitType(id))end
+            local key=string.lower(tostring(id))
+            if not c.isManagedTrait(id) or accepted.profile.creationRetry and (key=="paradisedev:pve" or key=="pve") then
+                getWorld():addLuaTrait(c.traitType(id))
+            end
         end
-        L.closePanel();L.restoreScreens();L.active=false
-        GameWindow.doRenderEvent(false);forceChangeState(LoadingQueueState.new())
+        local gate=ParadiseDev.LifeCreationClient
+        if L.panel then L.panel:setVisible(false)end
+        gate.begin(gate.hints(accepted),function(result)
+            gate.setLocation(result)
+            L.closePanel();L.restoreScreens();L.active=false
+            GameWindow.doRenderEvent(false);forceChangeState(LoadingQueueState.new())
+        end,function()L.message="Preparation cancelled. Resume or change your selection.";L.showPanel()end)
     else
         local profession=MainScreen.instance.charCreationProfession
         local original=profession.onOptionMouseDown
@@ -286,11 +367,31 @@ function L.onServerCommand(module,command,args)
     if not request or args.requestId~=request.args.requestId then return end
     L.pendingRequest=nil
     L.message=args.message
-    if args.status=="resume" then L.loadExisting(args.accepted);return end
+    if args.status=="preparing" then
+        L.preparationStarted=L.preparationStarted or now();L.preparing=now()
+        L.profiles=nil;L.accepted=nil;L.showPanel();L.refresh();return
+    end
+    L.preparing=nil;L.preparationStarted=nil
+    if args.status=="resume" then
+        L.restoreScreens()
+        if MapSpawnSelect.instance then MapSpawnSelect.instance:setVisible(false) end
+        L.accepted=nil;L.loadExisting(args.accepted);return
+    end
+    if args.status=="relocate" then
+        L.profiles=nil;L.accepted=args.accepted;L.showPanel();L.refresh()
+        if L.accepted and L.accepted.spawnOptions and (not request.resumeSelection or matchingResume(request,L.accepted)) then
+            L.acceptSelection(L.accepted)
+        end
+        return
+    end
     if args.status=="new" then
+        if args.creationIntent then
+            L.restoreCreationIntent(args.creationIntent);return
+        end
         -- The native creation route remains the authority for first characters.
         -- A fresh native lookup may also discover a late existing body here.
         L.closePanel();L.restoreScreens();L.active=false
+        ParadiseDev.LifeCreationClient.install()
         L.nativeOnConnected(ConnectToServer.instance);return
     end
     if args.status=="choose" then
@@ -302,7 +403,8 @@ function L.onServerCommand(module,command,args)
         end
         L.accepted=args.accepted or L.profiles and L.profiles.pending
         L.showPanel();L.refresh()
-        if args.action=="selectionAccepted" and request.command=="select" then L.acceptSelection(L.accepted)end
+        if matchingResume(request,L.accepted) then L.acceptSelection(L.accepted)
+        elseif args.action=="selectionAccepted" and request.command=="select" then L.acceptSelection(L.accepted)end
     else
         L.profiles=nil;L.accepted=nil;L.showPanel();L.refresh()
     end
@@ -313,6 +415,7 @@ function L.begin(connector)
     -- Preserve native permission denial before doing any profile UI work.
     if getDebug() and not haveAccess("ConnectWithDebug") and not isCoopHost()then return L.nativeOnConnected(connector)end
     L.reset();L.active=true;L.ownsState=true;L.selected=1;L.page=1
+    ParadiseDev.LifeCreationClient.install()
     client().states[0]={selected=1,handled={},completed={}}
     connector.connecting=false;connector:setVisible(false)
     L.message="Checking your saved character...";L.showPanel();L.query()
@@ -326,6 +429,12 @@ function L.onTick()
                 and type(envelope.result)=="table" then
             L.onServerCommand("ParadiseLifeLogin","result",envelope.result)
         end
+    end
+    if L.active and not L.pendingRequest and L.preparing and now()-L.preparing>=1000 then
+        if now()-(L.preparationStarted or now())>=45000 then
+            L.preparing=nil
+            L.message="The saved ground could not be verified yet. Retry shortly or go Back; your character is preserved."
+        else L.preparing=nil;L.send("query",{}) end
     end
     if L.active and L.pendingRequest and now()-L.pendingRequest.sentAt>=3000 then
         if now()-(L.pendingRequest.startedAt or L.pendingRequest.sentAt)>=15000 then

@@ -1,6 +1,11 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.PreyZed = ParadiseDev.PreyZed or {}
 
+-- Remove the old function references before replacement during a Lua reload.
+if ParadiseDev.PreyZed.behaviorHandler then Events.OnZombieUpdate.Remove(ParadiseDev.PreyZed.behaviorHandler) end
+if ParadiseDev.PreyZed.skinHandler then Events.OnZombieUpdate.Remove(ParadiseDev.PreyZed.skinHandler) end
+if ParadiseDev.PreyZed.zombieUpdateHandler then Events.OnZombieUpdate.Remove(ParadiseDev.PreyZed.zombieUpdateHandler) end
+
 ParadiseDev.PreyZed.fleeRange = 20
 ParadiseDev.PreyZed.fleeDistance = 15
 ParadiseDev.PreyZed.fleeCooldown = 3
@@ -42,8 +47,9 @@ function ParadiseDev.PreyZed.moveAway(zed, pl)
     end
 end
 
-function ParadiseDev.PreyZed.behaviorHandler(zed)
-    if not ParadiseDev.PreyZed.isPrey or not ParadiseDev.PreyZed.isPrey(zed) then return end
+function ParadiseDev.PreyZed.behaviorHandler(zed, prey)
+    if prey == nil then prey = ParadiseDev.PreyZed.isPrey and ParadiseDev.PreyZed.isPrey(zed) end
+    if not prey then return end
     local pl = getPlayer()
     if not pl or pl:isInvisible() then return end
     local dx = zed:getX() - pl:getX()
@@ -56,5 +62,23 @@ function ParadiseDev.PreyZed.behaviorHandler(zed)
     ParadiseDev.PreyZed.moveAway(zed, pl)
 end
 
-Events.OnZombieUpdate.Remove(ParadiseDev.PreyZed.behaviorHandler)
-Events.OnZombieUpdate.Add(ParadiseDev.PreyZed.behaviorHandler)
+function ParadiseDev.PreyZed.zombieUpdateHandler(zed)
+    -- The normal file loader ran behavior before skin. Share only this update's
+    -- fresh classification; death/reward checks and direct callers stay fresh.
+    local prey = ParadiseDev.PreyZed.isPrey and ParadiseDev.PreyZed.isPrey(zed) or false
+    if prey then
+        -- Native events used to protect the two callbacks separately. A prey
+        -- behavior failure must not prevent its skin update or consume cadence.
+        local ok, err = pcall(ParadiseDev.PreyZed.behaviorHandler, zed, true)
+        if not ok then
+            if ParadiseDev.PreyZed.skinHandler then
+                local skinOk, skinErr = pcall(ParadiseDev.PreyZed.skinHandler, zed, prey)
+                if not skinOk then error(tostring(err) .. "\n" .. tostring(skinErr)) end
+            end
+            error(err)
+        end
+    end
+    if ParadiseDev.PreyZed.skinHandler then ParadiseDev.PreyZed.skinHandler(zed, prey) end
+end
+
+Events.OnZombieUpdate.Add(ParadiseDev.PreyZed.zombieUpdateHandler)

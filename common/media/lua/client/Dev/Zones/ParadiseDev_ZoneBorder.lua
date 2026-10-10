@@ -165,6 +165,7 @@ end
 function ParadiseDev.Zones.Border.safeOutside(x, y, z, padding)
     local firstZone, region = ParadiseDev.Zones.Border.authorityAt(x,y,z,padding)
     if not firstZone or firstZone.allowed then return x,y end
+    if padding~=0 or not ParadiseDev.Zones.Border.inBoundaryBand(region,x,y,2) then return nil,nil end
     local queue, seen = {region}, {[region]=true}
     local cursor, queries = 1,0
     local bestX,bestY,bestDistance
@@ -180,9 +181,12 @@ function ParadiseDev.Zones.Border.safeOutside(x, y, z, padding)
             queries = queries+1
             local nextZone,nextRegion = ParadiseDev.Zones.Border.authorityAt(point[1],point[2],z,padding)
             if not nextZone or nextZone.allowed then
-                local distance = (point[1]-x)^2+(point[2]-y)^2
-                if not bestDistance or distance < bestDistance then
-                    bestX,bestY,bestDistance = point[1],point[2],distance
+                local px,py=math.floor(point[1])+0.5,math.floor(point[2])+0.5
+                local distance = (px-x)^2+(py-y)^2
+                local client=ParadiseDev.Zones.ReboundClient
+                local safe=distance<=16 and client and client.safeFootLocation(getPlayer(),px,py,z)
+                if safe and (not bestDistance or distance < bestDistance) then
+                    bestX,bestY,bestDistance = px,py,distance
                 end
             elseif nextRegion and not seen[nextRegion] then
                 seen[nextRegion]=true
@@ -233,7 +237,19 @@ function ParadiseDev.Zones.Border.onPlayerUpdate(pl)
         if client and client.predictPassengerExit then client.predictPassengerExit(pl,zone) end
         return
     end
+    if vehicle then vehicle:setForceBrake(); return end
 
+    -- Repeated updates on the same unsafe tile need not repeat the bounded
+    -- geometry/ground search each render frame. A new policy revision or tile
+    -- bypasses the short delay; every actual move still rechecks its endpoint.
+    local now=getTimestampMs()
+    local previous=ParadiseDev.Zones.Border.predictionCheck
+    local tileX,tileY=math.floor(x),math.floor(y)
+    if previous and previous.player==pl and previous.x==tileX and previous.y==tileY
+        and previous.z==pl:getZ() and previous.revision==ParadiseDev.Zones.Border.stateRevision
+        and now>=previous.at and now-previous.at<150 then return end
+    ParadiseDev.Zones.Border.predictionCheck={player=pl,x=tileX,y=tileY,z=pl:getZ(),
+        revision=ParadiseDev.Zones.Border.stateRevision,at=now}
     local outX, outY = ParadiseDev.Zones.Border.safeOutside(x, y, pl:getZ(), padding)
     if not outX then return end
     if not vehicle then

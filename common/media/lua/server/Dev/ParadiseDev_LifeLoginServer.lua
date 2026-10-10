@@ -51,7 +51,9 @@ local function profiles(pl,entry)
     for i in pairs(a.slots)do max=math.max(max,i)end
     local result={revision=a.revision,activeSlot=a.activeSlot,maxSlots=max,slots={},
         canSelect=M.deathToken(a)~=nil and not a.pending,deathToken=M.deathToken(a),
-        enrollmentRequired=not a.activeSlot and not a.deletedDeath}
+        enrollmentRequired=not a.activeSlot and not a.deletedDeath,
+        legacyEnrollment=a.enrollmentDeath~=nil,
+        enrollmentMessage=a.enrollmentDeath and "Your previous character died before a profile was created. Choose an empty slot to start your first saved profile." or nil}
     for i=1,max do result.slots[i]=S.summarizeSlot(a.slots[i],i)end
     result.pending=S.acceptance(pl,entry)
     return result
@@ -89,14 +91,14 @@ local function reconcileDeath(ctx,entry)
         return true
     elseif not slot and not a.enrollmentDeath then
         local key="login-death:"..tostring(getTimestampMs())..":"..ctx.username
-        local snapshot;snapshot,err=N.capture(pl,"death",key)
+        local snapshot;snapshot,err=N.captureEnrollmentDeath(pl,key)
         if snapshot then updated,err=M.recordUnenrolledDeath(a,snapshot)end
     else return true end
     if not updated then return nil,err or "The verified death could not be recorded" end
     return S.persist(entry,updated)
 end
 
-local function classify(ctx,pl,entry)
+local function classifyBase(ctx,pl,entry)
     local a=entry.value
     local active=a.slots[a.activeSlot]
     if ctx.nativeStatus=="unknown" or (ctx.nativeStatus~="alive" and ctx.nativeStatus~="dead" and ctx.nativeStatus~="missing") then
@@ -132,13 +134,111 @@ local function classify(ctx,pl,entry)
     if M.deathToken(a) then
         local r=response("choose","Choose a saved life or an empty profile.")
         r.profiles=profiles(pl,entry)
+        if r.profiles.legacyEnrollment then r.message=r.profiles.enrollmentMessage end
         return r
     end
     if ctx.nativeStatus=="missing" and not active and not a.enrollmentDeath and not a.deletedDeath and emptySlots(a.slots) and not a.pending then
-        return response("new","Create your first character.")
+        local r=response("new","Create your first character.")
+        if a.creationIntent and S.getCreationIntent then
+            r.creationIntent=S.getCreationIntent(entry)
+            r.message="Continue creating your saved character."
+        end
+        return r
     end
     return response("recovery","The saved character and profile death record disagree. No character has been replaced.")
 end
+
+-- Living relocation is not a death/profile transaction. The native bridge binds
+-- this decision to the exact saved-body fingerprint and this connection.
+local function livingContext(ctx,pl,entry)
+    if not text(ctx.bodyFingerprint) or not ctx.nativePlayerIdentityVerified then return nil,"Saved body identity is unavailable" end
+    local policy=S.getPvEContext and S.getPvEContext(pl)
+    if not policy or policy.ready~=true then return nil,policy and policy.reason or "Profile protection is not ready" end
+    local trusted={pve=policy.pve==true,ready=true,profileId=policy.profileId,bodyKey=policy.bodyKey,
+        contextId=policy.contextId,pveRevision=policy.pveRevision,scope=policy.scope,
+        nativePlayer=pl,nativeLocation=ctx.nativeLocation,bodyFingerprint=ctx.bodyFingerprint,
+        username=ctx.username,playerIndex=0,profileRevision=entry.value.revision}
+    return trusted
+end
+local function prepareLocation(decision)
+    local safe=ParadiseDev.SafePlacement
+    if decision and decision.status=="pending" and safe and safe.prepare then safe.prepare(decision) end
+end
+local function relocation(ctx,pl,entry,command,args,base)
+    local trusted,err=livingContext(ctx,pl,entry)
+    if not trusted then return response("retry",err) end
+    local token;token,err=P.loginPolicyToken(pl,trusted)
+    if not token then return response("retry",err or "Location permissions are not ready") end
+    local id=command=="chooseLogin" and args.spawnId or "saved"
+    local location
+    if command=="chooseLogin" and (args.bodyFingerprint~=ctx.bodyFingerprint or args.policyToken~=token) then
+        id=nil;err="Your character or location permissions changed. Review the refreshed safe choices."
+    end
+    if id=="saved" then
+        local check=P.loginPolicyAllowed(pl,trusted,ctx.nativeLocation)
+        if check and check.status=="safe" then location=ctx.nativeLocation
+        elseif check and check.status=="pending" then
+            prepareLocation(check)
+            return response("preparing","Loading and checking the ground at your saved location. Your character is preserved.")
+        else err=check and check.reason or "Your saved location is not permitted for this profile" end
+    elseif command=="chooseLogin" and text(id) then
+        local chosen;chosen,err=P.loginResolve(pl,trusted,id)
+        location=chosen and (chosen.location or chosen)
+    elseif not err then err="Your saved character changed. Refresh before choosing a location." end
+    if location then
+        base.loginSpawnId=id;base.loginLocation=location;base.loginPolicyToken=token
+        return base
+    end
+    local reason=err
+    local options;options,err=P.loginOptions(pl,trusted)
+    local result=response("relocate",err or reason or "Your saved location is not permitted. Choose a safe place to continue the same character.")
+    result.accepted={kind="login",transactionId=ctx.bodyFingerprint,bodyFingerprint=ctx.bodyFingerprint,
+        spawnOptions=options,spawnError=err,policyToken=token,warning=reason}
+    return result
+end
+local function classify(ctx,pl,entry)
+    local result=classifyBase(ctx,pl,entry)
+    if result.status=="resume" then return relocation(ctx,pl,entry,"query",{},result) end
+    return result
+end
+-- Called immediately before native body transfer or native world admission.
+function S.admitAlive(ctx)
+    local pl,entry=ledger(ctx)
+    if not entry then return nil end
+    -- Refresh durable state; a stale cached selection is never authority.
+    local disk=M.Store.load(entry.key)
+    if not disk then return nil end
+    entry.value=disk
+    if S.reconcileCreation then
+        local ok=S.reconcileCreation(ctx)
+        if not ok then return nil end
+    end
+    if classifyBase(ctx,pl,entry).status~="resume" then return nil end
+    local trusted=livingContext(ctx,pl,entry)
+    if not trusted then return nil end
+    local token=P.loginPolicyToken(pl,trusted)
+    if not token or (ctx.loginPolicyToken and ctx.loginPolicyToken~=token) then return nil end
+    trusted.loginLocation=ctx.loginLocation
+    local id=ctx.loginSpawnId or "saved"
+    local location,check
+    if id=="saved" then
+        location=ctx.nativeLocation
+        check=P.loginPolicyAllowed(pl,trusted,location)
+    else
+        local chosen=P.loginResolve(pl,trusted,id)
+        location=chosen and (chosen.location or chosen)
+        if location then check=P.loginAllowed(pl,trusted,location) end
+    end
+    if not location or not check or check.status~="safe" then return nil end
+    if ctx.loginPhase=="admit" then
+        if not S.applyAdmissionPvE or S.applyAdmissionPvE(pl)~=true then return nil end
+    end
+    return {allowed=true,loginSpawnId=id,loginLocation=location,loginPolicyToken=token}
+end
+local function keepLoginLocations()
+    if ParadiseLifeBridge then ParadiseLifeBridge("keepLocations") end
+end
+if Events.OnTick then Events.OnTick.Add(keepLoginLocations) end
 
 function S.loginCommand(ctx,command,args)
     args=type(args)=="table" and args or {}
@@ -146,12 +246,59 @@ function S.loginCommand(ctx,command,args)
     if not text(args.requestId) then return finish(response("retry","Invalid login request")) end
     local pl,entry,err=ledger(ctx)
     if not entry then return finish(response("retry",err or "Profile storage is unavailable")) end
+    if S.reconcileCreation then
+        local ok;ok,err=S.reconcileCreation(ctx)
+        if not ok then return finish(response("retry",err or "An interrupted creation needs review. Your progress is preserved.")) end
+    end
     if command=="query" then
         local ok;ok,err=reconcileDeath(ctx,entry)
         if not ok then return finish(response("retry",err))end
     end
     local current=classify(ctx,pl,entry)
     if command=="query" then return finish(current) end
+    if command=="cancelCreate" then return finish(response("creationCancelled","Preparation cancelled; your selection is retained.")) end
+    if command=="prepareCreate" then
+        local base=classifyBase(ctx,pl,entry)
+        if base.status~="new" and base.status~="choose" then
+            return finish(response("creationDenied",base.message))
+        end
+        local a=entry.value
+        local pending=a.pending
+        if base.status=="choose" and (not pending or pending.status~="prepared"
+                or pending.id~=args.transactionId or not pending.spawnSelection) then
+            return finish(response("creationDenied","Choose your profile and spawn location again before continuing."))
+        end
+        if base.status=="new" and args.transactionId then
+            return finish(response("creationDenied","This profile selection is no longer current. Go Back and refresh."))
+        end
+        if a.creationIntent and args.creationIntentId~=a.creationIntent.creationId then
+            return finish(response("creationDenied","Refresh the saved creation before continuing."))
+        end
+        if args.regionName~=nil and (not text(args.regionName) or #args.regionName>192)
+                or not text(args.profession) or type(args.pveHint)~="boolean" then
+            return finish(response("creationDenied","The character's spawn selection is incomplete."))
+        end
+        local decision=P.previewBirth(pl,pending,a,args.regionName,args.profession,args.pveHint)
+        if not decision or decision.status~="safe" then
+            if decision and decision.status=="pending" and P.prepareBirthPlacement then P.prepareBirthPlacement(decision) end
+            return finish(response(decision and decision.status=="pending" and "creationPending" or "creationDenied",
+                decision and decision.reason or "This destination is unavailable. Go Back to change the selection."))
+        end
+        local r=response("creationReady","Your destination is ready.")
+        r.creationLocation=decision.location;r.spawnRegion=decision.regionName
+        r.transactionId=pending and pending.id
+        r.creationIntentId=a.creationIntent and a.creationIntent.creationId
+        -- This token binds the preparation lease, not permission to place a body.
+        -- The native callback revalidates the actual traits and current policy.
+        r.creationPolicyToken=S.creationPolicyToken(a,args.requestId)
+        return finish(r)
+    end
+    if command=="chooseLogin" or command=="cancelLogin" then
+        local base=classifyBase(ctx,pl,entry)
+        if base.status~="resume" then return finish(base) end
+        if command=="cancelLogin" then return finish(response("retry","Login cancelled. Choose Retry to review the same character, or Back to disconnect.")) end
+        return finish(relocation(ctx,pl,entry,command,args,base))
+    end
     if current.status~="choose" then return finish(current) end
     local a=entry.value
     local updated
@@ -201,7 +348,15 @@ function S.allowCreate(ctx)
     if not disk then entry.unavailable=true;return false end
     entry.value=disk
     local state=classify(ctx,pl,entry)
-    if state.status=="new" then return true end
+    if state.status=="new" then
+        local intent=entry.value.creationIntent
+        if not intent then return true end
+        local frozen=intent.snapshot or intent.birth and intent.birth.snapshot
+        local identity=frozen and frozen.identity
+        local desc=ctx.creationDescriptor
+        return identity~=nil and desc~=nil and desc:getForename()==identity.forename
+            and desc:getSurname()==identity.surname and tostring(desc:getCharacterProfession())==identity.profession
+    end
     if state.status~="choose" then return false end
     local p=entry.value.pending
     if not p or p.status~="prepared" or not p.spawnSelection then return false end

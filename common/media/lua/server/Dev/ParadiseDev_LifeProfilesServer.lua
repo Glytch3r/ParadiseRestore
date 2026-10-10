@@ -22,6 +22,7 @@ local function enabled() return R.isShouldReincarnate() end
 local function settings() return SandboxVars and SandboxVars.ParadiseZ or {} end
 local function slots() return math.floor(math.max(1,math.min(M.MAX_SLOTS,tonumber(settings().LifeProfileCount) or 3))) end
 local function interval() return math.max(10,math.min(300,tonumber(settings().LifeProfileSaveSeconds) or 30))*1000 end
+local CHECKPOINT_RETRY_MS = 5000
 local function dead(pl) return pl and pl:isDead() end
 local function text(value) return type(value)=="string" and #value>0 and #value<=256 end
 local function uid(prefix)
@@ -60,7 +61,12 @@ local function account(pl)
         local value,meta=D.load(key)
         if not value then return nil,"Profile storage could not be read: "..tostring(meta) end
         entry=entry or {key=key}
-        entry.value,entry.meta,entry.unavailable=value,meta,nil;S.accounts[key]=entry
+        entry.value,entry.meta,entry.unavailable=value,meta,nil;entry.pveMigrated=nil;S.accounts[key]=entry
+    end
+    entry.username=tostring(pl:getUsername())
+    if S.ensurePvEMigration then
+        local ok,why=S.ensurePvEMigration(entry)
+        if not ok then return nil,why end
     end
     return entry
 end
@@ -174,16 +180,194 @@ function S.authorizeLifecycle(pl,entry)
     return true
 end
 
+-- Account names locate the private store; profile IDs own combat choices.
+-- The old username assignment remains evidence, never an effective override.
+S.pveBodies=setmetatable({}, {__mode="k"})
+function S.ensurePvEMigration(entry)
+    if entry.pveMigrated then return true end
+    local syncer=ParadiseDev.TraitSyncer
+    local legacy,ambiguous
+    if syncer and syncer.getStoredRecord then
+        local record,_,conflict=syncer.getStoredRecord(entry.username)
+        ambiguous=conflict
+        legacy=record and record["ParadiseDev:PvE"]
+    end
+    if ambiguous then return nil,"Conflicting account spellings require administrator review" end
+    local value,changed=M.migratePvE(entry.value,legacy)
+    if not value then return nil,changed end
+    if changed then
+        local ok,why=persist(entry,value)
+        if not ok then return nil,why end
+    end
+    entry.pveMigrated=true
+    return true
+end
+
+local function nativePvE(pl)
+    return ParadiseDev.hasTrait and ParadiseDev.hasTrait(pl,"ParadiseDev:PvE")==true or false
+end
+function S.getPvEContext(pl,pendingOverride,actualBirth)
+    local entry,err=account(pl)
+    if not entry then return {ready=false,pve=nativePvE(pl),reason=err} end
+    local a=entry.value
+    local existing=S.sessions[pl]
+    if existing and (existing.superseded or existing.creationError) then
+        return {ready=false,pve=nativePvE(pl),reason="This body is no longer the active profile"}
+    end
+    local pending=pendingOverride
+    if not pending and a.pending and a.pending.status=="applying" then
+        local st=S.sessions[pl]
+        if st and st.key==a.pending.newCharacterKey then pending=a.pending
+        elseif not st and pl.getModData and pl:getModData()[S.MARKER]==a.pending.newCharacterKey then
+            -- Pre-entry lookup deserializes a temporary server-saved body. It
+            -- has no connected session yet, but must use the selected profile.
+            local frozen=a.pending.targetSnapshot or a.pending.creationSnapshot
+            local desc=pl.getDescriptor and pl:getDescriptor()
+            if not frozen or not desc or desc:getForename()~=frozen.identity.forename
+                    or desc:getSurname()~=frozen.identity.surname
+                    or tostring(desc:getCharacterProfession())~=frozen.identity.profession then
+                return {ready=false,pve=nativePvE(pl),reason="Saved replacement identity does not match the pending profile"}
+            end
+            pending=a.pending
+        end
+    end
+    local slot=pending and pending.kind=="restore" and a.slots[pending.slot] or not pending and currentSlot(entry)
+    if actualBirth and not pending then slot=nil end
+    local profileId=slot and slot.id or pending and pending.profileId or nil
+    local st=S.sessions[pl]
+    local bodyKey=st and st.key or pending and pending.newCharacterKey or slot and slot.checkpoint.characterKey or nil
+    local pve,ready,reason,scope
+    if slot then
+        pve=slot.pve;ready=type(pve)=="boolean" and not slot.pveConflict
+        if not ready then
+            reason="An administrator must resolve this profile's PvE setting"
+            pve=nativePvE(pl) -- Do not silently remove a living body's protection.
+        end
+        scope="profile"
+    elseif pending and pending.kind=="create" then
+        local frozen=pending.creationSnapshot or a.creationIntent and a.creationIntent.snapshot
+        if frozen then
+            pve=frozen.pve
+            if pve==nil then pve=M.identityPvE(frozen.identity) end
+            profileId=pending.profileId or a.creationIntent and a.creationIntent.profileId
+        elseif actualBirth then pve=nativePvE(pl)
+        else pve=false end -- New creation revalidates its chosen native trait before save.
+        ready=true;scope="creation"
+    elseif actualBirth then
+        pve=nativePvE(pl);ready=true;scope="creation"
+    else
+        scope="legacy-body";ready=not dead(pl)
+        if not ready then reason="This legacy character has died; choose a new profile" end
+    end
+    local record=S.pveBodies[pl]
+    if not record or record.profileId~=profileId or record.scope~=scope or record.bodyKey~=bodyKey then
+        record={contextId=uid("pve-body"),profileId=profileId,scope=scope,bodyKey=bodyKey,
+            pve=nativePvE(pl),revision=1}
+        S.pveBodies[pl]=record
+    end
+    if scope=="legacy-body" then pve=record.pve end
+    return {ready=ready==true,pve=pve==true,reason=reason,profileId=profileId,bodyKey=bodyKey or record.contextId,
+        contextId=record.contextId,pveRevision=slot and slot.pveRevision or record.revision,scope=scope,
+        accountRevision=a.revision,profileRevision=slot and slot.revision or nil,
+        onlineId=pl.getOnlineID and pl:getOnlineID() or nil}
+end
+
+-- The loaded native body may predate an offline administrator's profile choice.
+-- Correct only this status trait before registration; no XP, inventory, save
+-- serialization or connected-player lease is touched by this pre-admission gate.
+function S.applyAdmissionPvE(pl)
+    local context=S.getPvEContext(pl)
+    if not context.ready then return nil,context.reason or "Profile PvE policy is not ready" end
+    local ok,applied=pcall(function()
+        local trait=ParadiseDev.getTrait and ParadiseDev.getTrait("ParadiseDev:PvE")
+        local traits=pl and pl.getCharacterTraits and pl:getCharacterTraits()
+        if not trait or not traits or not pl.hasTrait then return false end
+        if pl:hasTrait(trait)~=context.pve then
+            if context.pve then traits:add(trait) else traits:remove(trait) end
+        end
+        return pl:hasTrait(trait)==context.pve
+    end)
+    if not ok or not applied then return nil,"The saved character's PvE policy could not be applied safely" end
+    return true,context
+end
+
+local function onlineOwner(entry)
+    local owner=entry.owner
+    local players=getOnlinePlayers and getOnlinePlayers() or nil
+    if not owner or not players then return nil end
+    for i=0,players:size()-1 do if players:get(i)==owner then return owner end end
+end
+local function profileAdminContext(entry,slot)
+    local owner=onlineOwner(entry)
+    if owner and entry.value.activeSlot==slot.slot and not dead(owner) then return S.getPvEContext(owner),owner end
+    entry.pveAdminToken=entry.pveAdminToken or uid("pve-account")
+    return {scope="profile",profileId=slot.id,bodyKey="offline",contextId=entry.pveAdminToken..":"..slot.id,
+        pveRevision=slot.pveRevision,pve=slot.pve==true,ready=not slot.pveConflict,
+        reason=slot.pveConflict and "Choose this profile's PvE setting to resolve its legacy assignment" or nil}
+end
+function S.getAdminPvEProfiles()
+    local entries={}
+    for _,entry in pairs(S.accounts) do
+        if entry.username and not entry.unavailable then
+            local ok=S.ensurePvEMigration(entry)
+            if ok then
+                for _,slot in pairs(entry.value.slots) do
+                    local context=profileAdminContext(entry,slot)
+                    local identity=slot.creationIdentity or {}
+                    entries[#entries+1]={username=entry.username,profileId=slot.id,slot=slot.slot,
+                        name=tostring(identity.forename or "").." "..tostring(identity.surname or ""),context=context}
+                end
+            end
+        end
+    end
+    return entries
+end
+local function sameContext(a,b)
+    return type(a)=="table" and type(b)=="table" and a.contextId==b.contextId and a.bodyKey==b.bodyKey
+        and a.profileId==b.profileId and a.pveRevision==b.pveRevision and a.scope==b.scope
+end
+function S.setTargetPvE(username,expected,enabled)
+    if type(username)~="string" or type(expected)~="table" or type(enabled)~="boolean" then return nil,"Invalid profile assignment" end
+    local found
+    for _,entry in pairs(S.accounts) do
+        if string.lower(tostring(entry.username))==string.lower(username) then
+            if found then return nil,"Account identity is ambiguous; refresh the current player" end
+            found=entry
+        end
+    end
+    if not found then return nil,"This account has not been authenticated during this server session" end
+    if found.unavailable then return nil,"Profile storage is unavailable" end
+    if expected.profileId then
+        local slot
+        for _,candidate in pairs(found.value.slots) do if candidate.id==expected.profileId then slot=candidate;break end end
+        if not slot then return nil,"The profile no longer exists" end
+        local actual,owner=profileAdminContext(found,slot)
+        if not sameContext(actual,expected) then return nil,"Player or profile changed; refresh before applying" end
+        local value,err=M.setProfilePvE(found.value,slot.id,expected.pveRevision,enabled)
+        if not value then return nil,err end
+        local ok;ok,err=persist(found,value)
+        if not ok then return nil,err end
+        return true,owner
+    end
+    local owner=onlineOwner(found)
+    if not owner or dead(owner) then return nil,"The legacy character is no longer online" end
+    local actual=S.getPvEContext(owner)
+    if actual.scope~="legacy-body" or not sameContext(actual,expected) then return nil,"Character changed; refresh before applying" end
+    local record=S.pveBodies[owner]
+    record.pve=enabled;record.revision=record.revision+1
+    return true,owner
+end
+
 local function summary(slot,index)
     if not slot then return {slot=index,phase="empty"} end
     local snapshot=slot.phase=="dead" and slot.death or slot.checkpoint
     local result={slot=index,id=slot.id,phase=slot.phase,revision=slot.revision,
-        identity=M.copy(snapshot.identity),recipes=M.copy(snapshot.recipes),startingOutfit=O.forProfile(slot.startingOutfit),
+        pve=slot.pve,pveConflict=slot.pveConflict==true,identity=M.copy(snapshot.identity),recipes=M.copy(snapshot.recipes),startingOutfit=O.forProfile(slot.startingOutfit),
         name=snapshot.identity.forename.." "..snapshot.identity.surname,
         hoursSurvived=snapshot.hoursSurvived,zombieKills=snapshot.zombieKills,
         incarnations=slot.incarnations+1,skills=M.copy(snapshot.skills),creationXP=M.copy(slot.creationXP),
         capturedAt=snapshot.capturedAt,snapshotKind=snapshot.provenance or snapshot.kind,loss={},postXP={}}
-    local after=slot.phase=="dead" and M.penalizedSnapshot(slot) or snapshot
+    local after=slot.phase=="dead" and not slot.pveConflict and M.penalizedSnapshot(slot) or snapshot
     for perk,value in pairs(snapshot.skills) do
         result.postXP[perk]=after.skills[perk];result.loss[perk]=value-after.skills[perk]
     end
@@ -196,15 +380,18 @@ local function acceptance(pl,entry)
     local a,p=entry.value,entry.value.pending
     if not p then return nil end
     local result={transactionId=p.id,requestId=p.id,kind=p.kind,profile=summary(a.slots[p.slot],p.slot),
-        revision=a.revision,status=p.status,canCancel=p.status=="prepared"}
-    if p.kind=="create" and p.creationSnapshot then
+        revision=a.revision,status=p.status,canCancel=p.status=="prepared" and not a.creationIntent}
+    result.creationIntentId=a.creationIntent and a.creationIntent.creationId
+    local creationSnapshot=p.creationSnapshot or a.creationIntent and a.creationIntent.snapshot
+    if p.kind=="create" and creationSnapshot then
         -- Retry a failed new-profile body using its already-frozen creation
         -- identity. Do not invite a different profession/trait selection.
-        local snapshot=p.creationSnapshot
+        local snapshot=creationSnapshot
         result.kind="restore"
-        result.profile={slot=p.slot,id=p.profileId,phase="dead",identity=M.copy(snapshot.identity),
+        result.profile={slot=p.slot,id=p.profileId or a.creationIntent and a.creationIntent.profileId,phase="dead",identity=M.copy(snapshot.identity),
             skills=M.copy(snapshot.skills),hoursSurvived=snapshot.hoursSurvived,zombieKills=snapshot.zombieKills,
-            startingOutfit=O.forProfile(p.creationStartingOutfit)}
+            pve=snapshot.pve,creationRetry=true,
+            startingOutfit=O.forProfile(p.creationStartingOutfit or a.creationIntent and a.creationIntent.startingOutfit)}
     end
     local options,err=P.options(pl,p,a)
     result.spawnOptions=options
@@ -249,16 +436,18 @@ end
 
 local function freezeDeath(pl,entry,state,slot)
     if state.deathObservation then return state.deathObservation end
-    local snapshot,err=N.capture(pl,"death",state.key,slot and slot.creationXP)
+    local snapshot,err
+    if slot then snapshot,err=N.capture(pl,"death",state.key,slot.creationXP)
+    else snapshot,err=N.captureEnrollmentDeath(pl,state.key) end
     if not snapshot and slot and slot.checkpoint then
         snapshot=M.copy(slot.checkpoint)
         snapshot.kind="death";snapshot.provenance="checkpoint"
         snapshot.deathObservedAt=now();snapshot.fallbackReason=tostring(err)
     end
     if not snapshot then return nil,"Final character state could not be saved: "..tostring(err) end
-    -- Freeze native identity/XP/traits/counters at the first observed death.
-    -- Only the bounded final Lifestyle payload may replace Ambitions during
-    -- this short window; the rest of the snapshot is never recaptured.
+    -- Freeze the enrolled profile, or the legacy creation-only death receipt.
+    -- Only enrolled profiles accept final Lifestyle progress during this short
+    -- window; the rest of the death observation is never recaptured.
     state.deathObservation={snapshot=M.copy(snapshot),deadline=now()+1000}
     return state.deathObservation
 end
@@ -411,6 +600,7 @@ local function restored(pl,entry,transactionId)
     if not mirror then return nil,err end
     mirror.transactionId=transactionId;mirror.slot=slot.slot
     mirror.characterKey=slot.checkpoint.characterKey
+    mirror.revision=entry.value.revision
     mirror.expectedSkills=M.copy(actual.skills)
     emit(pl,"restored",mirror)
     return true
@@ -423,33 +613,11 @@ local function matchingBody(pl,snapshot)
 end
 
 function S.prepareNewBody(pl,entry)
-    local a,p=entry.value,entry.value.pending
-    local st=session(pl,entry)
-    if st.creationError or st.superseded then return nil,st.creationError or "Superseded character" end
-    if not p then return nil,"No matching profile selection" end
-    if p.status=="prepared" then
-        if not st.nativeNew then return nil,"Waiting for server-confirmed character creation" end
-        if st.key==p.sourceCharacterKey or st.deathHandled then return nil,"The previous character cannot receive this restoration" end
-        local frozen=p.targetSnapshot or p.creationSnapshot
-        if frozen and not matchingBody(pl,frozen) then return nil,"Replacement identity does not match the selected profile" end
-        local nextAccount,err=M.markApplying(a,p.id,uid("life"))
-        if not nextAccount then return nil,err end
-        -- Freeze first-created identity/baseline before any later retry, including
-        -- a server crash. Retry must not reconstruct it from subsequently acquired traits.
-        if p.kind=="create" and not p.creationSnapshot then
-            local birth=st.birth
-            if not birth then return nil,"Original server creation snapshot is unavailable; no baseline was inferred" end
-            local first=M.copy(birth.snapshot);first.characterKey=nextAccount.pending.newCharacterKey
-            nextAccount.pending.creationXP=M.copy(birth.xp);nextAccount.pending.creationSource=birth.source
-            nextAccount.pending.creationSnapshot=first;nextAccount.pending.profileId=birth.profileId
-            nextAccount.pending.creationStartingOutfit=M.copy(birth.startingOutfit)
-        end
-        local ok;ok,err=persist(entry,nextAccount)
-        if not ok then return nil,err end
-        p=entry.value.pending
-        st.key=p.newCharacterKey;pl:getModData()[S.MARKER]=st.key
-    end
-    return true
+    -- Only the native persistence acknowledgement may bind a prepared body.
+    -- A client ready/retry command is never evidence that the DB write worked.
+    local p=entry.value.pending
+    if p and p.status=="applying" then return true end
+    return nil,"Waiting for the server to confirm the new character was saved"
 end
 
 function S.ready(pl,entry,id)
@@ -484,7 +652,21 @@ function S.ready(pl,entry,id)
             return nil,"Interrupted restoration belongs to another character; saved progress is retained" end
         st.key=p.newCharacterKey;pl:getModData()[S.MARKER]=st.key
     end
-    local target=p.targetSnapshot or p.creationSnapshot
+    local target=M.copy(p.targetSnapshot or p.creationSnapshot)
+    local pveContext=S.getPvEContext(pl,p,true)
+    if not pveContext.ready then return nil,pveContext.reason end
+    target.pve=pveContext.pve
+    local placement=ParadiseDev.SafePlacement
+    local destination=placement.evaluate({x=pl:getX(),y=pl:getY(),z=pl:getZ()},P.context(pl,p,true))
+    if destination.status~="safe" then
+        if destination.status=="pending" then placement.prepare(destination) end
+        return nil,"Restoration is saved. Your arrival point needs review: "..tostring(destination.reason)..". Reconnect to choose safe ground."
+    end
+    -- A connected player may arrive before its native square registration.
+    -- Keep the durable restoration pending; the client already retries ready.
+    if not pl:isExistInTheWorld() then
+        return nil,"Waiting for your character to finish entering the world. Your restoration is saved."
+    end
     local ok,err=N.apply(pl,target)
     if not ok then return nil,"Restoration is saved for retry: "..tostring(err) end
     local snapshot;snapshot,err=N.capture(pl,"checkpoint",p.newCharacterKey,p.creationXP)
@@ -499,91 +681,293 @@ function S.ready(pl,entry,id)
     return restored(pl,entry,id)
 end
 
-function S.birthSpawn(pl,pending,a)
-    local options,err=P.options(pl,pending,a)
-    if not options then return nil,err end
-    local id=options.forced and options.options[1] and options.options[1].id
-        or pending and pending.spawnSelection and pending.spawnSelection.id
-    -- Native first-time creation has already chosen a configured region. Only
-    -- forced policy may replace that destination. Reincarnation needs a choice.
-    if not id then
-        if pending then return nil,"Choose a spawn destination before creating this character" end
-        return nil
+S.CREATION_MARKER="ParadiseLifeProfileCreationId"
+S.birthRequests=setmetatable({}, {__mode="k"})
+
+local function birthDecision(status,reason,location)
+    return {status=status,reason=reason,location=location}
+end
+local function nativeBirthContext(ctx)
+    if type(ctx)~="table" or ctx.playerIndex~=0 or ctx.nativePlayerIdentityVerified~=true
+            or ctx.nativeStatus~="alive" or not text(ctx.nativeCreationId) then
+        return nil,"Native creation identity is not verified"
     end
-    local resolved;resolved,err=P.resolve(pl,pending,a,id,true)
-    if not resolved then return nil,err end
-    return resolved.location
+    local pl=ctx.nativePlayer
+    if not pl or dead(pl) or pl:getUsername()~=ctx.username then return nil,"Native creation account does not match" end
+    return pl
 end
 
--- B42 CreatePlayerPacket.processServer raises OnNewGame after native creation
--- traits/profession/recipes and authenticated username/Steam ID are initialized.
--- Loading a saved character does not raise it. Never infer this from playtime,
--- current traits, client requests or a client-supplied mod-data flag.
+-- Repeated placement checks use a supplied durable account and never allocate
+-- body/profile IDs, capture progress, dress the player or write the profile bank.
+function S.birthPvEContext(pl,pending,a)
+    local intent=a and a.creationIntent
+    local slot=pending and pending.kind=="restore" and a.slots[pending.slot]
+    local frozen=pending and pending.creationSnapshot or intent and intent.snapshot
+    local pve,scope
+    if slot then
+        if type(slot.pve)~="boolean" or slot.pveConflict then
+            return {ready=false,reason="An administrator must resolve this profile's PvE setting"}
+        end
+        pve=slot.pve;scope="profile"
+    elseif frozen then
+        pve=frozen.pve
+        if pve==nil then pve=M.identityPvE(frozen.identity) end
+        scope="creation"
+    else pve=nativePvE(pl);scope="creation" end
+    return {ready=true,pve=pve==true,scope=scope,profileId=slot and slot.id or intent and intent.profileId,
+        accountRevision=a and a.revision,profileRevision=slot and slot.revision,pveRevision=slot and slot.pveRevision}
+end
+
+function S.creationPolicyToken(a,requestId)
+    if type(a)~="table" or type(requestId)~="string" or #requestId>256 then return nil end
+    local pending,intent=a.pending,a.creationIntent
+    return table.concat({tostring(a.revision),tostring(pending and pending.id or intent and intent.creationId or "first"),
+        tostring(P.regionRevision or 0),requestId},":")
+end
+
+function S.preBirth(ctx)
+    local pl,why=nativeBirthContext(ctx)
+    if not pl then return birthDecision("denied",why) end
+    if not enabled() then return birthDecision("safe",nil,{x=pl:getX(),y=pl:getY(),z=pl:getZ()}) end
+    if S.unsupportedReason then return birthDecision("pending",S.unsupportedReason) end
+    local key;key,why=S.accountKey(pl)
+    if not key then return birthDecision("denied",why) end
+    local entry=S.accounts[key]
+    if not entry or entry.unavailable then
+        local value,meta=D.load(key)
+        if not value then return birthDecision("pending","Profile storage could not be read: "..tostring(meta)) end
+        entry=entry or {key=key};entry.value,entry.meta,entry.unavailable=value,meta,nil
+        entry.username=pl:getUsername();S.accounts[key]=entry
+    end
+    local a=entry.value;local pending=a.pending;local intent=a.creationIntent
+    local prefix=S.creationPolicyToken(a,"")
+    local token=ctx.creationPolicyToken
+    if type(token)~="string" or not prefix or token:sub(1,#prefix)~=prefix
+            or #token<=#prefix or #token>#prefix+256 then
+        return birthDecision("denied","Creation preparation changed. Refresh the saved destination before continuing")
+    end
+    if (a.activeSlot or a.enrollmentDeath or a.deletedDeath) and not pending then
+        return birthDecision("denied","Select a profile before creating a replacement character")
+    end
+    if pending and pending.status~="prepared" then return birthDecision("denied","The previous creation must finish saving first") end
+    if intent and intent.creationId~=ctx.nativeCreationId and not intent.retryAllowed then
+        return birthDecision("pending","The original native creation is still being saved")
+    end
+    local frozen=pending and (pending.targetSnapshot or pending.creationSnapshot) or intent and intent.snapshot
+    if frozen and not matchingBody(pl,frozen) then return birthDecision("denied","Creation identity does not match the saved character choice") end
+    local request=S.birthRequests[pl]
+    if request and request.creationId~=ctx.nativeCreationId then return birthDecision("denied","Native creation request changed") end
+    if not request then
+        request={creationId=ctx.nativeCreationId,entry=entry};S.birthRequests[pl]=request
+    end
+    return P.preBirthPlacement(pl,pending,a,S.birthPvEContext(pl,pending,a),ctx.creationLocation)
+end
+
+local function firstDefinitionMatches(a,b)
+    if a.identity.forename~=b.identity.forename or a.identity.surname~=b.identity.surname
+            or a.identity.profession~=b.identity.profession or a.identity.female~=b.identity.female then return false end
+    for id,xp in pairs(a.skills) do if not M.xpEqual(xp,b.skills[id]) then return false end end
+    for id in pairs(b.skills) do if a.skills[id]==nil then return false end end
+    local function traits(identity)
+        local out={}
+        for _,id in ipairs(identity.traits) do
+            local key=string.lower(tostring(id))
+            if key~="paradisedev:caged" and key~="paradisedev:therangestaff" and key~="paradisedev:injuredpvp" then out[key]=true end
+        end
+        return out
+    end
+    local left,right=traits(a.identity),traits(b.identity)
+    for id in pairs(left) do if not right[id] then return false end end
+    for id in pairs(right) do if not left[id] then return false end end
+    return true
+end
+
+local function prepareCreationRecord(pl,entry,st)
+    if st.intentStaged then return true end
+    local a,pending=entry.value,entry.value.pending
+    local previous=a.creationIntent
+    if not st.birth then
+        if not st.startingOutfit then
+            local outfit,why
+            if previous then
+                local ok;ok,outfit=N.applyStartingOutfit(pl,previous.startingOutfit,st.key)
+                if not ok then return nil,outfit end
+            elseif pending and (pending.kind=="restore" or pending.creationSnapshot) then
+                local saved=pending.kind=="restore" and pending.targetStartingOutfit or pending.creationStartingOutfit
+                if pending.kind=="restore" and saved==nil then saved=a.slots[pending.slot] and a.slots[pending.slot].startingOutfit end
+                local ok;ok,outfit=N.applyStartingOutfit(pl,saved,st.key)
+                if not ok then return nil,outfit end
+            else outfit,why=N.captureStartingOutfit(pl);if not outfit then return nil,why end end
+            st.startingOutfit=outfit
+        end
+        local xp,source=N.creationXP(pl);if not xp then return nil,source end
+        local snapshot,why=N.capture(pl,"checkpoint",st.key,xp);if not snapshot then return nil,why end
+        local policy=S.birthPvEContext(pl,pending,a)
+        if not policy.ready then return nil,policy.reason end
+        snapshot.pve=policy.pve
+        if previous and previous.kind~="restore" and not firstDefinitionMatches(previous.snapshot,snapshot) then
+            return nil,"Retry the original saved character definition; its identity and starting skills are retained"
+        end
+        if previous then xp=M.copy(previous.xp);source=previous.source end
+        st.birth={key=st.key,xp=xp,source=source,snapshot=snapshot,
+            profileId=previous and previous.profileId or uid("profile"),startingOutfit=st.startingOutfit}
+    end
+    local birth=st.birth
+    local intent={creationId=st.nativeCreationId,bodyKey=st.key,kind=pending and pending.kind or "first",
+        pendingId=pending and pending.id,profileId=birth.profileId,xp=M.copy(birth.xp),source=birth.source,
+        snapshot=M.copy(birth.snapshot),startingOutfit=M.copy(birth.startingOutfit),createdAt=now()}
+    local updated,why=M.stageCreation(entry.value,intent)
+    if not updated then return nil,why end
+    local ok;ok,why=persist(entry,updated)
+    if not ok then return nil,why end
+    st.intentStaged=true;st.lastCreationError=nil
+    return true
+end
+
+-- Native continuation raises this event exactly once after a safe prebirth
+-- decision. Persistent intent is not an alive/applying state or DB acknowledgement.
 function S.onNewGame(pl)
     if not enabled() or S.unsupportedReason or not pl then return end
-    local entry,err=account(pl)
-    if not entry then print("[LifeProfiles] Creation enrollment failed: "..tostring(err));return end
+    local request=S.birthRequests[pl]
+    if not request then return end
+    local entry=request.entry
     local st=session(pl,entry)
-    if (entry.value.activeSlot or entry.value.enrollmentDeath or entry.value.deletedDeath) and not entry.value.pending then
-        st.creationError="Select a profile before creating a replacement character"
-        return
+    if st.eventObserved then return end
+    st.eventObserved=true;st.nativeNew=true;st.nativeCreationId=request.creationId
+    st.key=uid("birth");st.deathHandled=nil;st.creationError=nil;st.lastCreationError=nil
+    pl:getModData()[S.MARKER]=st.key;pl:getModData()[S.CREATION_MARKER]=request.creationId
+    local ok,why=prepareCreationRecord(pl,entry,st)
+    if not ok then st.lastCreationError=why end
+end
+
+function S.createdState(ctx)
+    local pl,why=nativeBirthContext(ctx)
+    if not pl then return birthDecision("denied",why) end
+    if not enabled() then return birthDecision("safe",nil,{x=pl:getX(),y=pl:getY(),z=pl:getZ()}) end
+    local st=S.sessions[pl]
+    if not st or not st.eventObserved or not st.nativeNew or st.superseded
+            or st.nativeCreationId~=ctx.nativeCreationId or pl:getModData()[S.MARKER]~=st.key
+            or pl:getModData()[S.CREATION_MARKER]~=ctx.nativeCreationId then
+        return birthDecision("denied","Native creation event or body binding is incomplete")
     end
-    st.nativeNew=true;st.key=uid("birth");st.deathHandled=nil;st.creationError=nil
-    pl:getModData()[S.MARKER]=st.key
-    local a=entry.value
-    -- The B42 server chooses initial spawn independently of client LuaPos.
-    -- Set the authoritative temporary body's coordinates before its database
-    -- save and creation response; no client-selected teleport is accepted.
-    local spawn,spawnError=S.birthSpawn(pl,a.pending,a)
-    if spawnError then st.creationError=spawnError;return end
-    if spawn then pl:setX(spawn.x);pl:setY(spawn.y);pl:setZ(spawn.z) end
-    -- Clothing is issued only on a genuinely new native body, before its
-    -- database save/creation response. Network ready/retry never adds items.
-    local pending=a.pending
-    local startingOutfit
-    if pending and (pending.kind=="restore" or pending.creationSnapshot) then
-        local saved=pending.kind=="restore" and pending.targetStartingOutfit or pending.creationStartingOutfit
-        if pending.kind=="restore" and saved==nil then
-            saved=a.slots[pending.slot] and a.slots[pending.slot].startingOutfit
-        end
-        local dressed;dressed,startingOutfit=N.applyStartingOutfit(pl,saved,st.key)
-        if not dressed then st.creationError=startingOutfit;return end
-    else
-        startingOutfit,err=N.captureStartingOutfit(pl)
-        if not startingOutfit then st.creationError=err;return end
+    local entry=st.entry
+    if not entry or entry.unavailable then return birthDecision("pending","Profile storage is unavailable; creation is retained") end
+    -- Retrying a failed journal write never repeats OnNewGame or an issued outfit.
+    local ok;ok,why=prepareCreationRecord(pl,entry,st)
+    if not ok then st.lastCreationError=why;return birthDecision("pending",why) end
+    local intent=entry.value.creationIntent
+    if not intent or intent.creationId~=ctx.nativeCreationId or intent.bodyKey~=st.key then
+        return birthDecision("denied","Durable creation binding changed")
     end
-    -- Freeze creation while the authoritative native event is executing, before
-    -- a disk write can fail or the temporary native creation object is replaced.
-    local xp,source=N.creationXP(pl)
-    if not xp then st.creationError=source;return end
-    local first;first,err=N.capture(pl,"checkpoint",st.key,xp)
-    if not first then st.creationError=err;return end
-    st.birth={key=st.key,xp=xp,source=source,snapshot=first,profileId=uid("profile"),startingOutfit=startingOutfit}
-    entry.birth=st.birth
-    if a.pending then
-        local ok;ok,err=S.prepareNewBody(pl,entry)
-        if not ok then st.lastCreationError=err end
-        return
+    local point={x=pl:getX(),y=pl:getY(),z=pl:getZ()}
+    local decision=P.checkBirthPlacement(pl,entry.value.pending,entry.value,S.birthPvEContext(pl,entry.value.pending,entry.value),point)
+    if decision.status=="safe" then
+        local updated;updated,why=M.moveCreationIntent(entry.value,ctx.nativeCreationId,st.key,point)
+        if not updated then return birthDecision("pending",why) end
+        local saved;saved,why=persist(entry,updated)
+        if not saved then return birthDecision("pending",why) end
     end
-    if a.activeSlot or a.enrollmentDeath or a.deletedDeath then
-        st.creationError="Select a profile from the death screen before creating a replacement character"
-        return
+    return decision
+end
+
+function S.allowCreated(ctx)
+    return S.createdState(ctx).status=="safe"
+end
+
+local function commitIntent(pl,entry,creationId,bodyKey)
+    local updated,why=M.commitCreation(entry.value,creationId,bodyKey)
+    if not updated then return nil,why end
+    local ok;ok,why=persist(entry,updated)
+    if not ok then return nil,why end
+    local st=S.sessions[pl]
+    if st then st.nativeCreationPersisted=true;st.creationCommitted=true;st.lastCreationError=nil;st.lastSave=now() end
+    entry.birth=nil
+    return true
+end
+
+function S.commitCreated(ctx)
+    local pl,why=nativeBirthContext(ctx)
+    if not pl then return nil,why end
+    if not enabled() then return true end
+    if ctx.nativeCreationPersisted~=true then return nil,"Native body persistence has not been verified" end
+    local st=S.sessions[pl]
+    if not st or not st.eventObserved or st.superseded or st.nativeCreationId~=ctx.nativeCreationId
+            or pl:getModData()[S.MARKER]~=st.key or pl:getModData()[S.CREATION_MARKER]~=ctx.nativeCreationId then
+        return nil,"Persisted creation does not match its server event"
     end
-    S.enrollBirth(pl,entry,st)
+    -- Persistence is already proven. A subsequent policy change must relocate
+    -- this same saved life; it must not prevent its profile commit.
+    return commitIntent(pl,st.entry,ctx.nativeCreationId,st.key)
 end
 
 function S.enrollBirth(pl,entry,st)
-    local birth=st.birth
-    if not birth then return nil,"Original native creation snapshot is unavailable" end
-    local updated,err=M.ensureSlot(entry.value,1,birth.profileId,birth.xp,birth.snapshot,birth.startingOutfit)
-    if not updated then st.creationError=err;return end
-    updated.slots[1].creationSource=birth.source
-    local ok;ok,err=persist(entry,updated)
-    if not ok then st.lastCreationError=err;return nil,err end
-    pl:getModData()[S.MARKER]=st.key
-    st.lastSave=now();st.observed=true
-    entry.birth=nil
-    audit(pl,currentSlot(entry),"spawn")
+    return nil,"Enrollment requires the native persistence acknowledgement"
+end
+
+function S.creationRecovery(entry)
+    local intent=entry and entry.value.creationIntent
+    if not intent then return nil end
+    return {kind="create",transactionId=intent.creationId,creationIntentId=intent.creationId,
+        creationSnapshot=M.copy(intent.snapshot),creationStartingOutfit=M.copy(intent.startingOutfit),
+        profileId=intent.profileId,retryAllowed=intent.retryAllowed==true}
+end
+
+function S.getCreationIntent(entry)
+    local intent=entry and entry.value.creationIntent
+    if not intent then return nil end
+    local snapshot=M.copy(intent.snapshot)
+    local profile=M.copy(snapshot)
+    profile.startingOutfit=M.copy(intent.startingOutfit)
+    return {id=intent.creationId,creationId=intent.creationId,bodyKey=intent.bodyKey,kind=intent.kind,
+        snapshot=snapshot,profile=profile,startingOutfit=M.copy(intent.startingOutfit),
+        profileId=intent.profileId,retryAllowed=intent.retryAllowed==true}
+end
+
+-- Called only with a fresh authenticated native row result. Missing is distinct
+-- from a failed lookup, and cannot be inferred from a client retry/disconnect.
+function S.reconcileCreation(ctx)
+    if not enabled() then return true end
+    if type(ctx)~="table" or ctx.playerIndex~=0 or not text(ctx.username) then
+        return nil,"Native account identity has not been verified"
+    end
+    local pl=ctx.nativePlayer
+    if pl and (ctx.nativePlayerIdentityVerified~=true or pl:getUsername()~=ctx.username) then
+        return nil,"Native account identity does not match"
+    end
+    local actor=pl or {getUsername=function()return ctx.username end,getSteamID=function()return tonumber(ctx.steamId) or 0 end}
+    local entry,why=account(actor);if not entry then return nil,why end
+    local disk,meta=D.load(entry.key);if not disk then return nil,"Saved profile is unreadable" end
+    entry.value,entry.meta=disk,meta
+    local a=entry.value;local intent=a.creationIntent;local pending=a.pending
+    -- Ordinary connected death/creation has no unfinished write to reconcile.
+    -- Its native connected-body shortcut is deliberately not DB row evidence.
+    if not intent and not (pending and pending.status=="applying") then return true end
+    if ctx.nativeRowVerified~=true then return nil,"Native character storage has not been verified" end
+    if ctx.nativeStatus=="alive" and pl then
+        if intent then
+            if pl:getModData()[S.MARKER]~=intent.bodyKey or pl:getModData()[S.CREATION_MARKER]~=intent.creationId
+                    or not matchingBody(pl,intent.snapshot) then return nil,"Saved native body does not match the unfinished creation" end
+            return commitIntent(pl,entry,intent.creationId,intent.bodyKey)
+        end
+        return true
+    end
+    local absent=ctx.nativeStatus=="missing"
+    local sourceDead=ctx.nativeStatus=="dead" and pl and dead(pl) and pending
+        and pl:getModData()[S.MARKER]==pending.sourceCharacterKey
+    if not absent and not sourceDead then return true end
+    if ctx.nativeCreationInFlight then return true end
+    if intent then
+        local updated;updated,why=M.markCreationRetry(a,intent.creationId)
+        if not updated then return nil,why end
+        return persist(entry,updated)
+    end
+    if pending and pending.status=="applying" then
+        local updated;updated,why=M.retryUnsavedCreation(a,pending.id,pending.newCharacterKey)
+        if not updated then return nil,why end
+        return persist(entry,updated)
+    end
+    -- An old alive profile with a missing body is not proof of an r5 first-birth
+    -- orphan. Retain it for evidence-bound recovery; never manufacture a death.
     return true
 end
 
@@ -598,7 +982,7 @@ function S.checkpoint(pl,entry)
     local updated;updated,err=M.checkpoint(a,a.activeSlot,snapshot)
     if not updated then return nil,err end
     local ok;ok,err=persist(entry,updated)
-    if ok then st.lastSave=now() end
+    if ok then st.lastSave=now();st.checkpointRetryAt=nil end
     return ok,err
 end
 
@@ -623,7 +1007,8 @@ function S.receiveAmbitions(pl,entry,args,atDeath)
     local encoded=D.encode(accepted)
     if args.seq<=(st.ambitionSeq or 0) then
         if args.seq==st.ambitionSeq and encoded==st.ambitionEncoded then
-            emit(pl,"ambitionsSaved",{characterKey=st.key,seq=args.seq});return true
+            emit(pl,"ambitionsSaved",{characterKey=st.key,seq=args.seq,revision=entry.value.revision,
+                carryWeight=N.carryWeight and N.carryWeight(pl) or nil});return true
         end
         return nil,"Ambition update belongs to an older observation"
     end
@@ -636,16 +1021,20 @@ function S.receiveAmbitions(pl,entry,args,atDeath)
             S.recordDeath(pl,entry,true)
             return nil,"Final ambition observation arrived after the death window"
         end
+    end
+    local canonical
+    ok,err,canonical=N.acceptAmbitions(pl,accepted)
+    if not ok then return nil,err end
+    if atDeath then
         observation.snapshot.modData=observation.snapshot.modData or {}
-        observation.snapshot.modData.Ambitions=M.copy(accepted.ambitions)
+        observation.snapshot.modData.Ambitions=M.copy((canonical or accepted).ambitions)
         observation.final=true
     end
-    ok,err=N.acceptAmbitions(pl,accepted)
-    if not ok then return nil,err end
     if atDeath then ok,err=S.recordDeath(pl,entry,true) else ok,err=S.checkpoint(pl,entry) end
     if not ok then return nil,err end
     st.ambitionSeq,st.ambitionEncoded,st.lastAmbitionSaved=args.seq,encoded,now()
-    emit(pl,"ambitionsSaved",{characterKey=st.key,seq=args.seq})
+    emit(pl,"ambitionsSaved",{characterKey=st.key,seq=args.seq,revision=entry.value.revision,
+        carryWeight=N.carryWeight and N.carryWeight(pl) or nil})
     return true
 end
 
@@ -706,14 +1095,25 @@ function S.onClientCommand(module,command,pl,args)
 end
 
 local function pollPlayer(pl,seen)
+    local previous=S.sessions[pl]
+    if previous then previous.lastSeen=now();seen[pl]=true end
+    if previous and not dead(pl) and previous.checkpointRetryAt and now()<previous.checkpointRetryAt then
+        -- Keep liveness current, but do not repeatedly reload failed banks or
+        -- recapture the whole profile while a routine save is cooling down.
+        -- Death and explicit/final save paths bypass this polling-only delay.
+        return
+    end
     local entry,err=account(pl)
-    if not entry then return end
+    if not entry then
+        if previous and not dead(pl) and previous.checkpointRetryAt then
+            previous.checkpointRetryAt=now()+CHECKPOINT_RETRY_MS
+        end
+        return
+    end
     local st=claim(pl,entry)
     st.lastSeen=now();seen[pl]=true
-    if st.nativeNew and st.birth and not entry.value.activeSlot and not entry.value.enrollmentDeath and not entry.value.deletedDeath and not entry.value.pending then
-        local ok;ok,err=S.enrollBirth(pl,entry,st)
-        if not ok then return end
-    end
+    -- Native creation is committed before a connected owner is registered.
+    -- Polling cannot infer native persistence from the presence of a player.
     if st.creationError then
         if now()-(st.lastError or 0)>30000 then st.lastError=now();failure(pl,st.creationError) end
         return
@@ -722,7 +1122,10 @@ local function pollPlayer(pl,seen)
     if dead(pl) and not st.deathHandled then
         ok,err=S.recordDeath(pl,entry)
         if ok and st.deathHandled then S.list(pl,entry) end
-    elseif now()-st.lastSave>=interval() then ok,err=S.checkpoint(pl,entry) end
+    elseif now()-st.lastSave>=interval() then
+        ok,err=S.checkpoint(pl,entry)
+        if not ok then st.checkpointRetryAt=now()+CHECKPOINT_RETRY_MS end
+    end
     if not ok and now()-(st.lastError or 0)>30000 then
         st.lastError=now();print("[LifeProfiles] "..tostring(err));failure(pl,err)
     end
@@ -757,6 +1160,13 @@ function S.onSave()
 end
 function S.onInit()
     if not enabled() then return end
+    if isServer and isServer() then
+        local ok,status=pcall(function()return ParadiseLifeBridge and ParadiseLifeBridge("status")end)
+        if not ok or type(status)~="table" or status.ready~=true
+            or status.livingAdmission~=5 or status.safePlacement~=1 or status.creationLifecycle~=1 then
+            S.unsupportedReason="Life profiles need the paired creation-lifecycle bridge. Ask the server owner to complete the Test update"
+        end
+    end
     if isServer and isServer() and getServerOptions then
         local options=getServerOptions()
         if options and tostring(options:getOption("AllowCoop"))=="true" then

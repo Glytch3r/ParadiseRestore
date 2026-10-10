@@ -52,7 +52,8 @@ end
 function ParadiseRestore.ContextMenuManager.snapshotOption(menu, option)
     local snapshot = {name = option.name, target = option.target, onSelect = option.onSelect,
         iconTexture = option.iconTexture, checkMark = option.checkMark,
-        notAvailable = option.notAvailable, toolTip = option.toolTip}
+        notAvailable = option.notAvailable, toolTip = option.toolTip,
+        paradisePvETarget = option.paradisePvERow and option.paradisePvERow.player}
     for index = 1, 10 do snapshot['param' .. index] = option['param' .. index] end
     local subMenu = ParadiseRestore.ContextMenuManager.getSubMenu(menu, option)
     if subMenu then
@@ -288,6 +289,15 @@ function ParadiseRestore.ContextMenuManager.registerParent(kind, key, parentMenu
 end
 
 function ParadiseRestore.ContextMenuManager.cloneSnapshot(sourceOption, targetMenu, binding)
+    -- A live profile action cannot be frozen into a loading/old-state favorite.
+    local syncer=ParadiseDev and ParadiseDev.TraitSyncer
+    if sourceOption.paradisePvETarget and syncer and syncer.bindPvEMenu then
+        local option=syncer.bindPvEMenu(targetMenu,sourceOption.paradisePvETarget)
+        option.paradisePvERow.valid=function()
+            return ParadiseRestore.ContextMenuManager.isCurrentEntry(binding,binding.context)
+        end
+        return option
+    end
     local callback = sourceOption.onSelect
     local guarded
     if callback then

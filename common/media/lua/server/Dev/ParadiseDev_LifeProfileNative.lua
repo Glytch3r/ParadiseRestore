@@ -12,12 +12,15 @@ N.ambitions = setmetatable({}, {__mode="k"})
 N.applying = setmetatable({}, {__mode="k"})
 N.MAX_PERSISTENT_BYTES = 131072
 N.CARRY_MARKER="ParadiseLifeProfileWandererCarry"
+-- Runtime authority is separate from client-visible/native mod data. Only
+-- native restore, a durable checkpoint seed or an accepted transition fills it.
+N.carryBodies=N.carryBodies or setmetatable({}, {__mode="k"})
 N.OUTFIT_MARKER="ParadiseLifeProfileStartingOutfit"
 N.outfitBodies=N.outfitBodies or setmetatable({}, {__mode="k"})
 -- Native ResourceLocation IDs are lowercase; saved assignment keys retain
 -- their existing spelling in TraitSyncer's account store.
 local managed = { ["paradisedev:caged"]="ParadiseDev:Caged", ["paradisedev:therangestaff"]="ParadiseDev:TheRangeStaff",
-    ["paradisedev:pve"]="ParadiseDev:PvE", ["paradisedev:injuredpvp"]="ParadiseDev:InjuredPvP" }
+    ["paradisedev:injuredpvp"]="ParadiseDev:InjuredPvP" }
 
 local function finite(value) return type(value)=="number" and value==value and value>-math.huge and value<math.huge end
 local function number(value, label)
@@ -221,26 +224,38 @@ end
 function N.acceptAmbitions(pl,payload)
     local accepted,err=A.validate(payload)
     if not accepted then return nil,err end
-    local receipt=pl:getModData()[N.CARRY_MARKER]
+    local receipt=N.carryBodies[pl]
     if receipt~=nil and (type(receipt)~="table" or not carryTarget(receipt.target) or type(receipt.source)~="string") then return nil,"Invalid current-body carry receipt" end
     local wanderer=accepted.ambitions.LSWanderer
     if wanderer and wanderer.completed then
-        if not receipt and wanderer.newWeight then
+        local previous=N.ambitions[pl]
+        previous=previous and previous.ambitions.LSWanderer
+        if not receipt and type(previous)=="table" and previous.completed~=true then
+            local base=pl:getMaxWeightBase()
+            if not carryTarget(base) or base>=2147483647 then return nil,"Invalid native carry capacity" end
+            -- Existing typed ambition observations are the completion trust
+            -- boundary. The client never chooses the reward amount or target.
+            receipt={source="completion",target=base+1}
+            N.carryBodies[pl]=receipt
+            pl:getModData()[N.CARRY_MARKER]=boundedCopy(receipt)
+            applyCarryFloor(pl,receipt.target)
+        elseif not receipt and wanderer.newWeight then
             local base=pl:getMaxWeightBase()
             if not carryTarget(base) then return nil,"Invalid native carry capacity" end
             if wanderer.newWeight and wanderer.newWeight>base then return nil,"Wanderer carry reward is awaiting native synchronization" end
             -- Existing Lifestyle completion may have set native capacity first.
             -- Record only the actual server value, never a proposed client one.
             receipt={source="native",target=base}
-            pl:getModData()[N.CARRY_MARKER]=receipt
+            N.carryBodies[pl]=receipt
+            pl:getModData()[N.CARRY_MARKER]=boundedCopy(receipt)
         end
         -- Network samples report progress; they do not revise a server-issued
         -- carry reward for this native body.
-        if receipt then wanderer.newWeight=receipt.target end
+        if receipt then applyCarryFloor(pl,receipt.target);wanderer.newWeight=receipt.target end
     end
     N.ambitions[pl]=accepted
     pl:getModData().Ambitions=boundedCopy(accepted.ambitions)
-    return true
+    return true,nil,accepted
 end
 function N.seedAmbitions(pl,payload)
     local accepted,err=A.validate(payload)
@@ -251,15 +266,16 @@ function N.seedAmbitions(pl,payload)
         -- Native maxWeightBase is not serialized. The server checkpoint is the
         -- durable absolute target; reconnect restores it without adding again.
         local data=pl:getModData()
-        local receipt=data[N.CARRY_MARKER]
+        local receipt=N.carryBodies[pl]
         if receipt~=nil and (type(receipt)~="table" or not carryTarget(receipt.target) or type(receipt.source)~="string") then return nil,"Invalid current-body carry receipt" end
-        if not data[N.CARRY_MARKER] then data[N.CARRY_MARKER]={target=wanderer.newWeight,source=wanderer._paradiseRestoreKey or "checkpoint"} end
-        applyCarryFloor(pl,data[N.CARRY_MARKER].target)
+        if not receipt then receipt={target=wanderer.newWeight,source=wanderer._paradiseRestoreKey or "checkpoint"};N.carryBodies[pl]=receipt end
+        data[N.CARRY_MARKER]=boundedCopy(receipt)
+        applyCarryFloor(pl,receipt.target)
     end
     return N.acceptAmbitions(pl,accepted)
 end
 function N.carryWeight(pl)
-    local receipt=pl:getModData()[N.CARRY_MARKER]
+    local receipt=N.carryBodies[pl]
     return type(receipt)=="table" and carryTarget(receipt.target) and receipt.target or nil
 end
 local function capturePersistent(pl)
@@ -308,6 +324,26 @@ function N.creationXP(pl)
         -- This formula is exact only for a newly created character. An existing
         -- character may have acquired traits; the controller must not infer provenance.
         return result,"fresh_profession_and_creation_traits"
+    end)
+end
+
+-- A legacy character's first death authorizes creation only; it is never a
+-- restorable profile. Keep the existing on-disk snapshot envelope so previous
+-- readers remain compatible, but do not copy XP, recipes, traits or mod data
+-- that this one-time transition cannot restore. Empty progress fields are
+-- intentional receipt placeholders, not a replacement for saved profile data.
+function N.captureEnrollmentDeath(pl,characterKey)
+    return checked(function()
+        if isClient and isClient() then error("Enrollment death requires the server") end
+        if not pl or not pl:isDead() then error("Enrollment requires a confirmed native death") end
+        local snapshot={kind="death",provenance="unenrolled-native-death",characterKey=characterKey,
+            capturedAt=getTimestampMs(),location={x=pl:getX(),y=pl:getY(),z=pl:getZ()},
+            hoursSurvived=number(pl:getHoursSurvived(),"survival time"),
+            zombieKills=number(pl:getZombieKills(),"zombie kills"),
+            skills={},identity={traits={}},recipes={},modData={}}
+        local ok,err=M.validateSnapshot(snapshot)
+        if not ok then error(err) end
+        return boundedCopy(snapshot)
     end)
 end
 
@@ -360,6 +396,9 @@ local function managedStates(pl)
 end
 
 local function prepare(pl,snapshot)
+    if type(snapshot)=="table" and snapshot.provenance=="unenrolled-native-death" then
+        error("An enrollment death receipt cannot be restored as a profile")
+    end
     if isClient and isClient() then error("Profile restoration requires the server") end
     if not pl or pl:isDead() then error("A living replacement character is required") end
     if not pl:isExistInTheWorld() then error("The replacement character is not ready") end
@@ -375,14 +414,16 @@ local function prepare(pl,snapshot)
     local profession=professionDefinition(identity.profession)
     if not profession then error("Saved profession is unavailable: "..identity.profession) end
     local authority=managedStates(pl)
+    if snapshot.pve~=nil then authority["paradisedev:pve"]=snapshot.pve
+    else authority["paradisedev:pve"]=M.identityPvE(identity) end
     local traits,traitSet={},{}
     for _,id in ipairs(identity.traits) do
         if type(id)~="string" then error("Invalid saved trait") end
-        if not managed[string.lower(id)] then
+        if string.lower(id)~="paradisedev:pve" and string.lower(id)~="pve" and not managed[string.lower(id)] then
             local definition=traitDefinition(id)
             if not definition then error("Saved trait is unavailable: "..id) end
             local canonical=typeId(definition:getType())
-            if not managed[canonical] then traitSet[canonical]=true end
+            if canonical~="paradisedev:pve" and not managed[canonical] then traitSet[canonical]=true end
         end
     end
     for id,enabled in pairs(authority) do if enabled then traitSet[id]=true end end
@@ -499,13 +540,14 @@ function N.apply(pl,snapshot)
         local data=pl:getModData()
         local wanderer=plan.persistent.Ambitions and plan.persistent.Ambitions.LSWanderer
         if wanderer and wanderer.completed then
-            local receipt=data[N.CARRY_MARKER]
+            local receipt=N.carryBodies[pl]
             if not receipt or receipt.source~=snapshot.characterKey then
                 local base=pl:getMaxWeightBase()
                 if not carryTarget(base) or base>=2147483647 then error("Invalid new-body carry capacity") end
                 receipt={source=snapshot.characterKey,target=base+1}
-                data[N.CARRY_MARKER]=receipt
+                N.carryBodies[pl]=receipt
             end
+            data[N.CARRY_MARKER]=boundedCopy(receipt)
             applyCarryFloor(pl,receipt.target)
             wanderer.newWeight=receipt.target
         end

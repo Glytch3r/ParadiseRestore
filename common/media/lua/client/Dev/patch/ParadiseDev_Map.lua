@@ -133,15 +133,33 @@ local function getSuspectPlayers()
     if not objects then return result end
     for index = 0, objects:size() - 1 do
         local target = objects:get(index)
-        local role = target and target.getRole and target:getRole() or nil
-        if target and instanceof(target, "IsoPlayer") and role and string.lower(tostring(role:getName())) == "suspect" then
-            result[#result + 1] = target
+        if target and instanceof(target, "IsoPlayer") then
+            local role = target.getRole and target:getRole() or nil
+            if role and string.lower(tostring(role:getName())) == "suspect" then result[#result + 1] = target end
         end
     end
     return result
 end
 
-local function drawSuspectCircle(api, target, radius, alpha)
+local function screenMarkerClip()
+    local core = getCore and getCore() or nil
+    if not core or not core.getScreenWidth or not core.getScreenHeight then return nil end
+    return { left = -1, top = -1, right = core:getScreenWidth() + 1, bottom = core:getScreenHeight() + 1 }
+end
+
+local function markerOutsideClip(x, y, radius, clip)
+    return clip and (x + radius < clip.left or x - radius > clip.right
+        or y + radius < clip.top or y - radius > clip.bottom)
+end
+
+-- Only geometric constants are retained; target identity and position stay fresh.
+local suspectCircle = {}
+for index = 1, 24 do
+    local angle = (math.pi * 2 * index) / 24
+    suspectCircle[index] = { math.cos(angle), math.sin(angle) }
+end
+
+local function drawSuspectCircle(api, target, radius, alpha, clip)
     local function line(x1, y1, x2, y2)
         local dx, dy = x2 - x1, y2 - y1
         local length = math.sqrt(dx * dx + dy * dy)
@@ -157,34 +175,87 @@ local function drawSuspectCircle(api, target, radius, alpha)
     if not cx or not cy or not px then return end
     local screenRadius = math.abs(px - cx)
     if screenRadius < 2 then screenRadius = 2 end
+    -- The stroke extends 1.5 pixels beyond the centre line. Clip bounds retain
+    -- a further pixel for integer stencil rounding and edge rasterization.
+    if markerOutsideClip(cx, cy, screenRadius + 1.5, clip) then return end
     local lastX, lastY = cx + screenRadius, cy
     for index = 1, 24 do
-        local angle = (math.pi * 2 * index) / 24
-        local nextX = cx + math.cos(angle) * screenRadius
-        local nextY = cy + math.sin(angle) * screenRadius
+        local point = suspectCircle[index]
+        local nextX = cx + point[1] * screenRadius
+        local nextY = cy + point[2] * screenRadius
         line(lastX, lastY, nextX, nextY)
         lastX, lastY = nextX, nextY
     end
 end
 
-local function drawSuspectMarkers(map)
+local function drawSuspectMarkers(map, targets, clip)
     if not map or not map.mapAPI or not isSuspectMarkerViewer() then return end
-    for _, target in ipairs(getSuspectPlayers()) do
-        drawSuspectCircle(map.mapAPI, target, 4, 0.9)
+    clip = clip or screenMarkerClip()
+    for _, target in ipairs(targets or getSuspectPlayers()) do
+        drawSuspectCircle(map.mapAPI, target, 4, 0.9, clip)
     end
 end
 
-local function drawMinimapOverlays(map)
-    drawZoneOverlay(map, true)
-    drawSuspectMarkers(map)
-    if ParadiseRestore and ParadiseRestore.DeadTracker then
-        ParadiseRestore.DeadTracker.drawMapMarkers(map)
+local function collectMarkerTargets(tracker)
+    local suspects, tracked = {}, {}
+    local checkingTracked = false
+    local ok, err = pcall(function()
+        local cell = getCell and getCell() or nil
+        local objects = cell and cell:getObjectListForLua() or nil
+        if not objects then return end
+        for index = 0, objects:size() - 1 do
+            local target = objects:get(index)
+            if target and instanceof(target, "IsoPlayer") then
+                local role = target.getRole and target:getRole() or nil
+                if role and string.lower(tostring(role:getName())) == "suspect" then suspects[#suspects + 1] = target end
+            end
+            checkingTracked = true
+            if tracker.isTrackedTarget(target) then tracked[#tracked + 1] = target end
+            checkingTracked = false
+        end
+    end)
+    if not ok then
+        if not checkingTracked then error(err) end
+        -- Previously suspect markers finished before the tracker began. Preserve
+        -- that failure boundary without protected calls for every object.
+        return getSuspectPlayers(), nil, err
     end
+    return suspects, tracked
+end
+
+local function drawPlayerMarkers(map, clip)
+    if not map or not map.mapAPI then return end
+    local tracker = ParadiseRestore and ParadiseRestore.DeadTracker
+    if tracker and tracker.canViewerSee and tracker.isTrackedTarget
+        and isSuspectMarkerViewer() and tracker.canViewerSee() then
+        -- The native getter allocates a list snapshot. Share one fresh scan only
+        -- within this draw; each consumer still checks its own visibility.
+        local suspects, tracked, trackerError = collectMarkerTargets(tracker)
+        clip = clip or screenMarkerClip()
+        drawSuspectMarkers(map, suspects, clip)
+        if trackerError and tracker.canViewerSee() then error(trackerError) end
+        tracker.drawMapMarkers(map, tracked, clip)
+    else
+        drawSuspectMarkers(map, nil, clip)
+        if tracker then tracker.drawMapMarkers(map, nil, clip) end
+    end
+end
+
+local function drawMinimapOverlays(map, cx, cy, cw, ch)
+    drawZoneOverlay(map, true)
+    local clip
+    if cx and cy and cw and ch and map.getAbsoluteX and map.getAbsoluteY then
+        -- renderPoly uses screen coordinates. Use the actual active stencil,
+        -- not an assumed map-local viewport; full-map draws stay screen-clipped.
+        local x, y = map:getAbsoluteX() + cx, map:getAbsoluteY() + cy
+        clip = { left = x - 1, top = y - 1, right = x + cw + 1, bottom = y + ch + 1 }
+    end
+    drawPlayerMarkers(map, clip)
 end
 
 local function withMapStencil(map, draw)
     local cx, cy, cw, ch = map:clampStencilRectToParent(0, 0, map:getWidth(), map:getHeight())
-    local ok, err = pcall(draw, map)
+    local ok, err = pcall(draw, map, cx, cy, cw, ch)
     -- This stencil is shared with parent panels; restore it even if an overlay fails.
     map:clearStencilRect()
     map:repaintStencilRect(cx, cy, cw, ch)
@@ -272,10 +343,7 @@ function ParadiseDev.Map.hookWorldMap()
         vanillaMapRender(self, ...)
         withMapStencil(self, ParadiseDev.Map.drawZoneBorders)
         ParadiseDev.Map.drawCoordinates(self)
-        drawSuspectMarkers(self)
-        if ParadiseRestore and ParadiseRestore.DeadTracker then
-            ParadiseRestore.DeadTracker.drawMapMarkers(self)
-        end
+        drawPlayerMarkers(self)
     end
 
     local vanillaMapRightMouseUp = ISWorldMap.onRightMouseUp

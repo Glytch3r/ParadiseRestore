@@ -85,6 +85,9 @@ local function itemsFor(outfit)
         local c=saved.tint
         visual:setTint(ImmutableColor.new(c.r,c.g,c.b,1))
         visual:setHue(saved.hue)
+        -- Custom-color visuals read the item's Color, not its separate RGB
+        -- fields. Restore both so previews and new bodies use the saved tint.
+        item:setColor(Color.new(c.r,c.g,c.b,1))
         item:setColorRed(c.r);item:setColorGreen(c.g);item:setColorBlue(c.b)
         item:setCustomColor(true)
         visual:setBaseTexture(saved.baseTexture);visual:setTextureChoice(saved.textureChoice);visual:setDecal(saved.decal)

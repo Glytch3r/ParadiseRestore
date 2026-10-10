@@ -72,8 +72,30 @@ function Client.acceptState(args)
     return true
 end
 
+function Client.safeFootLocation(pl,x,y,z)
+    if not pl or not finite(x) or not finite(y) or not finite(z) or z~=math.floor(z) or z < -32 or z > 31 then return false end
+    local cell=getCell()
+    local square=cell and cell:getGridSquare(math.floor(x),math.floor(y),z)
+    if not square or not square:getChunk() or square:isWaterSquare() or square:has(IsoFlagType.water)
+        or not square:hasFloor() or square:HasStairs() or square:isSolid() or square:isSolidTrans()
+        or not square:isFree(false) or square:haveFire() or square:hasLitCampfire()
+        or square:isVehicleIntersecting() then return false end
+    local campfires=CCampfireSystem and CCampfireSystem.instance
+    local campfire=campfires and campfires:getLuaObjectOnSquare(square)
+    if campfire and (campfire.isLit==true or campfire.isLit=="true") then return false end
+    local moving=square:getMovingObjects()
+    for i=0,moving:size()-1 do if moving:get(i)~=pl then return false end end
+    local border=ParadiseDev.Zones.Border
+    if not border or not border.isFresh() then return false end
+    local zone=border.authorityAt(x,y,z,0)
+    return not zone or zone.allowed==true
+end
+
 function Client.applyFoot(pl, x, y, z)
-    if not pl or not finite(x) or not finite(y) or not finite(z) then return false end
+    if not Client.safeFootLocation(pl,x,y,z) then return false end
+    -- Direct corrections are local steps only; server native transfer owns
+    -- recovery from a deep/new zone and streaming a distant safe destination.
+    if z~=pl:getZ() or (x-pl:getX())^2+(y-pl:getY())^2>16 then return false end
     pl:setX(x); pl:setY(y); pl:setZ(z)
     pl:setLastX(x); pl:setLastY(y); pl:setLastZ(z)
     pl:setCurrentSquareFromPosition()
@@ -91,22 +113,33 @@ end
 
 -- Boundary-only movement. The regular native loop advances simulation and networking.
 function Client.moveVehicle(vehicle, x, y)
-    if not vehicle or not finite(x) or not finite(y) then return false end
-    local cell = vehicle:getCell()
-    local square = cell and cell:getGridSquare(math.floor(x),math.floor(y),vehicle:getZ())
-    if not square then return false end
-    local other = square:getVehicleContainer()
-    if (other and other ~= vehicle) or square:has(IsoFlagType.collideN) or square:has(IsoFlagType.collideW) then return false end
-    local fromX, fromY = Client.vehiclePosition(vehicle)
-    if not finite(fromX) or not finite(fromY) then return false end
-    if x == fromX and y == fromY then return true end
-    local transform = BaseVehicle.allocTransform()
-    vehicle:getWorldTransform(transform)
-    local origin = transform:getOrigin()
-    origin:set(origin:x() + x-fromX,origin:y(),origin:z() + y-fromY)
-    vehicle:setWorldTransform(transform)
-    BaseVehicle.releaseTransform(transform)
-    return true
+    -- A center-square test cannot prove a vehicle/trailer's whole footprint.
+    -- Keep occupants attached and stop instead of moving into unverified ground.
+    if vehicle then vehicle:setForceBrake() end
+    return false
+end
+
+-- Mirror vanilla's outside-seat coordinate calculation without moving the
+-- character first. Area-backed positions must use the interaction position.
+function Client.safePassengerExit(pl,vehicle,seat)
+    if vehicle:isExitBlocked(pl,seat) then return false end
+    local position=vehicle:getPassengerPosition(seat,"outside")
+    if not position then return false end
+    local x,y,z
+    local areaId=position:getArea()
+    if areaId then
+        local area=vehicle:getScript():getAreaById(areaId)
+        if not area then return false end
+        local point=vehicle:areaPositionWorld4PlayerInteract(area)
+        if not point then return false end
+        x,y,z=point:getX(),point:getY(),math.floor(vehicle:getZ())
+    else
+        local vector=BaseVehicle.allocVector3f()
+        vehicle:getPassengerPositionWorldPos(position,vector)
+        x,y,z=vector:x(),vector:y(),vector:z()
+        BaseVehicle.releaseVector3f(vector)
+    end
+    return Client.safeFootLocation(pl,x,y,z)
 end
 
 -- Both prediction and directed corrections use the same native owner exit.
@@ -134,6 +167,10 @@ function Client.exitPassenger(pl, vehicle, args, state, predicted)
         return true
     end
     if not currentPermission() then return false end
+    if not Client.safePassengerExit(pl,vehicle,seat) then
+        vehicle:setForceBrake()
+        return false
+    end
     local beforeX,beforeY,beforeZ = pl:getX(),pl:getY(),pl:getZ()
     local beforeRide = Client.ride
     -- Stop handlers can exit, change seats, or replace the local actor. Recheck
@@ -142,7 +179,8 @@ function Client.exitPassenger(pl, vehicle, args, state, predicted)
     if pl ~= getPlayer() or not pl:isAlive() or Client.correctionState ~= state then return false end
     local currentVehicle = pl:getVehicle()
     if currentVehicle then
-        if currentVehicle ~= vehicle or not currentPermission() then return false end
+        if currentVehicle ~= vehicle or not currentPermission()
+            or not Client.safePassengerExit(pl,vehicle,seat) then return false end
         vehicle:exit(pl)
         if pl:getVehicle() then return false end
     elseif pl:getX() ~= beforeX or pl:getY() ~= beforeY or pl:getZ() ~= beforeZ
@@ -265,8 +303,8 @@ function ParadiseDev.Zones.ReboundClient.onServerCommand(module, command, args)
         elseif border then border.requestFreshState(getPlayer()) end
         return
     end
-    if module ~= "PZZoneEngine" or command ~= "rebound" or not args then return end
-    if ParadiseDev and ParadiseDev.TP then ParadiseDev.TP.applyTeleport(getPlayer(), args.x, args.y, args.z) end
+    -- Retired unversioned zone "rebound" messages cannot bypass current
+    -- session/ground checks. Long-distance recovery uses the native TP path.
 end
 
 function Client.onConnected()
@@ -280,6 +318,7 @@ function Client.onConnected()
         ParadiseDev.Zones.Border.stateReceivedAt = nil
         ParadiseDev.Zones.Border.stateRequestedAt = nil
         ParadiseDev.Zones.Border.passengerRide = nil
+        ParadiseDev.Zones.Border.predictionCheck = nil
     end
 end
 function Client.onPlayerDeath(pl)

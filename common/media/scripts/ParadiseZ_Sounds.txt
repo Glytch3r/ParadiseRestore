@@ -1,6 +1,6 @@
 module Base
 {
-    // Direct ParadiseZ sound ID retained for chat commands and debugging.
+    /* Direct ParadiseZ sound ID retained for chat commands and debugging. */
     sound ParadiseZ_Intro_2
     {
         category = UI,

@@ -2,6 +2,14 @@ ParadiseDev = ParadiseDev or {}
 ParadiseDev.TraitSyncer = ParadiseDev.TraitSyncer or {}
 local Syncer = ParadiseDev.TraitSyncer
 
+local function tooltip(option,message)
+    if not ISToolTip or not ISToolTip.new then return end
+    if not option.toolTip or type(option.toolTip)=="string" then
+        option.toolTip=ISToolTip:new();option.toolTip:initialise()
+    end
+    option.toolTip.description=message
+end
+
 if LuaEventManager and LuaEventManager.AddEvent then
     LuaEventManager.AddEvent("OnTraitsSync")
 end
@@ -84,14 +92,19 @@ function Syncer.syncPlayer(player)
     local record = store.players and store.players[username] or nil
     if type(record) ~= "table" then record = {} end
     for _, traitId in ipairs(Syncer.Traits) do
-        if traitId ~= "ParadiseDev:Caged" and record[traitId] ~= nil then
+        if traitId ~= "ParadiseDev:Caged" and traitId~="ParadiseDev:PvE" and record[traitId] ~= nil then
             Syncer.setLocal(player, traitId, record[traitId] == true)
         end
     end
     Syncer.refreshTraitsUI()
 end
 
-function Syncer.requestSet(username, traitId, enabled)
+function Syncer.requestSet(username, traitId, enabled, context)
+    if traitId=="ParadiseDev:PvE" then
+        if type(context)~="table" or not Syncer.stateAt or getTimestampMs()-Syncer.stateAt>5000 then
+            Syncer.requestState();return false
+        end
+    end
     if traitId == "ParadiseDev:Caged" then
         local cage = ParadiseDev.Cage
         if not cage then return end
@@ -104,7 +117,7 @@ function Syncer.requestSet(username, traitId, enabled)
     end
     if sendClientCommand then
         sendClientCommand("ParadiseDevTraitSyncer", "set", {
-            username = tostring(username), trait = traitId, enabled = enabled == true,
+            username = tostring(username), trait = traitId, enabled = enabled == true, context=context,
         })
     end
 end
@@ -139,9 +152,12 @@ function Syncer.addTargetMenu(menu, target)
     local submenu = ISContextMenu:getNew(menu)
     menu:addSubMenu(root, submenu)
     for _, traitId in ipairs(Syncer.Traits) do
-        local enabled = Syncer.isTargetTrait(target, traitId)
-        local option = submenu:addOption((enabled and "Remove " or "Add ") .. traitId, nil, Syncer.setTarget, target, traitId, not enabled)
-        option.toolTip = "Global trait state: " .. (enabled and "TRUE" or "FALSE")
+        if traitId=="ParadiseDev:PvE" then Syncer.bindPvEMenu(submenu,target)
+        else
+            local enabled = Syncer.isTargetTrait(target, traitId)
+            local option = submenu:addOption((enabled and "Remove " or "Add ") .. traitId, nil, Syncer.setTarget, target, traitId, not enabled)
+            tooltip(option,"Account trait state: " .. (enabled and "TRUE" or "FALSE"))
+        end
     end
 end
 
@@ -175,7 +191,7 @@ function Syncer.Panel:onClick(button)
     if button.internal == "TRUE" or button.internal == "FALSE" then
         local item = self.list.items[self.list.selected]
         local entry = item and item.item or nil
-        if entry then Syncer.requestSet(entry.username, entry.trait, button.internal == "TRUE") end
+        if entry then Syncer.requestSet(entry.username, entry.trait, button.internal == "TRUE",entry.context) end
     end
 end
 function Syncer.Panel:new(x, y, width, height)
@@ -185,9 +201,30 @@ end
 function Syncer.Panel:close()
     ParadiseDev.TraitSyncer.ClosePanel()
 end
+function Syncer.ClosePanel()
+    local panel=Syncer.window
+    Syncer.window=nil
+    if panel then panel:setVisible(false);panel:removeFromUIManager() end
+end
+function Syncer.OpenPanel()
+    local player=getPlayer and getPlayer()
+    if not ParadiseRestore or not ParadiseRestore.isAdm(player) then return end
+    if not Syncer.window then
+        local width,height=640,420
+        local core=getCore()
+        local panel=Syncer.Panel:new((core:getScreenWidth()-width)/2,(core:getScreenHeight()-height)/2,width,height)
+        Syncer.window=panel
+        panel:initialise();panel:addToUIManager()
+    end
+    Syncer.window:setVisible(true)
+    Syncer.requestState()
+end
 function Syncer.refreshPanel()
     if not Syncer.window or not Syncer.window.list then return end
-    Syncer.window.list:clear()
+    local list=Syncer.window.list
+    local selected=list.items[list.selected]
+    selected=selected and selected.item
+    list:clear()
     local cageEntries = Syncer.cageEntries
     local cages, seen, entries = {}, {}, {}
     for _, entry in ipairs(cageEntries or {}) do
@@ -205,104 +242,231 @@ function Syncer.refreshPanel()
     end
     for _, entry in ipairs(entries) do
         for _, traitId in ipairs(Syncer.Traits) do
-            if not entry.cageOnly or traitId == "ParadiseDev:Caged" then
+            if (not entry.cageOnly or traitId == "ParadiseDev:Caged") and (traitId~="ParadiseDev:PvE" or entry.context and entry.context.scope=="legacy-body") then
                 local enabled = entry.traits and entry.traits[traitId] == true
                 if traitId == "ParadiseDev:Caged" and cageEntries ~= nil then
                     local cageEntry = cages[string.lower(tostring(entry.username or ""))]
                     enabled = cageEntry and cageEntry.isCaged == true or false
                 end
                 Syncer.window.list:addItem(tostring(entry.username) .. " | " .. traitId .. " | " .. (enabled and "TRUE" or "FALSE"), {
-                    username = entry.username, trait = traitId, enabled = enabled,
+                    username = entry.username, trait = traitId, enabled = enabled,context=entry.context,
                 })
             end
         end
     end
+    for _,entry in ipairs(Syncer.profiles or {}) do
+        local context=entry.context
+        if type(context)=="table" then
+            local status=context.ready and (context.pve and "TRUE" or "FALSE") or "NEEDS ASSIGNMENT"
+            Syncer.window.list:addItem(tostring(entry.username).." | Profile "..tostring(entry.slot).." "..tostring(entry.name).." | PvE | "..status,
+                {username=entry.username,trait="ParadiseDev:PvE",context=context,enabled=context.pve})
+        end
+    end
+    -- A refreshed roster must not move an administrator's selection onto a
+    -- different account or a new profile reusing the same numbered slot.
+    list.selected=0
+    if selected then
+        local selectedId=selected.context and selected.context.profileId
+        for i,item in ipairs(list.items) do
+            local current=item.item
+            if current.username==selected.username and current.trait==selected.trait
+                and (current.context and current.context.profileId)==selectedId then list.selected=i;break end
+        end
+    end
+end
+local function clock() return getTimestampMs and getTimestampMs() or 0 end
+local function owner() return getPlayer and getPlayer() end
+local function administrator() return ParadiseRestore and ParadiseRestore.isAdm(owner()) end
+local function user(pl) return pl and pl.getUsername and tostring(pl:getUsername()) end
+local function samePlayer(pl)
+    return pl and user(pl) and getPlayerFromUsername and getPlayerFromUsername(user(pl))==pl
+end
+local function contextValid(c)
+    return type(c)=="table" and type(c.contextId)=="string" and type(c.bodyKey)=="string"
+        and type(c.pveRevision)=="number" and type(c.pve)=="boolean"
+end
+Syncer.CACHE_MS=5000
+Syncer.profiles={};Syncer.observed={};Syncer.menuRows={};Syncer.requests={}
+Syncer.nonceSequence=Syncer.nonceSequence or 0
+local function nonce(prefix)
+    Syncer.nonceSequence=Syncer.nonceSequence+1
+    return prefix..":"..tostring(clock())..":"..tostring(Syncer.nonceSequence)
 end
 function Syncer.requestState()
-    if sendClientCommand then sendClientCommand("ParadiseDevTraitSyncer", "list", {}) end
+    Syncer.requestMenuState(true)
     if ParadiseDev.Cage and ParadiseDev.Cage.requestState then ParadiseDev.Cage.requestState() end
 end
-
+function Syncer.requestMenuState(force)
+    if not administrator() or not sendClientCommand then return false end
+    local now=clock()
+    if not force and Syncer.lastMenuRequest and now>=Syncer.lastMenuRequest and now-Syncer.lastMenuRequest<1000 then return false end
+    Syncer.lastMenuRequest=now
+    local id=nonce("admin");local targets={}
+    local players=getOnlinePlayers and getOnlinePlayers()
+    if players then for i=0,players:size()-1 do local pl=players:get(i);if user(pl) then targets[string.lower(user(pl))]=pl end end end
+    for _,row in ipairs(Syncer.menuRows) do if samePlayer(row.player) then targets[string.lower(user(row.player))]=row.player end end
+    for key,request in pairs(Syncer.requests) do if now-request.at>Syncer.CACHE_MS then Syncer.requests[key]=nil end end
+    Syncer.requests[id]={at=now,targets=targets,owner=owner()}
+    sendClientCommand("ParadiseDevTraitSyncer","list",{requestId=id})
+    return true
+end
 function Syncer.getTargetPvEState(target)
-    local username = target and (target.username or (target.getUsername and target:getUsername()))
-    if not username then return false, false end
-    for _, entry in ipairs(Syncer.entries or {}) do
-        if string.lower(tostring(entry.username or "")) == string.lower(tostring(username))
-            and type(entry.traits) == "table" and type(entry.traits["ParadiseDev:PvE"]) == "boolean" then
-            return entry.traits["ParadiseDev:PvE"], true
+    if not administrator() or not samePlayer(target) or (target.isDead and target:isDead()) then return false,false end
+    local record=Syncer.observed[string.lower(user(target))]
+    local now=clock()
+    if not record or record.player~=target or now<record.at or now-record.at>Syncer.CACHE_MS then return false,false end
+    local c=record.context
+    if not contextValid(c) or c.onlineId~=target:getOnlineID() then return false,false end
+    return c.pve,c.ready==true,c
+end
+local function attached(row)
+    for _,option in pairs(row.menu.options or {}) do if option==row.option and option.paradisePvERow==row then return true end end
+    return false
+end
+function Syncer.retryMenu(row)
+    if row.valid and not row.valid() then return end
+    row.started=clock();row.attempts=0;row.context=nil
+    Syncer.observed[string.lower(user(row.player) or "")]=nil
+    Syncer.updateMenus(true)
+end
+function Syncer.chooseMenu(row)
+    if row.valid and not row.valid() then return end
+    local _,known,context=Syncer.getTargetPvEState(row.player)
+    if not known or not row.context or context.contextId~=row.context.contextId
+        or context.pveRevision~=row.context.pveRevision then
+        Syncer.retryMenu(row);return
+    end
+    Syncer.requestSet(user(row.player),"ParadiseDev:PvE",row.enabled,row.context)
+end
+function Syncer.reviewMenu(row)
+    if row.valid and not row.valid() then return end
+    Syncer.OpenPanel()
+end
+function Syncer.updateMenus(force)
+    local now=clock()
+    if not force and Syncer.menuTick and now>=Syncer.menuTick and now-Syncer.menuTick<250 then return end
+    Syncer.menuTick=now
+    for i=#Syncer.menuRows,1,-1 do
+        local row=Syncer.menuRows[i]
+        local option=row.option
+        if not attached(row) or row.valid and not row.valid() or not administrator() or now-row.started>60000 then table.remove(Syncer.menuRows,i)
+        else
+            local pve,known,context=Syncer.getTargetPvEState(row.player)
+            local name=user(row.player) or "player"
+            local visible=not row.menu.getIsVisible or row.menu:getIsVisible()
+            local previousName=option.name
+            option.target=row;option.param1=nil
+            if known then
+                option.name=(pve and "Disable PvE: " or "Enable PvE: ")..name
+                row.context=context;row.enabled=not pve
+                option.notAvailable=false;option.onSelect=Syncer.chooseMenu
+                row.wasKnown=true
+                tooltip(option,context.scope=="legacy-body" and "Changes this existing character only. Other profiles keep their own PvE setting."
+                    or "Changes this profile only. Other profiles keep their own PvE setting. Zone eligibility is checked again after the change.")
+            elseif context and not context.ready then
+                option.name="PvE needs profile review: "..name
+                option.notAvailable=false;option.onSelect=Syncer.reviewMenu;row.context=nil
+                tooltip(option,(context.reason or "This profile's older PvE records disagree.").." Open Trait Syncer, select the profile, and choose Set TRUE or Set FALSE.")
+            elseif not samePlayer(row.player) or (row.player.isDead and row.player:isDead()) then
+                option.name="PvE target unavailable: "..name
+                option.notAvailable=true;option.onSelect=nil;row.context=nil
+                tooltip(option,"This character has died, disconnected, or changed. Open a new menu for the current character.")
+            else
+                if row.wasKnown then row.started=now;row.attempts=0;row.wasKnown=nil end
+                local waiting=now-row.started<5000 and row.attempts<3
+                option.name=(waiting and "PvE status loading: " or "PvE unavailable - retry: ")..name
+                option.notAvailable=waiting;option.onSelect=not waiting and Syncer.retryMenu or nil;row.context=nil
+                tooltip(option,waiting and "Waiting for this character's current server-confirmed profile status."
+                    or "The server did not return a current profile status. Click to retry; no trait change has been sent.")
+                if waiting and (visible or force) and Syncer.requestMenuState() then row.attempts=row.attempts+1 end
+            end
+            if option.name~=previousName and row.menu.calcWidth and row.menu.setWidth then row.menu:setWidth(row.menu:calcWidth()) end
         end
     end
-    local owner = getPlayer and getPlayer() or nil
-    if target == owner then return Syncer.has(owner, "ParadiseDev:PvE"), true end
-    return false, false
 end
-
-function Syncer.requestMenuState()
-    local now = getTimestampMs and getTimestampMs() or 0
-    if Syncer.lastMenuRequest and now >= Syncer.lastMenuRequest and now - Syncer.lastMenuRequest < 1000 then return end
-    Syncer.lastMenuRequest = now
-    if sendClientCommand then sendClientCommand("ParadiseDevTraitSyncer", "list", {}) end
+function Syncer.bindPvEMenu(menu,target)
+    local option=menu:addOption("PvE status loading: "..tostring(user(target) or "player"))
+    local row={menu=menu,option=option,player=target,started=clock(),attempts=0}
+    option.paradisePvERow=row;option.notAvailable=true
+    Syncer.menuRows[#Syncer.menuRows+1]=row
+    -- Menus are pooled by vanilla; bound retention and verify option identity.
+    while #Syncer.menuRows>32 do table.remove(Syncer.menuRows,1) end
+    Syncer.updateMenus(true)
+    return option
+end
+function Syncer.requestOwner(player)
+    if not player or not sendClientCommand then return end
+    local now=clock();local request=Syncer.ownerRequest
+    if request and request.player==player and now>=request.at and now-request.at<1000 then return end
+    local id=nonce("owner")
+    Syncer.ownerRequest={player=player,id=id,at=now};Syncer.ownerPvE=nil
+    sendClientCommand("ParadiseDevTraitSyncer","owner",{requestId=id})
 end
 function Syncer.onServerCommand(module, command, args)
-    if module == "ParadiseDevCage" and command == "state" then
-        -- Consume this packet directly so event-handler order cannot leave an old panel row.
-        Syncer.cageEntries = type(args) == "table" and type(args.entries) == "table" and args.entries or {}
-        Syncer.refreshPanel()
-        return
+    if module=="ParadiseDevCage" and command=="state" then
+        Syncer.cageEntries=type(args)=="table" and type(args.entries)=="table" and args.entries or {}
+        Syncer.refreshPanel();return
     end
-    if module ~= "ParadiseDevTraitSyncer" then return end
-    if command == "state" and type(args) == "table" and type(args.entries) == "table" then
-        local revision = tonumber(args.revision)
-        if not revision or revision < Syncer.lastStateRevision then return end
-        Syncer.lastStateRevision = revision
-        Syncer.entries = args.entries
-        local owner = getPlayer and getPlayer() or nil
-        for _, entry in ipairs(Syncer.entries) do
-            local target = type(entry.username) == "string" and getPlayerFromUsername and getPlayerFromUsername(entry.username)
-            if target and target ~= owner and type(entry.traits) == "table" then
-                Syncer.applyConfirmedPvE(target, entry.traits["ParadiseDev:PvE"])
+    if module~="ParadiseDevTraitSyncer" or type(args)~="table" then return end
+    if command=="state" and type(args.entries)=="table" then
+        if type(args.requestId)~="string" then return end
+        local request=Syncer.requests[args.requestId]
+        Syncer.requests[args.requestId]=nil
+        local revision=tonumber(args.revision);local now=clock()
+        if not administrator() or not request or request.owner~=owner() or now<request.at or now-request.at>Syncer.CACHE_MS
+            or not revision or revision<Syncer.lastStateRevision then return end
+        Syncer.lastStateRevision=revision;Syncer.entries=args.entries;Syncer.profiles=args.profiles or {};Syncer.stateAt=now
+        Syncer.observed={}
+        for _,entry in ipairs(args.entries) do
+            local name=string.lower(tostring(entry.username or ""));local pl=request.targets[name];local context=entry.context
+            if samePlayer(pl) and contextValid(context) and context.onlineId==pl:getOnlineID() then
+                Syncer.observed[name]={player=pl,context=context,at=now}
+                if context.ready and pl~=owner() then Syncer.applyConfirmedPvE(pl,context.pve) end
             end
         end
-        Syncer.refreshPanel()
-        Syncer.refreshTraitsUI()
-    elseif command == "pve" and type(args) == "table" then
-        local player = getPlayer and getPlayer() or nil
-        local revision = tonumber(args.revision)
-        if not player or args.username ~= player:getUsername() or type(args.enabled) ~= "boolean"
-            or not revision or revision < Syncer.lastOwnerRevision then return end
-        Syncer.lastOwnerRevision = revision
-        Syncer.ownerPvE = {player = player, enabled = args.enabled}
-        Syncer.applyConfirmedPvE(player, args.enabled)
-        Syncer.refreshTraitsUI()
-    elseif command == "error" and type(args) == "table" and type(args.message) == "string" then
-        local player = getPlayer and getPlayer() or nil
-        if player and player.setHaloNote then player:setHaloNote(args.message) end
+        Syncer.refreshPanel();Syncer.refreshTraitsUI();Syncer.updateMenus(true)
+    elseif command=="invalidate" then
+        Syncer.observed={};Syncer.stateAt=nil
+        if Syncer.window or #Syncer.menuRows>0 then Syncer.requestMenuState() end
+        Syncer.updateMenus(true)
+    elseif command=="pve" then
+        local player=owner();local request=Syncer.ownerRequest;local c=args.context;local revision=tonumber(args.revision)
+        if not request or request.player~=player or args.requestId~=request.id or not contextValid(c)
+            or not c.ready or c.onlineId~=player:getOnlineID() or not revision or revision<Syncer.lastOwnerRevision then return end
+        Syncer.lastOwnerRevision=revision
+        Syncer.ownerPvE={player=player,enabled=c.pve,context=c,at=clock()}
+        Syncer.applyConfirmedPvE(player,c.pve);Syncer.refreshTraitsUI()
+    elseif command=="result" and type(args.message)=="string" then
+        local player=owner();if administrator() and player and player.setHaloNote then player:setHaloNote(args.message) end
+    elseif command=="error" and type(args.message)=="string" then
+        Syncer.observed={};Syncer.stateAt=nil
+        local player=owner();if player and player.setHaloNote then player:setHaloNote(args.message) end
+        Syncer.updateMenus(true)
     end
 end
 function Syncer.onPlayerUpdate(player)
-    if not player or player ~= getPlayer() then return end
-    local now = getTimestampMs and getTimestampMs() or 0
-    if now - Syncer.lastSync < 1000 then return end
-    Syncer.lastSync = now
-    -- A late native packet must not undo a newer confirmed assignment. This
-    -- session value is cleared on reconnect and never read from old ModData.
-    if Syncer.ownerPvE and Syncer.ownerPvE.player == player then
-        Syncer.applyConfirmedPvE(player, Syncer.ownerPvE.enabled)
-    end
+    if not player or player~=owner() then return end
+    local now=clock()
+    if now>=Syncer.lastSync and now-Syncer.lastSync<1000 then return end
+    Syncer.lastSync=now
+    local receipt=Syncer.ownerPvE
+    if not receipt or receipt.player~=player or now<receipt.at or now-receipt.at>5000 then Syncer.requestOwner(player)
+    else Syncer.applyConfirmedPvE(player,receipt.enabled) end
     Syncer.syncPlayer(player)
-    local pve = Syncer.has(player, "ParadiseDev:PvE")
-    if Syncer.lastOwner ~= player or Syncer.lastOwnerPvE ~= pve then
-        Syncer.lastOwner, Syncer.lastOwnerPvE = player, pve
-        if triggerEvent then triggerEvent("OnTraitsSync", "ParadiseDev:PvE", pve) end
+    local pve=Syncer.has(player,"ParadiseDev:PvE")
+    if Syncer.lastOwner~=player or Syncer.lastOwnerPvE~=pve then
+        Syncer.lastOwner,Syncer.lastOwnerPvE=player,pve
+        if triggerEvent then triggerEvent("OnTraitsSync","ParadiseDev:PvE",pve) end
     end
 end
 function Syncer.onConnected()
-    Syncer.entries = {}; Syncer.lastMenuRequest = nil
-    Syncer.lastStateRevision = -1; Syncer.lastOwnerRevision = -1; Syncer.ownerPvE = nil
-    local player = getPlayer and getPlayer() or nil
-    if player and ParadiseRestore and ParadiseRestore.isAdm(player) then Syncer.requestMenuState() end
+    Syncer.entries={};Syncer.profiles={};Syncer.observed={};Syncer.requests={};Syncer.menuRows={};Syncer.lastMenuRequest=nil
+    Syncer.lastStateRevision=-1;Syncer.lastOwnerRevision=-1;Syncer.ownerPvE=nil;Syncer.ownerRequest=nil;Syncer.stateAt=nil
+    if administrator() then Syncer.requestMenuState() end
 end
 Events.OnConnected.Remove(Syncer.onConnected)
 Events.OnConnected.Add(Syncer.onConnected)
 Events.OnServerCommand.Add(Syncer.onServerCommand)
 Events.OnPlayerUpdate.Add(Syncer.onPlayerUpdate)
+function Syncer.menuTickUpdate() Syncer.updateMenus(false) end
+Events.OnTick.Add(Syncer.menuTickUpdate)

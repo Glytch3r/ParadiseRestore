@@ -72,32 +72,42 @@ function ParadiseRestore.DeadTracker.getTrackedTargets()
     return result
 end
 
-local function drawDot(cx, cy, radius, r, g, b)
+local function screenMarkerClip()
+    local core = getCore and getCore() or nil
+    if not core or not core.getScreenWidth or not core.getScreenHeight then return nil end
+    return { left = -1, top = -1, right = core:getScreenWidth() + 1, bottom = core:getScreenHeight() + 1 }
+end
+
+local function markerOutsideClip(x, y, radius, clip)
+    return clip and (x + radius < clip.left or x - radius > clip.right
+        or y + radius < clip.top or y - radius > clip.bottom)
+end
+
+local dotPoints = { { 0, -1 }, { 0.7, -0.7 }, { 1, 0 }, { 0.7, 0.7 },
+    { 0, 1 }, { -0.7, 0.7 }, { -1, 0 }, { -0.7, -0.7 } }
+
+local function drawDot(cx, cy, radius, r, g, b, clip)
+    if markerOutsideClip(cx, cy, math.abs(radius), clip) then return end
     local renderer = getRenderer and getRenderer() or nil
     if not renderer then return end
     -- Fixed UI-pixel octagon: it remains readable at every map zoom level.
-    local diagonal = radius * 0.7
-    local points = {
-        { cx, cy - radius }, { cx + diagonal, cy - diagonal },
-        { cx + radius, cy }, { cx + diagonal, cy + diagonal },
-        { cx, cy + radius }, { cx - diagonal, cy + diagonal },
-        { cx - radius, cy }, { cx - diagonal, cy - diagonal },
-    }
-    for index = 1, #points do
-        local nextIndex = index == #points and 1 or index + 1
-        renderer:renderPoly(cx, cy, points[index][1], points[index][2],
-            points[nextIndex][1], points[nextIndex][2], cx, cy, r, g, b, 0.95)
+    for index = 1, #dotPoints do
+        local point = dotPoints[index]
+        local nextPoint = dotPoints[index == #dotPoints and 1 or index + 1]
+        renderer:renderPoly(cx, cy, cx + point[1] * radius, cy + point[2] * radius,
+            cx + nextPoint[1] * radius, cy + nextPoint[2] * radius, cx, cy, r, g, b, 0.95)
     end
 end
 
-function ParadiseRestore.DeadTracker.drawMapMarkers(map)
+function ParadiseRestore.DeadTracker.drawMapMarkers(map, targets, clip)
     if not map or not map.mapAPI or not ParadiseRestore.DeadTracker.canViewerSee() then return end
-    for _, target in ipairs(ParadiseRestore.DeadTracker.getTrackedTargets()) do
+    clip = clip or screenMarkerClip()
+    for _, target in ipairs(targets or ParadiseRestore.DeadTracker.getTrackedTargets()) do
         local isZombie = instanceof(target, "IsoZombie") and target:isReanimatedPlayer() == true
         local r, g, b = ParadiseRestore.DeadTracker.getMarkerColor(isZombie)
         local x, y = target:getX(), target:getY()
         local uiX, uiY = map.mapAPI:worldToUIX(x, y), map.mapAPI:worldToUIY(x, y)
-        if uiX and uiY then drawDot(uiX, uiY, ParadiseRestore.DeadTracker.dotRadius, r, g, b) end
+        if uiX and uiY then drawDot(uiX, uiY, ParadiseRestore.DeadTracker.dotRadius, r, g, b, clip) end
     end
 end
 

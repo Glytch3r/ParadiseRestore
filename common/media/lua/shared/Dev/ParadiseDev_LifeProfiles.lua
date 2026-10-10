@@ -80,7 +80,16 @@ function M.validateSnapshot(snapshot)
         end
         for key in pairs(snapshot.physical)do if key~="weight" then return nil,"unsupported physical field" end end
     end
+    if snapshot.pve~=nil and type(snapshot.pve)~="boolean" then return nil,"invalid snapshot PvE policy" end
     return true
+end
+
+function M.identityPvE(identity)
+    for _,id in ipairs(identity and identity.traits or {}) do
+        local name=string.lower(tostring(id))
+        if name=="paradisedev:pve" or name=="pve" then return true end
+    end
+    return false
 end
 
 function M.account()
@@ -100,6 +109,9 @@ function M.validateAccount(account)
         if slot.phase ~= "alive" and slot.phase ~= "dead" then return nil, "invalid profile phase" end
         if not integer(slot.revision, 1, account.revision) or not integer(slot.deathSeq, 0, 9007199254740000) or not integer(slot.incarnations, 0, 9007199254740000) then return nil, "invalid profile counters" end
         if type(slot.creationIdentity) ~= "table" then return nil, "creation identity missing" end
+        if slot.pve~=nil and (type(slot.pve)~="boolean" or not integer(slot.pveRevision,1,9007199254740000)) then return nil,"invalid profile PvE policy" end
+        if slot.pveConflict~=nil and slot.pveConflict~=true then return nil,"invalid PvE migration conflict" end
+        if slot.pveConflict and slot.pve==nil then return nil,"PvE conflict has no policy" end
         if slot.startingOutfit~=nil then
             local outfit,why=O.validate(slot.startingOutfit)
             if not outfit then return nil,why end
@@ -187,6 +199,35 @@ function M.validateAccount(account)
             if account.slots[p.slot] or p.targetSnapshot ~= nil then return nil, "new profile reservation is occupied" end
         else return nil, "invalid pending transition kind" end
     end
+    if account.creationIntent~=nil then
+        local i=account.creationIntent
+        if type(i)~="table" or not text(i.creationId) or not text(i.bodyKey)
+                or not text(i.profileId) or not text(i.source) or not finite(i.createdAt)
+                or (i.kind~="first" and i.kind~="create" and i.kind~="restore") then
+            return nil,"invalid native creation intent"
+        end
+        local ok,why=M.validateSnapshot(i.snapshot)
+        if not ok or i.snapshot.kind~="checkpoint" or i.snapshot.characterKey~=i.bodyKey then
+            return nil,why or "creation intent body does not match"
+        end
+        ok,why=xpMap(i.xp);if not ok then return nil,why end
+        ok,why=O.validate(i.startingOutfit);if not ok then return nil,why end
+        if i.retryAllowed~=nil and type(i.retryAllowed)~="boolean" then return nil,"invalid creation retry state" end
+        if i.kind=="first" then
+            if account.pending or account.activeSlot or account.enrollmentDeath or account.deletedDeath
+                    or count~=0 or i.pendingId~=nil then return nil,"first creation intent conflicts with profiles" end
+        else
+            local pending=account.pending
+            if not pending or pending.status~="prepared" or pending.id~=i.pendingId or pending.kind~=i.kind then
+                return nil,"creation intent does not match prepared transition"
+            end
+        end
+    end
+    if account.lastCreationCommit~=nil then
+        local c=account.lastCreationCommit
+        if type(c)~="table" or not text(c.creationId) or not text(c.bodyKey)
+                or not integer(c.revision,1,account.revision) then return nil,"invalid creation commit receipt" end
+    end
     if account.lastCompletion ~= nil then
         local last = account.lastCompletion
         if type(last) ~= "table" or not text(last.id) or not text(last.characterKey) or not integer(last.slot, 1, M.MAX_SLOTS) then return nil, "invalid completion receipt" end
@@ -213,6 +254,51 @@ local function finish(account, value)
     return account, value
 end
 
+-- One durable migration; never duplicate a username override across profiles.
+function M.migratePvE(account,legacy)
+    local nextAccount,err=cloneAccount(account)
+    if not nextAccount then return nil,err end
+    local changed=false
+    for _,slot in pairs(nextAccount.slots) do
+        if slot.pve==nil then
+            slot.pve=M.identityPvE(slot.creationIdentity);slot.pveRevision=1
+            -- Older restoration could replay an account assignment into another
+            -- body's checkpoint. Neither an original-choice/latest-body mismatch
+            -- nor a contradictory account record identifies the intended owner.
+            local latest=slot.phase=="dead" and slot.death or slot.checkpoint
+            local bodyPvE=M.identityPvE(latest and latest.identity)
+            slot.pveConflict=(type(legacy)=="boolean" and legacy~=slot.pve or bodyPvE~=slot.pve) or nil
+            changed=true
+        end
+    end
+    if changed then nextAccount.revision=nextAccount.revision+1 end
+    return finish(nextAccount,changed)
+end
+
+function M.setProfilePvE(account,profileId,expectedRevision,enabled)
+    local nextAccount,err=cloneAccount(account)
+    if not nextAccount then return nil,err end
+    if type(enabled)~="boolean" or not text(profileId) then return nil,"Invalid profile PvE assignment" end
+    local target
+    for _,slot in pairs(nextAccount.slots) do if slot.id==profileId then target=slot;break end end
+    if not target or target.pveRevision~=expectedRevision then return nil,"Profile PvE changed; refresh before applying" end
+    local pending=nextAccount.pending
+    -- An old interrupted restoration may only discover its ambiguous legacy
+    -- policy during migration. Permit that explicit administrator decision;
+    -- ordinary changes still cannot modify an in-flight profile selection.
+    local resolving=pending and pending.status=="applying" and pending.kind=="restore"
+        and pending.slot==target.slot and target.pveConflict==true
+    if pending and not resolving then return nil,"Cancel the pending profile selection before changing PvE" end
+    nextAccount.revision=nextAccount.revision+1
+    target.pve=enabled;target.pveConflict=nil;target.pveRevision=target.pveRevision+1;target.revision=nextAccount.revision
+    if resolving then
+        pending.targetRevision=target.revision
+        if pending.sourceSlot==target.slot then pending.sourceRevision=target.revision end
+        pending.targetSnapshot.pve=enabled
+    end
+    return finish(nextAccount,target)
+end
+
 function M.ensureSlot(account, index, id, creationXP, snapshot, startingOutfit)
     local nextAccount, err = cloneAccount(account)
     if not nextAccount then return nil, err end
@@ -229,6 +315,7 @@ function M.ensureSlot(account, index, id, creationXP, snapshot, startingOutfit)
     if nextAccount.pending or nextAccount.activeSlot or nextAccount.enrollmentDeath or nextAccount.deletedDeath then return nil, "creation must use a death selection" end
     nextAccount.revision = nextAccount.revision + 1
     local slot = { id = id, slot = index, phase = "alive", creationXP = M.copy(creationXP), creationIdentity = M.copy(snapshot.identity), checkpoint = M.copy(snapshot), deathSeq = 0, incarnations = 0, revision = nextAccount.revision }
+    slot.pve=M.identityPvE(snapshot.identity);slot.pveRevision=1
     if startingOutfit~=nil then
         slot.startingOutfit,err=O.validate(startingOutfit)
         if not slot.startingOutfit then return nil,err end
@@ -334,8 +421,11 @@ end
 
 function M.penalizedSnapshot(slot)
     if not slot or not slot.death then return nil, "death snapshot missing" end
+    if slot.pveConflict then return nil,"An administrator must resolve this profile’s PvE setting" end
     local result, err = M.copy(slot.death)
     if not result then return nil, err end
+    result.pve=slot.pve~=nil and slot.pve or M.identityPvE(slot.creationIdentity)
+    if slot.pve==false then result.pve=false end
     for perk, current in pairs(result.skills) do
         local base = math.min(current, tonumber(slot.creationXP[perk]) or 0)
         result.skills[perk] = base + 0.9 * math.max(0, current - base)
@@ -416,6 +506,7 @@ function M.complete(account, requestId, snapshot, creationXP, newProfileId)
         ok, err = xpMap(creationXP)
         if not ok or not text(newProfileId) then return nil, err or "new profile identity missing" end
         slot = { id = newProfileId, slot = p.slot, creationXP = M.copy(creationXP), creationIdentity = M.copy(snapshot.identity), deathSeq = 0, incarnations = 0 }
+        slot.pve=M.identityPvE((p.creationSnapshot or snapshot).identity);slot.pveRevision=1
         -- Freeze only the first native creation outfit, never completion/death wear.
         slot.startingOutfit=M.copy(p.creationStartingOutfit)
         nextAccount.slots[p.slot] = slot
@@ -475,10 +566,103 @@ function M.retryAfterBodyDeath(account, requestId, characterKey)
     return finish(nextAccount, p)
 end
 
+-- A durable intent records a prepared native body without claiming that its
+-- asynchronous native DB write succeeded. Only native readback can commit it.
+function M.stageCreation(account,intent)
+    local a,err=cloneAccount(account);if not a then return nil,err end
+    if type(intent)~="table" then return nil,"creation intent missing" end
+    local old=a.creationIntent
+    if old and old.creationId==intent.creationId and old.bodyKey==intent.bodyKey then return a,old end
+    if old and old.retryAllowed~=true then return nil,"another native creation is still prepared" end
+    a.creationIntent,err=M.copy(intent);if not a.creationIntent then return nil,err end
+    if old then
+        if old.kind~=intent.kind or old.pendingId~=intent.pendingId or old.profileId~=intent.profileId then
+            return nil,"retry must preserve the original creation choice"
+        end
+        -- Retrying an unsaved native object changes its binding and destination,
+        -- never the first frozen identity, XP baseline, mod data or outfit.
+        local nextIntent=a.creationIntent
+        nextIntent.xp=M.copy(old.xp);nextIntent.source=old.source
+        nextIntent.startingOutfit=M.copy(old.startingOutfit)
+        nextIntent.snapshot=M.copy(old.snapshot)
+        nextIntent.snapshot.characterKey=intent.bodyKey
+        nextIntent.snapshot.location=M.copy(intent.snapshot.location)
+    end
+    a.creationIntent.retryAllowed=nil
+    a.revision=a.revision+1
+    return finish(a,a.creationIntent)
+end
+
+function M.markCreationRetry(account,creationId)
+    local a,err=cloneAccount(account);if not a then return nil,err end
+    local intent=a.creationIntent
+    if not intent or intent.creationId~=creationId then return nil,"creation intent changed" end
+    if intent.retryAllowed then return a,intent end
+    intent.retryAllowed=true;a.revision=a.revision+1
+    return finish(a,intent)
+end
+
+function M.moveCreationIntent(account,creationId,bodyKey,point)
+    local a,err=cloneAccount(account);if not a then return nil,err end
+    local intent=a.creationIntent
+    if not intent or intent.creationId~=creationId or intent.bodyKey~=bodyKey then return nil,"creation destination binding changed" end
+    if type(point)~="table" then return nil,"creation destination missing" end
+    for _,axis in ipairs({"x","y","z"})do if not finite(point[axis]) then return nil,"invalid creation destination" end end
+    local old=intent.snapshot.location
+    if old.x==point.x and old.y==point.y and old.z==point.z then return a,intent end
+    intent.snapshot.location={x=point.x,y=point.y,z=point.z};a.revision=a.revision+1
+    return finish(a,intent)
+end
+
+function M.commitCreation(account,creationId,bodyKey)
+    local a,err=cloneAccount(account);if not a then return nil,err end
+    local intent=a.creationIntent
+    if not intent then
+        local last=a.lastCreationCommit
+        if last and last.creationId==creationId and last.bodyKey==bodyKey then return a,last end
+        return nil,"no matching durable creation intent"
+    end
+    if intent.creationId~=creationId or intent.bodyKey~=bodyKey then return nil,"native creation acknowledgement changed" end
+    a.creationIntent=nil
+    if intent.kind=="first" then
+        a,err=M.ensureSlot(a,1,intent.profileId,intent.xp,intent.snapshot,intent.startingOutfit)
+        if not a then return nil,err end
+        a.slots[1].creationSource=intent.source
+    else
+        a,err=M.markApplying(a,intent.pendingId,intent.bodyKey)
+        if not a then return nil,err end
+        if a.pending.kind=="create" and not a.pending.creationSnapshot then
+            a.pending.creationXP=M.copy(intent.xp);a.pending.creationSource=intent.source
+            a.pending.creationSnapshot=M.copy(intent.snapshot);a.pending.profileId=intent.profileId
+            a.pending.creationStartingOutfit=M.copy(intent.startingOutfit)
+        end
+    end
+    a.lastCreationCommit={creationId=creationId,bodyKey=bodyKey,revision=a.revision}
+    return finish(a,a.lastCreationCommit)
+end
+
+-- Native absence is not a new death. Requeue only an already frozen, unfinished
+-- transaction after the server confirms that its replacement was never stored.
+function M.retryUnsavedCreation(account,requestId,bodyKey)
+    local a,err=cloneAccount(account);if not a then return nil,err end
+    local p=a.pending
+    if not p or p.id~=requestId or p.status~="applying" or p.newCharacterKey~=bodyKey then
+        return nil,"no matching unsaved restoration"
+    end
+    p.failedBodies=p.failedBodies or {};p.failedBodies[#p.failedBodies+1]=bodyKey
+    if #p.failedBodies>16 then table.remove(p.failedBodies,1) end
+    p.retryCount=(p.retryCount or 0)+1
+    p.status,p.newCharacterKey="prepared",nil
+    p.unsavedCreationRecovery={bodyKey=bodyKey,source="verified-native-absence"}
+    a.revision=a.revision+1
+    return finish(a,p)
+end
+
 function M.cancel(account, requestId)
     local nextAccount, err = cloneAccount(account)
     if not nextAccount then return nil, err end
     local p = nextAccount.pending
+    if nextAccount.creationIntent then return nil,"Native creation is already prepared; retry its saved state" end
     if not p or p.id ~= requestId or p.status ~= "prepared" then return nil, "only a prepared transition can be cancelled" end
     nextAccount.pending, nextAccount.revision = nil, nextAccount.revision + 1
     return finish(nextAccount, true)

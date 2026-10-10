@@ -3,8 +3,7 @@ ParadiseDev.TradePrivacy = ParadiseDev.TradePrivacy or {}
 
 
 function ParadiseDev.TradePrivacy.isProtectedTarget(targ)
-    if not targ then return false end
-    if targ.isInvisible and targ:isInvisible() then return true end
+    if not targ or not targ.isInvisible or not targ:isInvisible() then return false end
     return ParadiseRestore.isAdm(targ)
 end
 

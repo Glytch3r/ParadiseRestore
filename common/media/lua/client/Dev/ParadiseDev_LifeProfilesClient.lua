@@ -3,6 +3,7 @@ require "Dev/ParadiseDev_Reincarnate"
 require "Dev/ParadiseDev_LifeAmbitions"
 require "Dev/ParadiseDev_LifeAmbitionsClient"
 require "Dev/ParadiseDev_LifeStartingOutfit"
+require "Dev/ParadiseDev_LifeCreationClient"
 require "ISUI/ISPostDeathUI"
 require "OptionScreens/MapSpawnSelect"
 require "ISUI/ISUI3DModel"
@@ -104,6 +105,7 @@ function C.sampleAmbitions(pl)
     if s.transaction or s.ambitionBootstrapBody~=pl or s.ambitionReady~=pl:getModData().ParadiseLifeProfileCharacterKey
             or not s.ambitionReady or now()-(s.lastAmbitionSend or 0)<10000 then return end
     s.lastAmbitionSend=now()
+    C.reconcileCarry(pl)
     local args=C.captureAmbitions(pl,false)
     if args then C.send(pl,"ambitions",args) end
 end
@@ -421,6 +423,34 @@ function C.applyCarryFloor(pl,value)
             and pl:getMaxWeightBase()<value then pl:setMaxWeightBase(value) end
 end
 
+-- Callers first validate their response's observation/transaction/sequence.
+-- This cache is deliberately not loaded from locally editable ambition data.
+function C.acceptCarry(pl,value,key,revision)
+    if not pl or isDead(pl) or localPlayer(pl:getPlayerNum())~=pl
+            or type(key)~="string" or #key<1 or #key>256 or key~=pl:getModData().ParadiseLifeProfileCharacterKey
+            or type(revision)~="number" or revision~=math.floor(revision) or revision<0 or revision>9007199254740000
+            or type(value)~="number" or value~=math.floor(value) or value<1 or value>2147483647 then return false end
+    local s=state(pl:getPlayerNum())
+    local previous=s.carry
+    if previous and previous.body==pl and previous.key==key then
+        if revision<previous.revision or (revision==previous.revision and value~=previous.target) then return false end
+    end
+    s.carry={body=pl,key=key,revision=revision,target=value}
+    C.reconcileCarry(pl)
+    return true
+end
+
+function C.reconcileCarry(pl)
+    if not pl or isDead(pl) or localPlayer(pl:getPlayerNum())~=pl then return end
+    local s=state(pl:getPlayerNum())
+    local receipt=s.carry
+    if not receipt or receipt.body~=pl or receipt.key~=pl:getModData().ParadiseLifeProfileCharacterKey then return end
+    C.applyCarryFloor(pl,receipt.target)
+    local ambitions=pl:getModData().Ambitions
+    local wanderer=ambitions and ambitions.LSWanderer
+    if type(wanderer)=="table" and wanderer.completed then wanderer.newWeight=receipt.target end
+end
+
 function C.mirrorRestored(pl,args)
     local identity=args.identity or {}
     local desc=pl:getDescriptor()
@@ -434,7 +464,6 @@ function C.mirrorRestored(pl,args)
     if identity.visual then C.applyVisual(pl:getHumanVisual(),identity.visual);pl:resetModel() end
     if args.hoursSurvived~=nil then pl:setHoursSurvived(args.hoursSurvived) end
     if args.zombieKills~=nil then pl:setZombieKills(args.zombieKills) end
-    C.applyCarryFloor(pl,args.carryWeight)
     if type(args.physical)=="table" and type(args.physical.weight)=="number"
             and args.physical.weight==args.physical.weight and args.physical.weight>=35 and args.physical.weight<math.huge then
         pl:getNutrition():setWeight(args.physical.weight)
@@ -450,6 +479,7 @@ function C.mirrorRestored(pl,args)
         for key,value in pairs(args.modData)do data[key]=value end
     end
     if type(args.characterKey)=="string" then pl:getModData().ParadiseLifeProfileCharacterKey=args.characterKey end
+    C.acceptCarry(pl,args.carryWeight,args.characterKey,args.revision)
     local A=ParadiseDev.LifeAmbitionsClient
     if A and A.onRestored then A.onRestored(pl) end
 end
@@ -480,7 +510,22 @@ function C.checkNativeXP(index)
     return true
 end
 
-function C.spawnSaved(panel, accepted)
+function C.spawnSaved(panel, accepted, prepared)
+    if isClient() and not prepared then
+        local gate=ParadiseDev.LifeCreationClient
+        local index=panel.playerIndex
+        local s=state(index)
+        panel:setVisible(false)
+        return gate.begin(gate.hints(accepted),function(result)
+            if ISPostDeathUI.instance[index]~=panel or not isDead(localPlayer(index)) then return end
+            accepted.spawn=result.creationLocation;accepted.spawnRegion=result.spawnRegion
+            return C.spawnSaved(panel,accepted,true)
+        end,function()
+            s.handled[accepted.transactionId]=nil
+            s.message="Preparation cancelled. Choose Resume profile or Change profile."
+            if ISPostDeathUI.instance[index]==panel then panel:setVisible(true)end
+        end)
+    end
     local pl = localPlayer(panel.playerIndex)
     local profile = accepted.profile or {}
     local desc = C.descriptor(profile.identity,false,profile.startingOutfit)
@@ -494,7 +539,10 @@ function C.spawnSaved(panel, accepted)
     getWorld():setLuaPlayerDesc(desc)
     getWorld():getLuaTraits():clear()
     for _, id in ipairs(profile.identity and profile.identity.traits or {}) do
-        if not C.isManagedTrait(id) then getWorld():addLuaTrait(C.traitType(id)) end
+        local key=string.lower(tostring(id))
+        if not C.isManagedTrait(id) or profile.creationRetry and (key=="paradisedev:pve" or key=="pve") then
+            getWorld():addLuaTrait(C.traitType(id))
+        end
     end
     setGameSpeed(1)
     panel:removeFromUIManager()
@@ -560,7 +608,9 @@ local function spawnRegions(accepted)
         end
         if type(points)~="table" then return nil,"The selected spawn list is unavailable. Reconnect to refresh the server's locations." end
         regions[#regions+1]={name=option.name or option.regionName or "Spawn location",points=points,
-            lifeSpawnId=option.id,lifeRegionName=option.regionName or option.name}
+            lifeSpawnId=option.id,lifeRegionName=option.regionName or option.name,
+            lifeDescription=type(option.description)=="string" and option.description:sub(1,512) or nil,
+            lifeWarning=type(accepted.spawnOptions.warning)=="string" and accepted.spawnOptions.warning:sub(1,1024) or nil}
     end
     return regions
 end
@@ -591,7 +641,17 @@ function C.openSpawnPicker(index,accepted,show)
     picker.getSpawnRegions=function()return regions end
     -- Reuse the native region rows, map preview and controller navigation, but
     -- do not append Coop's body/other-player destinations or an unapproved row.
-    picker.fillList=function(self)MapSpawnSelect.fillList(self)end
+    picker.fillList=function(self)
+        MapSpawnSelect.fillList(self)
+        for _,row in ipairs(self.listbox.items or {}) do
+            local item=row.item;local region=item and item.region
+            if region then
+                local extra=region.lifeDescription or ""
+                if region.lifeWarning then extra=extra.." <LINE> Unavailable locations: "..region.lifeWarning end
+                if extra~="" then item.desc=(item.desc or "").." <LINE> "..extra end
+            end
+        end
+    end
     picker.hasChoices=function()return true end
     picker.clickBack=function()creation:cancel()end
     picker.clickNext=function(self)
@@ -605,7 +665,7 @@ function C.openSpawnPicker(index,accepted,show)
         self.lifeNativePrerender(self)
         self.nextButton:setEnable(not s.spawnRequest and #self.listbox.items>0)
         self.nextButton:setTitle(s.spawnRequest and "Confirming..." or getText("UI_btn_next"))
-        self.nextButton.tooltip=s.message
+        self.nextButton.tooltip=s.message or (accepted.spawnOptions and accepted.spawnOptions.warning)
     end
     -- A chosen location is immutable within one durable restoration. Going
     -- back from professions cancels that reservation instead of silently
@@ -697,15 +757,30 @@ function C.acceptSpawn(index,accepted)
     if not ok or not result then C.cancel(index);s.message=tostring(ok and err or result) end
 end
 
-function C.profileLines(profile)
+function C.profileLines(profile,profiles)
     if not profile.id then
+        if profiles and profiles.legacyEnrollment==true then
+            return { "Start your first saved profile",
+                "Your previous character died before a profile was created.",
+                "Create a new character in this slot to start your first saved profile.",
+                "Your previous character's progress cannot be restored.",
+                "Items remain with the previous character's corpse." }
+        end
+        local hasSavedProfile=false
+        for _,slot in pairs(profiles and profiles.slots or {})do
+            if slot.id then hasSavedProfile=true;break end
+        end
         return { "Empty profile", "Create a new character in this slot.",
-            "Your other profiles remain saved.", "Items remain with each character's corpse." }
+            hasSavedProfile and "Your other profiles remain saved." or "You do not have any saved profiles yet.",
+            "Items remain with each character's corpse." }
     end
     local identity = profile.identity or {}
     local hours = tonumber(profile.hoursSurvived) or 0
     local traits={}
-    for _,id in ipairs(identity.traits or {})do traits[#traits+1]=C.displayDefinition(id,false)end
+    for _,id in ipairs(identity.traits or {}) do
+        local key=string.lower(tostring(id))
+        if key~="paradisedev:pve" and key~="pve" then traits[#traits+1]=C.displayDefinition(id,false) end
+    end
     local earnedTotal,lossTotal=0,0
     for id,value in pairs(profile.skills or {})do
         earnedTotal=earnedTotal+math.max(0,value-(tonumber(profile.creationXP and profile.creationXP[id]) or 0))
@@ -718,7 +793,9 @@ function C.profileLines(profile)
         "Zombies killed: " .. tostring(profile.zombieKills or 0),
         "Lives: " .. tostring(profile.incarnations or 1),
         "Saved state: " .. (profile.snapshotKind == "death" and "at death" or "latest checkpoint"),
+        "PvE: " .. (profile.pveConflict and "Needs administrator review" or profile.pve==true and "Enabled for this profile" or "Disabled for this profile"),
         "Traits: " .. table.concat(traits, ", "),
+        "Spawn choices follow this profile's permissions and the current zones.",
         "Retained earned XP: " .. string.format("%.1f",earnedTotal) .. "  |  Reincarnation loss: " .. string.format("%.1f",lossTotal),
         "Items remain on the corpse; skills and identity continue.",
         "Skill XP: current  /  lost  /  after reincarnation",
@@ -789,7 +866,7 @@ function C.refreshDetails(panel)
     local profile = slotAt(s, s.selected)
     panel.profileDetails:clear()
     local width = math.max(90, panel.profileDetails.width - 26)
-    for _, line in ipairs(C.profileLines(profile)) do
+    for _, line in ipairs(C.profileLines(profile,s.profiles)) do
         local row = ""
         for word in string.gmatch(line, "%S+") do
             local candidate = row == "" and word or row .. " " .. word
@@ -1189,8 +1266,8 @@ function C.onServerCommand(module,command,args)
             -- The server binds a newly created client body that has not yet
             -- received its profile marker through native persistence.
             pl:getModData().ParadiseLifeProfileCharacterKey=args.characterKey
+            if not s.transaction then C.acceptCarry(pl,args.ambitionCarryWeight,args.characterKey,args.revision) end
             if not s.transaction and s.ambitionBootstrapBody~=pl then
-                C.applyCarryFloor(pl,args.ambitionCarryWeight)
                 local A=ParadiseDev.LifeAmbitions
                 local accepted=A and args.ambitionBootstrap and A.validate({version=1,ambitions=args.ambitionBootstrap})
                 if accepted then
@@ -1278,7 +1355,11 @@ function C.onServerCommand(module,command,args)
         C.requestList(deletion.body)
     elseif command=="ambitionsSaved" then
         local pending=s.ambitionPending
-        if pending and pending.characterKey==args.characterKey and pending.seq==args.seq then
+        local pl=localPlayer(index)
+        if pl and s.ambitionBody==pl and s.ambitionKey==args.characterKey
+                and pl:getModData().ParadiseLifeProfileCharacterKey==args.characterKey
+                and pending and pending.characterKey==args.characterKey and pending.seq==args.seq then
+            if not s.transaction then C.acceptCarry(pl,args.carryWeight,args.characterKey,args.revision) end
             s.ambitionAck=pending.payload;s.ambitionPending=nil
             s.finalAmbition=nil
         end
