@@ -97,8 +97,9 @@ end
 
 function ParadiseDev.SafehouseAdmin.Panel:teleportToSelectedSafehouse()
     local entry = self:getSelectedSafehouseEntry()
-    local x, y, z = entry and ParadiseDev.SafehouseAdmin.getTeleportCoordinates(entry.safehouse) or nil
-    if not x or not self.pl then return end
+    if not entry or not self.pl then return end
+    local x, y, z = ParadiseDev.SafehouseAdmin.getTeleportCoordinates(entry.safehouse)
+    if x == nil or y == nil or z == nil then return end
     self.pl:teleportTo(x, y, z)
     if isClient and isClient() then SendCommandToServer("/teleportto " .. tostring(x) .. "," .. tostring(y) .. "," .. tostring(z)) end
 end

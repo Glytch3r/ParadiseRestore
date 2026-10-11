@@ -201,23 +201,51 @@ local function classify(ctx,pl,entry)
     if result.status=="resume" then return relocation(ctx,pl,entry,"query",{},result) end
     return result
 end
+-- Native callers must distinguish a temporary readiness wait from a refusal.
+-- A non-allowed answer never carries placement authority or mutates the body.
+local function admission(status,code,message)
+    return {admissionVersion=2,status=status,allowed=false,code=code,message=message}
+end
+local function placementAdmission(check)
+    if check and check.status=="pending" then
+        prepareLocation(check)
+        return admission("pending",check.phase=="terrain" and "terrain_pending" or "protection_pending",
+            "Your saved character is waiting for its destination to be ready.")
+    end
+    return admission("review","placement_changed","Your destination is no longer available. Reconnect to review safe locations for the same character.")
+end
 -- Called immediately before native body transfer or native world admission.
 function S.admitAlive(ctx)
+    if type(ctx)~="table" or ctx.nativeStatus~="alive" or not ctx.nativePlayer
+            or ctx.nativePlayerIdentityVerified~=true or not text(ctx.bodyFingerprint) then
+        return admission("denied","body_invalid","The saved character identity could not be verified. Reconnect before entering.")
+    end
+    if not actor(ctx) then
+        return admission("denied","identity_invalid","The connection identity changed. Reconnect before entering.")
+    end
     local pl,entry=ledger(ctx)
-    if not entry then return nil end
+    if not entry then return admission("pending","storage_pending","Your saved profile is waiting for storage to be ready.") end
     -- Refresh durable state; a stale cached selection is never authority.
     local disk=M.Store.load(entry.key)
-    if not disk then return nil end
+    if not disk then return admission("pending","storage_pending","Your saved profile is waiting for storage to be ready.") end
     entry.value=disk
     if S.reconcileCreation then
         local ok=S.reconcileCreation(ctx)
-        if not ok then return nil end
+        if not ok then return admission("review","creation_recovery","An interrupted character creation needs recovery. Reconnect to continue the same saved transition.") end
     end
-    if classifyBase(ctx,pl,entry).status~="resume" then return nil end
+    if classifyBase(ctx,pl,entry).status~="resume" then
+        return admission("review","state_changed","The saved character and profile need review. Reconnect; no character has been replaced.")
+    end
     local trusted=livingContext(ctx,pl,entry)
-    if not trusted then return nil end
-    local token=P.loginPolicyToken(pl,trusted)
-    if not token or (ctx.loginPolicyToken and ctx.loginPolicyToken~=token) then return nil end
+    if not trusted then return admission("pending","protection_pending","Your profile protection is not ready yet.") end
+    local token,tokenError,tokenState=P.loginPolicyToken(pl,trusted)
+    if not token then return placementAdmission(tokenState) end
+    -- Revisions can change for unrelated zones or profiles during loading.
+    -- The token is a freshness stamp, not authority: revalidate the same body,
+    -- active profile and exact receipt destination against the current policy.
+    -- The native bridge may refresh only the token after checking unchanged
+    -- connection ownership, body fingerprint, destination ID and coordinates.
+    local policyRefreshed=ctx.loginPolicyToken~=nil and ctx.loginPolicyToken~=token
     trusted.loginLocation=ctx.loginLocation
     local id=ctx.loginSpawnId or "saved"
     local location,check
@@ -225,15 +253,19 @@ function S.admitAlive(ctx)
         location=ctx.nativeLocation
         check=P.loginPolicyAllowed(pl,trusted,location)
     else
-        local chosen=P.loginResolve(pl,trusted,id)
+        local chosen,reason,decision=P.loginResolve(pl,trusted,id)
+        if not chosen then return placementAdmission(decision) end
         location=chosen and (chosen.location or chosen)
         if location then check=P.loginAllowed(pl,trusted,location) end
     end
-    if not location or not check or check.status~="safe" then return nil end
+    if not location or not check or check.status~="safe" then return placementAdmission(check) end
     if ctx.loginPhase=="admit" then
-        if not S.applyAdmissionPvE or S.applyAdmissionPvE(pl)~=true then return nil end
+        if not S.applyAdmissionPvE or S.applyAdmissionPvE(pl)~=true then
+            return admission("pending","protection_pending","Your profile protection is not ready yet.")
+        end
     end
-    return {allowed=true,loginSpawnId=id,loginLocation=location,loginPolicyToken=token}
+    return {admissionVersion=2,status="allowed",allowed=true,policyRefreshed=policyRefreshed,
+        loginSpawnId=id,loginLocation=location,loginPolicyToken=token}
 end
 local function keepLoginLocations()
     if ParadiseLifeBridge then ParadiseLifeBridge("keepLocations") end

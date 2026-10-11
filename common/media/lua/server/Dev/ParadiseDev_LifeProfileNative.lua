@@ -169,7 +169,12 @@ local transientKeys={lifepoints=true,lifebar=true,rebound=true,paradisezrebound=
     admin=true,staff=true,role=true,accesslevel=true,capabilities=true,godmode=true,isghost=true,isnoclip=true,
     paradisezhidemodel=true,paradisezspectatetarget=true,paradisezspectateoffset=true,
     paradisedevflash=true,lastcheatstate=true,paradisedevsafehousevehicle=true,
-    paradisedevnotesdiscovery=true,lsbmwpc=true,lscdwpc=true,lstpwpc=true}
+    paradisedevnotesdiscovery=true,lsbmwpc=true,lscdwpc=true,lstpwpc=true,
+    -- Carried currency belongs to the native body, like its inventory. Economy
+    -- owns death-wallet/bank transfers; profiles must not copy old carried cash
+    -- from new or legacy snapshots. Excluding the key also leaves any current
+    -- replacement-body balance intact during N.apply's persistent-key cleanup.
+    paradiseeconomy=true}
 function N.isPersistentKey(key)
     if type(key)~="string" then return type(key)=="number" end
     local lower=string.lower(key)

@@ -177,7 +177,7 @@ end
 placement().fallbackProvider=function(ctx)return P.bunkerPoints(ctx and ctx.profession)end
 
 local function evaluate(point,ctx)
-    if ctx.ready==false then return {status="denied",reason=ctx.reason or "Profile permissions need review"} end
+    if ctx.ready==false then return {status=ctx.confinementError and "denied" or "pending",phase="policy",reason=ctx.reason or "Profile permissions need review"} end
     return placement().evaluate(point,ctx)
 end
 local function requestGround(point)
@@ -296,6 +296,22 @@ local function resolveFor(pl,pending,account,spawnId,actualBirth,ctx,login,pinne
         if entry.id==spawnId then
             local points=pointsFor(entry,ctx.profession)
             if not points then return refusal("The selected region has no compatible spawn point") end
+            if pinned then
+                -- The authenticated native receipt already chose this exact
+                -- tile. Re-running the random/adjacent search can pick another
+                -- safe tile and incorrectly reject the original one, or hide
+                -- its pending terrain behind a different loaded anchor.
+                -- Keep it within the same bounded region search footprint and
+                -- freshly check its policy and ground; never reroute silently.
+                local compatible=false
+                for index,anchor in ipairs(points) do
+                    if index>32 then break end
+                    if anchor.z==pinned.z and math.abs(math.floor(anchor.x)+0.5-pinned.x)<=3
+                            and math.abs(math.floor(anchor.y)+0.5-pinned.y)<=3 then compatible=true;break end
+                end
+                if not compatible then return refusal("The approved arrival point is no longer in this region. Refresh the choices.") end
+                return chosen({id=entry.id,name=entry.name,regionName=entry.regionName,location=copyLocation(pinned)})
+            end
             local safe,waiting,reason=inspectPoints(points,ctx)
             if #safe==0 then
                 if #waiting>0 then
@@ -307,10 +323,6 @@ local function resolveFor(pl,pending,account,spawnId,actualBirth,ctx,login,pinne
             end
             local previous=pending and pending.spawnSelection
             local point
-            if pinned then
-                for _,candidate in ipairs(safe) do if samePoint(candidate,pinned) then point=candidate;break end end
-                if not point then return refusal("The approved arrival point is no longer safe. Choose a destination again.") end
-            end
             if previous and previous.id==spawnId then
                 for _,candidate in ipairs(safe) do if samePoint(candidate,previous.location) then point=candidate;break end end
             end
@@ -338,7 +350,7 @@ function P.loginAllowed(pl,ctx,point)
 end
 function P.loginPolicyAllowed(pl,ctx,point)
     local context=P.context(pl,nil,false)
-    if context.ready==false then return {status="denied",reason=context.reason} end
+    if context.ready==false then return {status=context.confinementError and "denied" or "pending",phase="policy",reason=context.reason} end
     return placement().evaluateSavedPolicy(point,context)
 end
 
@@ -347,9 +359,12 @@ end
 -- not an authorization secret. Native connection/body identity is bound too.
 function P.loginPolicyToken(pl,ctx)
     local context=P.context(pl,nil,false)
-    if context.ready~=true then return nil,context.reason or "Profile permissions are not ready" end
+    if context.ready~=true then
+        local reason=context.reason or "Profile permissions are not ready"
+        return nil,reason,{status=context.confinementError and "denied" or "pending",phase="policy",reason=reason}
+    end
     local preferred,err=forced(pl,context)
-    if err then return nil,err end
+    if err then return nil,err,{status="denied",phase="policy",reason=err} end
     local engine=ParadiseDev.Zones and ParadiseDev.Zones.Engine
     local values={}
     local function add(value)
