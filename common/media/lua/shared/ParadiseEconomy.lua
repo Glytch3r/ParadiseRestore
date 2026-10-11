@@ -108,4 +108,19 @@ function ParadiseEconomy.getHUDPosition(screenWidth, width, height, clockX, cloc
     return math.max(10, math.floor(screenWidth - width - 20)), 80
 end
 
+function ParadiseEconomy.newPlayerListing(id, seller, itemData, currency, price, createdAt)
+    seller = ParadiseEconomy.normalizeUsername(seller)
+    currency = ParadiseEconomy.normalizeCurrency(currency)
+    price = ParadiseEconomy.normalizeAmount(price)
+    if not id or not seller or type(itemData) ~= "table" or not itemData.fullType or not currency or not price then return nil end
+    return {
+        id = tostring(id),
+        seller = seller,
+        itemData = itemData,
+        currency = currency,
+        price = price,
+        createdAt = tonumber(createdAt) or 0,
+    }
+end
+
 if isClient and isClient() then return end
