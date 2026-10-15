@@ -6,8 +6,100 @@ function ParadiseEconomy.getStore()
     local store = ModData.getOrCreate(ParadiseEconomy.storeName)
     store.accounts = store.accounts or {}
     store.transactions = store.transactions or {}
-    store.market = store.market or { tabs = {} }
+    store.market = store.market or { tabs = {}, playerListings = {}, nextListingId = 1 }
+    store.market.tabs = store.market.tabs or {}
+    store.market.playerListings = store.market.playerListings or {}
+    store.market.nextListingId = tonumber(store.market.nextListingId) or 1
     return store
+end
+
+function ParadiseEconomy.findInventoryItem(pl, itemId)
+    if not pl or not itemId then return nil end
+    local inv = pl:getInventory()
+    if inv.getItemById then
+        local item = inv:getItemById(tonumber(itemId) or itemId)
+        if item then return item end
+    end
+    local items = inv:getItems()
+    for int = 0, items:size() - 1 do
+        local item = items:get(int)
+        if tostring(item:getID()) == tostring(itemId) then return item end
+    end
+    return nil
+end
+
+function ParadiseEconomy.isEquipped(pl, item)
+    if not pl or not item then return false end
+    if pl:getPrimaryHandItem() == item or pl:getSecondaryHandItem() == item then return true end
+    local worn = pl:getWornItems()
+    for int = 0, worn:size() - 1 do
+        if worn:get(int):getItem() == item then return true end
+    end
+    return false
+end
+
+function ParadiseEconomy.nextPlayerListingId()
+    local market = ParadiseEconomy.getStore().market
+    local id = tostring(os.time()) .. "-" .. tostring(market.nextListingId)
+    market.nextListingId = market.nextListingId + 1
+    return id
+end
+
+function ParadiseEconomy.findPlayerListing(id)
+    for index, listing in ipairs(ParadiseEconomy.getStore().market.playerListings) do
+        if tostring(listing.id) == tostring(id) then return listing, index end
+    end
+    return nil
+end
+
+function ParadiseEconomy.postPlayerListing(pl, itemId, currency, price)
+    currency = ParadiseEconomy.normalizeCurrency(currency)
+    price = ParadiseEconomy.normalizeAmount(price)
+    local item = ParadiseEconomy.findInventoryItem(pl, itemId)
+    if not item or not currency or not price or ParadiseEconomy.isEquipped(pl, item) then return false end
+    local itemData = ParadiseEconomy.ItemData.toData(item)
+    if not itemData then return false end
+    local listing = ParadiseEconomy.newPlayerListing(
+        ParadiseEconomy.nextPlayerListingId(), pl:getUsername(), itemData, currency, price, os.time())
+    if not listing then return false end
+    local cont = item:getContainer()
+    if not cont then return false end
+    cont:Remove(item)
+    sendRemoveItemFromContainer(cont, item)
+    ParadiseEconomy.getStore().market.playerListings[#ParadiseEconomy.getStore().market.playerListings + 1] = listing
+    return listing
+end
+
+function ParadiseEconomy.spawnItemData(pl, itemData)
+    local item = ParadiseEconomy.ItemData.makeItem(itemData)
+    if not item then return nil end
+    local inv = pl:getInventory()
+    inv:AddItem(item)
+    if item.SynchSpawn then item:SynchSpawn() end
+    sendAddItemToContainer(inv, item)
+    return item
+end
+
+function ParadiseEconomy.buyPlayerListing(pl, listingId)
+    local listing, index = ParadiseEconomy.findPlayerListing(listingId)
+    if not listing or ParadiseEconomy.usernameKey(listing.seller) == ParadiseEconomy.usernameKey(pl:getUsername()) then return false end
+    local buyer = ParadiseEconomy.getAccount(pl:getUsername(), true)
+    if ParadiseEconomy.getBalance(buyer, listing.currency) < listing.price then return false end
+    local item = ParadiseEconomy.spawnItemData(pl, listing.itemData)
+    if not item then return false end
+    ParadiseEconomy.takeBalance(buyer, listing.currency, listing.price)
+    ParadiseEconomy.addBalance(ParadiseEconomy.getAccount(listing.seller, true), listing.currency, listing.price)
+    table.remove(ParadiseEconomy.getStore().market.playerListings, index)
+    return listing, item
+end
+
+function ParadiseEconomy.cancelPlayerListing(pl, listingId)
+    local listing, index = ParadiseEconomy.findPlayerListing(listingId)
+    if not listing or ParadiseEconomy.usernameKey(listing.seller) ~= ParadiseEconomy.usernameKey(pl:getUsername()) then return false end
+    local item = ParadiseEconomy.spawnItemData(pl, listing.itemData)
+    if not item then return false end
+    table.remove(ParadiseEconomy.getStore().market.playerListings, index)
+    return listing, item
 end
 
 function ParadiseEconomy.getAccount(user, create)
@@ -118,6 +210,14 @@ function ParadiseEconomy.sendState(pl, message)
     })
 end
 
+function ParadiseEconomy.sendStateToAll(sourcePl, message)
+    local players = getOnlinePlayers()
+    for int = 0, players:size() - 1 do
+        local pl = players:get(int)
+        ParadiseEconomy.sendState(pl, pl == sourcePl and message or nil)
+    end
+end
+
 function ParadiseEconomy.syncPlayerData(pl)
     if pl and pl.transmitModData then pl:transmitModData() end
 end
@@ -177,6 +277,7 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
     local currency = ParadiseEconomy.normalizeCurrency(args.currency)
     local amount = ParadiseEconomy.normalizeAmount(args.amount)
     local message
+    local syncAll = false
     if command == "requestState" then
         ParadiseEconomy.sendState(pl)
         return
@@ -268,9 +369,34 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
             ParadiseEconomy.record(pl, "market sale", listing.currency, total, "ParadiseMart", user, quantity .. "x " .. listing.fullType)
             message = "Sale complete"
         end
+    elseif command == "playerShopPost" then
+        local listing = ParadiseEconomy.postPlayerListing(pl, args.itemId, currency, amount)
+        if listing then
+            ParadiseEconomy.record(pl, "player shop posted", listing.currency, listing.price, user, "ParadiseMart",
+                listing.id .. ":" .. listing.itemData.fullType)
+            message = "Item posted in ParadiseMart"
+            syncAll = true
+        end
+    elseif command == "playerShopBuy" then
+        local listing = ParadiseEconomy.buyPlayerListing(pl, args.listingId)
+        if listing then
+            ParadiseEconomy.record(pl, "player shop purchase", listing.currency, listing.price, user, listing.seller,
+                listing.id .. ":" .. listing.itemData.fullType)
+            message = "Player shop purchase complete"
+            syncAll = true
+        end
+    elseif command == "playerShopCancel" then
+        local listing = ParadiseEconomy.cancelPlayerListing(pl, args.listingId)
+        if listing then
+            ParadiseEconomy.record(pl, "player shop cancelled", listing.currency, listing.price, user, user,
+                listing.id .. ":" .. listing.itemData.fullType)
+            message = "Listing returned to inventory"
+            syncAll = true
+        end
     end
     ParadiseEconomy.transmit()
-    ParadiseEconomy.sendState(pl, message or "Transaction rejected")
+    if syncAll then ParadiseEconomy.sendStateToAll(pl, message)
+    else ParadiseEconomy.sendState(pl, message or "Transaction rejected") end
 end
 Events.OnClientCommand.Remove(ParadiseEconomy.onClientCommand)
 Events.OnClientCommand.Add(ParadiseEconomy.onClientCommand)

@@ -17,6 +17,7 @@ ParadiseEconomy.Panel = ISCollapsableWindow:derive("ParadiseEconomyPanel")
 ParadiseEconomy.MartPanel = ISCollapsableWindow:derive("ParadiseMartPanel")
 ParadiseEconomy.AdminPanel = ISCollapsableWindow:derive("ParadiseEconomyAdminPanel")
 ParadiseEconomy.MartAdminPanel = ISCollapsableWindow:derive("ParadiseMartAdminPanel")
+ParadiseEconomy.ListingPanel = ISCollapsableWindow:derive("ParadiseEconomyListingPanel")
 ParadiseEconomy.HUD = ISPanel:derive("ParadiseEconomyHUD")
 
 function ParadiseEconomy.send(command, args)
@@ -112,6 +113,10 @@ function ParadiseEconomy.MartPanel:createChildren()
     self.sellButton:initialise()
     self.sellButton.internal = "sell"
     self:addChild(self.sellButton)
+    self.playerButton = ISButton:new(405, 35, 120, 25, "Player Shop", self, ParadiseEconomy.MartPanel.setDirection)
+    self.playerButton:initialise()
+    self.playerButton.internal = "player"
+    self:addChild(self.playerButton)
     self.list = ISScrollingListBox:new(15, 70, self.width - 30, self.height - 150)
     self.list:initialise()
     self.list.itemheight = 24
@@ -124,6 +129,9 @@ function ParadiseEconomy.MartPanel:createChildren()
     self.actionButton = ISButton:new(105, self.height - 65, 120, 25, "Buy Selected", self, ParadiseEconomy.MartPanel.onTrade)
     self.actionButton:initialise()
     self:addChild(self.actionButton)
+    self.cancelButton = ISButton:new(235, self.height - 65, 140, 25, "Cancel My Listing", self, ParadiseEconomy.MartPanel.onCancelListing)
+    self.cancelButton:initialise()
+    self:addChild(self.cancelButton)
     self:refreshTabs()
 end
 
@@ -135,7 +143,7 @@ end
 
 function ParadiseEconomy.MartPanel:setDirection(button)
     self.direction = button.internal
-    self.actionButton:setTitle(self.direction == "buy" and "Buy Selected" or "Sell Selected")
+    self.actionButton:setTitle(self.direction == "sell" and "Sell Selected" or "Buy Selected")
     self:refresh()
 end
 
@@ -149,20 +157,41 @@ end
 function ParadiseEconomy.MartPanel:refresh()
     if not self.list then return end
     self.list:clear()
-    local tab = self:getTab()
-    for _, listing in ipairs(tab and tab.listings or {}) do
-        if listing.direction == self.direction then self.list:addItem(listing.fullType, listing) end
+    if self.direction == "player" then
+        for _, listing in ipairs((ParadiseEconomy.clientState.market or {}).playerListings or {}) do
+            self.list:addItem(listing.itemData and listing.itemData.name or listing.id, listing)
+        end
+    else
+        local tab = self:getTab()
+        for _, listing in ipairs(tab and tab.listings or {}) do
+            if listing.direction == self.direction then self.list:addItem(listing.fullType, listing) end
+        end
     end
+    self.tabs:setVisible(self.direction ~= "player")
+    self.quantity:setVisible(self.direction ~= "player")
+    self.cancelButton:setVisible(self.direction == "player")
 end
 
 function ParadiseEconomy.MartPanel:drawListing(y, item, alt)
     local listing = item.item
-    self:drawText(listing.fullType .. " | " .. listing.price .. " " .. listing.currency, 8, y + 4, 1, 1, 1, 1, UIFont.Small)
+    local label
+    if listing.itemData then
+        label = tostring(listing.itemData.name or listing.itemData.fullType) .. " | "
+            .. ParadiseEconomy.ItemData.getSummary(listing.itemData) .. " | Seller " .. tostring(listing.seller)
+            .. " | " .. tostring(listing.price) .. " " .. tostring(listing.currency)
+    else
+        label = listing.fullType .. " | " .. listing.price .. " " .. listing.currency
+    end
+    self:drawText(label, 8, y + 4, 1, 1, 1, 1, UIFont.Small)
     return y + self.itemheight
 end
 
 function ParadiseEconomy.MartPanel:onTrade()
     local selected = self.list.items[self.list.selected]
+    if self.direction == "player" then
+        if selected then ParadiseEconomy.send("playerShopBuy", { listingId = selected.item.id }) end
+        return
+    end
     local tabName = self.tabs.options[self.tabs.selected]
     if not selected or not tabName then return end
     ParadiseEconomy.send(self.direction == "buy" and "marketBuy" or "marketSell", {
@@ -170,6 +199,13 @@ function ParadiseEconomy.MartPanel:onTrade()
         fullType = selected.item.fullType,
         quantity = self.quantity:getInternalText(),
     })
+end
+
+function ParadiseEconomy.MartPanel:onCancelListing()
+    local selected = self.list.items[self.list.selected]
+    if selected and selected.item and selected.item.id then
+        ParadiseEconomy.send("playerShopCancel", { listingId = selected.item.id })
+    end
 end
 
 function ParadiseEconomy.sync(module, command, args)
@@ -212,13 +248,79 @@ function ParadiseEconomy.fillInventoryContext(plNum, context, items)
             local wallet = ParadiseEconomy.getWalletData(item)
             if ParadiseEconomy.hasMoney(wallet) then
                 context:addOption("Pillage " .. ParadiseEconomy.formatBalances(wallet), item, ParadiseEconomy.pillage, pl)
-                return
             end
+        end
+        if item and item.getContainer and item:getContainer() == pl:getInventory() then
+            context:addOption("Post in ParadiseMart", item, ParadiseEconomy.openListingPanel)
+            return
         end
     end
 end
 Events.OnFillInventoryObjectContextMenu.Remove(ParadiseEconomy.fillInventoryContext)
 Events.OnFillInventoryObjectContextMenu.Add(ParadiseEconomy.fillInventoryContext)
+
+function ParadiseEconomy.ListingPanel:new(x, y, item)
+    local obj = ISCollapsableWindow.new(self, x, y, 520, 190)
+    obj.title = "Post Item in ParadiseMart"
+    obj.item = item
+    return obj
+end
+
+function ParadiseEconomy.ListingPanel:createChildren()
+    ISCollapsableWindow.createChildren(self)
+    self.currency = ISComboBox:new(15, 90, 145, 25, self)
+    self.currency:initialise()
+    self.currency:addOption("jimoleon")
+    self.currency:addOption("paradisium")
+    self:addChild(self.currency)
+    self.price = ISTextEntryBox:new("", 170, 90, 120, 25)
+    self.price:initialise()
+    self.price:setOnlyNumbers(true)
+    self:addChild(self.price)
+    self.postButton = ISButton:new(300, 90, 95, 25, "Post Item", self, ParadiseEconomy.ListingPanel.post)
+    self.postButton:initialise()
+    self:addChild(self.postButton)
+    self.cancelButton = ISButton:new(405, 90, 95, 25, "Cancel", self, ParadiseEconomy.ListingPanel.close)
+    self.cancelButton:initialise()
+    self:addChild(self.cancelButton)
+end
+
+function ParadiseEconomy.ListingPanel:prerender()
+    ISCollapsableWindow.prerender(self)
+    local data = ParadiseEconomy.ItemData.toData(self.item)
+    self:drawText(tostring(self.item and self.item:getDisplayName() or "Item"), 15, 35, 1, 1, 1, 1, UIFont.Medium)
+    self:drawText(ParadiseEconomy.ItemData.getSummary(data), 15, 62, 0.75, 0.85, 0.9, 1, UIFont.Small)
+    self:drawText("Currency", 15, 120, 0.8, 0.8, 0.8, 1, UIFont.Small)
+    self:drawText("Price", 170, 120, 0.8, 0.8, 0.8, 1, UIFont.Small)
+end
+
+function ParadiseEconomy.ListingPanel:post()
+    if not self.item then return end
+    ParadiseEconomy.send("playerShopPost", {
+        itemId = self.item:getID(),
+        currency = self.currency.options[self.currency.selected],
+        amount = self.price:getInternalText(),
+    })
+    self:close()
+end
+
+function ParadiseEconomy.ListingPanel:close()
+    if ParadiseEconomy.listingInstance == self then ParadiseEconomy.listingInstance = nil end
+    self:setVisible(false)
+    self:removeFromUIManager()
+end
+
+function ParadiseEconomy.openListingPanel(item)
+    if not item then return end
+    if ParadiseEconomy.listingInstance then ParadiseEconomy.listingInstance:close() end
+    local panel = ParadiseEconomy.ListingPanel:new(
+        (getCore():getScreenWidth() - 520) / 2,
+        (getCore():getScreenHeight() - 190) / 2,
+        item)
+    panel:initialise()
+    panel:addToUIManager()
+    ParadiseEconomy.listingInstance = panel
+end
 
 function ParadiseEconomy.AdminPanel:new(x, y, w, h)
     local obj = ISCollapsableWindow.new(self, x, y, w, h)

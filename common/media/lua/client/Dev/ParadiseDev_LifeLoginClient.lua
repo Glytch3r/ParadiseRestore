@@ -13,7 +13,11 @@ local L=ParadiseDev.LifeLoginClient
 local function client()return ParadiseDev.LifeProfilesClient end
 local function now()return getTimestampMs()end
 local function joypad()return JoypadState.getMainMenuJoypad()end
-local function enabled()return isClient() and ParadiseDev.Reincarnate.isShouldReincarnate()end
+function L.isSteamMode()
+    return getSteamModeActive and getSteamModeActive() or false
+end
+-- Keep the paired server-side Java login bridge disabled in no-Steam mode so this mod can be tested locally without Jim's server bridge.
+local function enabled()return isClient() and L.isSteamMode() and ParadiseDev.Reincarnate.isShouldReincarnate()end
 L.sequence=L.sequence or 0
 local LOGIN_REPLY_SLOT=-2147483000
 local function readNativeRegions()
