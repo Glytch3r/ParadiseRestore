@@ -206,19 +206,23 @@ function ParadiseEconomy.ItemData.apply(item, data)
     return true
 end
 
-function ParadiseEconomy.ItemData.makeItem(data)
-    if type(data) ~= "table" or not data.fullType or not instanceItem then return nil end
-    local item = instanceItem(data.fullType)
+function ParadiseEconomy.ItemData.cloneItem(data)
+    if type(data) ~= "table" or not data.fullType or not InventoryItemFactory or not InventoryItemFactory.CreateItem then return nil end
+    local item = InventoryItemFactory.CreateItem(data.fullType)
     if not item then return nil end
     ParadiseEconomy.ItemData.apply(item, data)
     local inv = ParadiseEconomy.ItemData.call(item, "getInventory")
     if inv then
         for _, childData in ipairs(data.containedItems or {}) do
-            local child = ParadiseEconomy.ItemData.makeItem(childData)
+            local child = ParadiseEconomy.ItemData.cloneItem(childData)
             if child then inv:AddItem(child) end
         end
     end
     return item
+end
+
+function ParadiseEconomy.ItemData.makeItem(data)
+    return ParadiseEconomy.ItemData.cloneItem(data)
 end
 
 function ParadiseEconomy.ItemData.getSummary(data)

@@ -63,6 +63,7 @@ function ParadiseDev.ZoneHUD.getSettings(pl)
     settings.zoneFontSize = ParadiseDev.ZoneHUD.fonts[settings.zoneFontSize] and settings.zoneFontSize or (ParadiseDev.ZoneHUD.fonts[settings.fontSize] and settings.fontSize or "Medium")
     if settings.zoneVisible == nil then settings.zoneVisible = settings.visible ~= false end
     if settings.hpVisible == nil then settings.hpVisible = true end
+    if settings.economyVisible == nil then settings.economyVisible = true end
     if settings.worldZoneVisuals == nil then settings.worldZoneVisuals = true end
     modData.HUDSettings = settings
     modData.ParadiseZHUDSettings = settings
@@ -200,7 +201,7 @@ end
 ParadiseDev.ZoneHUD.SettingsPanel = ISPanel:derive("ParadiseDev.ZoneHUD.SettingsPanel")
 
 function ParadiseDev.ZoneHUD.SettingsPanel:new(pl)
-    local width, height = 360, 355
+    local width, height = 360, 390
     local panel = ISPanel:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height)
     setmetatable(panel, self)
     self.__index = self
@@ -261,6 +262,13 @@ function ParadiseDev.ZoneHUD.SettingsPanel:onHPVisibleChanged(option, enabled)
     ParadiseDev.ZoneHUD.saveSettings(self.player, settings)
 end
 
+function ParadiseDev.ZoneHUD.SettingsPanel:onEconomyVisibleChanged(option, enabled)
+    local settings = ParadiseDev.ZoneHUD.getSettings(self.player)
+    settings.economyVisible = enabled
+    ParadiseDev.ZoneHUD.saveSettings(self.player, settings)
+    if ParadiseEconomy and ParadiseEconomy.hud then ParadiseEconomy.hud:setVisible(enabled) end
+end
+
 function ParadiseDev.ZoneHUD.SettingsPanel:onWorldZoneVisualsChanged(option, enabled)
     if ParadiseDev.Zones and ParadiseDev.Zones.Visualization and ParadiseDev.Zones.Visualization.setPlayerEnabled then
         ParadiseDev.Zones.Visualization.setPlayerEnabled(self.player, enabled)
@@ -271,8 +279,10 @@ function ParadiseDev.ZoneHUD.SettingsPanel:onReset()
     local settings = ParadiseDev.ZoneHUD.getSettings(self.player)
     settings.zoneX, settings.zoneY, settings.zoneFontSize, settings.zoneVisible = ParadiseDev.ZoneHUD.defaultX, ParadiseDev.ZoneHUD.defaultY, "Medium", true
     settings.hpX, settings.hpY, settings.hpVisible = settings.zoneX, settings.zoneY + 100, true
+    settings.economyVisible = true
     settings.worldZoneVisuals = true
     ParadiseDev.ZoneHUD.saveSettings(self.player, settings)
+    if ParadiseEconomy and ParadiseEconomy.hud then ParadiseEconomy.hud:setVisible(true) end
     if ParadiseDev.Zones and ParadiseDev.Zones.Visualization and ParadiseDev.Zones.Visualization.setPlayerEnabled and
         ParadiseRestore.isAdm(self.player) then
         ParadiseDev.Zones.Visualization.setPlayerEnabled(self.player, true)
@@ -288,6 +298,7 @@ function ParadiseDev.ZoneHUD.SettingsPanel:onReset()
     self.fontSize:setSelectedData(settings.zoneFontSize)
     self.zoneVisible.selected[1] = true
     self.hpVisible.selected[1] = true
+    self.economyVisible.selected[1] = true
     if self.worldZoneVisuals then self.worldZoneVisuals.selected[1] = true end
 end
 
@@ -372,19 +383,25 @@ function ParadiseDev.ZoneHUD.SettingsPanel:createChildren()
     self.hpVisible:addOption("Show HP Bar")
     self.hpVisible.selected[1] = settings.hpVisible
     self:addChild(self.hpVisible)
+    self.economyVisible = ISTickBox:new(12, 290, self.width - 24, 22, "", self, ParadiseDev.ZoneHUD.SettingsPanel.onEconomyVisibleChanged)
+    self.economyVisible:initialise()
+    self.economyVisible:instantiate()
+    self.economyVisible:addOption("Show Money On Screen")
+    self.economyVisible.selected[1] = settings.economyVisible
+    self:addChild(self.economyVisible)
     if ParadiseRestore.isAdm(self.player) then
-        self.worldZoneVisuals = ISTickBox:new(12, 290, self.width - 24, 22, "", self, ParadiseDev.ZoneHUD.SettingsPanel.onWorldZoneVisualsChanged)
+        self.worldZoneVisuals = ISTickBox:new(12, 315, self.width - 24, 22, "", self, ParadiseDev.ZoneHUD.SettingsPanel.onWorldZoneVisualsChanged)
         self.worldZoneVisuals:initialise()
         self.worldZoneVisuals:instantiate()
         self.worldZoneVisuals:addOption("Show World Zone Visuals")
         self.worldZoneVisuals.selected[1] = ParadiseDev.Zones.Visualization.isEnabledForPlayer(self.player)
         self:addChild(self.worldZoneVisuals)
     end
-    self.resetButton = ISButton:new(12, 315, 120, 26, "Reset", self, ParadiseDev.ZoneHUD.SettingsPanel.onReset)
+    self.resetButton = ISButton:new(12, 350, 120, 26, "Reset", self, ParadiseDev.ZoneHUD.SettingsPanel.onReset)
     self.resetButton:initialise()
     self.resetButton:instantiate()
     self:addChild(self.resetButton)
-    self.closeButton = ISButton:new(self.width - 132, 315, 120, 26, "Close", self, ParadiseDev.ZoneHUD.SettingsPanel.onClose)
+    self.closeButton = ISButton:new(self.width - 132, 350, 120, 26, "Close", self, ParadiseDev.ZoneHUD.SettingsPanel.onClose)
     self.closeButton:initialise()
     self.closeButton:instantiate()
     self:addChild(self.closeButton)
@@ -405,10 +422,25 @@ function ParadiseDev.ZoneHUD.onUserPanelOption(self, button, x, y)
         ParadiseDev.ZoneHUD.openSettings(self.player)
         return
     end
+    if button.internal == "PARADISE_ECONOMY_ACCOUNT" then
+        if ParadisePanels and ParadisePanels.Install and (not ParadiseEconomy or not ParadiseEconomy.OpenPanel) then ParadisePanels.Install() end
+        if ParadiseEconomy and ParadiseEconomy.OpenPanel then ParadiseEconomy.OpenPanel() end
+        return
+    end
     if button.internal == "PARADISE_PROMO_REDEEM" then
         ParadisePromo.PlayerPanel.OpenPanel()
     end
 end
+
+function ParadiseDev.ZoneHUD.onUserPanelMoneyHUDChanged(self, option, enabled)
+    local pl = self.player or getPlayer()
+    if not pl then return end
+    local settings = ParadiseDev.ZoneHUD.getSettings(pl)
+    settings.economyVisible = enabled
+    ParadiseDev.ZoneHUD.saveSettings(pl, settings)
+    if ParadiseEconomy and ParadiseEconomy.hud then ParadiseEconomy.hud:setVisible(enabled) end
+end
+
 function ParadiseDev.ZoneHUD.layoutUserPanel()
     local self = ISUserPanelUI.instance
     if not self or self._ParadiseDevZoneHUDLayoutApplied then return end
@@ -424,6 +456,7 @@ function ParadiseDev.ZoneHUD.layoutUserPanel()
     end
     local hasBetterSafehouse = ParadiseZ and ParadiseZ.isModActive and ParadiseZ.isModActive("BetterSafehouse")
     local buttonWidth = math.max(close.width, hasBetterSafehouse and 400 or close.width)
+    local settings = ParadiseDev.ZoneHUD.getSettings(self.player or getPlayer())
     self:setWidth(math.max(self:getWidth(), close.x * 2 + buttonWidth))
     self.zoneHUDSettings = ISButton:new(close.x, bottom + 10, buttonWidth, close.height, "Zone HUD Settings", self, ParadiseDev.ZoneHUD.onUserPanelOption)
         self.zoneHUDSettings.internal = "PARADISEDEV_ZONEHUD_SETTINGS"
@@ -436,7 +469,21 @@ function ParadiseDev.ZoneHUD.layoutUserPanel()
         self.zoneHUDSettings.backgroundColor.b = 0.5;
 
     self:addChild(self.zoneHUDSettings)
-    self.promoRedeem = ISButton:new(close.x, self.zoneHUDSettings:getBottom() + 10, buttonWidth, close.height, "Redeem Code", self, ParadiseDev.ZoneHUD.onUserPanelOption)
+    self.moneyHUDVisible = ISTickBox:new(close.x, self.zoneHUDSettings:getBottom() + 10, buttonWidth, close.height, "", self, ParadiseDev.ZoneHUD.onUserPanelMoneyHUDChanged)
+        self.moneyHUDVisible:initialise()
+        self.moneyHUDVisible:instantiate()
+        self.moneyHUDVisible:addOption("Show Money On Screen")
+        self.moneyHUDVisible.selected[1] = settings.economyVisible
+    self:addChild(self.moneyHUDVisible)
+    self.economyAccount = ISButton:new(close.x, self.moneyHUDVisible:getBottom() + 10, buttonWidth, close.height, "Economy Account", self, ParadiseDev.ZoneHUD.onUserPanelOption)
+        self.economyAccount.internal = "PARADISE_ECONOMY_ACCOUNT"
+        self.economyAccount:initialise()
+        self.economyAccount:instantiate()
+        self.economyAccount.borderColor = self.buttonBorderColor
+        self.economyAccount.backgroundColor.a = 0.7;
+        self.economyAccount.backgroundColor.b = 0.5;
+    self:addChild(self.economyAccount)
+    self.promoRedeem = ISButton:new(close.x, self.economyAccount:getBottom() + 10, buttonWidth, close.height, "Redeem Code", self, ParadiseDev.ZoneHUD.onUserPanelOption)
         self.promoRedeem.internal = "PARADISE_PROMO_REDEEM"
         self.promoRedeem:initialise()
         self.promoRedeem:instantiate()

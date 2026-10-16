@@ -1,6 +1,27 @@
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Keys = ParadiseDev.Keys or {}
 
+function ParadiseDev.Keys.isSteamMode()
+    return getSteamModeActive and getSteamModeActive() or false
+end
+
+function ParadiseDev.Keys.teleportPlayer(pl, x, y, z)
+    if not pl or tonumber(x) == nil or tonumber(y) == nil or tonumber(z) == nil then return false end
+    x, y, z = tonumber(x), tonumber(y), tonumber(z)
+    if pl.teleportTo then
+        pl:teleportTo(x, y, z)
+        return true
+    end
+    pl:setX(x)
+    pl:setY(y)
+    pl:setZ(z)
+    pl:setLastX(x)
+    pl:setLastY(y)
+    pl:setLastZ(z)
+    pl:setCurrentSquareFromPosition()
+    return true
+end
+
 function ParadiseDev.Keys.teleportVehicle(pl, x, y)
     local vehicle = pl and pl:getVehicle() or nil
     if not vehicle then return false end
@@ -14,6 +35,7 @@ function ParadiseDev.Keys.teleportVehicle(pl, x, y)
 end
 
 function ParadiseDev.Keys.flashlightTeleport(key)
+    if ParadiseDev.Keys.isSteamMode() then return key end
     if not ParadiseRestore.isAdm() then return key end
     if not ISFastTeleportMove.cheat then return end
 
@@ -28,8 +50,8 @@ function ParadiseDev.Keys.flashlightTeleport(key)
 
     if pl:getVehicle() then
         ParadiseDev.Keys.teleportVehicle(pl, sq:getX(), sq:getY())
-    elseif ParadiseDev.TP then
-        ParadiseDev.TP.requestTeleport(sq:getX(), sq:getY(), sq:getZ())
+    else
+        ParadiseDev.Keys.teleportPlayer(pl, sq:getX(), sq:getY(), sq:getZ())
     end
 
     pl:getCell():addLamppost(IsoLightSource.new(

@@ -36,6 +36,7 @@ ParadisePanels.table = {
         getInstance = function() return ParadiseEconomy.martInstance end,
         setInstance = function(instance) ParadiseEconomy.martInstance = instance end,
         create = function()
+            if not ParadiseEconomy.canUsePlayerEconomy(getPlayer()) then return nil end
             local width, height = math.min(700, getCore():getScreenWidth() - 40), math.min(560, getCore():getScreenHeight() - 40)
             return initialise(ParadiseEconomy.MartPanel:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height))
         end,
@@ -47,21 +48,13 @@ ParadisePanels.table = {
         getModule = function() return ParadiseEconomy.AdminPanel end,
         getInstance = function() return ParadiseEconomy.adminInstance end,
         setInstance = function(instance) ParadiseEconomy.adminInstance = instance end,
-        create = function()
+        create = function(targetUser)
             local width, height = math.min(760, getCore():getScreenWidth() - 40), math.min(560, getCore():getScreenHeight() - 40)
-            return initialise(ParadiseEconomy.AdminPanel:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height))
+            return initialise(ParadiseEconomy.AdminPanel:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height, targetUser))
         end,
-        onOpen = function() ParadiseEconomy.send("requestState") end,
-    },
-    {
-        key = "paradiseMartAdmin",
-        isAdmOnly = true,
-        getModule = function() return ParadiseEconomy.MartAdminPanel end,
-        getInstance = function() return ParadiseEconomy.martAdminInstance end,
-        setInstance = function(instance) ParadiseEconomy.martAdminInstance = instance end,
-        create = function()
-            local width, height = math.min(760, getCore():getScreenWidth() - 40), math.min(600, getCore():getScreenHeight() - 40)
-            return initialise(ParadiseEconomy.MartAdminPanel:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height))
+        onOpen = function(panel, targetUser)
+            panel:setTargetUsername(targetUser)
+            ParadiseEconomy.send("requestState")
         end,
     },
     {

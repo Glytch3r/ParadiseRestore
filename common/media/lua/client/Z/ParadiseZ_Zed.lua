@@ -27,8 +27,47 @@ function ParadiseZ.ZedReactToScareCrow(zed)
         end
     end
 end
---Events.OnZombieUpdate.Remove(ParadiseZ.ZedReactToScareCrow)
---Events.OnZombieUpdate.Add(ParadiseZ.ZedReactToScareCrow)
+Events.OnZombieUpdate.Remove(ParadiseZ.ZedReactToScareCrow)
+Events.OnZombieUpdate.Add(ParadiseZ.ZedReactToScareCrow)
+
+function ParadiseZ.isScareCrow(pl)
+    if not pl then return false end
+    local worn = pl:getWornItems()
+    if not worn then return false end
+    for i = 0, worn:size() - 1 do
+        local item = worn:get(i):getItem()
+        if item and item:getFullType() == "Skin.ScareCrow" then
+            return true
+        end
+    end
+    return false
+end
+
+function ParadiseZ.updateScareCrow(plNum, pl)
+    pl = pl or getPlayer()
+    if not pl then return end
+    local isScareCrow = ParadiseZ.isScareCrow(pl)
+    if pl:getVariableBoolean("isScareCrow") ~= isScareCrow then
+        pl:setVariable("isScareCrow", isScareCrow)
+        if isClient() then
+            sendClientCommand("ParadiseZ", "isScareCrow", { isScareCrow = isScareCrow })
+        end
+    end
+end
+Events.OnCreatePlayer.Remove(ParadiseZ.updateScareCrow)
+Events.OnCreatePlayer.Add(ParadiseZ.updateScareCrow)
+Events.OnClothingUpdated.Remove(ParadiseZ.updateScareCrow)
+Events.OnClothingUpdated.Add(ParadiseZ.updateScareCrow)
+
+function ParadiseZ.onScareCrowCommand(module, command, args)
+    if module ~= "ParadiseZ" or command ~= "isScareCrow" or not args or not args.id then return end
+    local pl = getPlayerByOnlineID(args.id)
+    if pl and pl ~= getPlayer() then
+        pl:setVariable("isScareCrow", args.isScareCrow == true)
+    end
+end
+Events.OnServerCommand.Remove(ParadiseZ.onScareCrowCommand)
+Events.OnServerCommand.Add(ParadiseZ.onScareCrowCommand)
 
 function ParadiseZ.getWalkType(zed)
 	return tostring(zed:getVariableString("zombieWalkType"))

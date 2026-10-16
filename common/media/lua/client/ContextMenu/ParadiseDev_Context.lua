@@ -601,6 +601,9 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     panelsRoot.iconTexture = getTexture("media/ui/Paradise/ContextIcon.png")
     local panelsMenu = ISContextMenu:getNew(context)
     menu:addSubMenu(panelsRoot, panelsMenu)
+    if ParadiseEconomy and ParadiseEconomy.addAdminPanelMenu then
+        ParadiseEconomy.addAdminPanelMenu(panelsMenu, context)
+    end
     if JimsRulesAdmin and JimsRulesAdmin.OpenPanel then
         ParadiseDev.Context.addOption(
             panelsMenu,

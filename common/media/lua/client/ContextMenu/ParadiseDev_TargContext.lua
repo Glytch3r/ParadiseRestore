@@ -106,11 +106,27 @@ function ParadiseDev.TargContext.openSafehouses(_, localPlayer, username)
     end
 end
 
+function ParadiseDev.TargContext.openEconomyAccount(_, username)
+    if ParadisePanels and ParadisePanels.Install and
+        (not ParadiseEconomy or not ParadiseEconomy.AdminPanel or not ParadiseEconomy.AdminPanel.OpenPanel) then
+        ParadisePanels.Install()
+    end
+    if ParadiseEconomy and ParadiseEconomy.AdminPanel and ParadiseEconomy.AdminPanel.OpenPanel then
+        ParadiseEconomy.AdminPanel.OpenPanel(username)
+    end
+end
+
 function ParadiseDev.TargContext.addPlayerActions(menu, target, localPlayer, includePvE)
     if not menu or not target or not localPlayer then return end
     local username = ParadiseDev.TargContext.getUsername(target)
     if not username then return end
     target = ParadiseDev.TargContext.resolveTarget(target)
+    if ParadiseEconomy and ParadiseEconomy.AdminPanel then
+        local economyOption = menu:addOption("Economy Account: " .. username, nil,
+            ParadiseDev.TargContext.openEconomyAccount, username)
+        economyOption.paradiseManagerKey = "Economy Account"
+        economyOption.paradiseManagerLabel = "Economy Account"
+    end
     if ParadiseDev.SafehouseAdmin and ParadiseDev.SafehouseAdmin.OpenPanel then
         local safehouseOption = menu:addOption("View Safehouse: " .. username, nil,
             ParadiseDev.TargContext.openSafehouses, localPlayer, username)
