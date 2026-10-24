@@ -24,8 +24,38 @@ ParadisePanels.table = {
         getInstance = function() return ParadiseEconomy.instance end,
         setInstance = function(instance) ParadiseEconomy.instance = instance end,
         create = function()
+            if not ParadiseEconomy.isEnabled() then return nil end
             local width, height = math.min(760, getCore():getScreenWidth() - 40), math.min(560, getCore():getScreenHeight() - 40)
             return initialise(ParadiseEconomy.Panel:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height))
+        end,
+        onOpen = function() ParadiseEconomy.send("requestState") end,
+    },
+    {
+        key = "economyAccount",
+        isAdmOnly = false,
+        getModule = function() return ParadiseEconomy.AccountPanel end,
+        getInstance = function() return ParadiseEconomy.accountPanel end,
+        setInstance = function(instance) ParadiseEconomy.accountPanel = instance end,
+        create = function(account)
+            if not ParadiseEconomy.isEnabled() then return nil end
+            local width, height = math.min(720, getCore():getScreenWidth() - 40), math.min(520, getCore():getScreenHeight() - 40)
+            return initialise(ParadiseEconomy.AccountPanel:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height, account))
+        end,
+        onOpen = function(panel, account)
+            panel:setAccount(account)
+            ParadiseEconomy.send("requestState")
+        end,
+    },
+    {
+        key = "economyAccountBrowser",
+        isAdmOnly = true,
+        getModule = function() return ParadiseEconomy.AccountBrowser end,
+        getInstance = function() return ParadiseEconomy.accountBrowser end,
+        setInstance = function(instance) ParadiseEconomy.accountBrowser = instance end,
+        create = function()
+            if not ParadiseEconomy.isEnabled() or not ParadiseEconomy.canManageEconomy() then return nil end
+            local width, height = math.min(960, getCore():getScreenWidth() - 40), math.min(640, getCore():getScreenHeight() - 40)
+            return initialise(ParadiseEconomy.AccountBrowser:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height))
         end,
         onOpen = function() ParadiseEconomy.send("requestState") end,
     },
@@ -36,9 +66,23 @@ ParadisePanels.table = {
         getInstance = function() return ParadiseEconomy.martInstance end,
         setInstance = function(instance) ParadiseEconomy.martInstance = instance end,
         create = function()
-            if not ParadiseEconomy.canUsePlayerEconomy(getPlayer()) then return nil end
-            local width, height = math.min(700, getCore():getScreenWidth() - 40), math.min(560, getCore():getScreenHeight() - 40)
+            if not ParadiseEconomy.isEnabled() or not ParadiseEconomy.canOpenMart(getPlayer()) then return nil end
+            local width, height = math.min(1040, getCore():getScreenWidth() - 40), math.min(700, getCore():getScreenHeight() - 40)
             return initialise(ParadiseEconomy.MartPanel:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height))
+        end,
+        onOpen = function() ParadiseEconomy.send("requestState") end,
+    },
+    {
+        key = "tradeManagement",
+        isAdmOnly = false,
+        getModule = function() return ParadiseEconomy.TradeManagementPanel end,
+        getInstance = function() return ParadiseEconomy.tradeManagementInstance end,
+        setInstance = function(instance) ParadiseEconomy.tradeManagementInstance = instance end,
+        create = function()
+            if not ParadiseEconomy.isEnabled() or not ParadiseEconomy.canManageTradeZones() then return nil end
+            local width, height = math.min(1120, getCore():getScreenWidth() - 40), math.min(740, getCore():getScreenHeight() - 40)
+            return initialise(ParadiseEconomy.TradeManagementPanel:new(
+                (getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height))
         end,
         onOpen = function() ParadiseEconomy.send("requestState") end,
     },
@@ -49,13 +93,27 @@ ParadisePanels.table = {
         getInstance = function() return ParadiseEconomy.adminInstance end,
         setInstance = function(instance) ParadiseEconomy.adminInstance = instance end,
         create = function(targetUser)
-            local width, height = math.min(760, getCore():getScreenWidth() - 40), math.min(560, getCore():getScreenHeight() - 40)
+            if not ParadiseEconomy.isEnabled() or not ParadiseEconomy.canManageEconomy() then return nil end
+            local width, height = math.min(1020, getCore():getScreenWidth() - 40), math.min(700, getCore():getScreenHeight() - 40)
             return initialise(ParadiseEconomy.AdminPanel:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height, targetUser))
         end,
         onOpen = function(panel, targetUser)
             panel:setTargetUsername(targetUser)
             ParadiseEconomy.send("requestState")
         end,
+    },
+    {
+        key = "economyTables",
+        isAdmOnly = true,
+        getModule = function() return ParadiseEconomy.TablesPanel end,
+        getInstance = function() return ParadiseEconomy.tablesPanel end,
+        setInstance = function(instance) ParadiseEconomy.tablesPanel = instance end,
+        create = function()
+            if not ParadiseEconomy.isEnabled() or not ParadiseEconomy.canManageEconomy() then return nil end
+            local width, height = math.min(1000, getCore():getScreenWidth() - 40), math.min(680, getCore():getScreenHeight() - 40)
+            return initialise(ParadiseEconomy.TablesPanel:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height))
+        end,
+        onOpen = function() ParadiseEconomy.send("requestState") end,
     },
     {
         key = "safehouseAdmin",

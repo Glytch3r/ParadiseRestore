@@ -121,7 +121,7 @@ function ParadiseDev.TargContext.addPlayerActions(menu, target, localPlayer, inc
     local username = ParadiseDev.TargContext.getUsername(target)
     if not username then return end
     target = ParadiseDev.TargContext.resolveTarget(target)
-    if ParadiseEconomy and ParadiseEconomy.AdminPanel then
+    if ParadiseEconomy and ParadiseEconomy.AdminPanel and ParadiseEconomy.isEnabled and ParadiseEconomy.isEnabled() then
         local economyOption = menu:addOption("Economy Account: " .. username, nil,
             ParadiseDev.TargContext.openEconomyAccount, username)
         economyOption.paradiseManagerKey = "Economy Account"

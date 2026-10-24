@@ -11,6 +11,15 @@ ParadiseEconomy.walletTypes = {
     ["Base.Wallet_Male"] = true,
     ["Base.Wallet_Hide"] = true,
 }
+ParadiseEconomy.serverAccountId = "server"
+ParadiseEconomy.accountTypes = { personal = true, merchant = true, trade = true, server = true, custom = true }
+ParadiseEconomy.accountTypeLabels = {
+    personal = "Personal",
+    merchant = "Merchant",
+    trade = "Trade",
+    server = "Server",
+    custom = "Custom",
+}
 
 function ParadiseEconomy.normalizeUsername(user)
     user = tostring(user or ""):match("^%s*(.-)%s*$")
@@ -23,6 +32,40 @@ function ParadiseEconomy.usernameKey(user)
     return user and string.lower(user) or nil
 end
 
+function ParadiseEconomy.normalizeZoneId(zoneId)
+    zoneId = tostring(zoneId or ""):match("^%s*(.-)%s*$")
+    if zoneId == "" or #zoneId > 96 then return nil end
+    return string.lower(zoneId)
+end
+
+function ParadiseEconomy.personalAccountId(user)
+    local key = ParadiseEconomy.usernameKey(user)
+    return key and ("p:" .. key) or nil
+end
+
+function ParadiseEconomy.merchantAccountId(zoneId, user)
+    local key = ParadiseEconomy.usernameKey(user)
+    zoneId = ParadiseEconomy.normalizeZoneId(zoneId)
+    if not key or not zoneId then return nil end
+    return "m:" .. zoneId .. ":" .. key
+end
+
+function ParadiseEconomy.tradeAccountId(zoneId)
+    zoneId = ParadiseEconomy.normalizeZoneId(zoneId)
+    return zoneId and ("t:" .. zoneId) or nil
+end
+
+function ParadiseEconomy.getAccountType(accountId)
+    accountId = tostring(accountId or "")
+    if accountId == ParadiseEconomy.serverAccountId then return "server" end
+    local prefix = accountId:match("^(%a+):")
+    if prefix == "p" then return "personal" end
+    if prefix == "m" then return "merchant" end
+    if prefix == "t" then return "trade" end
+    if prefix == "c" then return "custom" end
+    return nil
+end
+
 function ParadiseEconomy.normalizeCurrency(currency)
     currency = string.lower(tostring(currency or ""))
     return ParadiseEconomy.currencies[currency] and currency or nil
@@ -33,6 +76,14 @@ function ParadiseEconomy.normalizeAmount(amount)
     if not amount:match("^%d+$") then return nil end
     amount = tonumber(amount)
     if not amount or amount < 1 or amount > 2147483647 then return nil end
+    return math.floor(amount)
+end
+
+function ParadiseEconomy.normalizeBalance(amount)
+    amount = tostring(amount or "")
+    if not amount:match("^%d+$") then return nil end
+    amount = tonumber(amount)
+    if not amount or amount < 0 or amount > 2147483647 then return nil end
     return math.floor(amount)
 end
 
@@ -70,6 +121,92 @@ function ParadiseEconomy.takeBalance(tab, currency, amount)
     if balance < amount then return false end
     tab[currency] = balance - amount
     return true
+end
+
+function ParadiseEconomy.setBalance(tab, currency, amount)
+    currency = ParadiseEconomy.normalizeCurrency(currency)
+    amount = ParadiseEconomy.normalizeBalance(amount)
+    if not currency or not amount or type(tab) ~= "table" then return false end
+    tab[currency] = amount
+    return true
+end
+
+function ParadiseEconomy.getPrimaryBucket(account)
+    if type(account) ~= "table" then return nil end
+    if account.type == "personal" or account.type == "trade" then return "digital" end
+    if account.type == "merchant" then return "earnings" end
+    return "balances"
+end
+
+function ParadiseEconomy.getAccountBuckets(account)
+    if type(account) ~= "table" then return {} end
+    if account.type == "personal" then
+        return { { key = "digital", label = "Digital" }, { key = "onhand", label = "On Hand" } }
+    elseif account.type == "trade" then
+        return { { key = "digital", label = "Digital" } }
+    elseif account.type == "merchant" then
+        return { { key = "earnings", label = "Earnings" } }
+    end
+    return { { key = "balances", label = "Balance" } }
+end
+
+function ParadiseEconomy.resolveBucket(account, bucket)
+    for _, entry in ipairs(ParadiseEconomy.getAccountBuckets(account)) do
+        if entry.key == bucket then return bucket end
+    end
+    if bucket == "online" then
+        for _, entry in ipairs(ParadiseEconomy.getAccountBuckets(account)) do
+            if entry.key == "digital" then return "digital" end
+        end
+    end
+    return ParadiseEconomy.getPrimaryBucket(account)
+end
+
+function ParadiseEconomy.getBucketTable(account, bucket)
+    if type(account) ~= "table" then return nil end
+    bucket = ParadiseEconomy.resolveBucket(account, bucket)
+    if not bucket then return nil end
+    account[bucket] = account[bucket] or {}
+    return account[bucket]
+end
+
+function ParadiseEconomy.getAccountBalance(account, currency, bucket)
+    return ParadiseEconomy.getBalance(ParadiseEconomy.getBucketTable(account, bucket), currency)
+end
+
+function ParadiseEconomy.addAccountBalance(account, currency, amount, bucket)
+    return ParadiseEconomy.addBalance(ParadiseEconomy.getBucketTable(account, bucket), currency, amount)
+end
+
+function ParadiseEconomy.takeAccountBalance(account, currency, amount, bucket)
+    return ParadiseEconomy.takeBalance(ParadiseEconomy.getBucketTable(account, bucket), currency, amount)
+end
+
+function ParadiseEconomy.setAccountBalance(account, currency, amount, bucket)
+    return ParadiseEconomy.setBalance(ParadiseEconomy.getBucketTable(account, bucket), currency, amount)
+end
+
+function ParadiseEconomy.getAccountLabel(account)
+    if type(account) ~= "table" then return "Unknown" end
+    local owner = account.owner or account.name or account.id or "?"
+    local title = account.title or owner
+    if account.type == "personal" then return "Personal · " .. tostring(title) end
+    if account.type == "merchant" then
+        return "Merchant · " .. tostring(title) .. " · " .. tostring(account.zoneName or account.zoneId or "?")
+    end
+    if account.type == "trade" then return "Trade · " .. tostring(title) end
+    if account.type == "server" then return "Server · " .. tostring(account.name or "Server") end
+    return "Custom · " .. tostring(title)
+end
+
+function ParadiseEconomy.formatAccountBalances(account)
+    local parts = {}
+    for _, entry in ipairs(ParadiseEconomy.getAccountBuckets(account)) do
+        local tab = type(account[entry.key]) == "table" and account[entry.key] or {}
+        parts[#parts + 1] = entry.label .. ": " .. tostring(ParadiseEconomy.getBalance(tab, "jimoleon"))
+            .. " Jimoleons, " .. tostring(ParadiseEconomy.getBalance(tab, "paradisium")) .. " Paradisium"
+    end
+    return table.concat(parts, " | ")
 end
 
 function ParadiseEconomy.isWallet(item)
@@ -147,6 +284,11 @@ function ParadiseEconomy.isInTradeZone(pl)
     return zone ~= nil and zone.features ~= nil and zone.features.isTrade == true
 end
 
+function ParadiseEconomy.isEnabled()
+    local sand = SandboxVars and SandboxVars.ParadiseZ or nil
+    return not sand or sand.PlayerEconomyEnabled ~= false
+end
+
 function ParadiseEconomy.isTradeZoneOnly()
     local sand = SandboxVars and SandboxVars.ParadiseZ or nil
     return not sand or sand.PlayerEconomyTradeZoneOnly ~= false
@@ -158,14 +300,93 @@ function ParadiseEconomy.getPlayerShopTaxPercent()
     return math.max(0, math.min(100, percent))
 end
 
-function ParadiseEconomy.getPlayerShopPayout(price)
+function ParadiseEconomy.normalizeTradeTaxPercent(percent)
+    percent = tonumber(percent)
+    if not percent then return nil end
+    return math.max(0, math.min(100, math.floor(percent)))
+end
+
+function ParadiseEconomy.getTradeTaxPercent(account)
+    local percent = type(account) == "table" and ParadiseEconomy.normalizeTradeTaxPercent(account.tradeTax) or nil
+    return percent or ParadiseEconomy.getPlayerShopTaxPercent()
+end
+
+function ParadiseEconomy.getPlayerShopPayout(price, percent)
     price = ParadiseEconomy.normalizeAmount(price)
     if not price then return nil, nil end
-    local tax = math.ceil(price * ParadiseEconomy.getPlayerShopTaxPercent() / 100)
+    percent = ParadiseEconomy.normalizeTradeTaxPercent(percent) or ParadiseEconomy.getPlayerShopTaxPercent()
+    local tax = math.ceil(price * percent / 100)
     return price - tax, tax
 end
 
+ParadiseEconomy.defaultMerchantLeaseDays = 7
+ParadiseEconomy.merchantLeaseDayMs = 86400000
+
+function ParadiseEconomy.normalizeMerchantLeaseDays(days)
+    days = tonumber(days)
+    if not days then return nil end
+    return math.max(0, math.min(365, math.floor(days)))
+end
+
+function ParadiseEconomy.getDefaultMerchantLeaseDays()
+    local sand = SandboxVars and SandboxVars.ParadiseZ or nil
+    local days = tonumber(sand and sand.MerchantLeaseDays)
+    if days == nil then days = ParadiseEconomy.defaultMerchantLeaseDays end
+    return math.max(0, math.min(365, math.floor(days)))
+end
+
+function ParadiseEconomy.getMerchantLeaseDays(trade)
+    local days = type(trade) == "table" and ParadiseEconomy.normalizeMerchantLeaseDays(trade.merchantLeaseDays) or nil
+    return days or ParadiseEconomy.getDefaultMerchantLeaseDays()
+end
+
+function ParadiseEconomy.getMerchantLeaseRemaining(account, now)
+    local expiresAt = type(account) == "table" and tonumber(account.expiresAt) or 0
+    if not expiresAt or expiresAt <= 0 then return nil end
+    return math.max(0, expiresAt - (tonumber(now) or getTimestampMs()))
+end
+
+function ParadiseEconomy.isMerchantExpired(account, now)
+    local remaining = ParadiseEconomy.getMerchantLeaseRemaining(account, now)
+    return remaining ~= nil and remaining <= 0
+end
+
+function ParadiseEconomy.getMerchantLeaseStatus(account, now)
+    local remaining = ParadiseEconomy.getMerchantLeaseRemaining(account, now)
+    if remaining == nil then return "none" end
+    if remaining <= 0 then return "expired" end
+    if remaining <= ParadiseEconomy.merchantLeaseDayMs then return "expiring" end
+    return "active"
+end
+
+function ParadiseEconomy.formatMerchantLeaseDuration(ms)
+    ms = tonumber(ms)
+    if not ms then return "No expiry" end
+    if ms <= 0 then return "Expired" end
+    local totalMinutes = math.floor(ms / 60000)
+    local days = math.floor(totalMinutes / 1440)
+    local hours = math.floor((totalMinutes % 1440) / 60)
+    local minutes = totalMinutes % 60
+    if days > 0 then return tostring(days) .. "d " .. tostring(hours) .. "h" end
+    if hours > 0 then return tostring(hours) .. "h " .. tostring(minutes) .. "m" end
+    return tostring(math.max(1, minutes)) .. "m"
+end
+
+function ParadiseEconomy.getMerchantLeaseLabel(account, now)
+    local status = ParadiseEconomy.getMerchantLeaseStatus(account, now)
+    if status == "none" then return "No expiry" end
+    if status == "expired" then return "Expired" end
+    return ParadiseEconomy.formatMerchantLeaseDuration(ParadiseEconomy.getMerchantLeaseRemaining(account, now)) .. " left"
+end
+
+function ParadiseEconomy.canManageEconomy()
+    if not ParadiseEconomy.isEnabled() then return false end
+    local sand = SandboxVars and SandboxVars.ParadiseZ or nil
+    return not sand or sand.AdminsCanManageEconomy ~= false
+end
+
 function ParadiseEconomy.canUsePlayerEconomy(pl)
+    if not ParadiseEconomy.isEnabled() then return false end
     return not ParadiseEconomy.isTradeZoneOnly() or ParadiseEconomy.isInTradeZone(pl)
 end
 
@@ -186,11 +407,12 @@ function ParadiseEconomy.getTradeZoneTitle(pl)
     return ParadiseEconomy.normalizeTradeZoneTitle(zone.name or zone.id)
 end
 
-function ParadiseEconomy.newPlayerListing(id, seller, itemData, currency, price, createdAt, zoneTitle)
+function ParadiseEconomy.newPlayerListing(id, seller, itemData, currency, price, createdAt, zoneTitle, zoneId, merchantAccountId)
     seller = ParadiseEconomy.normalizeUsername(seller)
     currency = ParadiseEconomy.normalizeCurrency(currency)
     price = ParadiseEconomy.normalizeAmount(price)
     zoneTitle = ParadiseEconomy.normalizeTradeZoneTitle(zoneTitle)
+    zoneId = ParadiseEconomy.normalizeZoneId(zoneId)
     if not id or not seller or type(itemData) ~= "table" or not itemData.fullType or not currency or not price then return nil end
     return {
         id = tostring(id),
@@ -200,6 +422,8 @@ function ParadiseEconomy.newPlayerListing(id, seller, itemData, currency, price,
         price = price,
         createdAt = tonumber(createdAt) or 0,
         zoneTitle = zoneTitle,
+        zoneId = zoneId,
+        merchantAccountId = merchantAccountId and tostring(merchantAccountId) or nil,
     }
 end
 

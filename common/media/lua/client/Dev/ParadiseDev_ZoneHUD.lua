@@ -298,7 +298,7 @@ function ParadiseDev.ZoneHUD.SettingsPanel:onReset()
     self.fontSize:setSelectedData(settings.zoneFontSize)
     self.zoneVisible.selected[1] = true
     self.hpVisible.selected[1] = true
-    self.economyVisible.selected[1] = true
+    if self.economyVisible then self.economyVisible.selected[1] = true end
     if self.worldZoneVisuals then self.worldZoneVisuals.selected[1] = true end
 end
 
@@ -383,12 +383,14 @@ function ParadiseDev.ZoneHUD.SettingsPanel:createChildren()
     self.hpVisible:addOption("Show HP Bar")
     self.hpVisible.selected[1] = settings.hpVisible
     self:addChild(self.hpVisible)
-    self.economyVisible = ISTickBox:new(12, 290, self.width - 24, 22, "", self, ParadiseDev.ZoneHUD.SettingsPanel.onEconomyVisibleChanged)
-    self.economyVisible:initialise()
-    self.economyVisible:instantiate()
-    self.economyVisible:addOption("Show Money On Screen")
-    self.economyVisible.selected[1] = settings.economyVisible
-    self:addChild(self.economyVisible)
+    if ParadiseEconomy and ParadiseEconomy.isEnabled and ParadiseEconomy.isEnabled() then
+        self.economyVisible = ISTickBox:new(12, 290, self.width - 24, 22, "", self, ParadiseDev.ZoneHUD.SettingsPanel.onEconomyVisibleChanged)
+        self.economyVisible:initialise()
+        self.economyVisible:instantiate()
+        self.economyVisible:addOption("Show Money On Screen")
+        self.economyVisible.selected[1] = settings.economyVisible
+        self:addChild(self.economyVisible)
+    end
     if ParadiseRestore.isAdm(self.player) then
         self.worldZoneVisuals = ISTickBox:new(12, 315, self.width - 24, 22, "", self, ParadiseDev.ZoneHUD.SettingsPanel.onWorldZoneVisualsChanged)
         self.worldZoneVisuals:initialise()
@@ -423,7 +425,7 @@ function ParadiseDev.ZoneHUD.onUserPanelOption(self, button, x, y)
         return
     end
     if button.internal == "PARADISE_ECONOMY_ACCOUNT" then
-        if ParadisePanels and ParadisePanels.Install and (not ParadiseEconomy or not ParadiseEconomy.OpenPanel) then ParadisePanels.Install() end
+        if ParadisePanels and ParadisePanels.Install and not (ParadiseEconomy and ParadiseEconomy.OpenPanel) then ParadisePanels.Install() end
         if ParadiseEconomy and ParadiseEconomy.OpenPanel then ParadiseEconomy.OpenPanel() end
         return
     end
@@ -469,21 +471,25 @@ function ParadiseDev.ZoneHUD.layoutUserPanel()
         self.zoneHUDSettings.backgroundColor.b = 0.5;
 
     self:addChild(self.zoneHUDSettings)
-    self.moneyHUDVisible = ISTickBox:new(close.x, self.zoneHUDSettings:getBottom() + 10, buttonWidth, close.height, "", self, ParadiseDev.ZoneHUD.onUserPanelMoneyHUDChanged)
-        self.moneyHUDVisible:initialise()
-        self.moneyHUDVisible:instantiate()
-        self.moneyHUDVisible:addOption("Show Money On Screen")
-        self.moneyHUDVisible.selected[1] = settings.economyVisible
-    self:addChild(self.moneyHUDVisible)
-    self.economyAccount = ISButton:new(close.x, self.moneyHUDVisible:getBottom() + 10, buttonWidth, close.height, "Economy Account", self, ParadiseDev.ZoneHUD.onUserPanelOption)
-        self.economyAccount.internal = "PARADISE_ECONOMY_ACCOUNT"
-        self.economyAccount:initialise()
-        self.economyAccount:instantiate()
-        self.economyAccount.borderColor = self.buttonBorderColor
-        self.economyAccount.backgroundColor.a = 0.7;
-        self.economyAccount.backgroundColor.b = 0.5;
-    self:addChild(self.economyAccount)
-    self.promoRedeem = ISButton:new(close.x, self.economyAccount:getBottom() + 10, buttonWidth, close.height, "Redeem Code", self, ParadiseDev.ZoneHUD.onUserPanelOption)
+    local economyAnchor = self.zoneHUDSettings
+    if ParadiseEconomy and ParadiseEconomy.isEnabled and ParadiseEconomy.isEnabled() then
+        self.moneyHUDVisible = ISTickBox:new(close.x, self.zoneHUDSettings:getBottom() + 10, buttonWidth, close.height, "", self, ParadiseDev.ZoneHUD.onUserPanelMoneyHUDChanged)
+            self.moneyHUDVisible:initialise()
+            self.moneyHUDVisible:instantiate()
+            self.moneyHUDVisible:addOption("Show Money On Screen")
+            self.moneyHUDVisible.selected[1] = settings.economyVisible
+        self:addChild(self.moneyHUDVisible)
+        self.economyAccount = ISButton:new(close.x, self.moneyHUDVisible:getBottom() + 10, buttonWidth, close.height, "Economy Account", self, ParadiseDev.ZoneHUD.onUserPanelOption)
+            self.economyAccount.internal = "PARADISE_ECONOMY_ACCOUNT"
+            self.economyAccount:initialise()
+            self.economyAccount:instantiate()
+            self.economyAccount.borderColor = self.buttonBorderColor
+            self.economyAccount.backgroundColor.a = 0.7;
+            self.economyAccount.backgroundColor.b = 0.5;
+        self:addChild(self.economyAccount)
+        economyAnchor = self.economyAccount
+    end
+    self.promoRedeem = ISButton:new(close.x, economyAnchor:getBottom() + 10, buttonWidth, close.height, "Redeem Code", self, ParadiseDev.ZoneHUD.onUserPanelOption)
         self.promoRedeem.internal = "PARADISE_PROMO_REDEEM"
         self.promoRedeem:initialise()
         self.promoRedeem:instantiate()

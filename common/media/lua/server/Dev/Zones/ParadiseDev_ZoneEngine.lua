@@ -336,6 +336,7 @@ function ParadiseDev.Zones.Engine.setZoneFeature(id, key, enabled)
         end
     end
     ParadiseDev.Zones.Engine.save()
+    if ParadiseEconomy and ParadiseEconomy.onZoneChanged then ParadiseEconomy.onZoneChanged(zone) end
     return true
 end
 
@@ -419,6 +420,7 @@ function ParadiseDev.Zones.Engine.addRegion(id, x1, y1, x2, y2, options)
     }
     ParadiseDev.Zones.Engine.rebuildIndex()
     ParadiseDev.Zones.Engine.save()
+    if ParadiseEconomy and ParadiseEconomy.onZoneChanged then ParadiseEconomy.onZoneChanged(zone) end
     return zone
 end
 
@@ -439,6 +441,7 @@ function ParadiseDev.Zones.Engine.updateZone(id, options)
     if options.policy ~= nil then zone.policy = options.policy end
     if options.features ~= nil then zone.features = ParadiseDev.Zones.Engine.copyFeatures(options.features) end
     ParadiseDev.Zones.Engine.save()
+    if ParadiseEconomy and ParadiseEconomy.onZoneChanged then ParadiseEconomy.onZoneChanged(zone) end
     return true
 end
 
@@ -465,7 +468,8 @@ function ParadiseDev.Zones.Engine.removeRegion(id, regionIndex)
         return false, "segment not found"
     end
     table.remove(zone.regions, regionIndex)
-    if #zone.regions == 0 then
+    local zoneRemoved = #zone.regions == 0
+    if zoneRemoved then
         ParadiseDev.Zones.Engine.zones[id] = nil
         for steamId, cageId in pairs(ParadiseDev.Zones.Engine.cageAssignments) do
             if cageId == id then ParadiseDev.Zones.Engine.cageAssignments[steamId] = nil end
@@ -473,6 +477,9 @@ function ParadiseDev.Zones.Engine.removeRegion(id, regionIndex)
     end
     ParadiseDev.Zones.Engine.rebuildIndex()
     ParadiseDev.Zones.Engine.save()
+    if zoneRemoved and ParadiseEconomy and ParadiseEconomy.onZoneRemoved then
+        ParadiseEconomy.onZoneRemoved(id)
+    end
     return true
 end
 
@@ -484,6 +491,7 @@ function ParadiseDev.Zones.Engine.removeZone(id)
     end
     ParadiseDev.Zones.Engine.rebuildIndex()
     ParadiseDev.Zones.Engine.save()
+    if ParadiseEconomy and ParadiseEconomy.onZoneRemoved then ParadiseEconomy.onZoneRemoved(id) end
     return true
 end
 function ParadiseDev.Zones.Engine.setProfile(username, tags)

@@ -148,10 +148,12 @@ function RecordsPanel.Panel:createChildren()
     self.soulButton.internal = "SoulCatcher"
     self.soulButton:initialise()
     self:addChild(self.soulButton)
-    self.economyButton = ISButton:new(308, top, 160, 28, "Paradise Economy", self, RecordsPanel.Panel.onLoggerButton)
-    self.economyButton.internal = "ParadiseEconomy"
-    self.economyButton:initialise()
-    self:addChild(self.economyButton)
+    if ParadiseEconomy and ParadiseEconomy.isEnabled and ParadiseEconomy.isEnabled() then
+        self.economyButton = ISButton:new(308, top, 160, 28, "Paradise Economy", self, RecordsPanel.Panel.onLoggerButton)
+        self.economyButton.internal = "ParadiseEconomy"
+        self.economyButton:initialise()
+        self:addChild(self.economyButton)
+    end
     self.yearEntry = self:createFilterEntry(12, 72)
     self.monthEntry = self:createFilterEntry(92, 52)
     self.dayEntry = self:createFilterEntry(152, 52)
@@ -207,7 +209,9 @@ function RecordsPanel.Panel:updateTabButtons()
     local inactive = { r = 0.10, g = 0.10, b = 0.10, a = 1 }
     self.limboButton.backgroundColor = self.loggerTag == "LimboTracker" and active or inactive
     self.soulButton.backgroundColor = self.loggerTag == "SoulCatcher" and active or inactive
-    self.economyButton.backgroundColor = self.loggerTag == "ParadiseEconomy" and active or inactive
+    if self.economyButton then
+        self.economyButton.backgroundColor = self.loggerTag == "ParadiseEconomy" and active or inactive
+    end
 end
 
 function RecordsPanel.Panel:onLoggerButton(button)

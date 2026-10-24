@@ -860,16 +860,34 @@ option ParadiseZ.FactionActivityTracksMembers
     page = ParadiseZ, translation = ParadiseZ_FactionActivityTracksMembers,
 }
 
+option ParadiseZ.PlayerEconomyEnabled
+{
+    type = boolean, default = true,
+    page = ParadiseEconomy, translation = ParadiseZ_PlayerEconomyEnabled,
+}
+
 option ParadiseZ.PlayerEconomyTradeZoneOnly
 {
     type = boolean, default = true,
-    page = ParadiseZ, translation = ParadiseZ_PlayerEconomyTradeZoneOnly,
+    page = ParadiseEconomy, translation = ParadiseZ_PlayerEconomyTradeZoneOnly,
 }
 
 option ParadiseZ.PlayerShopTaxPercent
 {
     type = double, min = 0.00, max = 100.00, default = 5.00,
-    page = ParadiseZ, translation = ParadiseZ_PlayerShopTaxPercent,
+    page = ParadiseEconomy, translation = ParadiseZ_PlayerShopTaxPercent,
+}
+
+option ParadiseZ.MerchantLeaseDays
+{
+    type = integer, min = 0, max = 365, default = 7,
+    page = ParadiseEconomy, translation = ParadiseZ_MerchantLeaseDays,
+}
+
+option ParadiseZ.AdminsCanManageEconomy
+{
+    type = boolean, default = true,
+    page = ParadiseEconomy, translation = ParadiseZ_AdminsCanManageEconomy,
 }
 
 option ParadiseZ.ProductionDiagnostics
