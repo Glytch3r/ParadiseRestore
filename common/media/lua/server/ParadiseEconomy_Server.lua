@@ -200,6 +200,7 @@ function ParadiseEconomy.getStore()
     store.orphanedPlayerListings = store.orphanedPlayerListings or {}
     store.zones = store.zones or {}
     store.marts = store.marts or {}
+    store.addressBooks = store.addressBooks or {}
     store.nextMartId = tonumber(store.nextMartId) or 1
     if not store.playerShopStorageMigrated then
         for _, listing in ipairs(store.market.playerListings) do
@@ -2438,6 +2439,128 @@ function ParadiseEconomy.getPlayerLedgerRows(user, accountId, limit, isAdm)
     return { rows = rows, count = #rows }
 end
 
+ParadiseEconomy.addressBookLimit = 20
+
+function ParadiseEconomy.isContactAccount(account)
+    return account ~= nil and account.type == "personal"
+end
+
+function ParadiseEconomy.getOwnedAccountIds(store, user)
+    local key = ParadiseEconomy.usernameKey(user)
+    local accIds = {}
+    if not key then return accIds end
+    for id, account in pairs(store.accounts or {}) do
+        if ParadiseEconomy.usernameKey(account.owner) == key then accIds[id] = true end
+    end
+    return accIds
+end
+
+function ParadiseEconomy.rememberContact(store, user, accountId, timestamp)
+    local key = ParadiseEconomy.usernameKey(user)
+    accountId = tostring(accountId or "")
+    if not key or accountId == "" then return end
+    if not ParadiseEconomy.isContactAccount(store.accounts[accountId]) then return end
+    store.addressBooks = store.addressBooks or {}
+    local book = store.addressBooks[key]
+    if not book then
+        book = { entries = {} }
+        store.addressBooks[key] = book
+    end
+    book.entries = book.entries or {}
+    book.entries[accountId] = { last = tonumber(timestamp) or os.time() }
+end
+
+function ParadiseEconomy.rememberLedgerContacts(store, rec)
+    if not rec then return end
+    local a = store.accounts[rec.a]
+    local b = store.accounts[rec.b]
+    local aKey = a and ParadiseEconomy.usernameKey(a.owner) or nil
+    local bKey = b and ParadiseEconomy.usernameKey(b.owner) or nil
+    if aKey and b and ParadiseEconomy.isContactAccount(b) and aKey ~= bKey then
+        ParadiseEconomy.rememberContact(store, a.owner, b.id)
+    end
+    if bKey and a and ParadiseEconomy.isContactAccount(a) and bKey ~= aKey then
+        ParadiseEconomy.rememberContact(store, b.owner, a.id)
+    end
+end
+
+function ParadiseEconomy.seedAddressBook(store, user, book)
+    local own = ParadiseEconomy.getOwnedAccountIds(store, user)
+    local rows = ParadiseEconomy.getPlayerLedgerRows(user, nil, 200, false).rows or {}
+    local now = os.time()
+    for index, row in ipairs(rows) do
+        local other
+        if row.a ~= "" and own[row.a] then
+            other = row.b
+        elseif row.b ~= "" and own[row.b] then
+            other = row.a
+        end
+        if other and other ~= "" and not own[other]
+            and ParadiseEconomy.isContactAccount(store.accounts[other]) then
+            book.entries[other] = book.entries[other] or { last = now - index }
+        end
+    end
+end
+
+function ParadiseEconomy.getAddressBook(store, user)
+    local key = ParadiseEconomy.usernameKey(user)
+    if not key then return { entries = {} } end
+    store.addressBooks = store.addressBooks or {}
+    local book = store.addressBooks[key]
+    if not book then
+        book = { entries = {} }
+        store.addressBooks[key] = book
+    end
+    book.entries = book.entries or {}
+    if not book.seeded then
+        book.seeded = true
+        ParadiseEconomy.seedAddressBook(store, user, book)
+    end
+    return book
+end
+
+function ParadiseEconomy.pruneAddressBook(store, book)
+    local entries = {}
+    for accountId, entry in pairs(book.entries) do
+        if store.accounts[accountId] then
+            entries[#entries + 1] = { id = accountId, last = tonumber(entry.last) or 0 }
+        else
+            book.entries[accountId] = nil
+        end
+    end
+    table.sort(entries, function(a, b)
+        if a.last == b.last then return a.id < b.id end
+        return a.last > b.last
+    end)
+    for index = ParadiseEconomy.addressBookLimit + 1, #entries do
+        book.entries[entries[index].id] = nil
+    end
+end
+
+function ParadiseEconomy.getAddressBookView(user)
+    local store = ParadiseEconomy.getStore()
+    local book = ParadiseEconomy.getAddressBook(store, user)
+    ParadiseEconomy.pruneAddressBook(store, book)
+    local contacts = {}
+    for accountId, entry in pairs(book.entries) do
+        local account = store.accounts[accountId]
+        if account then
+            contacts[#contacts + 1] = {
+                accountId = accountId,
+                kind = account.type,
+                user = account.owner,
+                label = tostring(account.owner or accountId) .. " (" .. tostring(accountId) .. ")",
+                last = tonumber(entry.last) or 0,
+            }
+        end
+    end
+    table.sort(contacts, function(a, b)
+        if a.last == b.last then return a.label < b.label end
+        return a.last > b.last
+    end)
+    return { contacts = contacts }
+end
+
 function ParadiseEconomy.writeLog(tx)
     local writer = getFileWriter("ParadiseEconomy/" .. os.date("%Y-%m-%d") .. ".log", true, true)
     if not writer then return false end
@@ -2503,6 +2626,7 @@ function ParadiseEconomy.record(pl, action, currency, amount, fromUser, toUser, 
         rec.note = tx.detail
     end
     ParadiseEconomy.appendLedger(rec)
+    ParadiseEconomy.rememberLedgerContacts(store, rec)
     ParadiseEconomy.writeLog(tx)
     return tx
 end
@@ -2682,6 +2806,7 @@ function ParadiseEconomy.sendState(pl, message, extra)
     local payload = {
         personal = personal,
         merchants = merchants,
+        addressBook = ParadiseEconomy.getAddressBookView(user),
         accounts = isAdm and store.accounts or nil,
         zones = isAdm and store.zones or nil,
         orphanedPlayerListings = isAdm and store.orphanedPlayerListings or nil,

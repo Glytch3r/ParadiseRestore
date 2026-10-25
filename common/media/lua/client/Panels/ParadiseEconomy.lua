@@ -2,6 +2,7 @@ require "ISUI/ISCollapsableWindow"
 require "ISUI/ISButton"
 require "ISUI/ISTextEntryBox"
 require "ISUI/ISComboBox"
+require "ISUI/ISContextMenu"
 require "ISUI/ISScrollingListBox"
 require "ISUI/ISPanel"
 require "ISUI/ISModalDialog"
@@ -885,6 +886,31 @@ function ParadiseEconomy.send(command, args)
     if pl then sendClientCommand(pl, ParadiseEconomy.module, command, args or {}) end
 end
 
+function ParadiseEconomy.getAddressContacts(mode)
+    local contacts = (ParadiseEconomy.clientState.addressBook or {}).contacts or {}
+    local list = {}
+    for _, contact in ipairs(contacts) do
+        local value = mode == "account" and contact.accountId or contact.user
+        if value and value ~= "" then list[#list + 1] = { contact = contact, value = value } end
+    end
+    return list
+end
+
+function ParadiseEconomy.openAddressBookMenu(entry, mode)
+    if not entry then return end
+    local pl = getPlayer()
+    local context = ISContextMenu.get(pl and pl:getPlayerNum() or 0, getMouseX(), getMouseY())
+    local contacts = ParadiseEconomy.getAddressContacts(mode)
+    if #contacts == 0 then
+        context:addOption("No saved contacts yet", nil, function() end)
+        return
+    end
+    for _, item in ipairs(contacts) do
+        local value = item.value
+        context:addOption(item.contact.label, nil, function() entry:setText(value) end)
+    end
+end
+
 ParadiseEconomy.Panel.operations = {
     { key = "deposit", label = "Deposit to digital", button = "DEPOSIT TO DIGITAL", hint = "ON-HAND  ->  DIGITAL" },
     { key = "withdraw", label = "Withdraw to on-hand", button = "WITHDRAW TO ON-HAND", hint = "DIGITAL  ->  ON-HAND" },
@@ -943,6 +969,10 @@ function ParadiseEconomy.Panel:createChildren()
     self.recipient:initialise()
     self.recipient:instantiate()
     self:addChild(self.recipient)
+    self.recipientBook = ISButton:new(0, 0, 30, 25, "AB", self, ParadiseEconomy.Panel.openRecipientBook)
+    self.recipientBook.tooltip = "Address book: pick a saved contact"
+    self.recipientBook:initialise()
+    self:addChild(self.recipientBook)
     self.transferAmount = ISTextEntryBox:new("", 0, 0, 120, 25)
     self.transferAmount.tooltip = "Amount to transfer"
     self.transferAmount:initialise()
@@ -1041,12 +1071,17 @@ function ParadiseEconomy.Panel:layout()
     self.walletButton:setWidth(130)
     local transferInnerX = self.transferX + 14
     local transferInnerW = self.transferW - 28
-    local recipientW = math.floor(transferInnerW * 0.60)
-    local transferAmountW = transferInnerW - recipientW - 8
+    local bookW = 30
+    local recipientW = math.floor(transferInnerW * 0.60) - bookW - 4
+    local transferAmountW = transferInnerW - recipientW - bookW - 8
     self.recipient:setX(transferInnerX)
     self.recipient:setY(fieldY)
     self.recipient:setWidth(recipientW)
-    self.transferAmount:setX(transferInnerX + recipientW + 8)
+    self.recipientBook:setX(transferInnerX + recipientW + 4)
+    self.recipientBook:setY(fieldY)
+    self.recipientBook:setWidth(bookW)
+    self.recipientBook:setHeight(25)
+    self.transferAmount:setX(transferInnerX + recipientW + bookW + 8)
     self.transferAmount:setY(fieldY)
     self.transferAmount:setWidth(transferAmountW)
     self.transferButton:setX(transferInnerX)
@@ -1113,6 +1148,10 @@ function ParadiseEconomy.Panel:onTransfer()
         amount = self.transferAmount:getInternalText(),
         username = self.recipient:getInternalText(),
     })
+end
+
+function ParadiseEconomy.Panel:openRecipientBook()
+    ParadiseEconomy.openAddressBookMenu(self.recipient, "user")
 end
 
 function ParadiseEconomy.Panel:update()
@@ -2795,6 +2834,10 @@ function ParadiseEconomy.TradeManagementPanel:createChildren()
     self.zoneOwner:instantiate()
     self.zoneOwner:setPlaceholderText("Zone owner...")
     self:addChild(self.zoneOwner)
+    self.zoneOwnerBook = ISButton:new(0, 0, 30, 24, "AB", self, ParadiseEconomy.TradeManagementPanel.openOwnerBook)
+    self.zoneOwnerBook.tooltip = "Address book: pick a saved contact"
+    self.zoneOwnerBook:initialise()
+    self:addChild(self.zoneOwnerBook)
     self.setOwnerButton = ISButton:new(740, 94, 100, 24, "SET OWNER", self, ParadiseEconomy.TradeManagementPanel.applyZoneOwner)
     self.setOwnerButton.tooltip = "Admin only: reassign this trade zone's owner and finance account"
     self.setOwnerButton:initialise()
@@ -2943,6 +2986,7 @@ function ParadiseEconomy.TradeManagementPanel:applyTab()
     self.postOwnerButton:setVisible(isPosts and self.isAdm)
     self.adminView:setVisible(isMart)
     self.zoneOwner:setVisible(self.isAdm)
+    self.zoneOwnerBook:setVisible(self.isAdm)
     self.setOwnerButton:setVisible(self.isAdm)
     self:setTabState(self.tabMerchants, isMerchants)
     self:setTabState(self.tabPosts, isPosts)
@@ -2983,7 +3027,11 @@ function ParadiseEconomy.TradeManagementPanel:layout()
     self.applyFeeButton:setWidth(128)
     self.zoneOwner:setX(594)
     self.zoneOwner:setY(94)
-    self.zoneOwner:setWidth(140)
+    self.zoneOwner:setWidth(104)
+    self.zoneOwnerBook:setX(702)
+    self.zoneOwnerBook:setY(94)
+    self.zoneOwnerBook:setWidth(30)
+    self.zoneOwnerBook:setHeight(24)
     self.setOwnerButton:setX(740)
     self.setOwnerButton:setY(94)
     self.setOwnerButton:setWidth(100)
@@ -3150,6 +3198,10 @@ function ParadiseEconomy.TradeManagementPanel:applyZoneOwner()
     local owner = self.zoneOwner:getInternalText()
     if owner == "" then return end
     ParadiseEconomy.send("zoneSetOwner", { zoneId = self.selectedZoneId, owner = owner })
+end
+
+function ParadiseEconomy.TradeManagementPanel:openOwnerBook()
+    ParadiseEconomy.openAddressBookMenu(self.zoneOwner, "user")
 end
 
 function ParadiseEconomy.TradeManagementPanel:sweepTreasury()
@@ -3359,6 +3411,7 @@ function ParadiseEconomy.TradeManagementPanel:update()
     self.merchantSuspendButton:setEnable(merchant ~= nil)
     self.merchantSuspendButton:setTitle(merchant and merchant.suspended and "Resume Store" or "Suspend Store")
     self.zoneOwner:setVisible(self.isAdm)
+    self.zoneOwnerBook:setVisible(self.isAdm)
     self.setOwnerButton:setVisible(self.isAdm)
     self.setOwnerButton:setEnable(self.isAdm and self.selectedZoneId ~= nil
         and self.zoneOwner:getInternalText() ~= "")
@@ -3636,6 +3689,7 @@ function ParadiseEconomy.sync(module, command, args)
         state.orphanedPlayerListings = state.orphanedPlayerListings or {}
         state.shops = state.shops or {}
         state.myShops = state.myShops or {}
+        state.addressBook = state.addressBook or { contacts = {} }
         state.marts = state.marts or {}
         state.shopCache = ParadiseEconomy.clientState.shopCache or {}
         state.market = state.market or { marts = {}, playerListings = {} }
@@ -4105,6 +4159,10 @@ function ParadiseEconomy.AdminPanel:createChildren()
     self.newOwner:instantiate()
     self.newOwner:setPlaceholderText("Owner username...")
     self:addChild(self.newOwner)
+    self.newOwnerBook = ISButton:new(0, 0, 30, 24, "AB", self, ParadiseEconomy.AdminPanel.openOwnerBook)
+    self.newOwnerBook.tooltip = "Address book: pick a saved contact"
+    self.newOwnerBook:initialise()
+    self:addChild(self.newOwnerBook)
     self.newZone = ISComboBox:new(313, 124, 200, 24, self)
     self.newZone:setToolTipMap({ defaultTooltip = "Trade zone for merchant / trade accounts" })
     self.newZone:initialise()
@@ -4275,8 +4333,12 @@ function ParadiseEconomy.AdminPanel:layout()
     self.newType:setHeight(24)
     self.newOwner:setX(innerX + typeW + 8)
     self.newOwner:setY(createY + 24)
-    self.newOwner:setWidth(ownerW)
+    self.newOwner:setWidth(ownerW - 34)
     self.newOwner:setHeight(24)
+    self.newOwnerBook:setX(self.newOwner:getX() + self.newOwner:getWidth() + 4)
+    self.newOwnerBook:setY(createY + 24)
+    self.newOwnerBook:setWidth(30)
+    self.newOwnerBook:setHeight(24)
     self.newZone:setX(innerX + typeW + ownerW + 16)
     self.newZone:setY(createY + 24)
     self.newZone:setWidth(math.max(100, innerW - typeW - ownerW - 16))
@@ -4442,7 +4504,7 @@ end
 
 function ParadiseEconomy.AdminPanel:setCreateOpen(open)
     self.createOpen = open == true
-    for _, widget in ipairs({ self.newType, self.newOwner, self.newZone, self.newName,
+    for _, widget in ipairs({ self.newType, self.newOwner, self.newOwnerBook, self.newZone, self.newName,
         self.createConfirmButton, self.createCancelButton }) do
         widget:setVisible(self.createOpen)
     end
@@ -4458,6 +4520,10 @@ end
 
 function ParadiseEconomy.AdminPanel:closeCreate()
     self:setCreateOpen(false)
+end
+
+function ParadiseEconomy.AdminPanel:openOwnerBook()
+    ParadiseEconomy.openAddressBookMenu(self.newOwner, "user")
 end
 
 function ParadiseEconomy.AdminPanel:update()
@@ -5399,6 +5465,10 @@ function ParadiseEconomy.MartAdminView:createChildren()
     self.ownerAccount:instantiate()
     self.ownerAccount:setPlaceholderText("Owner account ID or username...")
     self:addChild(self.ownerAccount)
+    self.ownerBook = ISButton:new(0, 0, 30, 24, "AB", self, ParadiseEconomy.MartAdminView.openOwnerBook)
+    self.ownerBook.tooltip = "Address book: pick a saved contact"
+    self.ownerBook:initialise()
+    self:addChild(self.ownerBook)
     self.assignOwnerButton = ISButton:new(337, 136, 150, 24, "ASSIGN OWNER", self, ParadiseEconomy.MartAdminView.assignMartOwner)
     self.assignOwnerButton.tooltip = "Admin only: route this market's funds to another account"
     self.assignOwnerButton:initialise()
@@ -5447,6 +5517,10 @@ function ParadiseEconomy.MartAdminView:createChildren()
     self.transferTarget:instantiate()
     self.transferTarget:setPlaceholderText("Username...")
     self:addChild(self.transferTarget)
+    self.transferBook = ISButton:new(0, 0, 30, 24, "AB", self, ParadiseEconomy.MartAdminView.openTransferBook)
+    self.transferBook.tooltip = "Address book: pick a saved contact"
+    self.transferBook:initialise()
+    self:addChild(self.transferBook)
     self.transferButton = ISButton:new(850, 172, 110, 24, "TRANSFER", self, ParadiseEconomy.MartAdminView.transfer)
     self.transferButton:initialise()
     self:addChild(self.transferButton)
@@ -5798,6 +5872,14 @@ function ParadiseEconomy.MartAdminView:assignMartOwner()
     })
 end
 
+function ParadiseEconomy.MartAdminView:openOwnerBook()
+    ParadiseEconomy.openAddressBookMenu(self.ownerAccount, "account")
+end
+
+function ParadiseEconomy.MartAdminView:openTransferBook()
+    ParadiseEconomy.openAddressBookMenu(self.transferTarget, "user")
+end
+
 function ParadiseEconomy.MartAdminView:sweepTreasury()
     if not self.selectedZoneId then return end
     ParadiseEconomy.send("zoneSweep", { zoneId = self.selectedZoneId })
@@ -5957,11 +6039,16 @@ function ParadiseEconomy.MartAdminView:layout()
     self.categoriesEntry:setWidth(math.max(120, self.saveX - gap - 403))
     self.categoriesEntry:setHeight(24)
 
+    local ownerFieldW = math.max(108, math.max(150, self.saveX - gap - 29 - 158) - 42)
     self.ownerAccount:setX(29)
     self.ownerAccount:setY(self.accountField3Y)
-    self.ownerAccount:setWidth(math.max(150, self.saveX - gap - 29 - 158))
+    self.ownerAccount:setWidth(ownerFieldW)
     self.ownerAccount:setHeight(24)
-    self.assignOwnerButton:setX(self.ownerAccount:getX() + self.ownerAccount:getWidth() + gap)
+    self.ownerBook:setX(self.ownerAccount:getX() + self.ownerAccount:getWidth() + 6)
+    self.ownerBook:setY(self.accountField3Y)
+    self.ownerBook:setWidth(30)
+    self.ownerBook:setHeight(24)
+    self.assignOwnerButton:setX(self.ownerAccount:getX() + self.ownerAccount:getWidth() + 42)
     self.assignOwnerButton:setY(self.accountField3Y)
     self.assignOwnerButton:setWidth(150)
     self.assignOwnerButton:setHeight(24)
@@ -6003,8 +6090,12 @@ function ParadiseEconomy.MartAdminView:layout()
     local targetX = transferX + 226
     self.transferTarget:setX(targetX)
     self.transferTarget:setY(self.actionY)
-    self.transferTarget:setWidth(math.max(80, w - 29 - 110 - 10 - targetX))
+    self.transferTarget:setWidth(math.max(80, w - 29 - 110 - 10 - targetX) - 42)
     self.transferTarget:setHeight(24)
+    self.transferBook:setX(self.transferTarget:getX() + self.transferTarget:getWidth() + 6)
+    self.transferBook:setY(self.actionY)
+    self.transferBook:setWidth(30)
+    self.transferBook:setHeight(24)
     self.transferButton:setX(w - 29 - 110)
     self.transferButton:setY(self.actionY)
     self.transferButton:setWidth(110)
@@ -6125,6 +6216,7 @@ function ParadiseEconomy.MartAdminView:update()
     self.applyFeeButton:setEnable(hasTrade and fee:match("^%d+$") ~= nil)
     self.sweepButton:setEnable(hasTrade)
     self.ownerAccount:setVisible(self.isAdm == true)
+    self.ownerBook:setVisible(self.isAdm == true)
     self.assignOwnerButton:setVisible(self.isAdm == true)
     self.assignOwnerButton:setEnable(hasMart and self.isAdm == true
         and self.ownerAccount:getInternalText() ~= "")
