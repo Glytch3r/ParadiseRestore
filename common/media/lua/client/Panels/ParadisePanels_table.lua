@@ -66,11 +66,14 @@ ParadisePanels.table = {
         getInstance = function() return ParadiseEconomy.martInstance end,
         setInstance = function(instance) ParadiseEconomy.martInstance = instance end,
         create = function()
-            if not ParadiseEconomy.isEnabled() or not ParadiseEconomy.canOpenMart(getPlayer()) then return nil end
+            if not ParadiseEconomy.isEnabled() then return nil end
             local width, height = math.min(1040, getCore():getScreenWidth() - 40), math.min(700, getCore():getScreenHeight() - 40)
             return initialise(ParadiseEconomy.MartPanel:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height))
         end,
-        onOpen = function() ParadiseEconomy.send("requestState") end,
+        onOpen = function(panel, scope)
+            panel:setScope(scope)
+            ParadiseEconomy.send("requestState")
+        end,
     },
     {
         key = "tradeManagement",

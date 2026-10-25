@@ -12,11 +12,12 @@ ParadiseEconomy.walletTypes = {
     ["Base.Wallet_Hide"] = true,
 }
 ParadiseEconomy.serverAccountId = "server"
-ParadiseEconomy.accountTypes = { personal = true, merchant = true, trade = true, server = true, custom = true }
+ParadiseEconomy.accountTypes = { personal = true, merchant = true, trade = true, finance = true, server = true, custom = true }
 ParadiseEconomy.accountTypeLabels = {
     personal = "Personal",
     merchant = "Merchant",
-    trade = "Trade",
+    trade = "Treasury",
+    finance = "Finance",
     server = "Server",
     custom = "Custom",
 }
@@ -122,7 +123,7 @@ end
 
 function ParadiseEconomy.getPrimaryBucket(account)
     if type(account) ~= "table" then return nil end
-    if account.type == "personal" or account.type == "trade" then return "digital" end
+    if account.type == "personal" or account.type == "trade" or account.type == "finance" then return "digital" end
     if account.type == "merchant" then return "earnings" end
     return "balances"
 end
@@ -132,7 +133,9 @@ function ParadiseEconomy.getAccountBuckets(account)
     if account.type == "personal" then
         return { { key = "digital", label = "Digital" }, { key = "onhand", label = "On Hand" } }
     elseif account.type == "trade" then
-        return { { key = "digital", label = "Digital" } }
+        return { { key = "digital", label = "Treasury" } }
+    elseif account.type == "finance" then
+        return { { key = "digital", label = "Finance" } }
     elseif account.type == "merchant" then
         return { { key = "earnings", label = "Earnings" } }
     end
@@ -183,7 +186,8 @@ function ParadiseEconomy.getAccountLabel(account)
     if account.type == "merchant" then
         return "Merchant · " .. tostring(title) .. " · " .. tostring(account.zoneName or account.zoneId or "?")
     end
-    if account.type == "trade" then return "Trade · " .. tostring(title) end
+    if account.type == "trade" then return "Treasury · " .. tostring(title) end
+    if account.type == "finance" then return "Finance · " .. tostring(title) end
     if account.type == "server" then return "Server · " .. tostring(account.name or "Server") end
     return "Custom · " .. tostring(title)
 end
@@ -368,6 +372,70 @@ function ParadiseEconomy.getMerchantLeaseLabel(account, now)
     return ParadiseEconomy.formatMerchantLeaseDuration(ParadiseEconomy.getMerchantLeaseRemaining(account, now)) .. " left"
 end
 
+function ParadiseEconomy.normalizeMerchantDailyFee(fee)
+    fee = tonumber(fee)
+    if not fee then return nil end
+    return math.max(0, math.min(2147483647, math.floor(fee)))
+end
+
+function ParadiseEconomy.getMerchantDailyFee(tradeOrZone)
+    local fee = type(tradeOrZone) == "table" and ParadiseEconomy.normalizeMerchantDailyFee(tradeOrZone.merchantDailyFee) or nil
+    return fee or 0
+end
+
+function ParadiseEconomy.normalizeMerchantFeeCurrency(currency)
+    currency = string.lower(tostring(currency or ""))
+    return ParadiseEconomy.currencies[currency] and currency or nil
+end
+
+function ParadiseEconomy.getMerchantFeeCurrency(tradeOrZone)
+    local currency = type(tradeOrZone) == "table"
+        and ParadiseEconomy.normalizeMerchantFeeCurrency(tradeOrZone.merchantFeeCurrency) or nil
+    return currency or "jimoleon"
+end
+
+function ParadiseEconomy.getMerchantFeeDue(days, fee)
+    days = tonumber(days) or 0
+    fee = ParadiseEconomy.normalizeMerchantDailyFee(fee) or 0
+    if days <= 0 or fee <= 0 then return 0 end
+    return math.min(2147483647, math.floor(days) * fee)
+end
+
+function ParadiseEconomy.isAccountFrozen(account)
+    return type(account) == "table" and account.frozen == true
+end
+
+function ParadiseEconomy.getAccountStatus(account)
+    if type(account) ~= "table" then return "unknown" end
+    if account.archived == true then return "archived" end
+    if ParadiseEconomy.isAccountFrozen(account) then return "frozen" end
+    if account.type == "merchant" and account.suspended == true then return "suspended" end
+    if account.type == "merchant" and ParadiseEconomy.isMerchantExpired(account) then return "expired" end
+    return "active"
+end
+
+function ParadiseEconomy.isMerchantClosed(account, now)
+    if type(account) ~= "table" or account.type ~= "merchant" then return true end
+    if account.archived == true or account.suspended == true then return true end
+    return ParadiseEconomy.isMerchantExpired(account, now)
+end
+
+function ParadiseEconomy.getMerchantStatus(account, now)
+    if type(account) ~= "table" or account.type ~= "merchant" then return "unknown" end
+    if account.archived == true then return "archived" end
+    if account.suspended == true then return "suspended" end
+    if ParadiseEconomy.isMerchantExpired(account, now) then return "expired" end
+    return "active"
+end
+
+function ParadiseEconomy.getMerchantStatusLabel(account, now)
+    local status = ParadiseEconomy.getMerchantStatus(account, now)
+    if status == "suspended" then return "Suspended" end
+    if status == "expired" then return "Suspended · lease expired" end
+    if status == "archived" then return "Closed" end
+    return "Active"
+end
+
 function ParadiseEconomy.canManageEconomy()
     if not ParadiseEconomy.isEnabled() then return false end
     local sand = SandboxVars and SandboxVars.ParadiseZ or nil
@@ -414,6 +482,527 @@ function ParadiseEconomy.newPlayerListing(id, seller, itemData, currency, price,
         zoneId = zoneId,
         merchantAccountId = merchantAccountId and tostring(merchantAccountId) or nil,
     }
+end
+
+function ParadiseEconomy.formatNumber(value)
+    local text = tostring(math.floor(tonumber(value) or 0))
+    local sign = ""
+    if string.sub(text, 1, 1) == "-" then
+        sign = "-"
+        text = string.sub(text, 2)
+    end
+    local grouped = string.reverse(text)
+    grouped = string.gsub(grouped, "(%d%d%d)", "%1,")
+    grouped = string.reverse(grouped)
+    if string.sub(grouped, 1, 1) == "," then grouped = string.sub(grouped, 2) end
+    return sign .. grouped
+end
+
+function ParadiseEconomy.getItemDisplayName(fullType)
+    fullType = tostring(fullType or "")
+    if fullType == "" then return "" end
+    local manager = getScriptManager and getScriptManager() or nil
+    local script = manager and manager.getItem and manager:getItem(fullType) or nil
+    local name = script and script.getDisplayName and script:getDisplayName() or nil
+    if name and tostring(name) ~= "" then return tostring(name) end
+    return (string.gsub(fullType, "^Base%.", ""))
+end
+
+ParadiseEconomy.Ledger = ParadiseEconomy.Ledger or {}
+local Ledger = ParadiseEconomy.Ledger
+
+Ledger.digits = "0123456789abcdefghijklmnopqrstuvwxyz"
+
+function Ledger.base36(value)
+    value = math.floor(tonumber(value) or 0)
+    if value <= 0 then return "0" end
+    local out = ""
+    while value > 0 do
+        local rem = value % 36
+        out = string.sub(Ledger.digits, rem + 1, rem + 1) .. out
+        value = math.floor(value / 36)
+    end
+    return out
+end
+
+function Ledger.unbase36(text)
+    text = string.lower(tostring(text or ""))
+    local value = 0
+    for index = 1, #text do
+        local char = string.sub(text, index, index)
+        local found = string.find(Ledger.digits, char, 1, true)
+        if not found then return nil end
+        value = value * 36 + (found - 1)
+    end
+    return value
+end
+
+function Ledger.dayKey(time)
+    return os.date("%Y-%m-%d", math.floor(tonumber(time) or os.time()))
+end
+
+function Ledger.timeOfDay(time)
+    local h, m, s = string.match(os.date("%H:%M:%S", math.floor(tonumber(time) or os.time())), "(%d+):(%d+):(%d+)")
+    return (tonumber(h) or 0) * 3600 + (tonumber(m) or 0) * 60 + (tonumber(s) or 0)
+end
+
+function Ledger.timeText(rec)
+    local tod = math.floor(tonumber(rec and rec.tod) or 0) % 86400
+    return string.format("%02d:%02d", math.floor(tod / 3600), math.floor((tod % 3600) / 60))
+end
+
+function Ledger.currencyCode(currency)
+    currency = string.lower(tostring(currency or ""))
+    if currency == "jimoleon" then return "j" end
+    if currency == "paradisium" then return "p" end
+    if currency == "j" or currency == "p" then return currency end
+    return ""
+end
+
+function Ledger.currencyName(code)
+    if code == "j" then return "jimoleon" end
+    if code == "p" then return "paradisium" end
+    return ""
+end
+
+local function cleanField(value)
+    local text = tostring(value or "")
+    if text == "" then return "" end
+    return (string.gsub(text, "|", "/"))
+end
+
+local function splitFields(text)
+    local parts = {}
+    local start = 1
+    while true do
+        local pos = string.find(text, "|", start, true)
+        if not pos then
+            parts[#parts + 1] = string.sub(text, start)
+            break
+        end
+        parts[#parts + 1] = string.sub(text, start, pos - 1)
+        start = pos + 1
+    end
+    return parts
+end
+
+local function normalizeKind(kind)
+    if kind == "B" or kind == "T" or kind == "L" or kind == "S" or kind == "C" then return kind end
+    return "G"
+end
+
+function Ledger.encode(rec)
+    if type(rec) ~= "table" then return "" end
+    local kind = normalizeKind(tostring(rec.kind or "G"))
+    local tod = rec.tod or Ledger.timeOfDay(rec.time or os.time())
+    local parts = { kind, Ledger.base36(tod) }
+    if kind == "B" then
+        parts[#parts + 1] = cleanField(rec.a)
+        parts[#parts + 1] = cleanField(rec.b)
+        parts[#parts + 1] = Ledger.currencyCode(rec.cur)
+        parts[#parts + 1] = Ledger.base36(rec.amount)
+        parts[#parts + 1] = Ledger.base36(rec.tax)
+        parts[#parts + 1] = cleanField(rec.taxAcc)
+        parts[#parts + 1] = cleanField(rec.item)
+        parts[#parts + 1] = Ledger.base36(rec.qty or 1)
+        parts[#parts + 1] = cleanField(rec.zone)
+    elseif kind == "T" then
+        parts[#parts + 1] = cleanField(rec.reason)
+        parts[#parts + 1] = cleanField(rec.a)
+        parts[#parts + 1] = cleanField(rec.b)
+        parts[#parts + 1] = Ledger.currencyCode(rec.cur)
+        parts[#parts + 1] = Ledger.base36(rec.amount)
+        parts[#parts + 1] = cleanField(rec.note)
+        parts[#parts + 1] = cleanField(rec.zone)
+    elseif kind == "L" then
+        parts[#parts + 1] = cleanField(rec.reason)
+        parts[#parts + 1] = cleanField(rec.a)
+        parts[#parts + 1] = Ledger.currencyCode(rec.cur)
+        parts[#parts + 1] = Ledger.base36(rec.amount)
+        parts[#parts + 1] = cleanField(rec.item)
+        parts[#parts + 1] = Ledger.base36(rec.qty or 1)
+        parts[#parts + 1] = cleanField(rec.zone)
+    elseif kind == "S" then
+        parts[#parts + 1] = cleanField(rec.reason)
+        parts[#parts + 1] = cleanField(rec.a)
+        parts[#parts + 1] = cleanField(rec.actor)
+        parts[#parts + 1] = cleanField(rec.zone)
+        parts[#parts + 1] = cleanField(rec.note)
+    elseif kind == "C" then
+        parts[#parts + 1] = cleanField(rec.reason)
+        parts[#parts + 1] = cleanField(rec.actor)
+        parts[#parts + 1] = cleanField(rec.b)
+        parts[#parts + 1] = cleanField(rec.zone)
+        parts[#parts + 1] = cleanField(rec.note)
+    else
+        parts[#parts + 1] = cleanField(rec.action)
+        parts[#parts + 1] = cleanField(rec.actor)
+        parts[#parts + 1] = cleanField(rec.a)
+        parts[#parts + 1] = cleanField(rec.b)
+        parts[#parts + 1] = Ledger.currencyCode(rec.cur)
+        parts[#parts + 1] = Ledger.base36(rec.amount)
+        parts[#parts + 1] = cleanField(rec.note)
+    end
+    for index = #parts, 3, -1 do
+        if parts[index] ~= "" then break end
+        parts[index] = nil
+    end
+    return table.concat(parts, "|")
+end
+
+function Ledger.decode(text, day)
+    local rec = { kind = "G", day = day, raw = tostring(text or ""), tod = 0, note = "" }
+    local parts = splitFields(tostring(text or ""))
+    local kind = normalizeKind(parts[1] or "G")
+    rec.kind = kind
+    rec.tod = Ledger.unbase36(parts[2]) or 0
+    if kind == "B" then
+        rec.a = parts[3] or ""
+        rec.b = parts[4] or ""
+        rec.cur = Ledger.currencyName(parts[5])
+        rec.amount = Ledger.unbase36(parts[6]) or 0
+        rec.tax = Ledger.unbase36(parts[7]) or 0
+        rec.taxAcc = parts[8] or ""
+        rec.item = parts[9] or ""
+        rec.qty = Ledger.unbase36(parts[10]) or 1
+        rec.zone = parts[11] or ""
+    elseif kind == "T" then
+        rec.reason = parts[3] or ""
+        rec.a = parts[4] or ""
+        rec.b = parts[5] or ""
+        rec.cur = Ledger.currencyName(parts[6])
+        rec.amount = Ledger.unbase36(parts[7]) or 0
+        rec.note = parts[8] or ""
+        rec.zone = parts[9] or ""
+    elseif kind == "L" then
+        rec.reason = parts[3] or ""
+        rec.a = parts[4] or ""
+        rec.cur = Ledger.currencyName(parts[5])
+        rec.amount = Ledger.unbase36(parts[6]) or 0
+        rec.item = parts[7] or ""
+        rec.qty = Ledger.unbase36(parts[8]) or 1
+        rec.zone = parts[9] or ""
+    elseif kind == "S" then
+        rec.reason = parts[3] or ""
+        rec.a = parts[4] or ""
+        rec.actor = parts[5] or ""
+        rec.zone = parts[6] or ""
+        rec.note = parts[7] or ""
+    elseif kind == "C" then
+        rec.reason = parts[3] or ""
+        rec.actor = parts[4] or ""
+        rec.b = parts[5] or ""
+        rec.zone = parts[6] or ""
+        rec.note = parts[7] or ""
+    else
+        rec.reason = ""
+        rec.action = parts[3] or ""
+        rec.actor = parts[4] or ""
+        rec.a = parts[5] or ""
+        rec.b = parts[6] or ""
+        rec.cur = Ledger.currencyName(parts[7])
+        rec.amount = Ledger.unbase36(parts[8]) or 0
+        rec.note = parts[9] or ""
+    end
+    return rec
+end
+
+function Ledger.debugEncode(rec)
+    return Ledger.encode(rec)
+end
+
+function Ledger.debugDecode(text, day)
+    return Ledger.decode(text, day)
+end
+
+Ledger.actions = {
+    ["market purchase"] = { kind = "B" },
+    ["market sale"] = { kind = "B" },
+    ["player shop purchase"] = { kind = "B" },
+    ["player shop posted"] = { kind = "L", reason = "p" },
+    ["player shop cancelled"] = { kind = "L", reason = "c" },
+    ["market listing saved"] = { kind = "L", reason = "s" },
+    ["merchant store registered"] = { kind = "S", reason = "rg" },
+    ["market created"] = { kind = "S", reason = "rg" },
+    ["merchant suspended"] = { kind = "S", reason = "su" },
+    ["merchant resumed"] = { kind = "S", reason = "rs" },
+    ["merchant lease renewed"] = { kind = "S", reason = "rn" },
+    ["merchant lease expired"] = { kind = "S", reason = "ex" },
+    ["merchant lease clear"] = { kind = "S", reason = "rn" },
+    ["merchant renamed"] = { kind = "S", reason = "nm" },
+    ["market renamed"] = { kind = "S", reason = "nm" },
+    ["trade renamed"] = { kind = "S", reason = "nm" },
+    ["admin froze account"] = { kind = "S", reason = "fz" },
+    ["admin unfroze account"] = { kind = "S", reason = "uf" },
+    ["merchant collected"] = { kind = "T", reason = "c" },
+    ["deposited"] = { kind = "T", reason = "d" },
+    ["migrated carried funds"] = { kind = "T", reason = "d" },
+    ["withdrew"] = { kind = "T", reason = "w" },
+    ["withdrew to wallet"] = { kind = "T", reason = "v" },
+    ["transferred"] = { kind = "T", reason = "t" },
+    ["treasury sweep"] = { kind = "T", reason = "s" },
+    ["finance withdrawal"] = { kind = "T", reason = "f" },
+    ["finance transfer"] = { kind = "T", reason = "g" },
+    ["trade withdrawal"] = { kind = "T", reason = "r" },
+    ["trade transfer"] = { kind = "T", reason = "a" },
+    ["admin transfer"] = { kind = "T", reason = "x" },
+    ["admin add"] = { kind = "T", reason = "+" },
+    ["admin remove"] = { kind = "T", reason = "-" },
+    ["admin set"] = { kind = "T", reason = "=" },
+    ["trade tax collected"] = { kind = "T", reason = "y" },
+    ["pillaged wallet"] = { kind = "T", reason = "l" },
+    ["death wallet"] = { kind = "T", reason = "k" },
+    ["merchant lease paid"] = { kind = "T", reason = "e" },
+    ["trade tax set"] = { kind = "C", reason = "tx" },
+    ["zone daily fee set"] = { kind = "C", reason = "fe" },
+    ["zone owner set"] = { kind = "C", reason = "ow" },
+    ["admin set trade owner"] = { kind = "C", reason = "ow" },
+    ["admin set market owner"] = { kind = "C", reason = "mo" },
+    ["admin set merchant tax route"] = { kind = "C", reason = "rt" },
+    ["trade lease set"] = { kind = "C", reason = "ls" },
+    ["admin created account"] = { kind = "C", reason = "ca" },
+    ["admin deleted account"] = { kind = "C", reason = "da" },
+    ["admin purged ledger"] = { kind = "C", reason = "pl" },
+    ["admin rebuilt account indexes"] = { kind = "C", reason = "ri" },
+}
+
+function Ledger.fromLegacyTx(tx, resolveId)
+    if type(tx) ~= "table" then return nil end
+    local action = tostring(tx.action or "")
+    local mapped = Ledger.actions[action] or { kind = "G" }
+    local rec = {
+        kind = mapped.kind,
+        reason = mapped.reason,
+        time = tonumber(tx.time) or os.time(),
+        actor = tostring(tx.username or ""),
+        a = tostring(tx.accountId or ""),
+        b = tostring(tx.counterpartyId or ""),
+        cur = Ledger.currencyCode(tx.currency),
+        amount = tonumber(tx.amount) or 0,
+        zone = tostring(tx.zoneId or ""),
+        note = tostring(tx.detail or ""),
+    }
+    if resolveId then
+        if rec.a == "" and tx.from then rec.a = resolveId(tx.from) or "" end
+        if rec.b == "" and tx.to then rec.b = resolveId(tx.to) or "" end
+    end
+    local detail = tostring(tx.detail or "")
+    if rec.kind == "B" then
+        local qty, item = string.match(detail, "^(%d+)x%s+(.+)$")
+        rec.qty = tonumber(qty) or 1
+        rec.item = item or string.match(detail, ":(Base%.[^:]+):") or ""
+        rec.tax = tonumber(string.match(detail, ":tax=(%d+)")) or 0
+        rec.note = ""
+    elseif rec.kind == "L" then
+        rec.item = string.match(detail, "([^:]+)$") or ""
+        rec.qty = 1
+        rec.note = ""
+    elseif rec.kind == "G" then
+        rec.action = action
+        rec.note = detail
+    end
+    return rec
+end
+
+function Ledger.involves(rec, accIds, user)
+    if not rec or rec.kind == "C" then return false end
+    accIds = accIds or {}
+    if rec.kind == "S" then
+        return rec.a ~= nil and rec.a ~= "" and accIds[rec.a] == true
+    end
+    if rec.a and rec.a ~= "" and accIds[rec.a] then return true end
+    if rec.b and rec.b ~= "" and accIds[rec.b] then return true end
+    if rec.actor and rec.actor ~= "" and user then
+        local actorKey = ParadiseEconomy.usernameKey(rec.actor)
+        if actorKey and actorKey == ParadiseEconomy.usernameKey(user) then return true end
+    end
+    return false
+end
+
+function Ledger.amountText(rec, sign)
+    local value = ParadiseEconomy.formatNumber(rec and rec.amount or 0)
+    local code = "j"
+    if rec and rec.cur == "p" then code = "p" end
+    if rec and rec.cur ~= "j" and rec.cur ~= "p" then code = "" end
+    return (sign or "") .. value .. code
+end
+
+function Ledger.playerText(rec, ctx)
+    ctx = ctx or {}
+    local accIds = ctx.accIds or {}
+    local names = ctx.names or {}
+    local zones = ctx.zones or {}
+    local function name(id)
+        if not id or id == "" then return "unknown" end
+        return names[id] or id
+    end
+    local function zoneName(id)
+        if not id or id == "" then return "" end
+        return zones[id] or id
+    end
+    local function owns(id) return id and id ~= "" and accIds[id] == true end
+    local function itemName(fullType)
+        if not fullType or fullType == "" then return "item" end
+        if ctx.itemName then return ctx.itemName(fullType) end
+        return ParadiseEconomy.getItemDisplayName(fullType)
+    end
+    local time = Ledger.timeText(rec)
+    local amount = Ledger.amountText(rec, "")
+    local kind = rec.kind
+    if kind == "B" then
+        local item = itemName(rec.item)
+        local qty = tonumber(rec.qty) or 1
+        local label = qty > 1 and (tostring(qty) .. "x " .. item) or item
+        local tax = tonumber(rec.tax) or 0
+        local taxText = tax > 0 and (" (tax " .. Ledger.amountText({ amount = tax, cur = rec.cur }, "") .. ")") or ""
+        local at = rec.zone ~= "" and (" at " .. zoneName(rec.zone)) or ""
+        if owns(rec.a) then
+            return "You purchased " .. label .. " from " .. name(rec.b) .. " for " .. amount .. taxText .. at .. ", " .. time,
+                "Buyer account " .. tostring(rec.a) .. " · seller " .. tostring(rec.b), "out", "-" .. amount
+        end
+        if owns(rec.b) then
+            return name(rec.a) .. " purchased " .. label .. " from you for " .. amount .. taxText .. at .. ", " .. time,
+                "Seller account " .. tostring(rec.b) .. " · buyer " .. tostring(rec.a), "in", "+" .. amount
+        end
+        return name(rec.a) .. " purchased " .. label .. " from " .. name(rec.b) .. " for " .. amount .. at .. ", " .. time,
+            "", "flat", amount
+    elseif kind == "T" then
+        local reason = rec.reason or ""
+        local actor = rec.actor and rec.actor ~= "" and rec.actor or name(rec.a)
+        if reason == "d" then
+            if owns(rec.a) then return "You deposited " .. amount .. ", " .. time, "", "flat", amount end
+            return actor .. " deposited " .. amount .. ", " .. time, "", "flat", amount
+        end
+        if reason == "w" then
+            if owns(rec.a) then return "You withdrew " .. amount .. ", " .. time, "", "flat", amount end
+            return actor .. " withdrew " .. amount .. ", " .. time, "", "flat", amount
+        end
+        if reason == "v" then
+            if owns(rec.a) then return "You moved " .. amount .. " into a wallet, " .. time, "", "flat", amount end
+            return actor .. " moved " .. amount .. " into a wallet, " .. time, "", "flat", amount
+        end
+        if reason == "t" then
+            if owns(rec.a) then return "You sent " .. amount .. " to " .. name(rec.b) .. ", " .. time, "", "out", "-" .. amount end
+            if owns(rec.b) then return name(rec.a) .. " sent you " .. amount .. ", " .. time, "", "in", "+" .. amount end
+            return name(rec.a) .. " sent " .. amount .. " to " .. name(rec.b) .. ", " .. time, "", "flat", amount
+        end
+        if reason == "c" then
+            if owns(rec.a) then return "You collected " .. amount .. " from your store, " .. time, "", "in", "+" .. amount end
+            if owns(rec.b) then return name(rec.a) .. " collected " .. amount .. " into your account, " .. time, "", "flat", amount end
+            return name(rec.a) .. " collected " .. amount .. ", " .. time, "", "flat", amount
+        end
+        if reason == "s" then return "Treasury swept " .. amount .. " into finance, " .. time, "", "flat", amount end
+        if reason == "f" or reason == "g" or reason == "r" or reason == "a" then
+            if owns(rec.a) then return "You transferred " .. amount .. " to " .. name(rec.b) .. ", " .. time, "", "out", "-" .. amount end
+            if owns(rec.b) then return name(rec.a) .. " transferred " .. amount .. " to your account, " .. time, "", "in", "+" .. amount end
+            return name(rec.a) .. " transferred " .. amount .. " to " .. name(rec.b) .. ", " .. time, "", "flat", amount
+        end
+        if reason == "x" or reason == "+" or reason == "-" or reason == "=" then
+            local color = reason == "+" and "in" or (reason == "-" and "out" or "flat")
+            local sign = reason == "+" and "+" or (reason == "-" and "-" or "")
+            if owns(rec.b) then
+                return "An admin adjusted your account by " .. sign .. amount .. ", " .. time, "", color, sign .. amount
+            end
+            if owns(rec.a) then
+                return "An admin adjusted this account by " .. sign .. amount .. ", " .. time, "", color, sign .. amount
+            end
+            return "Admin adjusted an account by " .. sign .. amount .. ", " .. time, "", "flat", amount
+        end
+        if reason == "y" then
+            if owns(rec.a) then return "You received " .. amount .. " in tax, " .. time, "", "in", "+" .. amount end
+            if owns(rec.b) then return amount .. " tax collected from your sale, " .. time, "", "flat", amount end
+            return amount .. " tax collected, " .. time, "", "flat", amount
+        end
+        if reason == "l" then
+            if owns(rec.a) then return "You recovered " .. amount .. " from a wallet, " .. time, "", "in", "+" .. amount end
+            return actor .. " recovered " .. amount .. " from a wallet, " .. time, "", "flat", amount
+        end
+        if reason == "k" then
+            if owns(rec.a) then return "You lost " .. amount .. " when your wallet dropped, " .. time, "", "out", "-" .. amount end
+            return actor .. " lost " .. amount .. " from a wallet on death, " .. time, "", "flat", amount
+        end
+        if reason == "e" then
+            if owns(rec.a) then return "You paid " .. amount .. " for your store lease, " .. time, "", "out", "-" .. amount end
+            return name(rec.a) .. " paid " .. amount .. " for a store lease, " .. time, "", "flat", amount
+        end
+        return "Moved " .. amount .. " from " .. name(rec.a) .. " to " .. name(rec.b) .. ", " .. time, "", "flat", amount
+    elseif kind == "L" then
+        local item = itemName(rec.item)
+        local who = owns(rec.a) and "You" or name(rec.a)
+        if rec.reason == "p" then return who .. " listed " .. item .. " for " .. amount .. ", " .. time, "", "flat", amount end
+        if rec.reason == "c" then return who .. " cancelled the listing of " .. item .. " (" .. amount .. "), " .. time, "", "flat", amount end
+        return "Listing updated: " .. item .. " at " .. amount .. ", " .. time, "", "flat", amount
+    elseif kind == "S" then
+        local acc = tostring(rec.a or "")
+        local subject = owns(rec.a) and ("Your account " .. acc) or ("Account " .. acc)
+        local actor = tostring(rec.actor or "system")
+        local note = rec.note ~= "" and rec.note or ""
+        if rec.reason == "su" then return subject .. " (merchant) was suspended by " .. actor .. ", " .. time, note, "flat", "" end
+        if rec.reason == "rs" then return subject .. " was resumed by " .. actor .. ", " .. time, note, "flat", "" end
+        if rec.reason == "rg" then return subject .. " was registered, " .. time, note, "flat", "" end
+        if rec.reason == "rn" then return subject .. " lease was renewed by " .. actor .. ", " .. time, note, "flat", "" end
+        if rec.reason == "ex" then return subject .. " lease has expired, " .. time, note, "flat", "" end
+        if rec.reason == "fz" then return subject .. " was frozen by " .. actor .. ", " .. time, note, "flat", "" end
+        if rec.reason == "uf" then return subject .. " was unfrozen by " .. actor .. ", " .. time, note, "flat", "" end
+        if rec.reason == "nm" then return subject .. " was renamed, " .. time, note, "flat", "" end
+        return subject .. " updated, " .. time, note, "flat", ""
+    end
+    if kind == "G" then
+        return tostring(rec.action or "Transaction") .. " · " .. amount .. ", " .. time, tostring(rec.note or ""), "flat", amount
+    end
+    return "Transaction, " .. time, "", "flat", ""
+end
+
+function Ledger.adminText(rec)
+    local time = Ledger.timeText(rec)
+    local amount = Ledger.amountText(rec, "")
+    local kind = rec.kind
+    local zoneText = rec.zone and rec.zone ~= "" and ("  zone:" .. tostring(rec.zone)) or ""
+    local noteText = rec.note and rec.note ~= "" and ("  " .. tostring(rec.note)) or ""
+    if kind == "B" then
+        local taxText = (tonumber(rec.tax) or 0) > 0
+            and ("  tax " .. Ledger.amountText({ amount = rec.tax, cur = rec.cur }, "") .. " > " .. tostring(rec.taxAcc)) or ""
+        return string.format("%s  B  %s > %s  %s%s  %s x%s%s", time, tostring(rec.a), tostring(rec.b), amount, taxText,
+            tostring(rec.item), tostring(rec.qty or 1), zoneText)
+    end
+    if kind == "T" then
+        return string.format("%s  T:%s  %s > %s  %s%s%s", time, tostring(rec.reason), tostring(rec.a), tostring(rec.b),
+            amount, noteText, zoneText)
+    end
+    if kind == "L" then
+        return string.format("%s  L:%s  %s  %s  %s x%s%s", time, tostring(rec.reason), tostring(rec.a), amount,
+            tostring(rec.item), tostring(rec.qty or 1), zoneText)
+    end
+    if kind == "S" then
+        return string.format("%s  S:%s  %s  by %s%s%s", time, tostring(rec.reason), tostring(rec.a), tostring(rec.actor),
+            zoneText, noteText)
+    end
+    if kind == "C" then
+        return string.format("%s  C:%s  %s > %s%s%s", time, tostring(rec.reason), tostring(rec.actor), tostring(rec.b),
+            zoneText, noteText)
+    end
+    return string.format("%s  G  %s  %s > %s  %s%s", time, tostring(rec.action), tostring(rec.a), tostring(rec.b),
+        amount, noteText)
+end
+
+function Ledger.adminDetail(rec)
+    local lines = {
+        "raw: " .. tostring(rec.raw or ""),
+        "day " .. tostring(rec.day or "") .. "  time " .. Ledger.timeText(rec),
+        "kind " .. tostring(rec.kind or "") .. "  reason " .. tostring(rec.reason or ""),
+        "actor " .. tostring(rec.actor or "") .. "  zone " .. tostring(rec.zone or ""),
+        "account " .. tostring(rec.a or "") .. "  counterparty " .. tostring(rec.b or ""),
+        "currency " .. tostring(rec.cur or "") .. "  amount " .. tostring(rec.amount or 0),
+    }
+    if (tonumber(rec.tax) or 0) > 0 then
+        lines[#lines + 1] = "tax " .. tostring(rec.tax) .. "  tax account " .. tostring(rec.taxAcc or "")
+    end
+    if rec.item and rec.item ~= "" then
+        lines[#lines + 1] = "item " .. tostring(rec.item) .. " x" .. tostring(rec.qty or 1)
+    end
+    if rec.note and rec.note ~= "" then lines[#lines + 1] = "note " .. tostring(rec.note) end
+    if rec.action and rec.action ~= "" then lines[#lines + 1] = "action " .. tostring(rec.action) end
+    return lines
 end
 
 if isClient and isClient() then return end

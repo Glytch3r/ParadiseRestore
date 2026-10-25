@@ -2,7 +2,7 @@ if isClient() then return end
 
 ParadiseEconomy = ParadiseEconomy or {}
 
-local SCHEMA_VERSION = 6
+local SCHEMA_VERSION = 8
 
 local function ensureBucket(tab)
     tab = tab or {}
@@ -30,6 +30,161 @@ function ParadiseEconomy.ensureServerAccount(store)
     return account
 end
 
+function ParadiseEconomy.ensureFinanceAccount(store, zone)
+    store = store or ParadiseEconomy.getStore()
+    if type(zone) ~= "table" then
+        local zoneId = ParadiseEconomy.normalizeZoneId(zone)
+        zone = zoneId and store.zones and store.zones[zoneId] or nil
+    end
+    if not zone or not zone.id then return nil end
+    local id = zone.financeAccountId
+    local account = id and store.accounts[id] or nil
+    if account and account.type ~= "finance" then account = nil end
+    if not account then
+        for accountId, check in pairs(store.accounts) do
+            if check.type == "finance" and ParadiseEconomy.normalizeZoneId(check.zoneId) == zone.id then
+                id = accountId
+                account = check
+                break
+            end
+        end
+    end
+    if not account then
+        id = ParadiseEconomy.generateAccountId(store)
+        if not id then return nil end
+        account = {
+            id = id,
+            type = "finance",
+            zoneId = zone.id,
+            zoneName = zone.name,
+            tradeId = zone.name,
+            title = tostring(zone.name or zone.id) .. " Finance",
+            owner = zone.owner or ParadiseEconomy.serverAccountId,
+            ownerType = zone.ownerType or "server",
+            digital = { jimoleon = 0, paradisium = 0 },
+            createdAt = os.time(),
+        }
+        store.accounts[id] = account
+    end
+    account.type = "finance"
+    account.zoneId = zone.id
+    account.zoneName = account.zoneName or zone.name
+    account.tradeId = account.tradeId or zone.name
+    account.title = account.title or (tostring(zone.name or zone.id) .. " Finance")
+    account.owner = zone.owner or account.owner or ParadiseEconomy.serverAccountId
+    account.ownerType = zone.ownerType or account.ownerType or "server"
+    account.digital = ensureBucket(account.digital)
+    zone.financeAccountId = id
+    return account
+end
+
+function ParadiseEconomy.ensureZoneFinances(store)
+    store = store or ParadiseEconomy.getStore()
+    store.zones = store.zones or {}
+    for _, account in pairs(store.accounts or {}) do
+        if account.type == "trade" and account.zoneId and not store.zones[account.zoneId] then
+            store.zones[account.zoneId] = {
+                id = account.zoneId,
+                name = account.title or account.zoneName or account.zoneId,
+                isTrade = true,
+                createdAt = os.time(),
+            }
+        end
+    end
+    for _, zone in pairs(store.zones) do
+        if zone.isTrade then
+            if not ParadiseEconomy.normalizeUsername(zone.owner) then
+                local trade = zone.tradeAccountId and store.accounts[zone.tradeAccountId] or nil
+                zone.owner = trade and ParadiseEconomy.normalizeUsername(trade.owner) or ParadiseEconomy.serverAccountId
+                zone.ownerType = ParadiseEconomy.usernameKey(zone.owner) == ParadiseEconomy.usernameKey(ParadiseEconomy.serverAccountId)
+                    and "server" or "player"
+            end
+            zone.merchantDailyFee = ParadiseEconomy.normalizeMerchantDailyFee(zone.merchantDailyFee) or 0
+            zone.merchantFeeCurrency = ParadiseEconomy.normalizeMerchantFeeCurrency(zone.merchantFeeCurrency) or "jimoleon"
+            local finance = ParadiseEconomy.ensureFinanceAccount(store, zone)
+            local trade = zone.tradeAccountId and store.accounts[zone.tradeAccountId] or nil
+            if trade then
+                trade.owner = zone.owner
+                trade.ownerType = zone.ownerType
+                trade.merchantDailyFee = zone.merchantDailyFee
+                trade.merchantFeeCurrency = zone.merchantFeeCurrency
+            end
+            if finance then
+                finance.owner = zone.owner
+                finance.ownerType = zone.ownerType
+            end
+        end
+    end
+    return store
+end
+
+function ParadiseEconomy.normalizeZoneOwner(owner)
+    owner = ParadiseEconomy.normalizeUsername(owner)
+    if not owner or ParadiseEconomy.usernameKey(owner) == ParadiseEconomy.usernameKey(ParadiseEconomy.serverAccountId) then
+        return ParadiseEconomy.serverAccountId, "server"
+    end
+    return owner, "player"
+end
+
+function ParadiseEconomy.getZoneOwnerName(zoneOrTrade)
+    if type(zoneOrTrade) ~= "table" then return ParadiseEconomy.serverAccountId end
+    return ParadiseEconomy.normalizeZoneOwner(zoneOrTrade.owner)
+end
+
+function ParadiseEconomy.getZoneForAccount(account)
+    if type(account) ~= "table" or not account.zoneId then return nil end
+    local store = ParadiseEconomy.getStore()
+    return store.zones and store.zones[account.zoneId] or nil
+end
+
+function ParadiseEconomy.syncZoneOwnership(store, zone, owner)
+    store = store or ParadiseEconomy.getStore()
+    if type(zone) ~= "table" or not zone.id then return nil end
+    local normalized, ownerType = ParadiseEconomy.normalizeZoneOwner(owner)
+    zone.owner = normalized
+    zone.ownerType = ownerType
+    zone.merchantDailyFee = ParadiseEconomy.normalizeMerchantDailyFee(zone.merchantDailyFee) or 0
+    zone.merchantFeeCurrency = ParadiseEconomy.normalizeMerchantFeeCurrency(zone.merchantFeeCurrency) or "jimoleon"
+    local trade = zone.tradeAccountId and store.accounts[zone.tradeAccountId] or nil
+    if trade then
+        trade.owner = normalized
+        trade.ownerType = ownerType
+        trade.merchantDailyFee = zone.merchantDailyFee
+        trade.merchantFeeCurrency = zone.merchantFeeCurrency
+    end
+    local finance = ParadiseEconomy.ensureFinanceAccount(store, zone)
+    if finance then
+        finance.owner = normalized
+        finance.ownerType = ownerType
+        finance.zoneName = zone.name or finance.zoneName
+    end
+    return normalized, ownerType
+end
+
+function ParadiseEconomy.isZoneOwner(pl, zoneOrTrade)
+    if not pl then return false end
+    if ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) then return true end
+    local owner = ParadiseEconomy.getZoneOwnerName(zoneOrTrade)
+    return ParadiseEconomy.usernameKey(pl:getUsername()) == ParadiseEconomy.usernameKey(owner)
+end
+
+function ParadiseEconomy.getZoneFinanceAccount(zoneId, create)
+    local zoneIdNorm = ParadiseEconomy.normalizeZoneId(zoneId)
+    if not zoneIdNorm then return nil end
+    local store = ParadiseEconomy.getStore()
+    local zone = store.zones and store.zones[zoneIdNorm] or nil
+    if not zone then return nil end
+    if create then return ParadiseEconomy.ensureFinanceAccount(store, zone) end
+    local id = zone.financeAccountId
+    local account = id and store.accounts[id] or nil
+    if account and account.type == "finance" then return account end
+    return nil
+end
+
+function ParadiseEconomy.getZoneFeeConfig(zoneOrTrade)
+    return ParadiseEconomy.getMerchantDailyFee(zoneOrTrade), ParadiseEconomy.getMerchantFeeCurrency(zoneOrTrade)
+end
+
 function ParadiseEconomy.getStore()
     local store = ModData.getOrCreate(ParadiseEconomy.storeName)
     store.accounts = store.accounts or {}
@@ -45,6 +200,8 @@ function ParadiseEconomy.getStore()
     store.playerShops = store.playerShops or {}
     store.orphanedPlayerListings = store.orphanedPlayerListings or {}
     store.zones = store.zones or {}
+    store.marts = store.marts or {}
+    store.nextMartId = tonumber(store.nextMartId) or 1
     if not store.playerShopStorageMigrated then
         for _, listing in ipairs(store.market.playerListings) do
             store.orphanedPlayerListings[#store.orphanedPlayerListings + 1] = listing
@@ -57,9 +214,13 @@ function ParadiseEconomy.getStore()
         if version < 4 then ParadiseEconomy.migrateStore(store) end
         if version < 6 then ParadiseEconomy.migrateAccountIds(store) end
         ParadiseEconomy.migrateMerchantLeases(store)
+        if version < 7 then ParadiseEconomy.migrateShopSquares(store) end
+        if version < 8 then ParadiseEconomy.migrateOwnershipModel(store) end
         store.schemaVersion = SCHEMA_VERSION
     end
     ParadiseEconomy.ensureServerAccount(store)
+    ParadiseEconomy.ensureZoneFinances(store)
+    ParadiseEconomy.ensureZoneMarts(store)
     return store
 end
 
@@ -82,6 +243,297 @@ function ParadiseEconomy.generateAccountId(store, taken)
         end
     end
     return nil
+end
+
+function ParadiseEconomy.squareKey(x, y, z)
+    x = math.floor(tonumber(x) or 0)
+    y = math.floor(tonumber(y) or 0)
+    z = math.floor(tonumber(z) or 0)
+    return tostring(x) .. "|" .. tostring(y) .. "|" .. tostring(z)
+end
+
+function ParadiseEconomy.normalizeSquare(x, y, z)
+    x = math.floor(tonumber(x) or -1)
+    y = math.floor(tonumber(y) or -1)
+    z = math.floor(tonumber(z) or -1)
+    if x < 0 or y < 0 or z < 0 then return nil end
+    return x, y, z
+end
+
+function ParadiseEconomy.merchantIndexKey(zoneId, user)
+    zoneId = ParadiseEconomy.normalizeZoneId(zoneId)
+    local key = ParadiseEconomy.usernameKey(user)
+    if not zoneId or not key then return nil end
+    return zoneId .. "|" .. key
+end
+
+function ParadiseEconomy.getMerchantIndexKey(account)
+    if type(account) ~= "table" then return nil end
+    return ParadiseEconomy.merchantIndexKey(account.zoneId, account.owner)
+end
+
+function ParadiseEconomy.getZoneSquare(store, zoneId)
+    zoneId = ParadiseEconomy.normalizeZoneId(zoneId)
+    if not zoneId then return nil end
+    local engine = ParadiseDev and ParadiseDev.Zones and ParadiseDev.Zones.Engine or nil
+    local engineZone = engine and engine.zones and engine.zones[zoneId] or nil
+    if not engineZone and engine and engine.zones then
+        for id, check in pairs(engine.zones) do
+            if ParadiseEconomy.normalizeZoneId(id) == zoneId then engineZone = check break end
+        end
+    end
+    local region = engineZone and engineZone.regions and engineZone.regions[1] or nil
+    if region and engine and engine.regionCenter then
+        local x, y = engine.regionCenter(region)
+        local z = math.floor(tonumber(engineZone.zMin) or 0)
+        return math.floor(x), math.floor(y), z
+    end
+    local record = store and store.zones and store.zones[zoneId] or nil
+    if record then
+        local x, y, z = ParadiseEconomy.normalizeSquare(record.x, record.y, record.z)
+        if x then return x, y, z end
+    end
+    return nil
+end
+
+function ParadiseEconomy.getSquareTradeZone(x, y, z)
+    local sx, sy, sz = ParadiseEconomy.normalizeSquare(x, y, z)
+    if not sx then return nil end
+    local engine = ParadiseDev and ParadiseDev.Zones and ParadiseDev.Zones.Engine or nil
+    if not engine or not engine.getAuthority then return nil end
+    local zone = engine.getAuthority(sx + 0.5, sy + 0.5, sz, 0)
+    if zone and zone.features and zone.features.isTrade == true then return zone end
+    for _, candidate in ipairs(engine.getCandidateZones and engine.getCandidateZones(sx + 0.5, sy + 0.5, 0) or {}) do
+        if candidate.features and candidate.features.isTrade == true
+            and engine.zoneContains and engine.zoneContains(candidate, sx + 0.5, sy + 0.5, sz, 0) then
+            return candidate
+        end
+    end
+    return nil
+end
+
+function ParadiseEconomy.isPlayerNearSquare(pl, x, y, z, maxDist)
+    local sx, sy, sz = ParadiseEconomy.normalizeSquare(x, y, z)
+    if not pl or not sx then return false end
+    if math.floor(tonumber(pl:getZ()) or -1) ~= sz then return false end
+    return pl:DistTo(sx + 0.5, sy + 0.5) <= (tonumber(maxDist) or 3.0)
+end
+
+function ParadiseEconomy.addMartCategory(mart, category)
+    if type(mart) ~= "table" then return end
+    mart.categories = mart.categories or {}
+    category = tostring(category or "General"):match("^%s*(.-)%s*$")
+    if category == "" then category = "General" end
+    if #category > 32 then category = category:sub(1, 32) end
+    for _, existing in ipairs(mart.categories) do
+        if existing == category then return end
+    end
+    mart.categories[#mart.categories + 1] = category
+    table.sort(mart.categories)
+end
+
+function ParadiseEconomy.createMartRecord(store, zoneId, x, y, z, title)
+    store = store or ParadiseEconomy.getStore()
+    zoneId = ParadiseEconomy.normalizeZoneId(zoneId)
+    if not zoneId then return nil end
+    store.marts = store.marts or {}
+    local int = tonumber(store.nextMartId) or 1
+    local id
+    repeat
+        id = "mart-" .. tostring(int)
+        int = int + 1
+    until not store.marts[id]
+    store.nextMartId = int
+    local zone = store.zones and store.zones[zoneId] or nil
+    title = ParadiseEconomy.normalizeTradeZoneTitle(title) or (zone and zone.name) or zoneId
+    local sx, sy, sz = ParadiseEconomy.normalizeSquare(x, y, z)
+    if not sx then sx, sy, sz = ParadiseEconomy.getZoneSquare(store, zoneId) end
+    local trade = zone and zone.tradeAccountId and store.accounts[zone.tradeAccountId] or nil
+    local mart = {
+        id = id,
+        zoneId = zoneId,
+        title = title,
+        owner = zone and zone.owner or (trade and trade.owner) or ParadiseEconomy.serverAccountId,
+        ownerAccountId = trade and trade.id or ParadiseEconomy.serverAccountId,
+        categories = {},
+        listings = {},
+        createdAt = os.time(),
+    }
+    if sx then
+        mart.x, mart.y, mart.z = sx, sy, sz
+    else
+        mart.unplaced = true
+    end
+    store.marts[id] = mart
+    return mart
+end
+
+function ParadiseEconomy.ensureZoneMarts(store)
+    store = store or ParadiseEconomy.getStore()
+    store.marts = store.marts or {}
+    store.nextMartId = tonumber(store.nextMartId) or 1
+    store.merchantIndex = store.merchantIndex or {}
+    for _, mart in pairs(store.marts) do
+        if mart.archived ~= true and not ParadiseEconomy.normalizeSquare(mart.x, mart.y, mart.z) then
+            local x, y, z = ParadiseEconomy.getZoneSquare(store, mart.zoneId)
+            if x then
+                mart.x, mart.y, mart.z = x, y, z
+                mart.unplaced = nil
+            end
+        end
+    end
+    for _, account in pairs(store.accounts or {}) do
+        if account.type == "merchant" then
+            if account.archived ~= true and not ParadiseEconomy.normalizeSquare(account.x, account.y, account.z) then
+                local x, y, z = ParadiseEconomy.getZoneSquare(store, account.zoneId)
+                if x then
+                    account.x, account.y, account.z = x, y, z
+                    account.unplaced = nil
+                end
+            end
+            local key = ParadiseEconomy.getMerchantIndexKey(account)
+            if key and account.archived ~= true then store.merchantIndex[key] = account.id end
+        end
+    end
+    return store
+end
+
+function ParadiseEconomy.migrateShopSquares(store)
+    store.marts = store.marts or {}
+    store.nextMartId = tonumber(store.nextMartId) or 1
+    store.merchantIndex = {}
+    local zoneMarts = {}
+    for _, mart in pairs(store.marts) do
+        if mart.zoneId and mart.archived ~= true and not zoneMarts[ParadiseEconomy.normalizeZoneId(mart.zoneId)] then
+            zoneMarts[ParadiseEconomy.normalizeZoneId(mart.zoneId)] = mart
+        end
+    end
+    for _, account in pairs(store.accounts or {}) do
+        if account.type == "trade" and account.zoneId then
+            local zoneId = ParadiseEconomy.normalizeZoneId(account.zoneId)
+            local mart = zoneMarts[zoneId]
+            if not mart then
+                mart = ParadiseEconomy.createMartRecord(store, zoneId, nil, nil, nil, account.title)
+                zoneMarts[zoneId] = mart
+            end
+            mart.categories = mart.categories or {}
+            mart.listings = mart.listings or {}
+            for _, listing in ipairs(account.itemMart or {}) do
+                local duplicate = false
+                for _, existing in ipairs(mart.listings) do
+                    if tostring(existing.id) == tostring(listing.id) then duplicate = true break end
+                end
+                if not duplicate then
+                    mart.listings[#mart.listings + 1] = listing
+                    ParadiseEconomy.addMartCategory(mart, listing.category)
+                end
+            end
+            account.itemMart = {}
+            account.itemMartSeeded = true
+        end
+    end
+    for _, account in pairs(store.accounts or {}) do
+        if account.type == "merchant" then
+            if not ParadiseEconomy.normalizeSquare(account.x, account.y, account.z) then
+                local x, y, z = ParadiseEconomy.getZoneSquare(store, account.zoneId)
+                if x then
+                    account.x, account.y, account.z = x, y, z
+                    account.unplaced = nil
+                end
+            end
+            local key = ParadiseEconomy.getMerchantIndexKey(account)
+            if key then store.merchantIndex[key] = account.id end
+        end
+    end
+    return store
+end
+
+function ParadiseEconomy.migrateOwnershipModel(store)
+    store = store or ParadiseEconomy.getStore()
+    store.zones = store.zones or {}
+    store.accounts = store.accounts or {}
+    store.marts = store.marts or {}
+    store.merchantIndex = {}
+    for _, zone in pairs(store.zones) do
+        local trade = zone.tradeAccountId and store.accounts[zone.tradeAccountId] or nil
+        local owner = zone.owner
+        if not owner and trade then owner = trade.owner end
+        zone.owner, zone.ownerType = ParadiseEconomy.normalizeZoneOwner(owner)
+        zone.merchantDailyFee = ParadiseEconomy.normalizeMerchantDailyFee(zone.merchantDailyFee) or 0
+        zone.merchantFeeCurrency = ParadiseEconomy.normalizeMerchantFeeCurrency(zone.merchantFeeCurrency) or "jimoleon"
+        if trade then
+            trade.owner = zone.owner
+            trade.ownerType = zone.ownerType
+            trade.merchantDailyFee = zone.merchantDailyFee
+            trade.merchantFeeCurrency = zone.merchantFeeCurrency
+        end
+        if zone.isTrade then ParadiseEconomy.ensureFinanceAccount(store, zone) end
+    end
+    local groups = {}
+    for id, account in pairs(store.accounts) do
+        if account.type == "merchant" and account.archived ~= true then
+            local key = ParadiseEconomy.usernameKey(account.owner)
+            local zoneId = ParadiseEconomy.normalizeZoneId(account.zoneId)
+            if key and zoneId then
+                local groupKey = zoneId .. "|" .. key
+                groups[groupKey] = groups[groupKey] or {}
+                groups[groupKey][#groups[groupKey] + 1] = id
+            end
+        end
+    end
+    for _, ids in pairs(groups) do
+        if #ids > 1 then
+            table.sort(ids, function(a, b)
+                local accountA, accountB = store.accounts[a], store.accounts[b]
+                local createdA = accountA and tonumber(accountA.createdAt) or math.huge
+                local createdB = accountB and tonumber(accountB.createdAt) or math.huge
+                if createdA == createdB then return tostring(a) < tostring(b) end
+                return createdA < createdB
+            end)
+            local keep = store.accounts[ids[1]]
+            for index = 2, #ids do
+                local duplicate = store.accounts[ids[index]]
+                keep.listings = keep.listings or {}
+                for _, listing in ipairs(duplicate.listings or {}) do
+                    listing.merchantAccountId = keep.id
+                    listing.zoneId = listing.zoneId or keep.zoneId
+                    listing.zoneTitle = listing.zoneTitle or keep.zoneName
+                    keep.listings[#keep.listings + 1] = listing
+                end
+                keep.earnings = keep.earnings or { jimoleon = 0, paradisium = 0 }
+                for _, currency in ipairs({ "jimoleon", "paradisium" }) do
+                    local amount = ParadiseEconomy.getBalance(duplicate.earnings, currency)
+                    if amount > 0 then
+                        ParadiseEconomy.addBalance(keep.earnings, currency, amount)
+                        ParadiseEconomy.setBalance(duplicate.earnings, currency, 0)
+                    end
+                end
+                if not ParadiseEconomy.normalizeSquare(keep.x, keep.y, keep.z)
+                    and ParadiseEconomy.normalizeSquare(duplicate.x, duplicate.y, duplicate.z) then
+                    keep.x, keep.y, keep.z = duplicate.x, duplicate.y, duplicate.z
+                end
+                duplicate.archived = true
+                duplicate.mergedInto = keep.id
+                duplicate.listings = {}
+            end
+        end
+    end
+    for id, account in pairs(store.accounts) do
+        if account.type == "merchant" and account.archived ~= true then
+            local key = ParadiseEconomy.getMerchantIndexKey(account)
+            if key then store.merchantIndex[key] = id end
+        end
+    end
+    for _, mart in pairs(store.marts) do
+        local zone = store.zones[ParadiseEconomy.normalizeZoneId(mart.zoneId)]
+        local tradeId = zone and zone.tradeAccountId or nil
+        if not mart.ownerAccountId or not store.accounts[mart.ownerAccountId] then
+            mart.ownerAccountId = tradeId or ParadiseEconomy.serverAccountId
+        end
+        mart.owner = mart.owner or (zone and zone.owner) or ParadiseEconomy.serverAccountId
+    end
+    ParadiseEconomy.ensureZoneFinances(store)
+    return store
 end
 
 function ParadiseEconomy.migrateAccountIds(store)
@@ -151,7 +603,8 @@ function ParadiseEconomy.migrateAccountIds(store)
             if account.type == "personal" then
                 if not store.personalIndex[key] then store.personalIndex[key] = accountId end
             elseif account.type == "merchant" and account.zoneId then
-                store.merchantIndex[account.zoneId .. "|" .. key] = accountId
+                local indexKey = ParadiseEconomy.getMerchantIndexKey(account)
+                if indexKey then store.merchantIndex[indexKey] = accountId end
             end
         end
     end
@@ -488,6 +941,44 @@ function ParadiseEconomy.getMerchantZoneTrade(account)
     return ParadiseEconomy.getTradeAccount(account.zoneId, false)
 end
 
+function ParadiseEconomy.getMerchantFeeQuote(account, days)
+    local trade = ParadiseEconomy.getMerchantZoneTrade(account)
+    local zone = ParadiseEconomy.getZoneForAccount(account)
+    local dailyFee, currency = ParadiseEconomy.getZoneFeeConfig(trade or zone)
+    local due = ParadiseEconomy.getMerchantFeeDue(days or ParadiseEconomy.getMerchantLeaseDays(trade), dailyFee)
+    return due, currency, trade
+end
+
+function ParadiseEconomy.payMerchantLeaseFee(account, days)
+    if type(account) ~= "table" or account.type ~= "merchant" then return false, "Merchant account not found", 0 end
+    local due, currency, trade = ParadiseEconomy.getMerchantFeeQuote(account, days)
+    if due <= 0 then return true, nil, 0 end
+    local treasury = trade
+    if not treasury or treasury.type ~= "trade" then
+        treasury = ParadiseEconomy.getTradeOrServerAccount(account.zoneId)
+    end
+    if ParadiseEconomy.isAccountFrozen(treasury) then
+        return false, "The zone treasury is frozen; lease renewal cancelled.", due
+    end
+    local personal = ParadiseEconomy.getPersonalAccount(account.owner, false)
+    if not personal then return false, "The merchant owner has no personal account.", due end
+    if ParadiseEconomy.isAccountFrozen(personal) then
+        return false, "The merchant owner's personal account is frozen; lease renewal cancelled.", due
+    end
+    if ParadiseEconomy.getBalance(personal.digital, currency) < due then
+        return false, "Lease renewal needs " .. tostring(due) .. " " .. tostring(currency)
+            .. "; transfer funds to your digital account first.", due
+    end
+    if not ParadiseEconomy.takeBalance(personal.digital, currency, due) then
+        return false, "Lease renewal payment failed.", due
+    end
+    if not ParadiseEconomy.addAccountBalance(treasury, currency, due, "digital") then
+        ParadiseEconomy.addBalance(personal.digital, currency, due)
+        return false, "Lease renewal payment failed.", due
+    end
+    return true, nil, due, currency, treasury
+end
+
 function ParadiseEconomy.ensureMerchantLease(account, now)
     if type(account) ~= "table" or account.type ~= "merchant" then return false end
     if tonumber(account.expiresAt) ~= nil then
@@ -506,6 +997,21 @@ function ParadiseEconomy.canManageMerchantLease(pl, account)
     return trade ~= nil and ParadiseEconomy.canManageTradeAccount(pl, trade)
 end
 
+function ParadiseEconomy.setMerchantSuspended(account, suspended, actor, reason)
+    if type(account) ~= "table" or account.type ~= "merchant" then return false, "Merchant account not found" end
+    account.suspended = suspended == true or nil
+    if suspended == true then
+        account.suspendedAt = getTimestampMs()
+        account.suspendedBy = actor and actor:getUsername() or tostring(actor or "")
+        account.suspendReason = reason
+    else
+        account.suspendedAt = nil
+        account.suspendedBy = nil
+        account.suspendReason = nil
+    end
+    return true, suspended == true and "Merchant store suspended" or "Merchant store resumed"
+end
+
 function ParadiseEconomy.setTradeLeaseDays(trade, days)
     if type(trade) ~= "table" or trade.type ~= "trade" then return 0 end
     days = ParadiseEconomy.normalizeMerchantLeaseDays(days) or ParadiseEconomy.getDefaultMerchantLeaseDays()
@@ -521,17 +1027,28 @@ function ParadiseEconomy.setTradeLeaseDays(trade, days)
     return count
 end
 
-function ParadiseEconomy.renewMerchantLease(account, days, now)
+function ParadiseEconomy.renewMerchantLease(account, days, now, skipCharge)
     if type(account) ~= "table" or account.type ~= "merchant" then return false, "Merchant account not found" end
     local trade = ParadiseEconomy.getMerchantZoneTrade(account)
     days = ParadiseEconomy.normalizeMerchantLeaseDays(days) or ParadiseEconomy.getMerchantLeaseDays(trade)
     if days <= 0 then return false, "Merchant leases are disabled for this zone" end
+    local paidAmount, paidCurrency, paidTo
+    if not skipCharge then
+        local paid, feeMessage, due, feeCurrency, treasury = ParadiseEconomy.payMerchantLeaseFee(account, days)
+        if not paid then return false, feeMessage, due end
+        paidAmount, paidCurrency, paidTo = due, feeCurrency, treasury
+    end
     now = tonumber(now) or getTimestampMs()
     local base = math.max(now, tonumber(account.expiresAt) or 0)
     account.leaseDays = days
     account.expiresAt = base + days * ParadiseEconomy.merchantLeaseDayMs
     account.lastRenewedAt = now
-    return true, "Merchant lease renewed for " .. ParadiseEconomy.formatMerchantLeaseDuration(account.expiresAt - now)
+    account.suspended = nil
+    account.suspendedAt = nil
+    account.suspendedBy = nil
+    account.suspendReason = nil
+    return true, "Merchant lease renewed for " .. ParadiseEconomy.formatMerchantLeaseDuration(account.expiresAt - now),
+        paidAmount, paidCurrency, paidTo
 end
 
 function ParadiseEconomy.setMerchantLeaseState(account, action, now)
@@ -564,9 +1081,21 @@ function ParadiseEconomy.registerZone(zoneId, name, isTrade)
     zone.isTrade = isTrade == true
     zone.removed = nil
     store.zones[zoneId] = zone
+    zone.merchantDailyFee = ParadiseEconomy.normalizeMerchantDailyFee(zone.merchantDailyFee) or 0
+    zone.merchantFeeCurrency = ParadiseEconomy.normalizeMerchantFeeCurrency(zone.merchantFeeCurrency) or "jimoleon"
     if zone.isTrade then
         zone.tradeAccountId = ParadiseEconomy.ensureTradeAccount(zoneId, zone.name)
     end
+    local trade = zone.tradeAccountId and store.accounts[zone.tradeAccountId] or nil
+    zone.owner, zone.ownerType = ParadiseEconomy.normalizeZoneOwner(zone.owner or (trade and trade.owner))
+    local squareX, squareY, squareZ = ParadiseEconomy.getZoneSquare(store, zoneId)
+    if squareX then
+        zone.x, zone.y, zone.z = squareX, squareY, squareZ
+    end
+    if zone.isTrade then
+        ParadiseEconomy.syncZoneOwnership(store, zone, zone.owner)
+    end
+    trade = zone.tradeAccountId and store.accounts[zone.tradeAccountId] or nil
     for _, account in pairs(store.accounts) do
         if account.type == "merchant" and account.zoneId == zoneId then
             account.zoneName = zone.name
@@ -576,12 +1105,20 @@ function ParadiseEconomy.registerZone(zoneId, name, isTrade)
             end
         end
     end
-    local trade = zone.tradeAccountId and store.accounts[zone.tradeAccountId] or nil
     if trade then
         trade.zoneName = zone.name
         trade.tradeId = zone.name
         trade.title = trade.title or zone.name
         trade.archived = nil
+    end
+    for _, mart in pairs(store.marts or {}) do
+        if ParadiseEconomy.normalizeZoneId(mart.zoneId) == zoneId then
+            mart.archived = nil
+            if not mart.ownerAccountId or not store.accounts[mart.ownerAccountId] then
+                mart.ownerAccountId = zone.tradeAccountId or ParadiseEconomy.serverAccountId
+            end
+            mart.owner = zone.owner
+        end
     end
     return zone
 end
@@ -617,7 +1154,10 @@ function ParadiseEconomy.ensureTradeAccount(zoneId, zoneName)
             tradeId = zoneName,
             title = zoneName,
             owner = ParadiseEconomy.serverAccountId,
+            ownerType = "server",
             tradeTax = ParadiseEconomy.getPlayerShopTaxPercent(),
+            merchantDailyFee = 0,
+            merchantFeeCurrency = "jimoleon",
             digital = { jimoleon = 0, paradisium = 0 },
             itemMart = {},
             createdAt = os.time(),
@@ -634,9 +1174,17 @@ function ParadiseEconomy.ensureTradeAccount(zoneId, zoneName)
     account.tradeTax = ParadiseEconomy.normalizeTradeTaxPercent(account.tradeTax) or ParadiseEconomy.getPlayerShopTaxPercent()
     account.merchantLeaseDays = ParadiseEconomy.normalizeMerchantLeaseDays(account.merchantLeaseDays)
         or ParadiseEconomy.getDefaultMerchantLeaseDays()
+    account.merchantDailyFee = ParadiseEconomy.normalizeMerchantDailyFee(account.merchantDailyFee)
+        or (zone and ParadiseEconomy.normalizeMerchantDailyFee(zone.merchantDailyFee)) or 0
+    account.merchantFeeCurrency = ParadiseEconomy.normalizeMerchantFeeCurrency(account.merchantFeeCurrency)
+        or (zone and ParadiseEconomy.normalizeMerchantFeeCurrency(zone.merchantFeeCurrency)) or "jimoleon"
     account.digital = ensureBucket(account.digital)
     account.itemMart = account.itemMart or {}
-    ParadiseEconomy.seedTradeItemMart(store, account)
+    if zone then
+        zone.merchantDailyFee = account.merchantDailyFee
+        zone.merchantFeeCurrency = account.merchantFeeCurrency
+        ParadiseEconomy.ensureFinanceAccount(store, zone)
+    end
     return id
 end
 
@@ -659,6 +1207,9 @@ function ParadiseEconomy.onZoneRemoved(zoneId)
     if trade then trade.archived = true end
     for _, account in pairs(store.accounts) do
         if account.type == "merchant" and account.zoneId == zoneId then account.archived = true end
+    end
+    for _, mart in pairs(store.marts or {}) do
+        if ParadiseEconomy.normalizeZoneId(mart.zoneId) == zoneId then mart.archived = true end
     end
     ParadiseEconomy.transmit()
 end
@@ -686,6 +1237,8 @@ function ParadiseEconomy.ensureAllTradeZoneAccounts()
             end
         end
     end
+    ParadiseEconomy.ensureZoneMarts(store)
+    ParadiseEconomy.rebuildAccountIndexes()
     ParadiseEconomy.transmit()
     return count
 end
@@ -736,6 +1289,8 @@ function ParadiseEconomy.getPersonalAccount(user, create)
             title = ParadiseEconomy.normalizeUsername(user),
             digital = { jimoleon = 0, paradisium = 0 },
             onhand = { jimoleon = 0, paradisium = 0 },
+            -- expired: reserved for the future inactivity automation; nothing sets or enforces it yet.
+            expired = nil,
             createdAt = os.time(),
         }
         store.accounts[id] = account
@@ -763,10 +1318,12 @@ function ParadiseEconomy.rebuildAccountIndexes()
         if key and account.type == "personal" then
             candidates[key] = candidates[key] or {}
             candidates[key][#candidates[key] + 1] = accountId
-        elseif key and account.type == "merchant" and account.zoneId then
-            local indexKey = account.zoneId .. "|" .. key
-            merchantCandidates[indexKey] = merchantCandidates[indexKey] or {}
-            merchantCandidates[indexKey][#merchantCandidates[indexKey] + 1] = accountId
+        elseif key and account.type == "merchant" then
+            local indexKey = ParadiseEconomy.getMerchantIndexKey(account)
+            if indexKey then
+                merchantCandidates[indexKey] = merchantCandidates[indexKey] or {}
+                merchantCandidates[indexKey][#merchantCandidates[indexKey] + 1] = accountId
+            end
         end
     end
     local indexed, duplicates = 0, 0
@@ -796,60 +1353,119 @@ function ParadiseEconomy.rebuildAccountIndexes()
 end
 
 
-function ParadiseEconomy.getMerchantAccount(zoneId, user, create)
+function ParadiseEconomy.getMerchantForZone(zoneId, user, create, x, y, z)
     zoneId = ParadiseEconomy.normalizeZoneId(zoneId)
     local owner = ParadiseEconomy.normalizeUsername(user)
     if not zoneId or not owner then return nil end
     local key = ParadiseEconomy.usernameKey(owner)
     local store = ParadiseEconomy.getStore()
     store.merchantIndex = store.merchantIndex or {}
-    local indexKey = zoneId .. "|" .. key
-    local id = store.merchantIndex[indexKey]
+    local indexKey = ParadiseEconomy.merchantIndexKey(zoneId, owner)
+    local id = indexKey and store.merchantIndex[indexKey] or nil
     local account = id and store.accounts[id] or nil
+    if account and (account.type ~= "merchant" or ParadiseEconomy.normalizeZoneId(account.zoneId) ~= zoneId) then
+        account = nil
+    end
     if not account then
+        local candidates = {}
         for accountId, check in pairs(store.accounts) do
-            if check.type == "merchant" and check.zoneId == zoneId
+            if check.type == "merchant" and ParadiseEconomy.normalizeZoneId(check.zoneId) == zoneId
                 and ParadiseEconomy.usernameKey(check.owner) == key then
-                id = accountId
-                account = check
-                store.merchantIndex[indexKey] = accountId
-                break
+                candidates[#candidates + 1] = check
             end
         end
+        table.sort(candidates, function(a, b)
+            local archivedA, archivedB = a.archived == true and 1 or 0, b.archived == true and 1 or 0
+            if archivedA ~= archivedB then return archivedA < archivedB end
+            local createdA = tonumber(a.createdAt) or math.huge
+            local createdB = tonumber(b.createdAt) or math.huge
+            if createdA == createdB then return tostring(a.id) < tostring(b.id) end
+            return createdA < createdB
+        end)
+        account = candidates[1]
+        if account then
+            id = account.id
+            if indexKey then store.merchantIndex[indexKey] = id end
+        end
     end
+    local zone = store.zones[zoneId]
+    if not zone then return nil end
+    local zoneName = tostring(zone.name or zoneId)
+    local sx, sy, sz = ParadiseEconomy.normalizeSquare(x, y, z)
+    if not sx and create then sx, sy, sz = ParadiseEconomy.getZoneSquare(store, zoneId) end
     if not account and create then
         id = ParadiseEconomy.generateAccountId(store)
         if not id then return nil end
-        local zone = store.zones[zoneId]
-        local zoneName = tostring(zone and zone.name or zoneId)
         account = {
             id = id,
             type = "merchant",
             zoneId = zoneId,
             zoneName = zoneName,
+            x = sx,
+            y = sy,
+            z = sz,
             owner = owner,
             title = tostring(owner) .. " @ " .. zoneName,
-            taxRoute = zone and zone.tradeAccountId or ParadiseEconomy.serverAccountId,
+            taxRoute = zone.tradeAccountId or ParadiseEconomy.serverAccountId,
             listings = {},
             earnings = { jimoleon = 0, paradisium = 0 },
             createdAt = os.time(),
         }
         store.accounts[id] = account
-        store.merchantIndex[indexKey] = id
+        if indexKey then store.merchantIndex[indexKey] = id end
     end
     if account then
+        account.zoneId = zoneId
+        account.zoneName = zoneName
+        if sx then
+            account.x, account.y, account.z = sx, sy, sz
+            account.unplaced = nil
+        end
         account.listings = account.listings or {}
         account.earnings = ensureBucket(account.earnings)
         ParadiseEconomy.refreshAccountOwnerCase(account, owner)
         account.title = ParadiseEconomy.normalizeTradeZoneTitle(account.title)
             or (tostring(account.owner or owner or "Merchant") .. " @ " .. tostring(account.zoneName or zoneId))
         if not account.taxRoute or not store.accounts[account.taxRoute] then
-            local zone = store.zones[zoneId]
-            account.taxRoute = zone and zone.tradeAccountId or ParadiseEconomy.serverAccountId
+            account.taxRoute = zone.tradeAccountId or ParadiseEconomy.serverAccountId
         end
-        ParadiseEconomy.ensureMerchantLease(account)
+        if indexKey then store.merchantIndex[indexKey] = account.id end
+        if tonumber(account.expiresAt) == nil then
+            local dailyFee = ParadiseEconomy.getZoneFeeConfig(zone)
+            local trade = ParadiseEconomy.getMerchantZoneTrade(account)
+            local leaseDays = ParadiseEconomy.getMerchantLeaseDays(trade)
+            if dailyFee > 0 and leaseDays > 0 then
+                account.expiresAt = 1
+                account.leaseDays = 0
+            else
+                ParadiseEconomy.ensureMerchantLease(account)
+            end
+        end
     end
     return account
+end
+
+function ParadiseEconomy.getMerchantAtSquare(x, y, z, user, create, zoneId)
+    local sx, sy, sz = ParadiseEconomy.normalizeSquare(x, y, z)
+    if not sx then return nil end
+    zoneId = ParadiseEconomy.normalizeZoneId(zoneId)
+    if not zoneId then
+        local engineZone = ParadiseEconomy.getSquareTradeZone(sx, sy, sz)
+        zoneId = engineZone and ParadiseEconomy.normalizeZoneId(engineZone.id) or nil
+        if not zoneId then return nil end
+        local store = ParadiseEconomy.getStore()
+        if not store.zones[zoneId] then ParadiseEconomy.registerZone(zoneId, engineZone.name, true) end
+    end
+    return ParadiseEconomy.getMerchantForZone(zoneId, user, create, sx, sy, sz)
+end
+
+function ParadiseEconomy.getMerchantAccount(zoneId, user, create)
+    zoneId = ParadiseEconomy.normalizeZoneId(zoneId)
+    if not zoneId then return nil end
+    local store = ParadiseEconomy.getStore()
+    if not store.zones[zoneId] then return nil end
+    local x, y, z = ParadiseEconomy.getZoneSquare(store, zoneId)
+    return ParadiseEconomy.getMerchantForZone(zoneId, user, create, x, y, z)
 end
 
 function ParadiseEconomy.getTradeAccount(zoneId, create)
@@ -917,6 +1533,9 @@ function ParadiseEconomy.getMerchantManagementView(account, now)
         zoneName = account.zoneName,
         owner = account.owner,
         title = account.title,
+        x = math.floor(tonumber(account.x) or 0),
+        y = math.floor(tonumber(account.y) or 0),
+        z = math.floor(tonumber(account.z) or 0),
         taxRoute = account.taxRoute,
         earnings = account.earnings,
         listingCount = #(account.listings or {}),
@@ -925,7 +1544,14 @@ function ParadiseEconomy.getMerchantManagementView(account, now)
         lastRenewedAt = tonumber(account.lastRenewedAt) or 0,
         leaseStatus = ParadiseEconomy.getMerchantLeaseStatus(account, now),
         leaseLabel = ParadiseEconomy.getMerchantLeaseLabel(account, now),
-        active = not ParadiseEconomy.isMerchantExpired(account, now) and account.archived ~= true,
+        status = ParadiseEconomy.getMerchantStatus(account, now),
+        statusLabel = ParadiseEconomy.getMerchantStatusLabel(account, now),
+        suspended = account.suspended == true,
+        suspendedAt = tonumber(account.suspendedAt) or 0,
+        suspendedBy = account.suspendedBy,
+        suspendReason = account.suspendReason,
+        closed = ParadiseEconomy.isMerchantClosed(account, now),
+        active = not ParadiseEconomy.isMerchantClosed(account, now),
         archived = account.archived == true,
     }
 end
@@ -959,26 +1585,282 @@ function ParadiseEconomy.canManageAccount(pl, account)
 end
 
 function ParadiseEconomy.canManageTradeAccount(pl, account)
-    return type(account) == "table" and account.type == "trade" and ParadiseEconomy.canManageAccount(pl, account)
+    return type(account) == "table" and (account.type == "trade" or account.type == "finance")
+        and ParadiseEconomy.canManageAccount(pl, account)
 end
 
-function ParadiseEconomy.getTradePublicView(account)
+function ParadiseEconomy.canManageFinanceAccount(pl, account)
+    return type(account) == "table" and account.type == "finance"
+        and ParadiseEconomy.canManageAccount(pl, account)
+end
+
+function ParadiseEconomy.getTradePublicView(account, includeMartListings)
     if type(account) ~= "table" then return nil end
+    local zone = ParadiseEconomy.getZoneForAccount(account)
+    local finance = zone and ParadiseEconomy.getZoneFinanceAccount(zone.id, false) or nil
     return {
         id = account.id,
         zoneId = account.zoneId,
         tradeId = account.tradeId,
         title = account.title,
         owner = account.owner,
+        ownerType = account.ownerType,
         tradeTax = ParadiseEconomy.getTradeTaxPercent(account),
         merchantLeaseDays = ParadiseEconomy.getMerchantLeaseDays(account),
+        merchantDailyFee = ParadiseEconomy.getMerchantDailyFee(zone or account),
+        merchantFeeCurrency = ParadiseEconomy.getMerchantFeeCurrency(zone or account),
+        financeAccountId = finance and finance.id or nil,
+        financeOwner = finance and finance.owner or nil,
+        finance = ParadiseEconomy.getFinancePublicView(finance),
         digital = {
             jimoleon = ParadiseEconomy.getBalance(account.digital, "jimoleon"),
             paradisium = ParadiseEconomy.getBalance(account.digital, "paradisium"),
         },
-        itemCount = #(account.itemMart or {}),
-        itemMart = account.itemMart or {},
+        marts = ParadiseEconomy.getZoneMartViews(account.zoneId, includeMartListings == true),
     }
+end
+
+function ParadiseEconomy.getFinancePublicView(account)
+    if type(account) ~= "table" then return nil end
+    return {
+        id = account.id,
+        zoneId = account.zoneId,
+        title = account.title,
+        owner = account.owner,
+        ownerType = account.ownerType,
+        digital = {
+            jimoleon = ParadiseEconomy.getBalance(account.digital, "jimoleon"),
+            paradisium = ParadiseEconomy.getBalance(account.digital, "paradisium"),
+        },
+    }
+end
+
+function ParadiseEconomy.getMart(martId)
+    local store = ParadiseEconomy.getStore()
+    local mart = store.marts and store.marts[tostring(martId or "")] or nil
+    if mart and mart.archived ~= true then return mart end
+    return nil
+end
+
+function ParadiseEconomy.getZoneMarts(zoneId)
+    local marts = {}
+    zoneId = ParadiseEconomy.normalizeZoneId(zoneId)
+    if not zoneId then return marts end
+    for _, mart in pairs(ParadiseEconomy.getStore().marts or {}) do
+        if mart.archived ~= true and ParadiseEconomy.normalizeZoneId(mart.zoneId) == zoneId then
+            marts[#marts + 1] = mart
+        end
+    end
+    table.sort(marts, function(a, b)
+        return tostring(a.title or a.id) < tostring(b.title or b.id)
+    end)
+    return marts
+end
+
+function ParadiseEconomy.getSquareMarts(x, y, z)
+    local marts = {}
+    local sx, sy, sz = ParadiseEconomy.normalizeSquare(x, y, z)
+    if not sx then return marts end
+    for _, mart in pairs(ParadiseEconomy.getStore().marts or {}) do
+        if mart.archived ~= true and math.floor(tonumber(mart.x) or -1) == sx
+            and math.floor(tonumber(mart.y) or -1) == sy
+            and math.floor(tonumber(mart.z) or -1) == sz then
+            marts[#marts + 1] = mart
+        end
+    end
+    table.sort(marts, function(a, b)
+        return tostring(a.title or a.id) < tostring(b.title or b.id)
+    end)
+    return marts
+end
+
+function ParadiseEconomy.getMartView(mart, includeListings)
+    if type(mart) ~= "table" then return nil end
+    local categories = {}
+    for _, category in ipairs(mart.categories or {}) do categories[#categories + 1] = category end
+    table.sort(categories)
+    local view = {
+        id = mart.id,
+        zoneId = mart.zoneId,
+        title = mart.title,
+        owner = mart.owner,
+        ownerAccountId = mart.ownerAccountId,
+        x = tonumber(mart.x) or 0,
+        y = tonumber(mart.y) or 0,
+        z = tonumber(mart.z) or 0,
+        categories = categories,
+        listingCount = #(mart.listings or {}),
+        createdAt = tonumber(mart.createdAt) or 0,
+    }
+    if includeListings then
+        local listings = {}
+        for _, listing in ipairs(mart.listings or {}) do
+            listings[#listings + 1] = {
+                id = listing.id,
+                category = listing.category,
+                fullType = listing.fullType,
+                direction = listing.direction,
+                currency = listing.currency,
+                price = listing.price,
+            }
+        end
+        view.listings = listings
+    end
+    return view
+end
+
+function ParadiseEconomy.getZoneMartViews(zoneId, includeListings)
+    local views = {}
+    for _, mart in ipairs(ParadiseEconomy.getZoneMarts(zoneId)) do
+        local view = ParadiseEconomy.getMartView(mart, includeListings)
+        if view then views[#views + 1] = view end
+    end
+    return views
+end
+
+function ParadiseEconomy.getPublicShops(store)
+    store = store or ParadiseEconomy.getStore()
+    local shops = {}
+    local now = getTimestampMs()
+    for _, account in pairs(store.accounts or {}) do
+        if account.type == "merchant" and account.archived ~= true
+            and ParadiseEconomy.normalizeSquare(account.x, account.y, account.z) then
+            local status = ParadiseEconomy.getMerchantStatus(account, now)
+            shops[#shops + 1] = {
+                kind = "store",
+                id = account.id,
+                title = account.title or account.owner or account.id,
+                owner = account.owner,
+                zoneId = account.zoneId,
+                x = math.floor(tonumber(account.x) or 0),
+                y = math.floor(tonumber(account.y) or 0),
+                z = math.floor(tonumber(account.z) or 0),
+                status = status,
+                statusLabel = ParadiseEconomy.getMerchantStatusLabel(account, now),
+                closed = status ~= "active",
+            }
+        end
+    end
+    for _, mart in pairs(store.marts or {}) do
+        if mart.archived ~= true and ParadiseEconomy.normalizeSquare(mart.x, mart.y, mart.z) then
+            shops[#shops + 1] = {
+                kind = "mart",
+                id = mart.id,
+                title = mart.title or mart.id,
+                owner = mart.owner,
+                zoneId = mart.zoneId,
+                x = math.floor(tonumber(mart.x) or 0),
+                y = math.floor(tonumber(mart.y) or 0),
+                z = math.floor(tonumber(mart.z) or 0),
+            }
+        end
+    end
+    table.sort(shops, function(a, b)
+        local kindA, kindB = tostring(a.kind), tostring(b.kind)
+        if kindA ~= kindB then return kindA < kindB end
+        return tostring(a.title or a.id) < tostring(b.title or b.id)
+    end)
+    return shops
+end
+
+function ParadiseEconomy.getMartOwnerAccount(mart)
+    if type(mart) ~= "table" then return nil end
+    local account = mart.ownerAccountId and ParadiseEconomy.getAccountById(mart.ownerAccountId) or nil
+    if account then return account end
+    return ParadiseEconomy.getTradeOrServerAccount(mart.zoneId)
+end
+
+function ParadiseEconomy.canManageMart(pl, mart)
+    if type(mart) ~= "table" then return false end
+    if ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) then return true end
+    local owner = ParadiseEconomy.getMartOwnerAccount(mart)
+    return owner ~= nil and ParadiseEconomy.canManageAccount(pl, owner)
+end
+
+function ParadiseEconomy.getShopState(pl, kind, shopId)
+    local isAdm = ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) or false
+    if kind == "store" then
+        local merchant = ParadiseEconomy.getAccountById(shopId)
+        if not merchant or merchant.type ~= "merchant" then return nil, "Merchant store not found" end
+        local canManage = isAdm or ParadiseEconomy.isAccountOwner(pl, merchant)
+        local status = ParadiseEconomy.getMerchantStatus(merchant)
+        local closed = ParadiseEconomy.isMerchantClosed(merchant)
+        local taxAccount = merchant.taxRoute and ParadiseEconomy.getAccountById(merchant.taxRoute) or nil
+        local trade = merchant.zoneId and ParadiseEconomy.getTradeAccount(merchant.zoneId, false) or nil
+        taxAccount = taxAccount or trade
+        local dailyFee, feeCurrency = ParadiseEconomy.getMerchantFeeQuote(merchant, tonumber(merchant.leaseDays))
+        return {
+            kind = "store",
+            id = merchant.id,
+            owner = merchant.owner,
+            title = merchant.title,
+            zoneId = merchant.zoneId,
+            zoneTitle = merchant.zoneName,
+            x = math.floor(tonumber(merchant.x) or 0),
+            y = math.floor(tonumber(merchant.y) or 0),
+            z = math.floor(tonumber(merchant.z) or 0),
+            canManage = canManage,
+            isOwner = ParadiseEconomy.isAccountOwner(pl, merchant),
+            archived = merchant.archived == true,
+            expired = ParadiseEconomy.isMerchantExpired(merchant),
+            suspended = merchant.suspended == true,
+            suspendedAt = tonumber(merchant.suspendedAt) or 0,
+            suspendedBy = merchant.suspendedBy,
+            suspendReason = merchant.suspendReason,
+            status = status,
+            statusLabel = ParadiseEconomy.getMerchantStatusLabel(merchant),
+            closed = closed,
+            leaseStatus = ParadiseEconomy.getMerchantLeaseStatus(merchant),
+            leaseLabel = ParadiseEconomy.getMerchantLeaseLabel(merchant),
+            leaseDays = tonumber(merchant.leaseDays) or 0,
+            expiresAt = tonumber(merchant.expiresAt) or 0,
+            earnings = ensureBucket(merchant.earnings),
+            taxPercent = taxAccount and ParadiseEconomy.getTradeTaxPercent(taxAccount) or 0,
+            taxAccountId = taxAccount and taxAccount.id or nil,
+            taxAccountTitle = taxAccount and (taxAccount.title or taxAccount.name) or nil,
+            dailyFee = dailyFee or 0,
+            feeCurrency = feeCurrency or "jimoleon",
+            listings = ParadiseEconomy.getMerchantListingViews(merchant, canManage),
+        }
+    elseif kind == "mart" then
+        local mart = ParadiseEconomy.getMart(shopId)
+        if not mart then return nil, "Market not found" end
+        local view = ParadiseEconomy.getMartView(mart)
+        local trade = mart.zoneId and ParadiseEconomy.getTradeAccount(mart.zoneId, false) or nil
+        local ownerAccount = mart.ownerAccountId and ParadiseEconomy.getAccountById(mart.ownerAccountId) or nil
+        ownerAccount = ownerAccount or trade
+        view.kind = "mart"
+        view.zoneTitle = trade and trade.title or mart.zoneId
+        view.canManage = ParadiseEconomy.canManageMart(pl, mart)
+        view.ownerAccountId = ownerAccount and ownerAccount.id or nil
+        view.ownerAccountTitle = ownerAccount and (ownerAccount.title or ownerAccount.name) or nil
+        view.taxPercent = trade and ParadiseEconomy.getTradeTaxPercent(trade) or 0
+        view.taxAccountId = trade and trade.id or nil
+        view.taxAccountTitle = trade and (trade.title or trade.name) or nil
+        view.listings = {}
+        for _, listing in ipairs(mart.listings or {}) do view.listings[#view.listings + 1] = listing end
+        return view
+    end
+    return nil, "Shop not found"
+end
+
+function ParadiseEconomy.sendShopState(pl, kind, shopId)
+    local shop, message = ParadiseEconomy.getShopState(pl, tostring(kind or ""), shopId)
+    sendServerCommand(pl, ParadiseEconomy.module, "shopState", {
+        kind = tostring(kind or ""), id = shopId, shop = shop, message = message,
+    })
+end
+
+function ParadiseEconomy.resolveMartArg(args)
+    if type(args) ~= "table" then return nil end
+    local mart = args.martId and ParadiseEconomy.getMart(args.martId) or nil
+    if not mart and args.zoneId then
+        for _, candidate in ipairs(ParadiseEconomy.getZoneMarts(args.zoneId)) do
+            mart = candidate
+            break
+        end
+    end
+    return mart
 end
 
 function ParadiseEconomy.nextItemMartId()
@@ -988,20 +1870,17 @@ function ParadiseEconomy.nextItemMartId()
     return "item-" .. tostring(int)
 end
 
-function ParadiseEconomy.getTradeItem(trade, fullType, direction, category)
-    if type(trade) ~= "table" then return nil end
-    for _, listing in ipairs(trade.itemMart or {}) do
-        if listing.fullType == fullType and listing.direction == direction
-            and (not category or listing.category == category) then
-            return listing
-        end
+function ParadiseEconomy.getMartItem(mart, listingId)
+    if type(mart) ~= "table" then return nil end
+    for _, listing in ipairs(mart.listings or {}) do
+        if tostring(listing.id) == tostring(listingId) then return listing end
     end
     return nil
 end
 
-function ParadiseEconomy.saveTradeItem(zoneId, listingId, fullType, direction, currency, price, category)
-    local trade = ParadiseEconomy.getTradeAccount(zoneId, false)
-    if not trade then return nil, "Trade account not found" end
+function ParadiseEconomy.saveMartItem(martId, listingId, fullType, direction, currency, price, category)
+    local mart = ParadiseEconomy.getMart(martId)
+    if not mart then return nil, "Market not found" end
     fullType = tostring(fullType or "")
     direction = direction == "sell" and "sell" or direction == "buy" and "buy" or nil
     currency = ParadiseEconomy.normalizeCurrency(currency)
@@ -1010,40 +1889,71 @@ function ParadiseEconomy.saveTradeItem(zoneId, listingId, fullType, direction, c
     if category == "" then category = "General" end
     if #category > 32 then category = category:sub(1, 32) end
     if not ScriptManager.instance:getItem(fullType) or not direction or not currency or not price then
-        return nil, "Invalid item mart listing"
+        return nil, "Invalid market listing"
     end
     local listing
-    for _, check in ipairs(trade.itemMart) do
+    for _, check in ipairs(mart.listings) do
         if listingId and tostring(check.id) == tostring(listingId) then listing = check end
     end
     if listingId and not listing then return nil, "Listing not found" end
-    for _, check in ipairs(trade.itemMart) do
+    for _, check in ipairs(mart.listings) do
         if check ~= listing and check.fullType == fullType and check.direction == direction and check.category == category then
             return nil, "Duplicate item and action in this category"
         end
     end
     if not listing then
         listing = { id = ParadiseEconomy.nextItemMartId() }
-        trade.itemMart[#trade.itemMart + 1] = listing
+        mart.listings[#mart.listings + 1] = listing
     end
     listing.fullType = fullType
     listing.direction = direction
     listing.currency = currency
     listing.price = price
     listing.category = category
-    return listing, "Item mart listing saved"
+    ParadiseEconomy.addMartCategory(mart, category)
+    return listing, "Market listing saved"
 end
 
-function ParadiseEconomy.deleteTradeItem(zoneId, listingId)
-    local trade = ParadiseEconomy.getTradeAccount(zoneId, false)
-    if not trade then return false, "Trade account not found" end
-    for index, listing in ipairs(trade.itemMart) do
+function ParadiseEconomy.deleteMartItem(martId, listingId)
+    local mart = ParadiseEconomy.getMart(martId)
+    if not mart then return false, "Market not found" end
+    for index, listing in ipairs(mart.listings) do
         if tostring(listing.id) == tostring(listingId) then
-            table.remove(trade.itemMart, index)
-            return true, "Item mart listing deleted"
+            table.remove(mart.listings, index)
+            return true, "Market listing deleted"
         end
     end
     return false, "Listing not found"
+end
+
+function ParadiseEconomy.setMartTitle(martId, title)
+    local mart = ParadiseEconomy.getMart(martId)
+    title = ParadiseEconomy.normalizeTradeZoneTitle(title)
+    if not mart or not title then return false, "Invalid market title" end
+    mart.title = title
+    return true, "Market renamed"
+end
+
+function ParadiseEconomy.setMartCategories(martId, categories)
+    local mart = ParadiseEconomy.getMart(martId)
+    if not mart or type(categories) ~= "table" then return false, "Invalid market categories" end
+    local cleaned = {}
+    for _, category in ipairs(categories) do
+        category = tostring(category or ""):match("^%s*(.-)%s*$")
+        if category ~= "" and #category <= 32 and #cleaned < 24 then
+            local duplicate = false
+            for _, existing in ipairs(cleaned) do
+                if existing == category then duplicate = true break end
+            end
+            if not duplicate then cleaned[#cleaned + 1] = category end
+        end
+    end
+    table.sort(cleaned)
+    mart.categories = cleaned
+    for _, listing in ipairs(mart.listings or {}) do
+        ParadiseEconomy.addMartCategory(mart, listing.category)
+    end
+    return true, "Market categories updated"
 end
 
 function ParadiseEconomy.setTradeTitle(zoneId, title)
@@ -1151,6 +2061,10 @@ function ParadiseEconomy.getPlayerListingView(listing, merchant)
         merchantLeaseStatus = merchant and ParadiseEconomy.getMerchantLeaseStatus(merchant, now) or "none",
         merchantLeaseLabel = merchant and ParadiseEconomy.getMerchantLeaseLabel(merchant, now) or "No expiry",
         merchantArchived = merchant and merchant.archived == true or false,
+        merchantSuspended = merchant and merchant.suspended == true or false,
+        merchantStatus = merchant and ParadiseEconomy.getMerchantStatus(merchant, now) or nil,
+        merchantStatusLabel = merchant and ParadiseEconomy.getMerchantStatusLabel(merchant, now) or nil,
+        closed = merchant and ParadiseEconomy.isMerchantClosed(merchant, now) or false,
         expired = merchant and ParadiseEconomy.isMerchantExpired(merchant, now) or false,
         taxPercent = taxAccount and ParadiseEconomy.getTradeTaxPercent(taxAccount) or nil,
     }
@@ -1159,7 +2073,7 @@ end
 function ParadiseEconomy.getMerchantListingViews(merchant, includeExpired)
     local listings = {}
     if type(merchant) ~= "table" or merchant.type ~= "merchant" then return listings end
-    if not includeExpired and (merchant.archived == true or ParadiseEconomy.isMerchantExpired(merchant)) then
+    if not includeExpired and ParadiseEconomy.isMerchantClosed(merchant) then
         return listings
     end
     for _, listing in ipairs(merchant.listings or {}) do
@@ -1205,24 +2119,35 @@ function ParadiseEconomy.findPlayerListing(listingId)
     return nil
 end
 
-function ParadiseEconomy.postPlayerListing(pl, itemId, currency, price)
-    local zone = ParadiseEconomy.getTradeZone(pl)
-    if not zone or not zone.id then return false end
+function ParadiseEconomy.postPlayerListing(pl, merchantId, itemId, currency, price)
+    local merchant = ParadiseEconomy.getAccountById(merchantId)
+    if not merchant or merchant.type ~= "merchant" then return false, "Merchant store not found" end
+    if ParadiseEconomy.usernameKey(merchant.owner) ~= ParadiseEconomy.usernameKey(pl:getUsername()) then
+        return false, "You do not own this merchant store"
+    end
+    if not ParadiseEconomy.isPlayerNearSquare(pl, merchant.x, merchant.y, merchant.z) then
+        return false, "You must stand at your merchant store square"
+    end
+    if ParadiseEconomy.isMerchantClosed(merchant) then
+        if merchant.archived == true then return false, "This merchant store is closed" end
+        if merchant.suspended == true then return false, "This merchant store is suspended" end
+        return false, "Your merchant lease has expired. Renew it at your store."
+    end
+    local owner = ParadiseEconomy.getPersonalAccount(merchant.owner, false)
+    if ParadiseEconomy.isAccountFrozen(owner) then
+        return false, "Your account is frozen; transaction cancelled."
+    end
     currency = ParadiseEconomy.normalizeCurrency(currency)
     price = ParadiseEconomy.normalizeAmount(price)
     local item = ParadiseEconomy.findCarriedItem(pl, itemId)
     if not item or not currency or not price or ParadiseEconomy.isEquipped(pl, item) then return false end
     local itemData = ParadiseEconomy.ItemData.toData(item)
     if not itemData then return false end
-    local zoneRecord = ParadiseEconomy.registerZone(zone.id, zone.name, true)
-    local merchant = ParadiseEconomy.getMerchantAccount(zone.id, pl:getUsername(), true)
-    if not merchant then return false end
-    if merchant.archived == true or ParadiseEconomy.isMerchantExpired(merchant) then
-        return false, "Your merchant lease has expired. Renew it in the Tradeshop."
-    end
+    local zoneRecord = merchant.zoneId and ParadiseEconomy.registerZone(merchant.zoneId,
+        merchant.zoneName, true) or nil
     local listing = ParadiseEconomy.newPlayerListing(
         ParadiseEconomy.nextPlayerListingId(), pl:getUsername(), itemData, currency, price, os.time(),
-        zoneRecord and zoneRecord.name or zone.name, zone.id, merchant.id)
+        merchant.zoneName or (zoneRecord and zoneRecord.name), merchant.zoneId, merchant.id)
     if not listing then return false end
     local cont = item:getContainer()
     if not cont then return false end
@@ -1276,18 +2201,21 @@ function ParadiseEconomy.buyPlayerListing(pl, listingId, opts)
     opts = type(opts) == "table" and opts or {}
     local listing, merchant, index = ParadiseEconomy.findPlayerListing(listingId)
     if not listing or not merchant then return false, "This listing is no longer available" end
-    if merchant.archived == true or ParadiseEconomy.isMerchantExpired(merchant) then
+    if ParadiseEconomy.isMerchantClosed(merchant) then
+        if merchant.suspended == true then return false, "This merchant store is suspended" end
         return false, "This merchant listing has expired"
     end
     if ParadiseEconomy.usernameKey(listing.seller) == ParadiseEconomy.usernameKey(pl:getUsername()) then
         return false, "You cannot buy your own listing"
     end
-    local zone = ParadiseEconomy.getTradeZone(pl)
-    if not zone or ParadiseEconomy.normalizeZoneId(zone.id) ~= ParadiseEconomy.normalizeZoneId(listing.zoneId or merchant.zoneId) then
-        return false, "You must be in the listing's Trade Zone"
+    if not ParadiseEconomy.isPlayerNearSquare(pl, merchant.x, merchant.y, merchant.z) then
+        return false, "You must stand at the merchant store square"
     end
     local buyer = ParadiseEconomy.getPersonalAccount(pl:getUsername(), true)
     if not buyer then return false, "No personal account" end
+    if ParadiseEconomy.isAccountFrozen(buyer) then
+        return false, "Your account is frozen; transaction cancelled."
+    end
     local useOnHand = opts.payFromOnHand == true
     local bucket = useOnHand and buyer.onhand or buyer.digital
     local bucketName = useOnHand and "onhand" or "digital"
@@ -1296,12 +2224,15 @@ function ParadiseEconomy.buyPlayerListing(pl, listingId, opts)
         return false, "Not enough " .. tostring(listing.currency) .. " " .. (useOnHand and "on hand" or "digital")
             .. ". Need " .. tostring(listing.price) .. ", have " .. tostring(balance) .. "."
     end
-    local destination, destinationLabel = ParadiseEconomy.resolvePurchaseDestination(pl, opts.destination)
-    local item = ParadiseEconomy.spawnItemData(pl, listing.itemData, destination)
-    if not item then return false, "Could not create the purchased item" end
     local taxAccount = merchant.taxRoute and ParadiseEconomy.getAccountById(merchant.taxRoute) or nil
     taxAccount = taxAccount or ParadiseEconomy.getTradeOrServerAccount(merchant.zoneId)
     local payout, tax = ParadiseEconomy.getPlayerShopPayout(listing.price, ParadiseEconomy.getTradeTaxPercent(taxAccount))
+    if tax > 0 and ParadiseEconomy.isAccountFrozen(taxAccount) then
+        return false, ParadiseEconomy.getFrozenMessage(taxAccount, "recipient")
+    end
+    local destination, destinationLabel = ParadiseEconomy.resolvePurchaseDestination(pl, opts.destination)
+    local item = ParadiseEconomy.spawnItemData(pl, listing.itemData, destination)
+    if not item then return false, "Could not create the purchased item" end
     ParadiseEconomy.takeBalance(bucket, listing.currency, listing.price)
     if payout > 0 then
         ParadiseEconomy.addBalance(merchant.earnings, listing.currency, payout)
@@ -1335,6 +2266,9 @@ end
 function ParadiseEconomy.collectMerchantEarnings(pl)
     local personal = ParadiseEconomy.getPersonalAccount(pl:getUsername(), true)
     if not personal then return nil end
+    if ParadiseEconomy.isAccountFrozen(personal) then
+        return false, "Your account is frozen; transaction cancelled."
+    end
     local collected = { jimoleon = 0, paradisium = 0 }
     for _, merchant in ipairs(ParadiseEconomy.getPlayerMerchants(pl:getUsername())) do
         for _, currency in ipairs({ "jimoleon", "paradisium" }) do
@@ -1405,27 +2339,57 @@ function ParadiseEconomy.record(pl, action, currency, amount, fromUser, toUser, 
     return tx
 end
 
-function ParadiseEconomy.transferAccounts(fromUser, toUser, currency, amount)
+function ParadiseEconomy.getFrozenMessage(account, role)
+    if not ParadiseEconomy.isAccountFrozen(account) then return nil end
+    if role == "sender" then return "Your account is frozen; transaction cancelled." end
+    local label = account.owner or account.name or account.title or account.id or "The account"
+    return tostring(label) .. "'s account is frozen; transaction cancelled."
+end
+
+function ParadiseEconomy.canMoveFunds(fromAccount, toAccount, allowFrozen)
+    if allowFrozen then return true end
+    local message = ParadiseEconomy.getFrozenMessage(fromAccount, "sender")
+    if message then return false, message end
+    message = ParadiseEconomy.getFrozenMessage(toAccount, "recipient")
+    if message then return false, message end
+    return true
+end
+
+function ParadiseEconomy.transferAccounts(fromUser, toUser, currency, amount, allowFrozen)
     local from = ParadiseEconomy.getPersonalAccount(fromUser, false)
     local to = ParadiseEconomy.getPersonalAccount(toUser, true)
     if not from or not to or from == to then return false end
     currency = ParadiseEconomy.normalizeCurrency(currency)
     amount = ParadiseEconomy.normalizeAmount(amount)
     if not currency or not amount then return false end
-    if not ParadiseEconomy.takeBalance(from.digital, currency, amount) then return false end
-    ParadiseEconomy.addBalance(to.digital, currency, amount)
+    local allowed, frozenMessage = ParadiseEconomy.canMoveFunds(from, to, allowFrozen)
+    if not allowed then return false, frozenMessage end
+    if not ParadiseEconomy.takeBalance(from.digital, currency, amount) then
+        return false, "Insufficient digital funds"
+    end
+    if not ParadiseEconomy.addBalance(to.digital, currency, amount) then
+        ParadiseEconomy.addBalance(from.digital, currency, amount)
+        return false, "Transaction failed"
+    end
     return true
 end
 
-function ParadiseEconomy.transferBetweenAccounts(fromAccount, toAccount, currency, amount, fromBucket, toBucket)
+function ParadiseEconomy.transferBetweenAccounts(fromAccount, toAccount, currency, amount, fromBucket, toBucket, allowFrozen)
     if not fromAccount or not toAccount or fromAccount == toAccount then return false end
     currency = ParadiseEconomy.normalizeCurrency(currency)
     amount = ParadiseEconomy.normalizeAmount(amount)
     if not currency or not amount then return false end
+    local allowed, frozenMessage = ParadiseEconomy.canMoveFunds(fromAccount, toAccount, allowFrozen)
+    if not allowed then return false, nil, nil, frozenMessage end
     fromBucket = ParadiseEconomy.resolveBucket(fromAccount, fromBucket)
     toBucket = ParadiseEconomy.resolveBucket(toAccount, toBucket)
-    if not ParadiseEconomy.takeAccountBalance(fromAccount, currency, amount, fromBucket) then return false end
-    ParadiseEconomy.addAccountBalance(toAccount, currency, amount, toBucket)
+    if not ParadiseEconomy.takeAccountBalance(fromAccount, currency, amount, fromBucket) then
+        return false, fromBucket, toBucket, "Insufficient funds"
+    end
+    if not ParadiseEconomy.addAccountBalance(toAccount, currency, amount, toBucket) then
+        ParadiseEconomy.addAccountBalance(fromAccount, currency, amount, fromBucket)
+        return false, fromBucket, toBucket, "Transaction failed"
+    end
     return true, fromBucket, toBucket
 end
 
@@ -1502,11 +2466,29 @@ function ParadiseEconomy.sendState(pl, message, extra)
         personal.steamid = ParadiseEconomy.getSteamIdOrUser(pl)
     end
     local merchants = {}
+    local myShops = {}
     for _, merchant in ipairs(ParadiseEconomy.getPlayerMerchants(user)) do
         local view = ParadiseEconomy.getMerchantManagementView(merchant)
         if view then
             view.listings = ParadiseEconomy.getMerchantListingViews(merchant, true)
             merchants[#merchants + 1] = view
+            local square = ParadiseEconomy.normalizeSquare(merchant.x, merchant.y, merchant.z)
+            myShops[#myShops + 1] = {
+                kind = "store",
+                id = view.id,
+                title = view.title or view.owner or view.id,
+                owner = view.owner,
+                zoneId = view.zoneId,
+                x = square and math.floor(tonumber(merchant.x) or 0) or nil,
+                y = square and math.floor(tonumber(merchant.y) or 0) or nil,
+                z = square and math.floor(tonumber(merchant.z) or 0) or nil,
+                status = view.status,
+                statusLabel = view.statusLabel,
+                suspended = view.suspended,
+                closed = view.closed,
+                expired = view.status == "expired",
+                archived = view.archived == true,
+            }
         end
     end
     local market = {
@@ -1517,10 +2499,16 @@ function ParadiseEconomy.sendState(pl, message, extra)
     if zone and zone.id then
         local zoneRecord = ParadiseEconomy.registerZone(zone.id, zone.name, zone.features and zone.features.isTrade == true)
         local trade = zoneRecord.tradeAccountId and store.accounts[zoneRecord.tradeAccountId] or nil
+        local finance = zoneRecord.financeAccountId and store.accounts[zoneRecord.financeAccountId] or nil
         market.tradeZoneId = zoneRecord.id
         market.tradeZoneTitle = zoneRecord.name
         market.trade = trade and ParadiseEconomy.getTradePublicView(trade) or nil
-        market.itemMart = trade and trade.itemMart or {}
+        market.finance = finance and ParadiseEconomy.getFinancePublicView(finance) or nil
+        market.zoneOwner = zoneRecord.owner
+        market.zoneOwnerType = zoneRecord.ownerType
+        market.merchantDailyFee = ParadiseEconomy.getMerchantDailyFee(trade or zoneRecord)
+        market.merchantFeeCurrency = ParadiseEconomy.getMerchantFeeCurrency(trade or zoneRecord)
+        market.marts = ParadiseEconomy.getZoneMartViews(zoneRecord.id)
         market.canManage = trade and ParadiseEconomy.canManageTradeAccount(pl, trade) or false
         market.leaseDays = trade and ParadiseEconomy.getMerchantLeaseDays(trade) or nil
         market.playerListings = ParadiseEconomy.getPlayerListingsForZone(zoneRecord.id)
@@ -1532,7 +2520,7 @@ function ParadiseEconomy.sendState(pl, message, extra)
     local managedZones = {}
     for _, account in pairs(store.accounts) do
         if account.type == "trade" and account.archived ~= true and ParadiseEconomy.canManageTradeAccount(pl, account) then
-            local view = ParadiseEconomy.getTradePublicView(account)
+            local view = ParadiseEconomy.getTradePublicView(account, true)
             if view then
                 view.managedMerchants = ParadiseEconomy.getZoneMerchantViews(account.zoneId)
                 view.managedListings = ParadiseEconomy.getPlayerListingsForZone(account.zoneId, true)
@@ -1551,6 +2539,9 @@ function ParadiseEconomy.sendState(pl, message, extra)
         accounts = isAdm and store.accounts or nil,
         zones = isAdm and store.zones or nil,
         orphanedPlayerListings = isAdm and store.orphanedPlayerListings or nil,
+        marts = isAdm and store.marts or nil,
+        myShops = myShops,
+        shops = ParadiseEconomy.getPublicShops(store),
         market = market,
         message = message,
     }
@@ -1576,10 +2567,15 @@ function ParadiseEconomy.movePlayerAccount(pl, currency, amount, toDigital)
     currency = ParadiseEconomy.normalizeCurrency(currency)
     amount = ParadiseEconomy.normalizeAmount(amount)
     local account = ParadiseEconomy.getPersonalAccount(pl:getUsername(), true)
-    if not currency or not amount or not account then return false end
+    if not currency or not amount or not account then return false, "Invalid amount or currency" end
+    if ParadiseEconomy.isAccountFrozen(account) then
+        return false, "Your account is frozen; transaction cancelled."
+    end
     local from = toDigital and account.onhand or account.digital
     local to = toDigital and account.digital or account.onhand
-    if not ParadiseEconomy.takeBalance(from, currency, amount) then return false end
+    if not ParadiseEconomy.takeBalance(from, currency, amount) then
+        return false, "Insufficient funds"
+    end
     ParadiseEconomy.addBalance(to, currency, amount)
     return true
 end
@@ -1635,6 +2631,11 @@ function ParadiseEconomy.deleteAccount(accountId)
         for _, merchant in pairs(store.accounts) do
             if merchant.taxRoute == accountId then merchant.taxRoute = ParadiseEconomy.serverAccountId end
         end
+    elseif account.type == "finance" then
+        local zone = store.zones[account.zoneId]
+        if zone and zone.financeAccountId == accountId then
+            return false, "Finance accounts cannot be deleted while attached to a zone"
+        end
     end
     store.accounts[accountId] = nil
     return true, "Account removed"
@@ -1658,6 +2659,7 @@ function ParadiseEconomy.createAccountOfType(accountType, owner, zoneId, name)
         if not account then return nil, "Account could not be created" end
         account.zoneName = zone.name or zoneId
         account.archived = nil
+        account.suspended = nil
         return account, "Merchant account ready for " .. owner .. " in " .. tostring(account.zoneName)
     elseif accountType == "trade" then
         local zone = zoneId and store.zones[zoneId] or nil
@@ -1696,6 +2698,7 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
     local message
     local syncAll = false
     local purchaseResult
+    local shopResult
     if (command == "marketBuy" or command == "marketSell" or command == "playerShopPost" or
         command == "playerShopBuy") and not ParadiseEconomy.canUsePlayerEconomy(pl) then
         if command == "playerShopBuy" and args.source == "drag" then
@@ -1708,34 +2711,201 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
     if command == "requestState" then
         ParadiseEconomy.sendState(pl)
         return
-    elseif command == "deposit" and ParadiseEconomy.movePlayerAccount(pl, currency, amount, true) then
-        local personal = ParadiseEconomy.getPersonalAccount(user, true)
-        ParadiseEconomy.record(pl, "deposited", currency, amount, user, user, "carried to digital", {
-            accountId = personal.id, bucket = "digital",
-        })
-        message = "Deposited " .. amount .. " " .. currency
-    elseif command == "withdraw" and ParadiseEconomy.movePlayerAccount(pl, currency, amount, false) then
-        local personal = ParadiseEconomy.getPersonalAccount(user, true)
-        ParadiseEconomy.record(pl, "withdrew", currency, amount, user, user, "digital to carried", {
-            accountId = personal.id, bucket = "onhand",
-        })
-        message = "Withdrew " .. amount .. " " .. currency
+    elseif command == "requestShop" then
+        ParadiseEconomy.sendShopState(pl, args.kind, args.id)
+        return
+    elseif command == "registerStore" then
+        local sx, sy, sz = ParadiseEconomy.normalizeSquare(args.x, args.y, args.z)
+        if not sx then
+            message = "Invalid square"
+        elseif not ParadiseEconomy.isPlayerNearSquare(pl, sx, sy, sz) then
+            message = "Stand at the square to register your merchant store"
+        else
+            local zone = ParadiseEconomy.getSquareTradeZone(sx, sy, sz)
+            if not zone then
+                message = "Merchant stores can only be registered inside a Trade Zone"
+            else
+                local zoneRecord = ParadiseEconomy.registerZone(zone.id, zone.name, true)
+                local existing = ParadiseEconomy.getMerchantAccount(zoneRecord.id, user, false)
+                local merchant = ParadiseEconomy.getMerchantAtSquare(sx, sy, sz, user, true, zoneRecord.id)
+                if not merchant then
+                    message = "Could not register the merchant store"
+                else
+                    merchant.archived = nil
+                    merchant.zoneId = zoneRecord.id
+                    merchant.zoneName = zoneRecord.name
+                    merchant.x, merchant.y, merchant.z = sx, sy, sz
+                    merchant.unplaced = nil
+                    if not merchant.taxRoute or not ParadiseEconomy.getStore().accounts[merchant.taxRoute] then
+                        merchant.taxRoute = zoneRecord.tradeAccountId or ParadiseEconomy.serverAccountId
+                    end
+                    local merchantTrade = ParadiseEconomy.getMerchantZoneTrade(merchant)
+                    local leaseDays = ParadiseEconomy.getMerchantLeaseDays(merchantTrade)
+                    local feeDue = ParadiseEconomy.getMerchantFeeQuote(merchant, leaseDays)
+                    local registered = true
+                    local registrationMessage = "Merchant store registered"
+                    if not existing and leaseDays > 0 then
+                        local chargePaid, chargeMessage, due, feeCurrency, feeTarget = true, nil, 0
+                        if feeDue > 0 then
+                            chargePaid, chargeMessage, due, feeCurrency, feeTarget =
+                                ParadiseEconomy.payMerchantLeaseFee(merchant, leaseDays)
+                        end
+                        if chargePaid then
+                            ParadiseEconomy.grantMerchantLease(merchant, leaseDays)
+                            if due > 0 then
+                                ParadiseEconomy.record(pl, "merchant lease paid", feeCurrency or "jimoleon", due, user,
+                                    feeTarget and feeTarget.id or merchant.id, tostring(leaseDays) .. " days", {
+                                        accountId = merchant.id,
+                                        counterpartyId = feeTarget and feeTarget.id or nil,
+                                        zoneId = merchant.zoneId,
+                                    })
+                            end
+                        else
+                            ParadiseEconomy.deleteAccount(merchant.id)
+                            registered = false
+                            registrationMessage = chargeMessage
+                        end
+                    elseif not existing then
+                        ParadiseEconomy.grantMerchantLease(merchant, 0)
+                    elseif ParadiseEconomy.isMerchantExpired(merchant) and leaseDays > 0 then
+                        local renewed, leaseMessage, paidAmount, paidCurrency, paidTo =
+                            ParadiseEconomy.renewMerchantLease(merchant, leaseDays)
+                        if renewed then
+                            if paidAmount and paidAmount > 0 then
+                                ParadiseEconomy.record(pl, "merchant lease paid", paidCurrency or "jimoleon",
+                                    paidAmount, user, paidTo and paidTo.id or merchant.id,
+                                    tostring(leaseDays) .. " days", {
+                                        accountId = merchant.id,
+                                        counterpartyId = paidTo and paidTo.id or nil,
+                                        zoneId = merchant.zoneId,
+                                    })
+                            end
+                        else
+                            registrationMessage = leaseMessage
+                        end
+                    end
+                    message = registrationMessage
+                    if registered then
+                        shopResult = { kind = "store", id = merchant.id }
+                        ParadiseEconomy.record(pl, "merchant store registered", "mixed", 0, user, merchant.id,
+                            tostring(merchant.title or ""), { accountId = merchant.id, zoneId = merchant.zoneId })
+                    end
+                    syncAll = true
+                end
+            end
+        end
+    elseif command == "createMart" then
+        local sx, sy, sz = ParadiseEconomy.normalizeSquare(args.x, args.y, args.z)
+        local zone = sx and ParadiseEconomy.getSquareTradeZone(sx, sy, sz) or nil
+        local trade = zone and ParadiseEconomy.getTradeAccount(zone.id, true) or nil
+        if not sx then
+            message = "Invalid square"
+        elseif not ParadiseEconomy.isPlayerNearSquare(pl, sx, sy, sz) then
+            message = "Stand at the square to create a market"
+        elseif not zone then
+            message = "Markets can only be created inside a Trade Zone"
+        elseif not trade or not (isAdm or ParadiseEconomy.canManageTradeAccount(pl, trade)) then
+            message = "Only the trade zone manager can create markets here"
+        else
+            local zoneRecord = ParadiseEconomy.registerZone(zone.id, zone.name, true)
+            local title = tostring(args.title or ""):match("^%s*(.-)%s*$")
+            if title == "" then
+                title = tostring(zoneRecord.name or "Market") .. " Market "
+                    .. tostring(#ParadiseEconomy.getZoneMarts(zoneRecord.id) + 1)
+            end
+            local mart = ParadiseEconomy.createMartRecord(ParadiseEconomy.getStore(), zoneRecord.id, sx, sy, sz, title)
+            if not mart then
+                message = "Could not create the market"
+            else
+                message = "Market created: " .. tostring(mart.title)
+                shopResult = { kind = "mart", id = mart.id }
+                syncAll = true
+                ParadiseEconomy.record(pl, "market created", "mixed", 0, user, trade.id, tostring(mart.title), {
+                    accountId = trade.id, zoneId = mart.zoneId,
+                })
+            end
+        end
+    elseif command == "renameMart" then
+        local mart = ParadiseEconomy.resolveMartArg(args)
+        if not mart then
+            message = "Market not found"
+        elseif not ParadiseEconomy.canManageMart(pl, mart) then
+            message = "Not allowed to rename this market"
+        else
+            local saved, titleMessage = ParadiseEconomy.setMartTitle(mart.id, args.title)
+            message = titleMessage
+            syncAll = saved
+            if saved then
+                local trade = ParadiseEconomy.getTradeAccount(mart.zoneId, false)
+                ParadiseEconomy.record(pl, "market renamed", "mixed", 0, user, trade and trade.id or mart.id,
+                    tostring(mart.title), { accountId = trade and trade.id or nil, zoneId = mart.zoneId })
+            end
+        end
+    elseif command == "martSetCategories" then
+        local mart = ParadiseEconomy.resolveMartArg(args)
+        if not mart then
+            message = "Market not found"
+        elseif not ParadiseEconomy.canManageMart(pl, mart) then
+            message = "Not allowed to change this market"
+        else
+            local categories = args.categories
+            if type(categories) ~= "table" then
+                categories = {}
+                for part in string.gmatch(tostring(args.text or ""), "[^;]+") do
+                    categories[#categories + 1] = part
+                end
+            end
+            local saved, categoryMessage = ParadiseEconomy.setMartCategories(mart.id, categories)
+            message = categoryMessage
+            syncAll = saved
+        end
+    elseif command == "deposit" then
+        local moved, moveMessage = ParadiseEconomy.movePlayerAccount(pl, currency, amount, true)
+        if moved then
+            local personal = ParadiseEconomy.getPersonalAccount(user, true)
+            ParadiseEconomy.record(pl, "deposited", currency, amount, user, user, "carried to digital", {
+                accountId = personal.id, bucket = "digital",
+            })
+            message = "Deposited " .. amount .. " " .. currency
+        else
+            message = moveMessage
+        end
+    elseif command == "withdraw" then
+        local moved, moveMessage = ParadiseEconomy.movePlayerAccount(pl, currency, amount, false)
+        if moved then
+            local personal = ParadiseEconomy.getPersonalAccount(user, true)
+            ParadiseEconomy.record(pl, "withdrew", currency, amount, user, user, "digital to carried", {
+                accountId = personal.id, bucket = "onhand",
+            })
+            message = "Withdrew " .. amount .. " " .. currency
+        else
+            message = moveMessage
+        end
     elseif command == "transfer" then
         local targetUser = ParadiseEconomy.normalizeUsername(args.username)
-        if targetUser and ParadiseEconomy.transferAccounts(user, targetUser, currency, amount) then
-            local personal = ParadiseEconomy.getPersonalAccount(user, true)
-            local target = ParadiseEconomy.getPersonalAccount(targetUser, false)
-            ParadiseEconomy.record(pl, "transferred", currency, amount, user, targetUser, "account transfer", {
-                accountId = personal.id,
-                counterpartyId = target and target.id or nil,
-                bucket = "digital",
-            })
-            message = "Sent " .. amount .. " " .. currency .. " to " .. targetUser
-            syncAll = true
+        if not targetUser then
+            message = "Invalid recipient"
+        else
+            local sent, sendMessage = ParadiseEconomy.transferAccounts(user, targetUser, currency, amount)
+            if sent then
+                local personal = ParadiseEconomy.getPersonalAccount(user, true)
+                local target = ParadiseEconomy.getPersonalAccount(targetUser, false)
+                ParadiseEconomy.record(pl, "transferred", currency, amount, user, targetUser, "account transfer", {
+                    accountId = personal.id,
+                    counterpartyId = target and target.id or nil,
+                    bucket = "digital",
+                })
+                message = "Sent " .. amount .. " " .. currency .. " to " .. targetUser
+                syncAll = true
+            else
+                message = sendMessage or "Transaction rejected"
+            end
         end
     elseif command == "withdrawWallet" then
         local account = ParadiseEconomy.getPersonalAccount(user, true)
-        if currency and amount and ParadiseEconomy.getBalance(account.digital, currency) >= amount then
+        if ParadiseEconomy.isAccountFrozen(account) then
+            message = "Your account is frozen; transaction cancelled."
+        elseif currency and amount and ParadiseEconomy.getBalance(account.digital, currency) >= amount then
             local item, wallet = ParadiseEconomy.makeWallet(pl)
             if item and wallet and ParadiseEconomy.takeBalance(account.digital, currency, amount) then
                 ParadiseEconomy.addBalance(wallet, currency, amount)
@@ -1750,10 +2920,12 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
         end
     elseif command == "pillage" then
         local item, wallet = ParadiseEconomy.findWallet(pl:getInventory(), args.itemId, true)
-        if item and wallet then
+        local personal = ParadiseEconomy.getPersonalAccount(user, true)
+        if ParadiseEconomy.isAccountFrozen(personal) then
+            message = "Your account is frozen; transaction cancelled."
+        elseif item and wallet then
             local jimoleon = ParadiseEconomy.getBalance(wallet, "jimoleon")
             local paradisium = ParadiseEconomy.getBalance(wallet, "paradisium")
-            local personal = ParadiseEconomy.getPersonalAccount(user, true)
             if jimoleon > 0 then ParadiseEconomy.addBalance(personal.onhand, "jimoleon", jimoleon) end
             if paradisium > 0 then ParadiseEconomy.addBalance(personal.onhand, "paradisium", paradisium) end
             ParadiseEconomy.setBalances(wallet, 0, 0)
@@ -1766,9 +2938,11 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
             message = "Wallet pillaged"
         end
     elseif command == "merchantCollect" then
-        local collected = ParadiseEconomy.collectMerchantEarnings(pl)
+        local collected, collectMessage = ParadiseEconomy.collectMerchantEarnings(pl)
         if collected and (collected.jimoleon > 0 or collected.paradisium > 0) then
             message = "Collected " .. collected.jimoleon .. " Jimoleons and " .. collected.paradisium .. " Paradisium"
+        elseif collected == false then
+            message = collectMessage
         else
             message = "No merchant earnings to collect"
         end
@@ -1821,6 +2995,202 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
             ParadiseEconomy.record(pl, "trade lease set", "mixed", 0, user, trade.id,
                 tostring(days) .. " days", { accountId = trade.id, zoneId = trade.zoneId })
         end
+    elseif command == "zoneSetDailyFee" then
+        local zoneId = ParadiseEconomy.normalizeZoneId(args.zoneId)
+        local store = ParadiseEconomy.getStore()
+        local zone = zoneId and store.zones[zoneId] or nil
+        local trade = zone and ParadiseEconomy.getTradeAccount(zone.id, false) or nil
+        local dailyFee = ParadiseEconomy.normalizeMerchantDailyFee(args.fee)
+        local feeCurrency = ParadiseEconomy.normalizeMerchantFeeCurrency(args.currency)
+        if not zone or not trade then
+            message = "Trade zone not found"
+        elseif not ParadiseEconomy.isZoneOwner(pl, trade) then
+            message = "Only the zone owner can change merchant fees"
+        elseif dailyFee == nil then
+            message = "Invalid daily fee"
+        elseif not feeCurrency then
+            message = "Invalid fee currency"
+        else
+            zone.merchantDailyFee = dailyFee
+            zone.merchantFeeCurrency = feeCurrency
+            ParadiseEconomy.syncZoneOwnership(store, zone, zone.owner)
+            message = "Merchant fee set to " .. tostring(dailyFee) .. " " .. feeCurrency .. " per day"
+            syncAll = true
+            ParadiseEconomy.record(pl, "zone daily fee set", feeCurrency, dailyFee, zone.owner, trade.id,
+                tostring(dailyFee) .. " per day", { accountId = trade.id, zoneId = zone.id })
+        end
+    elseif command == "zoneSetOwner" then
+        local zoneId = ParadiseEconomy.normalizeZoneId(args.zoneId)
+        local store = ParadiseEconomy.getStore()
+        local zone = zoneId and store.zones[zoneId] or nil
+        local owner = tostring(args.owner or ""):match("^%s*(.-)%s*$")
+        if not isAdm then
+            message = "Only admins can reassign zone ownership"
+        elseif not zone or not zone.tradeAccountId then
+            message = "Trade zone not found"
+        elseif owner == "" then
+            message = "Invalid owner"
+        else
+            local ownerName, ownerType = ParadiseEconomy.syncZoneOwnership(store, zone, owner)
+            message = ownerType == "server" and "Zone owner reset to the server account"
+                or ("Zone owner set to " .. tostring(ownerName))
+            syncAll = true
+            ParadiseEconomy.record(pl, "zone owner set", "mixed", 0, user, zone.tradeAccountId, tostring(ownerName), {
+                accountId = zone.tradeAccountId, zoneId = zone.id,
+            })
+        end
+    elseif command == "zoneSweep" then
+        local trade = ParadiseEconomy.getTradeAccount(args.zoneId, false)
+        local finance = trade and ParadiseEconomy.getZoneFinanceAccount(trade.zoneId, true) or nil
+        if not trade then
+            message = "Trade zone not found"
+        elseif not finance then
+            message = "Finance account not found"
+        elseif not ParadiseEconomy.isZoneOwner(pl, trade) then
+            message = "Only the zone owner can sweep the treasury"
+        else
+            local allowed, frozenMessage = ParadiseEconomy.canMoveFunds(trade, finance, isAdm)
+            if not allowed then
+                message = frozenMessage
+            else
+                local moved = 0
+                for _, cur in ipairs({ "jimoleon", "paradisium" }) do
+                    local balance = ParadiseEconomy.getBalance(trade.digital, cur)
+                    if balance > 0 and ParadiseEconomy.takeAccountBalance(trade, cur, balance, "digital") then
+                        if ParadiseEconomy.addAccountBalance(finance, cur, balance, "digital") then
+                            moved = moved + 1
+                            ParadiseEconomy.record(pl, "treasury sweep", cur, balance, trade.id, finance.id,
+                                "treasury to finance", {
+                                    accountId = trade.id,
+                                    counterpartyId = finance.id,
+                                    zoneId = trade.zoneId,
+                                    bucket = "digital",
+                                })
+                        else
+                            ParadiseEconomy.addAccountBalance(trade, cur, balance, "digital")
+                        end
+                    end
+                end
+                message = moved > 0 and "Treasury swept to finance" or "Treasury is empty"
+                syncAll = true
+            end
+        end
+    elseif command == "financeWithdraw" then
+        local finance = ParadiseEconomy.getZoneFinanceAccount(args.zoneId, false)
+        if not finance then
+            message = "Finance account not found"
+        elseif not ParadiseEconomy.canManageFinanceAccount(pl, finance) then
+            message = "Not allowed to withdraw from this finance account"
+        elseif not currency or not amount then
+            message = "Invalid amount or currency"
+        else
+            local personal = ParadiseEconomy.getPersonalAccount(user, true)
+            local moved, _, _, transferMessage =
+                ParadiseEconomy.transferBetweenAccounts(finance, personal, currency, amount, "digital", "digital", isAdm)
+            if moved then
+                ParadiseEconomy.record(pl, "finance withdrawal", currency, amount, finance.id, personal.id,
+                    "finance to personal", {
+                        accountId = finance.id, counterpartyId = personal.id, zoneId = finance.zoneId, bucket = "digital",
+                    })
+                message = "Withdrew " .. amount .. " " .. currency .. " from the finance account"
+                syncAll = true
+            else
+                message = transferMessage or "Finance account has insufficient funds"
+            end
+        end
+    elseif command == "financeTransfer" then
+        local finance = ParadiseEconomy.getZoneFinanceAccount(args.zoneId, false)
+        local target = args.targetAccountId and ParadiseEconomy.getAccountById(args.targetAccountId) or nil
+        if not target and args.targetUser then
+            target = ParadiseEconomy.getPersonalAccount(args.targetUser, false)
+        end
+        if not finance then
+            message = "Finance account not found"
+        elseif not ParadiseEconomy.canManageFinanceAccount(pl, finance) then
+            message = "Not allowed to transfer from this finance account"
+        elseif not target or target == finance or not currency or not amount then
+            message = "Invalid transfer target or amount"
+        else
+            local moved, _, _, transferMessage =
+                ParadiseEconomy.transferBetweenAccounts(finance, target, currency, amount, "digital", nil, isAdm)
+            if moved then
+                ParadiseEconomy.record(pl, "finance transfer", currency, amount, finance.id, target.id,
+                    "finance account transfer", {
+                        accountId = finance.id, counterpartyId = target.id, zoneId = finance.zoneId, bucket = "digital",
+                    })
+                message = "Transferred " .. amount .. " " .. currency .. " from the finance account"
+                syncAll = true
+            else
+                message = transferMessage or "Finance account has insufficient funds"
+            end
+        end
+    elseif command == "merchantSuspend" then
+        local account = ParadiseEconomy.getAccountById(args.accountId)
+        if not account or account.type ~= "merchant" then
+            message = "Merchant account not found"
+        else
+            local trade = ParadiseEconomy.getMerchantZoneTrade(account)
+            if not isAdm and not (trade and ParadiseEconomy.isZoneOwner(pl, trade)) then
+                message = "Only the zone owner can suspend merchant stores"
+            else
+                local suspended = args.suspended == true
+                local changed, suspendMessage =
+                    ParadiseEconomy.setMerchantSuspended(account, suspended, pl, args.reason)
+                message = suspendMessage
+                syncAll = changed
+                if changed then
+                    ParadiseEconomy.record(pl, "merchant " .. (suspended and "suspended" or "resumed"), "mixed", 0,
+                        user, account.id, tostring(account.title or account.owner or ""), {
+                            accountId = account.id, zoneId = account.zoneId,
+                        })
+                end
+            end
+        end
+    elseif command == "adminSetAccountFrozen" then
+        local account = ParadiseEconomy.resolveAccountArg(args.accountId, args.username)
+        if not isAdm then
+            message = "Only admins can freeze accounts"
+        elseif not account then
+            message = "Account not found"
+        elseif account.type ~= "personal" then
+            message = "Only personal accounts can be frozen"
+        else
+            local frozen = args.frozen == true
+            account.frozen = frozen or nil
+            if frozen then
+                account.frozenAt = os.time()
+                account.frozenBy = user
+            else
+                account.frozenAt = nil
+                account.frozenBy = nil
+            end
+            message = frozen and ("Froze " .. tostring(account.owner or account.id))
+                or ("Unfroze " .. tostring(account.owner or account.id))
+            syncAll = true
+            ParadiseEconomy.record(pl, frozen and "admin froze account" or "admin unfroze account", "mixed", 0,
+                user, account.id, tostring(account.owner or ""), { accountId = account.id })
+        end
+    elseif command == "adminSetMartOwner" then
+        local mart = ParadiseEconomy.resolveMartArg(args)
+        local account = ParadiseEconomy.resolveAccountArg(args.ownerAccountId, args.ownerUsername)
+        if not isAdm then
+            message = "Only admins can reassign market ownership"
+        elseif not mart then
+            message = "Market not found"
+        elseif not account then
+            message = "Owner account not found"
+        elseif account.type == "merchant" then
+            message = "A merchant account cannot own a market"
+        else
+            mart.ownerAccountId = account.id
+            mart.owner = account.owner or account.title or account.name or account.id
+            message = "Market owner set to " .. tostring(mart.owner)
+            syncAll = true
+            ParadiseEconomy.record(pl, "admin set market owner", "mixed", 0, user, account.id,
+                tostring(mart.title or mart.id), {
+                    accountId = account.id, counterpartyId = mart.id, zoneId = mart.zoneId,
+                })
+        end
     elseif command == "merchantRenew" then
         local account = ParadiseEconomy.getAccountById(args.accountId)
         if not account or account.type ~= "merchant" then
@@ -1828,12 +3198,22 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
         elseif not ParadiseEconomy.canManageMerchantLease(pl, account) then
             message = "Not allowed to renew this merchant lease"
         else
-            local renewed, leaseMessage = ParadiseEconomy.renewMerchantLease(account, args.days)
+            local renewed, leaseMessage, paidAmount, paidCurrency, paidTo =
+                ParadiseEconomy.renewMerchantLease(account, args.days)
             message = leaseMessage
             syncAll = renewed
             if renewed then
                 ParadiseEconomy.record(pl, "merchant lease renewed", "mixed", 0, user, account.id,
                     tostring(account.leaseDays) .. " days", { accountId = account.id, zoneId = account.zoneId })
+                if paidAmount and paidAmount > 0 then
+                    ParadiseEconomy.record(pl, "merchant lease paid", paidCurrency or "jimoleon", paidAmount,
+                        account.owner or user, paidTo and paidTo.id or account.id,
+                        tostring(account.leaseDays) .. " days", {
+                            accountId = account.id,
+                            counterpartyId = paidTo and paidTo.id or nil,
+                            zoneId = account.zoneId,
+                        })
+                end
             end
         end
     elseif command == "merchantLeaseAction" then
@@ -1869,15 +3249,18 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
             message = "Invalid amount or currency"
         else
             local personal = ParadiseEconomy.getPersonalAccount(user, true)
-            if ParadiseEconomy.takeAccountBalance(trade, currency, amount, "digital") then
+            local allowed, frozenMessage = ParadiseEconomy.canMoveFunds(trade, personal)
+            if not allowed then
+                message = frozenMessage
+            elseif not ParadiseEconomy.takeAccountBalance(trade, currency, amount, "digital") then
+                message = "Trade account has insufficient funds"
+            else
                 ParadiseEconomy.addAccountBalance(personal, currency, amount, "digital")
                 ParadiseEconomy.record(pl, "trade withdrawal", currency, amount, trade.id, personal.id, "trade to personal", {
                     accountId = trade.id, counterpartyId = personal.id, zoneId = trade.zoneId, bucket = "digital",
                 })
                 message = "Withdrew " .. amount .. " " .. currency .. " from the trade account"
                 syncAll = true
-            else
-                message = "Trade account has insufficient funds"
             end
         end
     elseif command == "tradeTransfer" then
@@ -1892,42 +3275,48 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
             message = "Not allowed to transfer from this trade account"
         elseif not target or target == trade or not currency or not amount then
             message = "Invalid transfer target or amount"
-        elseif ParadiseEconomy.transferBetweenAccounts(trade, target, currency, amount, "digital", nil) then
-            ParadiseEconomy.record(pl, "trade transfer", currency, amount, trade.id, target.id, "trade account transfer", {
-                accountId = trade.id, counterpartyId = target.id, zoneId = trade.zoneId, bucket = "digital",
-            })
-            message = "Transferred " .. amount .. " " .. currency .. " from the trade account"
-            syncAll = true
         else
-            message = "Trade account has insufficient funds"
+            local moved, _, _, transferMessage =
+                ParadiseEconomy.transferBetweenAccounts(trade, target, currency, amount, "digital", nil)
+            if moved then
+                ParadiseEconomy.record(pl, "trade transfer", currency, amount, trade.id, target.id, "trade account transfer", {
+                    accountId = trade.id, counterpartyId = target.id, zoneId = trade.zoneId, bucket = "digital",
+                })
+                message = "Transferred " .. amount .. " " .. currency .. " from the trade account"
+                syncAll = true
+            else
+                message = transferMessage or "Trade account has insufficient funds"
+            end
         end
     elseif command == "tradeItemSave" then
-        local trade = ParadiseEconomy.getTradeAccount(args.zoneId, false)
-        if not trade then
-            message = "Trade account not found"
-        elseif not ParadiseEconomy.canManageTradeAccount(pl, trade) then
-            message = "Not allowed to manage this item mart"
+        local mart = ParadiseEconomy.resolveMartArg(args)
+        if not mart then
+            message = "Market not found"
+        elseif not ParadiseEconomy.canManageMart(pl, mart) then
+            message = "Not allowed to manage this market"
         else
             local listing
-            listing, message = ParadiseEconomy.saveTradeItem(args.zoneId, args.listingId, args.fullType,
+            listing, message = ParadiseEconomy.saveMartItem(mart.id, args.listingId, args.fullType,
                 args.direction, currency, ParadiseEconomy.normalizeAmount(args.price or args.amount), args.category)
             syncAll = listing ~= nil
             if listing then
-                ParadiseEconomy.record(pl, "item mart listing saved", listing.currency, listing.price, user, trade.id,
+                local trade = ParadiseEconomy.getTradeAccount(mart.zoneId, false)
+                ParadiseEconomy.record(pl, "market listing saved", listing.currency, listing.price, user,
+                    trade and trade.id or mart.id,
                     tostring(listing.category) .. ":" .. listing.direction .. ":" .. listing.fullType, {
-                        accountId = trade.id, zoneId = trade.zoneId,
+                        accountId = trade and trade.id or nil, zoneId = mart.zoneId,
                     })
             end
         end
     elseif command == "tradeItemDelete" then
-        local trade = ParadiseEconomy.getTradeAccount(args.zoneId, false)
-        if not trade then
-            message = "Trade account not found"
-        elseif not ParadiseEconomy.canManageTradeAccount(pl, trade) then
-            message = "Not allowed to manage this item mart"
+        local mart = ParadiseEconomy.resolveMartArg(args)
+        if not mart then
+            message = "Market not found"
+        elseif not ParadiseEconomy.canManageMart(pl, mart) then
+            message = "Not allowed to manage this market"
         else
             local removed
-            removed, message = ParadiseEconomy.deleteTradeItem(args.zoneId, args.listingId)
+            removed, message = ParadiseEconomy.deleteMartItem(mart.id, args.listingId)
             syncAll = removed
         end
     elseif command == "merchantSetTitle" then
@@ -2009,7 +3398,9 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
     elseif command == "adminTransfer" and isAdm then
         local from = ParadiseEconomy.resolveAccountArg(args.fromAccountId)
         local to = ParadiseEconomy.resolveAccountArg(args.toAccountId)
-        if from and to and ParadiseEconomy.transferBetweenAccounts(from, to, currency, amount, args.fromBucket, args.toBucket) then
+        local moved, _, _, transferMessage = from and to and
+            ParadiseEconomy.transferBetweenAccounts(from, to, currency, amount, args.fromBucket, args.toBucket, true)
+        if moved then
             local fromBucket = ParadiseEconomy.resolveBucket(from, args.fromBucket)
             ParadiseEconomy.record(pl, "admin transfer", currency, amount, from.id, to.id, "account reroute", {
                 accountId = from.id,
@@ -2019,7 +3410,7 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
             message = "Account rerouted"
             syncAll = true
         else
-            message = "Reroute rejected"
+            message = transferMessage or "Reroute rejected"
         end
     elseif command == "adminDelete" and isAdm then
         local account = ParadiseEconomy.resolveAccountArg(args.accountId, args.username)
@@ -2067,63 +3458,92 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
         message = "Synced " .. tostring(count) .. " trade zone accounts"
         syncAll = true
     elseif command == "marketBuy" then
-        local zone = ParadiseEconomy.getTradeZone(pl)
-        local trade = zone and ParadiseEconomy.getTradeAccount(zone.id, true) or nil
-        local listing = trade and ParadiseEconomy.getTradeItem(trade, tostring(args.fullType or ""), "buy", args.category) or nil
+        local mart = ParadiseEconomy.resolveMartArg(args)
+        local ownerAccount = mart and ParadiseEconomy.getMartOwnerAccount(mart) or nil
+        local listing = mart and ParadiseEconomy.getMartItem(mart, args.listingId) or nil
         local quantity = ParadiseEconomy.normalizeAmount(args.quantity) or 1
-        if quantity > 100 then quantity = nil end
         local personal = ParadiseEconomy.getPersonalAccount(user, true)
-        local total = listing and quantity and listing.price * quantity or nil
-        if listing and total and ParadiseEconomy.takeBalance(personal.digital, listing.currency, total) then
-            ParadiseEconomy.addBalance(trade.digital, listing.currency, total)
-            local inv = pl:getInventory()
-            for _ = 1, quantity do
-                local item = inv:AddItem(listing.fullType)
-                if item then
-                    if item.SynchSpawn then item:SynchSpawn() end
-                    sendAddItemToContainer(inv, item)
+        if not mart then
+            message = "Market not found"
+        elseif not ParadiseEconomy.isPlayerNearSquare(pl, mart.x, mart.y, mart.z) then
+            message = "Stand at the market square to buy"
+        elseif not ownerAccount then
+            message = "Market account not found"
+        elseif not listing or listing.direction ~= "buy" then
+            message = "Market listing not found"
+        elseif quantity > 100 then
+            message = "Invalid quantity"
+        elseif not ParadiseEconomy.canMoveFunds(personal, ownerAccount) then
+            message = ParadiseEconomy.getFrozenMessage(personal, "sender")
+                or ParadiseEconomy.getFrozenMessage(ownerAccount, "recipient")
+        else
+            local total = listing.price * quantity
+            if ParadiseEconomy.takeBalance(personal.digital, listing.currency, total) then
+                ParadiseEconomy.addBalance(ownerAccount.digital, listing.currency, total)
+                local inv = pl:getInventory()
+                for _ = 1, quantity do
+                    local item = inv:AddItem(listing.fullType)
+                    if item then
+                        if item.SynchSpawn then item:SynchSpawn() end
+                        sendAddItemToContainer(inv, item)
+                    end
                 end
-            end
-            ParadiseEconomy.record(pl, "market purchase", listing.currency, total, user, tostring(trade.title), quantity .. "x " .. listing.fullType, {
-                accountId = personal.id, counterpartyId = trade.id, zoneId = trade.zoneId, bucket = "digital",
-            })
-            message = "Purchase complete"
-            syncAll = true
-        elseif listing and total then
-            message = "Insufficient digital funds"
-        end
-    elseif command == "marketSell" then
-        local zone = ParadiseEconomy.getTradeZone(pl)
-        local trade = zone and ParadiseEconomy.getTradeAccount(zone.id, true) or nil
-        local listing = trade and ParadiseEconomy.getTradeItem(trade, tostring(args.fullType or ""), "sell", args.category) or nil
-        local quantity = ParadiseEconomy.normalizeAmount(args.quantity) or 1
-        if quantity > 100 then quantity = nil end
-        local personal = ParadiseEconomy.getPersonalAccount(user, true)
-        local total = listing and quantity and listing.price * quantity or nil
-        if listing and total and ParadiseEconomy.getBalance(trade.digital, listing.currency) >= total then
-            if ParadiseEconomy.removeItems(pl:getInventory(), listing.fullType, quantity) then
-                ParadiseEconomy.takeBalance(trade.digital, listing.currency, total)
-                ParadiseEconomy.addBalance(personal.digital, listing.currency, total)
-                ParadiseEconomy.record(pl, "market sale", listing.currency, total, tostring(trade.title), user, quantity .. "x " .. listing.fullType, {
-                    accountId = personal.id, counterpartyId = trade.id, zoneId = trade.zoneId, bucket = "digital",
-                })
-                message = "Sale complete"
+                ParadiseEconomy.record(pl, "market purchase", listing.currency, total, user,
+                    tostring(ownerAccount.title or ownerAccount.name), quantity .. "x " .. listing.fullType, {
+                        accountId = personal.id, counterpartyId = ownerAccount.id, zoneId = mart.zoneId, bucket = "digital",
+                    })
+                message = "Purchase complete"
                 syncAll = true
             else
-                message = "You do not have enough items"
+                message = "Insufficient digital funds"
             end
-        elseif listing and total then
-            message = "The trade account cannot pay for this sale"
+        end
+    elseif command == "marketSell" then
+        local mart = ParadiseEconomy.resolveMartArg(args)
+        local ownerAccount = mart and ParadiseEconomy.getMartOwnerAccount(mart) or nil
+        local listing = mart and ParadiseEconomy.getMartItem(mart, args.listingId) or nil
+        local quantity = ParadiseEconomy.normalizeAmount(args.quantity) or 1
+        local personal = ParadiseEconomy.getPersonalAccount(user, true)
+        if not mart then
+            message = "Market not found"
+        elseif not ParadiseEconomy.isPlayerNearSquare(pl, mart.x, mart.y, mart.z) then
+            message = "Stand at the market square to sell"
+        elseif not ownerAccount then
+            message = "Market account not found"
+        elseif not listing or listing.direction ~= "sell" then
+            message = "Market listing not found"
+        elseif quantity > 100 then
+            message = "Invalid quantity"
+        elseif not ParadiseEconomy.canMoveFunds(ownerAccount, personal) then
+            message = ParadiseEconomy.getFrozenMessage(ownerAccount, "sender")
+                or ParadiseEconomy.getFrozenMessage(personal, "recipient")
+        else
+            local total = listing.price * quantity
+            if ParadiseEconomy.getBalance(ownerAccount.digital, listing.currency) < total then
+                message = "The market account cannot pay for this sale"
+            elseif not ParadiseEconomy.removeItems(pl:getInventory(), listing.fullType, quantity) then
+                message = "You do not have enough items"
+            else
+                ParadiseEconomy.takeBalance(ownerAccount.digital, listing.currency, total)
+                ParadiseEconomy.addBalance(personal.digital, listing.currency, total)
+                ParadiseEconomy.record(pl, "market sale", listing.currency, total,
+                    tostring(ownerAccount.title or ownerAccount.name), user, quantity .. "x " .. listing.fullType, {
+                        accountId = personal.id, counterpartyId = ownerAccount.id, zoneId = mart.zoneId, bucket = "digital",
+                    })
+                message = "Sale complete"
+                syncAll = true
+            end
         end
     elseif command == "playerShopPost" then
-        local listing, merchantOrMessage = ParadiseEconomy.postPlayerListing(pl, args.itemId, currency, amount)
+        local listing, merchantOrMessage = ParadiseEconomy.postPlayerListing(pl, args.merchantId,
+            args.itemId, currency, amount)
         if listing then
             ParadiseEconomy.record(pl, "player shop posted", listing.currency, listing.price, user, tostring(merchantOrMessage.title),
                 listing.id .. ":" .. listing.itemData.fullType, {
                     accountId = merchantOrMessage.id,
                     zoneId = listing.zoneId,
                 })
-            message = "Item posted in the Tradeshop"
+            message = "Item posted in your merchant store"
             syncAll = true
         else
             message = merchantOrMessage
@@ -2193,7 +3613,9 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
         end
     end
     ParadiseEconomy.transmit()
-    local extra = purchaseResult and { purchase = purchaseResult } or nil
+    local extra = nil
+    if purchaseResult then extra = extra or {}; extra.purchase = purchaseResult end
+    if shopResult then extra = extra or {}; extra.shopRequest = shopResult end
     if syncAll then ParadiseEconomy.sendStateToAll(pl, message, extra)
     else ParadiseEconomy.sendState(pl, message or "Transaction rejected", extra) end
 end
