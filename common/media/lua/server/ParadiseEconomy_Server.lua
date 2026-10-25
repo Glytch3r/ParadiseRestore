@@ -618,6 +618,34 @@ function ParadiseEconomy.getPersonalAccount(user, create)
     return account
 end
 
+function ParadiseEconomy.rebuildPersonalIndex()
+    local store = ParadiseEconomy.getStore()
+    store.personalIndex = {}
+    local candidates = {}
+    for accountId, account in pairs(store.accounts or {}) do
+        if account.type == "personal" then
+            local key = ParadiseEconomy.usernameKey(account.owner)
+            if key then
+                candidates[key] = candidates[key] or {}
+                candidates[key][#candidates[key] + 1] = accountId
+            end
+        end
+    end
+    local indexed, duplicates = 0, 0
+    for key, ids in pairs(candidates) do
+        table.sort(ids, function(a, b)
+            local aSerial = tonumber(tostring(a):match("^p:(%d+)$")) or math.huge
+            local bSerial = tonumber(tostring(b):match("^p:(%d+)$")) or math.huge
+            if aSerial == bSerial then return a < b end
+            return aSerial < bSerial
+        end)
+        store.personalIndex[key] = ids[1]
+        indexed = indexed + 1
+        duplicates = duplicates + (#ids - 1)
+    end
+    return indexed, duplicates
+end
+
 function ParadiseEconomy.getMerchantAccount(zoneId, user, create)
     local id = ParadiseEconomy.merchantAccountId(zoneId, user)
     if not id then return nil end
@@ -1855,6 +1883,14 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
         })
         message = "Transaction ledger cleared"
         syncAll = true
+    elseif command == "adminRebuildIndex" and isAdm then
+        local indexed, duplicates = ParadiseEconomy.rebuildPersonalIndex()
+        message = "Rebuilt personal index: " .. tostring(indexed) .. " linked"
+        if duplicates > 0 then message = message .. ", " .. tostring(duplicates) .. " duplicates skipped" end
+        syncAll = true
+        ParadiseEconomy.record(pl, "admin rebuilt personal index", "mixed", 0, user, "index", message, {
+            accountId = ParadiseEconomy.getPersonalAccount(user, true).id,
+        })
     elseif command == "adminSyncZones" and isAdm then
         local count = ParadiseEconomy.ensureAllTradeZoneAccounts()
         message = "Synced " .. tostring(count) .. " trade zone accounts"

@@ -170,6 +170,137 @@ function ParadiseEconomy.drawCard(panel, x, y, w, h, accent)
     end
 end
 
+function ParadiseEconomy.drawAdminChip(panel, x, y, label)
+    local theme = ParadiseEconomy.Theme
+    label = label or "ADMIN"
+    local chipW = getTextManager():MeasureStringX(UIFont.Small, label) + 12
+    panel:drawRect(x, y, chipW, 15, 0.14, theme.gold.r, theme.gold.g, theme.gold.b)
+    panel:drawRectBorder(x, y, chipW, 15, 0.7, theme.gold.r, theme.gold.g, theme.gold.b)
+    panel:drawText(label, x + 6, y + 1, theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
+    return chipW
+end
+
+function ParadiseEconomy.drawPanelHeader(panel, subtitle, badge, tag)
+    local theme = ParadiseEconomy.Theme
+    local w = panel.width
+    panel:drawText(tostring(subtitle), 18, 29, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    if tag then
+        local tagW = getTextManager():MeasureStringX(UIFont.Small, tag) + 14
+        local tagX = w - 68 - 8 - tagW
+        panel:drawRect(tagX, 26, tagW, 20, 0.14, theme.gold.r, theme.gold.g, theme.gold.b)
+        panel:drawRectBorder(tagX, 26, tagW, 20, 0.7, theme.gold.r, theme.gold.g, theme.gold.b)
+        panel:drawText(tag, tagX + 7, 30, theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
+    end
+    panel:drawRect(w - 68, 22, 52, 28, theme.gold.a, theme.gold.r, theme.gold.g, theme.gold.b)
+    panel:drawRectBorder(w - 68, 22, 52, 28, theme.gold.a, theme.gold.r, theme.gold.g, theme.gold.b)
+    panel:drawTextCentre(tostring(badge), w - 42, 29, 0.06, 0.07, 0.08, 1, UIFont.Medium)
+    panel:drawRect(15, 56, w - 30, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+end
+
+function ParadiseEconomy.styleTabButton(button, active)
+    local theme = ParadiseEconomy.Theme
+    button.displayBackground = false
+    button.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
+    button.backgroundColorMouseOver = { r = theme.accent.r, g = theme.accent.g, b = theme.accent.b, a = 0.10 }
+    button.borderColor = { r = 0, g = 0, b = 0, a = 0 }
+    button.textColor = active and theme.text or theme.textMuted
+    button.font = UIFont.Small
+end
+
+function ParadiseEconomy.drawTabUnderline(panel, button, active)
+    local theme = ParadiseEconomy.Theme
+    local color = active and theme.gold or theme.borderSoft
+    panel:drawRect(button:getX() + 2, button:getY() + button:getHeight() - 2, button:getWidth() - 4, 2,
+        active and 1 or 0.35, color.r, color.g, color.b)
+end
+
+function ParadiseEconomy.getItemInitials(name)
+    local words = {}
+    for word in tostring(name or "?"):gmatch("%S+") do words[#words + 1] = word end
+    if #words == 0 then return "?" end
+    if #words == 1 then return string.upper(string.sub(words[1], 1, 2)) end
+    return string.upper(string.sub(words[1], 1, 1) .. string.sub(words[#words], 1, 1))
+end
+
+function ParadiseEconomy.getCategoryColor(category)
+    local theme = ParadiseEconomy.Theme
+    local key = string.lower(tostring(category or ""))
+    if string.find(key, "weapon", 1, true) or string.find(key, "gun", 1, true) then return theme.danger end
+    if string.find(key, "medical", 1, true) or string.find(key, "firstaid", 1, true) then return theme.green end
+    if string.find(key, "food", 1, true) or string.find(key, "cook", 1, true) then return theme.warn end
+    if string.find(key, "cloth", 1, true) or string.find(key, "wear", 1, true) then return theme.accent end
+    if string.find(key, "tool", 1, true) or string.find(key, "material", 1, true) then return { r = 0.72, g = 0.62, b = 0.92, a = 1 } end
+    if string.find(key, "vehicle", 1, true) or string.find(key, "car", 1, true) then return { r = 0.60, g = 0.72, b = 0.95, a = 1 } end
+    return theme.accent
+end
+
+function ParadiseEconomy.getAccountTypeStyle(accountType)
+    local theme = ParadiseEconomy.Theme
+    if accountType == "personal" then return "PERSONAL", theme.accent end
+    if accountType == "merchant" then return "MERCHANT", theme.gold end
+    if accountType == "trade" then return "TRADE", theme.green end
+    if accountType == "server" then return "SERVER", theme.warn end
+    return "CUSTOM", theme.textDim
+end
+
+function ParadiseEconomy.getAccountTotalBalance(account, currency)
+    local total = 0
+    for _, entry in ipairs(ParadiseEconomy.getAccountBuckets(account)) do
+        total = total + ParadiseEconomy.getBalance(account[entry.key], currency)
+    end
+    return total
+end
+
+function ParadiseEconomy.getListingStatusView(listing)
+    local theme = ParadiseEconomy.Theme
+    if not listing then return "UNKNOWN", theme.textMuted end
+    if listing.expired then return "EXPIRED", theme.danger end
+    local data = listing.itemData or {}
+    local condition = tonumber(data.condition)
+    local conditionMax = tonumber(data.conditionMax)
+    if condition and conditionMax and conditionMax > 0 then
+        local percent = math.max(0, math.min(100, math.floor(condition / conditionMax * 100)))
+        return tostring(percent) .. "%", percent >= 60 and theme.green or (percent >= 30 and theme.warn or theme.danger)
+    end
+    local used = tonumber(data.usedDelta)
+    if used ~= nil then
+        local percent = math.max(0, math.min(100, math.floor(used * 100)))
+        return tostring(percent) .. "%", percent >= 50 and theme.green or theme.warn
+    end
+    if tonumber(data.ammoCount) then return "AMMO " .. tostring(math.floor(tonumber(data.ammoCount))), theme.accent end
+    return "LISTED", theme.textMuted
+end
+
+function ParadiseEconomy.formatNumber(value)
+    local text = tostring(math.floor(tonumber(value) or 0))
+    local sign = ""
+    if string.sub(text, 1, 1) == "-" then
+        sign = "-"
+        text = string.sub(text, 2)
+    end
+    local grouped = string.reverse(text)
+    grouped = string.gsub(grouped, "(%d%d%d)", "%1,")
+    grouped = string.reverse(grouped)
+    if string.sub(grouped, 1, 1) == "," then grouped = string.sub(grouped, 2) end
+    return sign .. grouped
+end
+
+function ParadiseEconomy.getLedgerEntry(tx)
+    local theme = ParadiseEconomy.Theme
+    local action = string.lower(tostring(tx.action or ""))
+    local tag = tx.currency == "paradisium" and "P" or "J"
+    local text = ParadiseEconomy.formatNumber(tx.amount) .. " " .. tag
+    if string.find(action, "sale", 1, true) or string.find(action, "deposited", 1, true)
+        or string.find(action, "collected", 1, true) or string.find(action, "pillaged", 1, true) then
+        return "+" .. text, theme.green
+    end
+    if string.find(action, "purchase", 1, true) or string.find(action, "buy", 1, true)
+        or string.find(action, "transferred", 1, true) or string.find(action, "withdrew", 1, true) then
+        return "-" .. text, theme.danger
+    end
+    return text, theme.textDim
+end
+
 function ParadiseEconomy.getLeaseInfo(expiresAt)
     expiresAt = tonumber(expiresAt) or 0
     if expiresAt <= 0 then return "No expiry", "none", 0 end
@@ -450,37 +581,80 @@ end
 
 function ParadiseEconomy.AccountBrowser:new(x, y, w, h)
     local obj = ISCollapsableWindow.new(self, x, y, w, h)
-    obj.title = "Paradise Economy Accounts"
+    obj.title = "Account Browser"
     obj.resizable = true
+    obj.lastWidth = 0
+    obj.lastHeight = 0
     return obj
 end
 
 function ParadiseEconomy.AccountBrowser:createChildren()
     ISCollapsableWindow.createChildren(self)
     ParadiseEconomy.styleWindow(self)
-    self.typeFilter = ISComboBox:new(15, 40, 180, 25, self, ParadiseEconomy.AccountBrowser.refresh)
+    self.typeFilter = ISComboBox:new(15, 66, 260, 26, self, ParadiseEconomy.AccountBrowser.refresh)
     self.typeFilter:initialise()
-    for _, entry in ipairs(ParadiseEconomy.accountFilterTypes) do self.typeFilter:addOption(entry.label) end
+    for _, entry in ipairs(ParadiseEconomy.accountFilterTypes) do
+        self.typeFilter:addOption(entry.key == "all" and "All account types" or entry.label)
+    end
     self:addChild(self.typeFilter)
-    self.search = ISTextEntryBox:new("", 205, 40, 300, 25)
+    self.search = ISTextEntryBox:new("", 283, 66, 400, 26)
     self.search.target = self
     self.search.onTextChangeFunction = ParadiseEconomy.AccountBrowser.onSearchChanged
     self.search:initialise()
     self.search:instantiate()
+    self.search:setPlaceholderText("ID, owner, title, zone...")
     self:addChild(self.search)
-    self.refreshButton = ISButton:new(515, 40, 120, 25, "Request State", self, ParadiseEconomy.AccountBrowser.requestState)
+    self.refreshButton = ISButton:new(700, 66, 120, 26, "REFRESH", self, ParadiseEconomy.AccountBrowser.requestState)
     self.refreshButton:initialise()
     self:addChild(self.refreshButton)
-    self.accounts = ISScrollingListBox:new(15, 75, self.width - 30, self.height - 125)
+    self.accounts = ISScrollingListBox:new(15, 104, self.width - 30, 400)
     self.accounts:initialise()
-    self.accounts.itemheight = 24
+    self.accounts.itemheight = 96
+    self.accounts.font = UIFont.Small
     self.accounts.doDrawItem = ParadiseEconomy.AccountBrowser.drawAccount
     self.accounts:setOnMouseDownFunction(self, ParadiseEconomy.AccountBrowser.selectAccount)
+    self.accounts:setOnMouseDoubleClick(self, ParadiseEconomy.AccountBrowser.onAccountDoubleClick)
     self:addChild(self.accounts)
-    self.openButton = ISButton:new(15, self.height - 40, 170, 25, "Open Account", self, ParadiseEconomy.AccountBrowser.openSelected)
+    self.openButton = ISButton:new(15, self.height - 40, 170, 26, "OPEN ACCOUNT", self, ParadiseEconomy.AccountBrowser.openSelected)
     self.openButton:initialise()
     self:addChild(self.openButton)
     ParadiseEconomy.styleTree(self)
+    self.accounts.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
+    self.accounts.borderColor = { r = 0, g = 0, b = 0, a = 0 }
+    local theme = ParadiseEconomy.Theme
+    self.openButton.backgroundColor = theme.accentDim
+    self.openButton.backgroundColorMouseOver = theme.accent
+    self.openButton.borderColor = theme.accent
+    self.openButton.textColor = theme.text
+    self:layout()
+    self:refresh()
+end
+
+function ParadiseEconomy.AccountBrowser:layout()
+    if not self.accounts then return end
+    local w, h = self.width, self.height
+    self.typeFilter:setX(15)
+    self.typeFilter:setY(66)
+    self.typeFilter:setWidth(260)
+    self.typeFilter:setHeight(26)
+    self.refreshButton:setX(w - 15 - 120)
+    self.refreshButton:setY(66)
+    self.refreshButton:setWidth(120)
+    self.refreshButton:setHeight(26)
+    self.search:setX(283)
+    self.search:setY(66)
+    self.search:setWidth(math.max(160, w - 15 - 120 - 12 - 283))
+    self.search:setHeight(26)
+    self.accounts:setX(15)
+    self.accounts:setY(104)
+    self.accounts:setWidth(w - 30)
+    self.accounts:setHeight(math.max(100, h - 156))
+    self.openButton:setX(w - 15 - 170)
+    self.openButton:setY(h - 40)
+    self.openButton:setWidth(170)
+    self.openButton:setHeight(26)
+    self.lastWidth = w
+    self.lastHeight = h
 end
 
 function ParadiseEconomy.AccountBrowser:update()
@@ -494,9 +668,7 @@ function ParadiseEconomy.AccountBrowser:update()
         end
         return
     end
-    self.accounts:setWidth(self.width - 30)
-    self.accounts:setHeight(math.max(80, self.height - 125))
-    self.openButton:setY(self.height - 40)
+    if self.width ~= self.lastWidth or self.height ~= self.lastHeight then self:layout() end
 end
 
 function ParadiseEconomy.AccountBrowser:close()
@@ -537,16 +709,68 @@ function ParadiseEconomy.AccountBrowser:refresh()
     self.openButton:setEnable(self:getSelected() ~= nil)
 end
 
+function ParadiseEconomy.AccountBrowser:prerender()
+    ISCollapsableWindow.prerender(self)
+    ParadiseEconomy.drawPanelHeader(self, "ECONOMY ACCOUNTS  ·  PERSONAL, MERCHANT, TRADE AND SERVER", "09", "ADMIN")
+    local theme = ParadiseEconomy.Theme
+    self:drawText("Double-click an account or use OPEN ACCOUNT.", 15, self.height - 34,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+end
+
 function ParadiseEconomy.AccountBrowser:drawAccount(y, item, alt)
-    if self.selected == item.index then self:drawRect(0, y, self.width, self.itemheight - 1, 0.3, 0.7, 0.35, 0.15) end
     local account = item.item
-    self:drawText(ParadiseEconomy.getAccountLabel(account) .. " | " .. tostring(account.id), 8, y + 2, 1, 1, 1, 1, UIFont.Small)
-    self:drawTextRight(ParadiseEconomy.formatAccountBalances(account), self.width - 8, y + 2, 0.75, 0.9, 1, 1, UIFont.Small)
+    local theme = ParadiseEconomy.Theme
+    local w = self.width
+    local selected = self.selected == item.index
+    local cardX, cardY, cardW, cardH = 2, y + 4, w - 4, self.itemheight - 8
+    self:drawRect(cardX, cardY, cardW, cardH, selected and theme.rowSelected.a or theme.cardBg.a,
+        selected and theme.rowSelected.r or theme.cardBg.r,
+        selected and theme.rowSelected.g or theme.cardBg.g,
+        selected and theme.rowSelected.b or theme.cardBg.b)
+    self:drawRectBorder(cardX, cardY, cardW, cardH, (selected and 1 or theme.borderSoft.a),
+        selected and theme.gold.r or theme.borderSoft.r,
+        selected and theme.gold.g or theme.borderSoft.g,
+        selected and theme.gold.b or theme.borderSoft.b)
+    if selected then self:drawRect(cardX, cardY, 3, cardH, 1, theme.gold.r, theme.gold.g, theme.gold.b) end
+
+    local typeLabel, typeColor = ParadiseEconomy.getAccountTypeStyle(account.type)
+    local chipW = getTextManager():MeasureStringX(UIFont.Small, typeLabel) + 16
+    self:drawRect(cardX + 12, cardY + 10, chipW, 18, 0.16, typeColor.r, typeColor.g, typeColor.b)
+    self:drawRectBorder(cardX + 12, cardY + 10, chipW, 18, 0.65, typeColor.r, typeColor.g, typeColor.b)
+    self:drawText(typeLabel, cardX + 20, cardY + 12, typeColor.r, typeColor.g, typeColor.b, 1, UIFont.Small)
+    local title = tostring(account.title or account.name or account.owner or account.id or "Account")
+    self:drawText(ParadiseEconomy.fitText(title, cardW - 260, UIFont.Medium), cardX + 12, cardY + 34,
+        theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
+    self:drawText(ParadiseEconomy.fitText(tostring(account.id or "?"), cardW - 260, UIFont.Small), cardX + 12, cardY + 58,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+
+    local bucket = type(account.digital) == "table" and account.digital
+        or type(account.balances) == "table" and account.balances
+        or type(account.earnings) == "table" and account.earnings or {}
+    local jText = ParadiseEconomy.formatNumber(ParadiseEconomy.getBalance(bucket, "jimoleon"))
+    local pText = ParadiseEconomy.formatNumber(ParadiseEconomy.getBalance(bucket, "paradisium"))
+    local right = cardX + cardW - 12
+    local pTextX = right - getTextManager():MeasureStringX(UIFont.Small, pText)
+    local pIconX = pTextX - 20
+    local jIconX = pIconX - 18 - 16
+    local jTextX = jIconX - 4 - getTextManager():MeasureStringX(UIFont.Small, jText)
+    if ParadiseEconomy.icons.paradisium then
+        self:drawTextureScaled(ParadiseEconomy.icons.paradisium, pIconX, cardY + 32, 16, 16, 1)
+    end
+    self:drawText(pText, pTextX, cardY + 35, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
+    if ParadiseEconomy.icons.jimoleon then
+        self:drawTextureScaled(ParadiseEconomy.icons.jimoleon, jIconX, cardY + 32, 16, 16, 1)
+    end
+    self:drawText(jText, jTextX, cardY + 35, theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
     return y + self.itemheight
 end
 
 function ParadiseEconomy.AccountBrowser:selectAccount(account)
     self.openButton:setEnable(account ~= nil and self.accounts.selected > 0)
+end
+
+function ParadiseEconomy.AccountBrowser.onAccountDoubleClick(target, account)
+    if target and account then target:openSelected() end
 end
 
 function ParadiseEconomy.AccountBrowser:getSelected()
@@ -575,52 +799,249 @@ function ParadiseEconomy.send(command, args)
     if pl then sendClientCommand(pl, ParadiseEconomy.module, command, args or {}) end
 end
 
+ParadiseEconomy.Panel.operations = {
+    { key = "deposit", label = "Deposit to digital", button = "DEPOSIT TO DIGITAL", hint = "ON-HAND  ->  DIGITAL" },
+    { key = "withdraw", label = "Withdraw to on-hand", button = "WITHDRAW TO ON-HAND", hint = "DIGITAL  ->  ON-HAND" },
+}
+
 function ParadiseEconomy.Panel:new(x, y, w, h)
     local obj = ISCollapsableWindow.new(self, x, y, w, h)
-    obj.title = "Paradise Economy"
+    obj.title = "Personal Economy"
     obj.resizable = true
+    obj.minimumWidth = 840
+    obj.minimumHeight = 600
     return obj
 end
 
 function ParadiseEconomy.Panel:createChildren()
     ISCollapsableWindow.createChildren(self)
     ParadiseEconomy.styleWindow(self)
-    self.currency = ISComboBox:new(15, 55, 150, 25, self)
+    self.operation = ISComboBox:new(0, 0, 200, 25, self)
+    self.operation:initialise()
+    for _, entry in ipairs(ParadiseEconomy.Panel.operations) do self.operation:addOption(entry.label) end
+    self:addChild(self.operation)
+    self.currency = ISComboBox:new(0, 0, 130, 25, self)
     self.currency:initialise()
     self.currency:addOption("jimoleon")
     self.currency:addOption("paradisium")
     self:addChild(self.currency)
-    self.amount = ISTextEntryBox:new("", 175, 55, 110, 25)
+    self.amount = ISTextEntryBox:new("", 0, 0, 130, 25)
+    self.amount.tooltip = "Amount for the selected bank operation"
     self.amount:initialise()
     self.amount:instantiate()
     self.amount:setOnlyNumbers(true)
     self:addChild(self.amount)
-    self.target = ISTextEntryBox:new("Player username", 295, 55, 180, 25)
-    self.target:initialise()
-    self:addChild(self.target)
-    local labels = { { "Deposit", "deposit" }, { "Withdraw", "withdraw" }, { "To Wallet", "withdrawWallet" }, { "Send", "transfer" } }
-    for index, data in ipairs(labels) do
-        local button = ISButton:new(15 + (index - 1) * 118, 90, 108, 25, data[1], self, ParadiseEconomy.Panel.onAction)
-        button:initialise()
-        button.internal = data[2]
-        self:addChild(button)
-    end
-    self.martButton = ISButton:new(487, 90, 130, 25, "Tradeshop", self, ParadiseEconomy.Panel.openMart)
+    self.actionButton = ISButton:new(0, 0, 200, 26, "DEPOSIT TO DIGITAL", self, ParadiseEconomy.Panel.onBankAction)
+    self.actionButton:initialise()
+    self:addChild(self.actionButton)
+    self.quick100 = ISButton:new(0, 0, 56, 26, "+100", self, ParadiseEconomy.Panel.addQuickAmount)
+    self.quick100.internal = 100
+    self.quick100.tooltip = "Add 100 to the amount"
+    self.quick100:initialise()
+    self:addChild(self.quick100)
+    self.quick500 = ISButton:new(0, 0, 56, 26, "+500", self, ParadiseEconomy.Panel.addQuickAmount)
+    self.quick500.internal = 500
+    self.quick500.tooltip = "Add 500 to the amount"
+    self.quick500:initialise()
+    self:addChild(self.quick500)
+    self.maxButton = ISButton:new(0, 0, 56, 26, "MAX", self, ParadiseEconomy.Panel.setMaxAmount)
+    self.maxButton.tooltip = "Use the full available balance"
+    self.maxButton:initialise()
+    self:addChild(self.maxButton)
+    self.walletButton = ISButton:new(0, 0, 130, 26, "TO WALLET", self, ParadiseEconomy.Panel.onWalletAction)
+    self.walletButton.tooltip = "Place digital funds into a carried wallet"
+    self.walletButton:initialise()
+    self:addChild(self.walletButton)
+    self.recipient = ISTextEntryBox:new("", 0, 0, 210, 25)
+    self.recipient.tooltip = "Recipient username"
+    self.recipient:initialise()
+    self.recipient:instantiate()
+    self:addChild(self.recipient)
+    self.transferAmount = ISTextEntryBox:new("", 0, 0, 120, 25)
+    self.transferAmount.tooltip = "Amount to transfer"
+    self.transferAmount:initialise()
+    self.transferAmount:instantiate()
+    self.transferAmount:setOnlyNumbers(true)
+    self:addChild(self.transferAmount)
+    self.transferButton = ISButton:new(0, 0, 200, 26, "SEND TRANSFER", self, ParadiseEconomy.Panel.onTransfer)
+    self.transferButton:initialise()
+    self:addChild(self.transferButton)
+    self.martButton = ISButton:new(0, 0, 110, 26, "Tradeshop", self, ParadiseEconomy.Panel.openMart)
     self.martButton:initialise()
     self:addChild(self.martButton)
-    self.transactions = ISScrollingListBox:new(15, 130, self.width - 30, self.height - 170)
+    self.ledgerButton = ISButton:new(0, 0, 170, 22, "VIEW FULL LEDGER  >>", self, ParadiseEconomy.Panel.openLedger)
+    self.ledgerButton:initialise()
+    self:addChild(self.ledgerButton)
+    self.transactions = ISScrollingListBox:new(0, 0, 100, 100)
     self.transactions:initialise()
-    self.transactions.itemheight = 24
-    self.transactions.doDrawItem = ParadiseEconomy.Panel.drawTransaction
+    self.transactions.itemheight = 26
+    self.transactions.font = UIFont.Small
+    self.transactions.doDrawItem = ParadiseEconomy.Panel.drawLedgerRow
     self:addChild(self.transactions)
     ParadiseEconomy.styleTree(self)
+    self:applyCustomStyle()
+    self:layout()
+    self:refresh()
+end
+
+function ParadiseEconomy.Panel:applyCustomStyle()
+    local theme = ParadiseEconomy.Theme
+    self.actionButton.backgroundColor = theme.gold
+    self.actionButton.backgroundColorMouseOver = { r = 1.0, g = 0.88, b = 0.48, a = 1.0 }
+    self.actionButton.textColor = { r = 0.06, g = 0.07, b = 0.09, a = 1.0 }
+    self.transferButton.backgroundColor = theme.accentDim
+    self.transferButton.backgroundColorMouseOver = theme.accent
+    self.transferButton.textColor = theme.text
+    self.walletButton.backgroundColor = theme.buttonBg
+    self.martButton.backgroundColor = theme.accentDim
+    self.martButton.backgroundColorMouseOver = theme.accent
+    self.ledgerButton.displayBackground = false
+    self.ledgerButton.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
+    self.ledgerButton.backgroundColorMouseOver = { r = 0, g = 0, b = 0, a = 0 }
+    self.ledgerButton.borderColor = { r = 0, g = 0, b = 0, a = 0 }
+    self.ledgerButton.textColor = theme.accent
+    self.transactions.backgroundColor = { r = 0.045, g = 0.060, b = 0.078, a = 0.35 }
+    self.transactions.borderColor = { r = 0, g = 0, b = 0, a = 0 }
+end
+
+function ParadiseEconomy.Panel:layout()
+    if not self.transactions then return end
+    local w, h = self.width, self.height
+    self.cardY = 104
+    self.cardH = 88
+    self.cardW = math.floor((w - 66) / 4)
+    self.bankY = self.cardY + self.cardH + 14
+    self.bankH = 168
+    self.bankW = math.floor((w - 44) * 0.56)
+    self.transferX = 15 + self.bankW + 14
+    self.transferW = w - 15 - self.transferX
+    self.ledgerY = self.bankY + self.bankH + 14
+    self.ledgerH = math.max(120, h - self.ledgerY - 12)
+    self.martButton:setX(w - 200)
+    self.martButton:setY(22)
+    self.martButton:setWidth(110)
+    local inner = 29
+    local bankInnerW = self.bankW - 28
+    local opW = math.floor(bankInnerW * 0.42)
+    local currencyW = math.floor(bankInnerW * 0.25)
+    local amountW = bankInnerW - opW - currencyW - 16
+    local fieldY = self.bankY + 52
+    self.operation:setX(inner)
+    self.operation:setY(fieldY)
+    self.operation:setWidth(opW)
+    self.currency:setX(inner + opW + 8)
+    self.currency:setY(fieldY)
+    self.currency:setWidth(currencyW)
+    self.amount:setX(inner + opW + currencyW + 16)
+    self.amount:setY(fieldY)
+    self.amount:setWidth(amountW)
+    local actionY = self.bankY + 88
+    local actionW = math.floor(bankInnerW * 0.48)
+    self.actionButton:setX(inner)
+    self.actionButton:setY(actionY)
+    self.actionButton:setWidth(actionW)
+    local quickX = inner + actionW + 10
+    self.quick100:setX(quickX)
+    self.quick100:setY(actionY)
+    self.quick100:setWidth(56)
+    self.quick500:setX(quickX + 62)
+    self.quick500:setY(actionY)
+    self.quick500:setWidth(56)
+    self.maxButton:setX(quickX + 124)
+    self.maxButton:setY(actionY)
+    self.maxButton:setWidth(56)
+    self.walletButton:setX(inner + bankInnerW - 130)
+    self.walletButton:setY(self.bankY + 124)
+    self.walletButton:setWidth(130)
+    local transferInnerX = self.transferX + 14
+    local transferInnerW = self.transferW - 28
+    local recipientW = math.floor(transferInnerW * 0.60)
+    local transferAmountW = transferInnerW - recipientW - 8
+    self.recipient:setX(transferInnerX)
+    self.recipient:setY(fieldY)
+    self.recipient:setWidth(recipientW)
+    self.transferAmount:setX(transferInnerX + recipientW + 8)
+    self.transferAmount:setY(fieldY)
+    self.transferAmount:setWidth(transferAmountW)
+    self.transferButton:setX(transferInnerX)
+    self.transferButton:setY(actionY)
+    self.transferButton:setWidth(transferInnerW)
+    self.ledgerButton:setX(w - 185)
+    self.ledgerButton:setY(self.ledgerY + 6)
+    self.ledgerButton:setWidth(170)
+    self.transactions:setX(25)
+    self.transactions:setY(self.ledgerY + 58)
+    self.transactions:setWidth(w - 50)
+    self.transactions:setHeight(math.max(40, self.ledgerH - 84))
+    self.lastWidth = w
+    self.lastHeight = h
+end
+
+function ParadiseEconomy.Panel:getOperation()
+    return ParadiseEconomy.Panel.operations[self.operation.selected] or ParadiseEconomy.Panel.operations[1]
+end
+
+function ParadiseEconomy.Panel:getCurrency()
+    return self.currency.options[self.currency.selected] or "jimoleon"
+end
+
+function ParadiseEconomy.Panel:getCurrencyTag()
+    return self:getCurrency() == "paradisium" and "P" or "J"
+end
+
+function ParadiseEconomy.Panel:getMaxAmount()
+    local personal = ParadiseEconomy.getStatePersonal()
+    local bucket = self:getOperation().key == "deposit" and personal.onhand or personal.digital
+    return ParadiseEconomy.getBalance(bucket, self:getCurrency())
+end
+
+function ParadiseEconomy.Panel:setAmountValue(value)
+    self.amount:setText(tostring(math.max(0, math.floor(tonumber(value) or 0))))
+end
+
+function ParadiseEconomy.Panel:addQuickAmount(button)
+    self:setAmountValue((tonumber(self.amount:getInternalText()) or 0) + (tonumber(button.internal) or 0))
+end
+
+function ParadiseEconomy.Panel:setMaxAmount()
+    self:setAmountValue(self:getMaxAmount())
+end
+
+function ParadiseEconomy.Panel:onBankAction()
+    ParadiseEconomy.send(self:getOperation().key, {
+        currency = self:getCurrency(),
+        amount = self.amount:getInternalText(),
+    })
+end
+
+function ParadiseEconomy.Panel:onWalletAction()
+    ParadiseEconomy.send("withdrawWallet", {
+        currency = self:getCurrency(),
+        amount = self.amount:getInternalText(),
+    })
+end
+
+function ParadiseEconomy.Panel:onTransfer()
+    ParadiseEconomy.send("transfer", {
+        currency = self:getCurrency(),
+        amount = self.transferAmount:getInternalText(),
+        username = self.recipient:getInternalText(),
+    })
 end
 
 function ParadiseEconomy.Panel:update()
     ISCollapsableWindow.update(self)
+    if self.width ~= self.lastWidth or self.height ~= self.lastHeight then self:layout() end
     local canUseMarket = ParadiseEconomy.canOpenMart(getPlayer())
     self.martButton:setEnable(canUseMarket)
-    self.martButton:setTooltip(canUseMarket and nil or "Enter a Trade Zone to use the Tradeshop")
+    self.martButton:setTooltip(canUseMarket and "Open the Tradeshop" or "Enter a Trade Zone to use the Tradeshop")
+    self.actionButton:setTitle(self:getOperation().button)
+    local amount = tonumber(self.amount:getInternalText())
+    self.actionButton:setEnable(amount ~= nil and amount > 0)
+    self.walletButton:setEnable(amount ~= nil and amount > 0)
+    local transferAmount = tonumber(self.transferAmount:getInternalText())
+    local recipient = self.recipient:getInternalText()
+    self.transferButton:setEnable(transferAmount ~= nil and transferAmount > 0 and recipient ~= nil and recipient ~= "")
 end
 
 function ParadiseEconomy.Panel:close()
@@ -638,12 +1059,10 @@ function ParadiseEconomy.Panel:openMart()
     end
 end
 
-function ParadiseEconomy.Panel:onAction(button)
-    ParadiseEconomy.send(button.internal, {
-        currency = self.currency.options[self.currency.selected],
-        amount = self.amount:getInternalText(),
-        username = self.target:getInternalText(),
-    })
+function ParadiseEconomy.Panel:openLedger()
+    if ParadiseEconomy.AccountPanel.OpenPanel then
+        ParadiseEconomy.AccountPanel.OpenPanel()
+    end
 end
 
 function ParadiseEconomy.Panel:drawTransaction(y, item, alt)
@@ -653,22 +1072,112 @@ function ParadiseEconomy.Panel:drawTransaction(y, item, alt)
     return y + self.itemheight
 end
 
+function ParadiseEconomy.Panel:drawLedgerRow(y, item, alt)
+    local tx = item.item
+    local theme = ParadiseEconomy.Theme
+    if self.selected == item.index then
+        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
+    elseif alt then
+        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
+    end
+    local timeText = tx.time and os.date("%H:%M", math.floor(tonumber(tx.time) or 0)) or "--:--"
+    self:drawText(timeText, 8, y + 5, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    local action = string.upper(tostring(tx.action or "-"))
+    self:drawText(ParadiseEconomy.fitText(action, 165, UIFont.Small), 86, y + 5,
+        theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
+    local amountText, amountColor = ParadiseEconomy.getLedgerEntry(tx)
+    self:drawText(amountText, 260, y + 5, amountColor.r, amountColor.g, amountColor.b, 1, UIFont.Small)
+    local detail = tostring(tx.detail or "-")
+    self:drawText(ParadiseEconomy.fitText(detail, self.width - 500, UIFont.Small), 380, y + 5,
+        theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
+    self:drawTextRight("SETTLED", self.width - 10, y + 5, theme.green.r, theme.green.g, theme.green.b, 1, UIFont.Small)
+    return y + self.itemheight
+end
+
 function ParadiseEconomy.Panel:refresh()
-    local state = ParadiseEconomy.clientState
+    if not self.transactions then return end
     self.transactions:clear()
-    for _, tx in ipairs(state.transactions or {}) do self.transactions:addItem(tostring(tx.time), tx) end
+    for _, tx in ipairs(ParadiseEconomy.clientState.transactions or {}) do
+        self.transactions:addItem(tostring(tx.time), tx)
+    end
 end
 
 function ParadiseEconomy.Panel:prerender()
     ISCollapsableWindow.prerender(self)
-    local state = ParadiseEconomy.clientState
+    local theme = ParadiseEconomy.Theme
+    local w = self.width
     local personal = ParadiseEconomy.getStatePersonal()
-    self:drawTextureScaled(ParadiseEconomy.icons.jimoleon, 15, 27, 22, 22, 1)
-    self:drawText("Digital J: " .. ParadiseEconomy.getBalance(personal.digital, "jimoleon"), 42, 30, 0.85, 0.9, 0.95, 1, UIFont.Small)
-    self:drawTextureScaled(ParadiseEconomy.icons.paradisium, 155, 27, 22, 22, 1)
-    self:drawText("P: " .. ParadiseEconomy.getBalance(personal.digital, "paradisium"), 182, 30, 0.45, 1, 0.8, 1, UIFont.Small)
-    self:drawText("On Hand: " .. ParadiseEconomy.formatBalances(personal.onhand), 330, 30, 1, 0.85, 0.25, 1, UIFont.Small)
-    if state.message then self:drawText(state.message, 15, self.height - 28, 1, 1, 1, 1, UIFont.Small) end
+    local player = getPlayer()
+
+    self:drawText("ParadiseEconomy.Panel", 18, 29, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawRect(w - 68, 22, 52, 28, theme.cardBg.a, theme.cardBg.r, theme.cardBg.g, theme.cardBg.b)
+    self:drawRectBorder(w - 68, 22, 52, 28, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+    self:drawTextCentre("02", w - 42, 29, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Medium)
+    self:drawRect(15, 56, w - 30, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+
+    local accountId = tostring(personal.id or "p:-----")
+    local owner = string.upper(tostring(personal.owner or personal.title or (player and player:getUsername()) or "UNLINKED"))
+    self:drawText(accountId, 18, 64, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
+    local idWidth = getTextManager():MeasureStringX(UIFont.Small, accountId)
+    local ownerX = 18 + idWidth + 8
+    self:drawText(ParadiseEconomy.fitText("/  " .. owner, w - 110 - ownerX, UIFont.Small), ownerX, 64,
+        theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
+    self:drawRect(w - 92, 60, 74, 20, 0.12, theme.green.r, theme.green.g, theme.green.b)
+    self:drawRectBorder(w - 92, 60, 74, 20, theme.green.a, theme.green.r, theme.green.g, theme.green.b)
+    self:drawTextCentre("ACTIVE", w - 55, 63, theme.green.r, theme.green.g, theme.green.b, 1, UIFont.Small)
+    self:drawRect(15, 96, w - 30, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+
+    local cards = {
+        { label = "JIMOLEONS ON-HAND", value = ParadiseEconomy.getBalance(personal.onhand, "jimoleon"), accent = theme.gold, icon = ParadiseEconomy.icons.jimoleon },
+        { label = "JIMOLEONS DIGITAL", value = ParadiseEconomy.getBalance(personal.digital, "jimoleon"), accent = theme.gold, icon = ParadiseEconomy.icons.jimoleon },
+        { label = "PARADISIUM ON-HAND", value = ParadiseEconomy.getBalance(personal.onhand, "paradisium"), accent = theme.accent, icon = ParadiseEconomy.icons.paradisium },
+        { label = "PARADISIUM DIGITAL", value = ParadiseEconomy.getBalance(personal.digital, "paradisium"), accent = theme.accent, icon = ParadiseEconomy.icons.paradisium },
+    }
+    for index, card in ipairs(cards) do
+        local x = 15 + (index - 1) * (self.cardW + 12)
+        ParadiseEconomy.drawCard(self, x, self.cardY, self.cardW, self.cardH, card.accent)
+        self:drawText(card.label, x + 14, self.cardY + 12, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+        self:drawText(ParadiseEconomy.formatNumber(card.value), x + 14, self.cardY + 34,
+            theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
+        if card.icon then self:drawTextureScaled(card.icon, x + self.cardW - 38, self.cardY + 12, 24, 24, 0.95) end
+    end
+
+    ParadiseEconomy.drawCard(self, 15, self.bankY, self.bankW, self.bankH, theme.gold)
+    self:drawText("BANK OPERATIONS", 29, self.bankY + 12, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
+    self:drawText("OPERATION", self.operation:getX(), self.operation:getY() - 16,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("CURRENCY", self.currency:getX(), self.currency:getY() - 16,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("AMOUNT (" .. self:getCurrencyTag() .. ")", self.amount:getX(), self.amount:getY() - 16,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText(self:getOperation().hint, 29, self.bankY + 131, theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
+
+    ParadiseEconomy.drawCard(self, self.transferX, self.bankY, self.transferW, self.bankH, theme.accent)
+    self:drawText("DIRECT TRANSFER", self.transferX + 14, self.bankY + 12,
+        theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
+    self:drawText("RECIPIENT", self.recipient:getX(), self.recipient:getY() - 16,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("AMOUNT (" .. self:getCurrencyTag() .. ")", self.transferAmount:getX(), self.transferAmount:getY() - 16,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("Transfers are irreversible.", self.transferX + 14, self.bankY + 124,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("Recipient validation occurs before authorization.", self.transferX + 14, self.bankY + 140,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+
+    ParadiseEconomy.drawCard(self, 15, self.ledgerY, w - 30, self.ledgerH, theme.accentDim)
+    self:drawText("RECENT TRANSACTIONS", 29, self.ledgerY + 10, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
+    local headerY = self.ledgerY + 38
+    self:drawText("TIME", 33, headerY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("ACTION", 111, headerY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("AMOUNT", 285, headerY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("DETAIL", 405, headerY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawTextRight("STATUS", w - 35, headerY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawRect(25, self.ledgerY + 54, w - 50, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+    local message = ParadiseEconomy.clientState.message
+    if message then
+        self:drawText(ParadiseEconomy.fitText(tostring(message), w - 60, UIFont.Small), 29, self.ledgerY + self.ledgerH - 20,
+            theme.warn.r, theme.warn.g, theme.warn.b, 1, UIFont.Small)
+    end
 end
 
 function ParadiseEconomy.formatTimestamp(seconds)
@@ -691,6 +1200,8 @@ function ParadiseEconomy.MartPanel:new(x, y, w, h)
     obj.minimumHeight = 580
     obj.tab = "browse"
     obj.martDirection = "buy"
+    obj.browseCategory = nil
+    obj.browseChips = {}
     obj.isAdm = ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(getPlayer()) or false
     obj.selectedBrowseId = nil
     obj.selectedStoreListingId = nil
@@ -712,96 +1223,95 @@ end
 function ParadiseEconomy.MartPanel:createChildren()
     ISCollapsableWindow.createChildren(self)
 
-    self.tabBrowse = ISButton:new(15, 30, 110, 26, "Browse", self, ParadiseEconomy.MartPanel.onTab)
+    self.tabBrowse = ISButton:new(15, 58, 150, 24, "BROWSE STORES", self, ParadiseEconomy.MartPanel.onTab)
     self.tabBrowse.internal = "browse"
     self.tabBrowse.tooltip = "Active player trade posts in this zone"
     self.tabBrowse:initialise()
     self:addChild(self.tabBrowse)
-    self.tabStore = ISButton:new(131, 30, 110, 26, "My Store", self, ParadiseEconomy.MartPanel.onTab)
+    self.tabStore = ISButton:new(173, 58, 150, 24, "MY STORE STALL", self, ParadiseEconomy.MartPanel.onTab)
     self.tabStore.internal = "store"
     self.tabStore.tooltip = "Your merchant store, lease, earnings and posts"
     self.tabStore:initialise()
     self:addChild(self.tabStore)
-    self.tabMart = ISButton:new(247, 30, 120, 26, "Item Mart", self, ParadiseEconomy.MartPanel.onTab)
+    self.tabMart = ISButton:new(331, 58, 160, 24, "ZONE ITEM MART", self, ParadiseEconomy.MartPanel.onTab)
     self.tabMart.internal = "mart"
     self.tabMart.tooltip = "Buy from or sell to the zone item mart"
     self.tabMart:initialise()
     self:addChild(self.tabMart)
-    self.manageButton = ISButton:new(self.width - 170, 30, 155, 26, "Trade Management", self, ParadiseEconomy.MartPanel.openManagement)
+    self.manageButton = ISButton:new(self.width - 231, 22, 155, 24, "Trade Management", self, ParadiseEconomy.MartPanel.openManagement)
     self.manageButton.tooltip = "Renew merchant leases and review every player post in your trade zones"
     self.manageButton:initialise()
     self:addChild(self.manageButton)
 
-    self.browseSearch = ISTextEntryBox:new("", 15, 86, self.width - 30, 25)
+    self.browseSearch = ISTextEntryBox:new("", 15, 96, self.width - 30, 24)
     self.browseSearch.target = self
     self.browseSearch.onTextChangeFunction = ParadiseEconomy.MartPanel.onBrowseSearchChanged
     self.browseSearch.tooltip = "Search by item, seller, merchant id or store title"
     self.browseSearch:initialise()
     self.browseSearch:instantiate()
+    self.browseSearch:setPlaceholderText("Search item, seller, merchant id or store title...")
     self:addChild(self.browseSearch)
-    self.browseList = ISScrollingListBox:new(15, 118, self.width - 30, 300)
+    self.browseList = ISScrollingListBox:new(15, 160, self.width - 30, 300)
     self.browseList:initialise()
-    self.browseList.itemheight = 42
+    self.browseList.target = self
+    self.browseList.itemheight = 176
     self.browseList.font = UIFont.Small
-    self.browseList.doDrawItem = ParadiseEconomy.MartPanel.drawBrowseListing
-    self.browseList:setOnMouseDownFunction(self, ParadiseEconomy.MartPanel.onBrowseSelect)
+    self.browseList.doDrawItem = ParadiseEconomy.MartPanel.drawBrowseRow
+    self.browseList.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
+    self.browseList.borderColor = { r = 0, g = 0, b = 0, a = 0 }
     local browseMouseDown = self.browseList.onMouseDown
     self.browseList.onMouseDown = function(list, x, y)
         if browseMouseDown then browseMouseDown(list, x, y) end
-        local row = list:rowAt(x, y)
-        if row < 1 or row > #list.items then return end
-        self:beginListingDrag(list)
+        ParadiseEconomy.MartPanel.onBrowseGridMouseDown(self, list, x, y)
     end
     self:addChild(self.browseList)
-    self.browseBuyButton = ISButton:new(0, 0, 120, 26, "Buy Selected", self, ParadiseEconomy.MartPanel.onBrowseBuy)
-    self.browseBuyButton:initialise()
-    self:addChild(self.browseBuyButton)
 
-    self.storeTitle = ISTextEntryBox:new("", 15, 94, 230, 25)
+    self.storeTitle = ISTextEntryBox:new("", 28, 122, 230, 24)
     self.storeTitle.tooltip = "Your merchant store title in this trade zone"
     self.storeTitle:initialise()
     self.storeTitle:instantiate()
     self:addChild(self.storeTitle)
-    self.renameStoreButton = ISButton:new(253, 94, 115, 25, "Rename Store", self, ParadiseEconomy.MartPanel.onRenameStore)
+    self.renameStoreButton = ISButton:new(266, 122, 115, 24, "Rename Store", self, ParadiseEconomy.MartPanel.onRenameStore)
     self.renameStoreButton:initialise()
     self:addChild(self.renameStoreButton)
-    self.renewLeaseButton = ISButton:new(0, 94, 125, 25, "Renew Lease", self, ParadiseEconomy.MartPanel.onRenewLease)
+    self.renewLeaseButton = ISButton:new(0, 122, 125, 24, "Renew Lease", self, ParadiseEconomy.MartPanel.onRenewLease)
     self.renewLeaseButton.tooltip = "Extend this merchant store lease"
     self.renewLeaseButton:initialise()
     self:addChild(self.renewLeaseButton)
-    self.collectButton = ISButton:new(0, 126, 125, 25, "Collect Earnings", self, ParadiseEconomy.MartPanel.onCollect)
+    self.collectButton = ISButton:new(0, 122, 140, 24, "Collect Earnings", self, ParadiseEconomy.MartPanel.onCollect)
     self.collectButton:initialise()
     self:addChild(self.collectButton)
 
-    self.invSearch = ISTextEntryBox:new("", 15, 178, 250, 25)
+    self.invSearch = ISTextEntryBox:new("", 15, 204, 250, 24)
     self.invSearch.target = self
     self.invSearch.onTextChangeFunction = ParadiseEconomy.MartPanel.onInventorySearchChanged
     self.invSearch.tooltip = "Search your carried items"
     self.invSearch:initialise()
     self.invSearch:instantiate()
+    self.invSearch:setPlaceholderText("Search carried items...")
     self:addChild(self.invSearch)
-    self.invList = ISScrollingListBox:new(15, 208, 300, 200)
+    self.invList = ISScrollingListBox:new(15, 234, 300, 200)
     self.invList:initialise()
     self.invList.itemheight = 24
     self.invList.font = UIFont.Small
     self.invList.doDrawItem = ParadiseEconomy.MartPanel.drawInventoryItem
     self.invList:setOnMouseDownFunction(self, ParadiseEconomy.MartPanel.onInventorySelect)
     self:addChild(self.invList)
-    self.storePrice = ISTextEntryBox:new("", 15, 420, 80, 25)
+    self.storePrice = ISTextEntryBox:new("", 15, 420, 80, 24)
     self.storePrice.tooltip = "Listing price"
     self.storePrice:initialise()
     self.storePrice:instantiate()
     self.storePrice:setOnlyNumbers(true)
     self:addChild(self.storePrice)
-    self.storeCurrency = ISComboBox:new(100, 420, 105, 25, self)
+    self.storeCurrency = ISComboBox:new(100, 420, 105, 24, self)
     self.storeCurrency:initialise()
     self.storeCurrency:addOption("jimoleon")
     self.storeCurrency:addOption("paradisium")
     self:addChild(self.storeCurrency)
-    self.postButton = ISButton:new(210, 420, 100, 25, "Post Item", self, ParadiseEconomy.MartPanel.onPostSelected)
+    self.postButton = ISButton:new(210, 420, 100, 24, "Post Item", self, ParadiseEconomy.MartPanel.onPostSelected)
     self.postButton:initialise()
     self:addChild(self.postButton)
-    self.myListings = ISScrollingListBox:new(330, 178, 300, 260)
+    self.myListings = ISScrollingListBox:new(330, 204, 300, 260)
     self.myListings:initialise()
     self.myListings.itemheight = 40
     self.myListings.font = UIFont.Small
@@ -812,29 +1322,29 @@ function ParadiseEconomy.MartPanel:createChildren()
     self.cancelButton:initialise()
     self:addChild(self.cancelButton)
 
-    self.category = ISComboBox:new(15, 86, 190, 25, self, ParadiseEconomy.MartPanel.onCategoryChanged)
+    self.category = ISComboBox:new(15, 96, 190, 24, self, ParadiseEconomy.MartPanel.onCategoryChanged)
     self.category:initialise()
     self:addChild(self.category)
-    self.buyButton = ISButton:new(215, 86, 90, 25, "Buy", self, ParadiseEconomy.MartPanel.setDirection)
+    self.buyButton = ISButton:new(213, 96, 80, 24, "Buy", self, ParadiseEconomy.MartPanel.setDirection)
     self.buyButton.internal = "buy"
     self.buyButton:initialise()
     self:addChild(self.buyButton)
-    self.sellButton = ISButton:new(313, 86, 90, 25, "Sell", self, ParadiseEconomy.MartPanel.setDirection)
+    self.sellButton = ISButton:new(301, 96, 80, 24, "Sell", self, ParadiseEconomy.MartPanel.setDirection)
     self.sellButton.internal = "sell"
     self.sellButton:initialise()
     self:addChild(self.sellButton)
-    self.quantity = ISTextEntryBox:new("1", self.width - 275, 86, 70, 25)
+    self.quantity = ISTextEntryBox:new("1", self.width - 263, 96, 70, 24)
     self.quantity.tooltip = "Quantity"
     self.quantity:initialise()
     self.quantity:instantiate()
     self.quantity:setOnlyNumbers(true)
     self:addChild(self.quantity)
-    self.martTradeButton = ISButton:new(self.width - 185, 86, 170, 25, "Buy Selected", self, ParadiseEconomy.MartPanel.onMartTrade)
+    self.martTradeButton = ISButton:new(self.width - 185, 96, 170, 24, "Buy Selected", self, ParadiseEconomy.MartPanel.onMartTrade)
     self.martTradeButton:initialise()
     self:addChild(self.martTradeButton)
-    self.martList = ISScrollingListBox:new(15, 122, self.width - 30, 300)
+    self.martList = ISScrollingListBox:new(15, 152, self.width - 30, 300)
     self.martList:initialise()
-    self.martList.itemheight = 26
+    self.martList.itemheight = 28
     self.martList.font = UIFont.Small
     self.martList.doDrawItem = ParadiseEconomy.MartPanel.drawMartListing
     self.martList:setOnMouseDownFunction(self, ParadiseEconomy.MartPanel.onMartSelect)
@@ -842,6 +1352,8 @@ function ParadiseEconomy.MartPanel:createChildren()
 
     ParadiseEconomy.styleWindow(self)
     ParadiseEconomy.styleTree(self)
+    self.browseList.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
+    self.browseList.borderColor = { r = 0, g = 0, b = 0, a = 0 }
     self:installDropCatchers()
     self:refreshAll()
     self:applyTab()
@@ -876,10 +1388,7 @@ function ParadiseEconomy.MartPanel:getTaxPercent()
 end
 
 function ParadiseEconomy.MartPanel:setTabState(button, active)
-    local theme = ParadiseEconomy.Theme
-    button.backgroundColor = active and theme.accentDim or theme.buttonBg
-    button.backgroundColorMouseOver = active and theme.accentDim or theme.buttonHover
-    button.textColor = active and theme.text or theme.textDim
+    ParadiseEconomy.styleTabButton(button, active)
 end
 
 function ParadiseEconomy.MartPanel:applyTab()
@@ -888,7 +1397,6 @@ function ParadiseEconomy.MartPanel:applyTab()
     local isMart = self.tab == "mart"
     self.browseSearch:setVisible(isBrowse)
     self.browseList:setVisible(isBrowse)
-    self.browseBuyButton:setVisible(isBrowse)
     self.storeTitle:setVisible(isStore)
     self.renameStoreButton:setVisible(isStore)
     self.renewLeaseButton:setVisible(isStore)
@@ -921,56 +1429,51 @@ end
 function ParadiseEconomy.MartPanel:layout()
     if not self.tabBrowse then return end
     local w, h = self.width, self.height
-    local contentY = 86
+    local contentY = 96
     local footerY = h - 34
     self.tabBrowse:setX(15)
-    self.tabBrowse:setY(30)
-    self.tabStore:setX(131)
-    self.tabStore:setY(30)
-    self.tabMart:setX(247)
-    self.tabMart:setY(30)
-    self.manageButton:setX(w - 170)
-    self.manageButton:setY(30)
+    self.tabBrowse:setY(58)
+    self.tabBrowse:setWidth(150)
+    self.tabBrowse:setHeight(24)
+    self.tabStore:setX(173)
+    self.tabStore:setY(58)
+    self.tabStore:setWidth(150)
+    self.tabStore:setHeight(24)
+    self.tabMart:setX(331)
+    self.tabMart:setY(58)
+    self.tabMart:setWidth(160)
+    self.tabMart:setHeight(24)
+    self.manageButton:setX(w - 231)
+    self.manageButton:setY(22)
 
+    local countText = tostring(self.browseItemCount or 0) .. " ITEMS"
+    local countW = math.max(64, getTextManager():MeasureStringX(UIFont.Small, countText) + 18)
+    self.browseCountText = countText
+    self.browseCountW = countW
     self.browseSearch:setX(15)
     self.browseSearch:setY(contentY)
-    self.browseSearch:setWidth(w - 30)
-    local detailW = math.min(340, math.max(270, w * 0.32))
-    local listW = math.max(280, w - 40 - detailW)
-    local detailX = 15 + listW + 10
-    detailW = w - 15 - detailX
-    local listY = contentY + 32
-    self.browseList:setX(15)
-    self.browseList:setY(listY)
-    self.browseList:setWidth(listW)
-    self.browseList:setHeight(footerY - listY)
-    self.browseDetailX = detailX
-    self.browseDetailY = listY
-    self.browseDetailW = detailW
-    self.browseDetailH = math.max(140, footerY - 44 - listY)
-    self.browseBuyButton:setX(detailX + 10)
-    self.browseBuyButton:setY(footerY - 34)
-    self.browseBuyButton:setWidth(detailW - 20)
+    self.browseSearch:setWidth(math.max(160, w - 30 - countW - 8))
+    self:positionBrowse()
 
-    self.storeTitle:setX(15)
-    self.storeTitle:setY(contentY + 8)
-    self.storeTitle:setWidth(math.max(110, math.min(240, w * 0.28)))
-    self.renameStoreButton:setX(23 + self.storeTitle:getWidth())
-    self.renameStoreButton:setY(contentY + 8)
-    self.renewLeaseButton:setX(w - 140)
-    self.renewLeaseButton:setY(contentY + 8)
-    self.collectButton:setX(w - 140)
-    self.collectButton:setY(contentY + 42)
-    local invTop = contentY + 92
-    local leftW = math.min(330, math.max(280, w * 0.33))
+    self.storeTitle:setX(28)
+    self.storeTitle:setY(122)
+    self.storeTitle:setWidth(math.max(110, math.min(230, w * 0.24)))
+    self.renameStoreButton:setX(36 + self.storeTitle:getWidth())
+    self.renameStoreButton:setY(122)
+    self.renewLeaseButton:setX(w - 155)
+    self.renewLeaseButton:setY(122)
+    self.collectButton:setX(w - 303)
+    self.collectButton:setY(122)
+    local leftW = math.min(360, math.max(300, w * 0.34))
     local rightX = 15 + leftW + 15
+    local listTop = 204
     self.invSearch:setX(15)
-    self.invSearch:setY(invTop)
+    self.invSearch:setY(listTop)
     self.invSearch:setWidth(leftW)
     self.invList:setX(15)
-    self.invList:setY(invTop + 30)
+    self.invList:setY(listTop + 30)
     self.invList:setWidth(leftW)
-    self.invList:setHeight(math.max(60, footerY - (invTop + 30) - 62))
+    self.invList:setHeight(math.max(60, footerY - (listTop + 30) - 62))
     local postY = self.invList:getY() + self.invList:getHeight() + 8
     self.storePrice:setX(15)
     self.storePrice:setY(postY)
@@ -980,29 +1483,63 @@ function ParadiseEconomy.MartPanel:layout()
     self.postButton:setY(postY)
     self.postButton:setWidth(math.max(80, leftW - 195))
     self.myListings:setX(rightX)
-    self.myListings:setY(invTop)
+    self.myListings:setY(listTop)
     self.myListings:setWidth(math.max(200, w - 15 - rightX))
-    self.myListings:setHeight(math.max(60, footerY - invTop - 40))
+    self.myListings:setHeight(math.max(60, footerY - listTop - 40))
     self.cancelButton:setX(w - 185)
     self.cancelButton:setY(footerY - 32)
 
     self.category:setX(15)
     self.category:setY(contentY)
     self.category:setWidth(190)
-    self.buyButton:setX(215)
+    self.buyButton:setX(213)
     self.buyButton:setY(contentY)
-    self.sellButton:setX(313)
+    self.sellButton:setX(301)
     self.sellButton:setY(contentY)
-    self.quantity:setX(w - 275)
+    self.quantity:setX(w - 263)
     self.quantity:setY(contentY)
     self.martTradeButton:setX(w - 185)
     self.martTradeButton:setY(contentY)
     self.martList:setX(15)
-    self.martList:setY(contentY + 36)
+    self.martList:setY(contentY + 52)
     self.martList:setWidth(w - 30)
-    self.martList:setHeight(footerY - (contentY + 36))
+    self.martList:setHeight(footerY - (contentY + 52))
     self.lastWidth = w
     self.lastHeight = h
+end
+
+function ParadiseEconomy.MartPanel:computeBrowseChips()
+    local chips = {}
+    local maxX = self.width - 15
+    local x, y = 15, 130
+    local rowH = 24
+    for _, entry in ipairs(self.browseCategoryOptions or {}) do
+        local label = tostring(entry.label) .. "  " .. tostring(entry.count or 0)
+        local chipW = math.min(200, math.max(58, getTextManager():MeasureStringX(UIFont.Small, label) + 20))
+        if x + chipW > maxX and x > 15 then
+            x = 15
+            y = y + rowH + 6
+        end
+        chips[#chips + 1] = { key = entry.key, label = label, x = x, y = y, w = chipW, h = rowH }
+        x = x + chipW + 6
+    end
+    self.browseChips = chips
+    self.browseChipsBottom = #chips > 0 and (y + rowH) or 130
+end
+
+function ParadiseEconomy.MartPanel:positionBrowse()
+    if not self.browseList then return end
+    local w, h = self.width, self.height
+    local footerY = h - 34
+    self:computeBrowseChips()
+    local listY = (self.browseChipsBottom or 130) + 10
+    local listW = w - 30
+    self.browseList:setX(15)
+    self.browseList:setY(listY)
+    self.browseList:setWidth(listW)
+    self.browseList:setHeight(math.max(80, footerY - listY))
+    self.browseList.cardGap = 10
+    self.browseList.cardW = math.max(140, math.floor((listW - 16 - 3 * 10) / 4))
 end
 
 function ParadiseEconomy.MartPanel:refreshAll()
@@ -1017,36 +1554,79 @@ function ParadiseEconomy.MartPanel:refreshMarket()
     self:refreshAll()
 end
 
+function ParadiseEconomy.MartPanel:getListingCategory(listing)
+    return tostring((listing.itemData and listing.itemData.category) or listing.category or "General")
+end
+
 function ParadiseEconomy.MartPanel:refreshBrowse()
     if not self.browseList then return end
     local previous = self.selectedBrowseId
     local search = string.lower(self.browseSearch and self.browseSearch:getInternalText() or "")
-    self.browseList:clear()
-    self.browseCache = {}
+    local searched = {}
     for _, listing in ipairs(self:getMarket().playerListings or {}) do
         local name = listing.itemData and listing.itemData.name or listing.fullType or "Item"
         local text = string.lower(tostring(name) .. " " .. tostring(listing.fullType or "") .. " "
             .. tostring(listing.seller or "") .. " " .. tostring(listing.merchantAccountId or "") .. " "
             .. tostring(listing.merchantTitle or ""))
         if search == "" or text:find(search, 1, true) then
-            self.browseList:addItem(name, listing)
-            self.browseCache[#self.browseCache + 1] = listing
+            searched[#searched + 1] = listing
         end
     end
-    local selected
+    local counts = {}
+    local categories = {}
+    for _, listing in ipairs(searched) do
+        local category = self:getListingCategory(listing)
+        if not counts[category] then
+            counts[category] = 0
+            categories[#categories + 1] = category
+        end
+        counts[category] = counts[category] + 1
+    end
+    table.sort(categories)
+    local options = { { key = "__all", label = "All", count = #searched } }
+    for _, name in ipairs(categories) do
+        options[#options + 1] = { key = name, label = name, count = counts[name] }
+    end
+    self.browseCategoryOptions = options
+    if self.browseCategory and not counts[self.browseCategory] then self.browseCategory = nil end
+    local active = self.browseCategory
+    local filtered = {}
+    for _, listing in ipairs(searched) do
+        if not active or self:getListingCategory(listing) == active then
+            filtered[#filtered + 1] = listing
+        end
+    end
+    self.browseList:clear()
+    self.browseCache = filtered
+    self.browseItemCount = #filtered
+    self.browseRows = {}
+    for first = 1, #filtered, 4 do
+        local row = { listings = {} }
+        for cell = 0, 3 do
+            local listing = filtered[first + cell]
+            if listing then row.listings[#row.listings + 1] = listing end
+        end
+        self.browseRows[#self.browseRows + 1] = row
+        self.browseList:addItem("row", row)
+    end
+    local selectedRow
     if previous then
-        for int, listing in ipairs(self.browseCache) do
-            if tostring(listing.id) == tostring(previous) then selected = int end
+        for index, row in ipairs(self.browseRows) do
+            for _, listing in ipairs(row.listings) do
+                if tostring(listing.id) == tostring(previous) then selectedRow = index end
+            end
         end
     end
-    if selected then
-        self.browseList.selected = selected
-    elseif #self.browseCache == 0 then
+    if selectedRow then
+        self.browseList.selected = selectedRow
+    elseif #self.browseRows == 0 then
         self.browseList.selected = 0
+        self.selectedBrowseId = nil
     else
         self.browseList.selected = 1
+        self.selectedBrowseId = self.browseRows[1].listings[1].id
     end
-    self.selectedBrowseId = self.browseList.selected > 0 and self.browseCache[self.browseList.selected].id or nil
+    self:layout()
 end
 
 function ParadiseEconomy.MartPanel:refreshStore()
@@ -1235,8 +1815,36 @@ function ParadiseEconomy.MartPanel:onInventorySearchChanged(target)
     if target and target.refreshInventory then target:refreshInventory() end
 end
 
-function ParadiseEconomy.MartPanel.onBrowseSelect(target, listing)
-    if target and listing then target.selectedBrowseId = listing.id end
+function ParadiseEconomy.MartPanel:onBrowseGridMouseDown(list, x, y)
+    if list:isMouseOverScrollBar() then return end
+    local row = list:rowAt(x, y)
+    if row < 1 or row > #list.items then return end
+    local rowData = list.items[row].item
+    if not rowData or not rowData.listings then return end
+    local cardW = list.cardW or 0
+    local cardGap = list.cardGap or 10
+    local cell = 1
+    if cardW > 0 then cell = math.floor(x / (cardW + cardGap)) + 1 end
+    local listing = rowData.listings[cell]
+    if not listing then return end
+    self.selectedBrowseId = listing.id
+    self.selectedBrowseCell = cell
+    local offsetY = y - list:topOfItem(row)
+    if offsetY >= list.itemheight - 34 and offsetY < list.itemheight - 10 then
+        self:buyBrowseListing(listing)
+    else
+        self:beginListingDrag(listing)
+    end
+end
+
+function ParadiseEconomy.MartPanel:buyBrowseListing(listing)
+    local pl = getPlayer()
+    if not listing or listing.expired then return end
+    if pl and ParadiseEconomy.usernameKey(listing.seller) == ParadiseEconomy.usernameKey(pl:getUsername()) then
+        self:setDropHint("This is your own listing. Cancel it from My Store.")
+        return
+    end
+    ParadiseEconomy.send("playerShopBuy", { listingId = listing.id })
 end
 
 function ParadiseEconomy.MartPanel.onStoreListingSelect(target, listing)
@@ -1249,11 +1857,6 @@ end
 
 function ParadiseEconomy.MartPanel.onMartSelect(target, listing)
     if target and listing then target.selectedMartListingId = listing.id end
-end
-
-function ParadiseEconomy.MartPanel:onBrowseBuy()
-    local listing = self:getSelectedBrowse()
-    if listing then ParadiseEconomy.send("playerShopBuy", { listingId = listing.id }) end
 end
 
 function ParadiseEconomy.MartPanel:onRenameStore()
@@ -1305,6 +1908,21 @@ function ParadiseEconomy.MartPanel:installDropCatchers()
                 if baseMouseUp then baseMouseUp(element, x, y) end
                 self:tryAcceptInventoryDrop()
             end
+        end
+    end
+end
+
+function ParadiseEconomy.MartPanel:onMouseDown(x, y)
+    ISCollapsableWindow.onMouseDown(self, x, y)
+    if self.tab ~= "browse" or not self.browseChips then return end
+    for _, chip in ipairs(self.browseChips) do
+        if x >= chip.x and x < chip.x + chip.w and y >= chip.y and y < chip.y + chip.h then
+            local key = chip.key ~= "__all" and chip.key or nil
+            if key ~= self.browseCategory then
+                self.browseCategory = key
+                self:refreshBrowse()
+            end
+            return
         end
     end
 end
@@ -1373,9 +1991,7 @@ function ParadiseEconomy.MartPanel:openNextQueuedListing()
     end)
 end
 
-function ParadiseEconomy.MartPanel:beginListingDrag(list)
-    if not list or list:isMouseOverScrollBar() then return end
-    local listing = self:getSelectedBrowse()
+function ParadiseEconomy.MartPanel:beginListingDrag(listing)
     local pl = getPlayer()
     if not listing or listing.expired or not pl then return end
     if ParadiseEconomy.usernameKey(listing.seller) == ParadiseEconomy.usernameKey(pl:getUsername()) then return end
@@ -1517,12 +2133,7 @@ function ParadiseEconomy.MartPanel:update()
     local canManage = ParadiseEconomy.canManageTradeZones()
     self.manageButton:setVisible(canManage)
     self.manageButton:setEnable(canManage)
-    if self.tab == "browse" then
-        local listing = self:getSelectedBrowse()
-        local pl = getPlayer()
-        local own = listing and pl and ParadiseEconomy.usernameKey(listing.seller) == ParadiseEconomy.usernameKey(pl:getUsername())
-        self.browseBuyButton:setEnable(listing ~= nil and not listing.expired and not own)
-    elseif self.tab == "store" then
+    if self.tab == "store" then
         local merchant = self:getMerchant()
         self.merchant = merchant
         if merchant and not self.storeTitle:isFocused() and self.storeTitle:getInternalText() ~= tostring(merchant.title or "") then
@@ -1556,26 +2167,76 @@ function ParadiseEconomy.MartPanel:close()
     end
 end
 
-function ParadiseEconomy.MartPanel:drawBrowseListing(y, item, alt)
-    local listing = item.item
+function ParadiseEconomy.MartPanel:drawBrowseCard(list, x, y, w, h, listing)
     local theme = ParadiseEconomy.Theme
-    if self.selected == item.index then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
-    elseif alt then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
+    local panel = list.target or self
+    local data = listing.itemData or {}
+    local name = tostring(data.name or listing.fullType or "Item")
+    local category = panel:getListingCategory(listing)
+    local tint = ParadiseEconomy.getCategoryColor(category)
+    local selected = tostring(panel.selectedBrowseId) == tostring(listing.id)
+    list:drawRect(x, y, w, h, theme.cardBg.a, theme.cardBg.r, theme.cardBg.g, theme.cardBg.b)
+    list:drawRectBorder(x, y, w, h, selected and 1 or theme.borderSoft.a,
+        selected and theme.accent.r or theme.borderSoft.r,
+        selected and theme.accent.g or theme.borderSoft.g,
+        selected and theme.accent.b or theme.borderSoft.b)
+    local imgH = math.max(56, math.floor(h * 0.42))
+    list:drawRect(x + 1, y + 1, w - 2, imgH, 0.55, tint.r * 0.22, tint.g * 0.22, tint.b * 0.22)
+    local stripe = 0
+    while stripe < imgH do
+        list:drawRect(x + 1, y + 1 + stripe, w - 2, 1, 0.09, tint.r, tint.g, tint.b)
+        stripe = stripe + 12
     end
-    local name = listing.itemData and listing.itemData.name or listing.fullType or "Item"
-    self:drawText(ParadiseEconomy.fitText(name, self.width - 160, UIFont.Small), 8, y + 5,
-        theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
-    self:drawTextRight(tostring(listing.price) .. " " .. tostring(listing.currency), self.width - 8, y + 5,
-        theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
-    local lease = ParadiseEconomy.getLeaseInfo(listing.merchantExpiresAt)
-    local color = ParadiseEconomy.getLeaseColor(lease.status)
-    local subtitle = tostring(listing.seller) .. "  |  " .. tostring(listing.merchantAccountId or "merchant")
-    self:drawText(ParadiseEconomy.fitText(subtitle, self.width - 170, UIFont.Small), 8, y + 22,
-        theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
-    self:drawTextRight(lease.label, self.width - 8, y + 22, color.r, color.g, color.b, 1, UIFont.Small)
-    return y + self.itemheight
+    list:drawTextCentre(ParadiseEconomy.getItemInitials(name), x + w / 2, y + math.floor(imgH / 2) - 9,
+        tint.r, tint.g, tint.b, 0.9, UIFont.Large)
+    local chipText = ParadiseEconomy.fitText(category, w - 28, UIFont.Small)
+    local chipW = getTextManager():MeasureStringX(UIFont.Small, chipText) + 14
+    list:drawRect(x + 6, y + 6, chipW, 16, 0.82, 0.020, 0.030, 0.038)
+    list:drawRectBorder(x + 6, y + 6, chipW, 16, 0.75, tint.r, tint.g, tint.b)
+    list:drawText(chipText, x + 13, y + 8, tint.r, tint.g, tint.b, 1, UIFont.Small)
+    local nameY = y + imgH + 7
+    list:drawText(ParadiseEconomy.fitText(name, w - 16, UIFont.Medium), x + 8, nameY,
+        theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
+    local seller = tostring(listing.seller or "-")
+    local place = tostring(listing.zoneTitle or listing.merchantTitle or "-")
+    list:drawText(ParadiseEconomy.fitText(seller .. "  ·  " .. place, w - 16, UIFont.Small), x + 8, nameY + 22,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    local priceY = y + h - 50
+    local icon = listing.currency == "paradisium" and ParadiseEconomy.icons.paradisium or ParadiseEconomy.icons.jimoleon
+    if icon then list:drawTextureScaled(icon, x + 8, priceY + 1, 14, 14, 1) end
+    local priceColor = listing.currency == "paradisium" and theme.accent or theme.gold
+    list:drawText(ParadiseEconomy.formatNumber(listing.price), x + 26, priceY,
+        priceColor.r, priceColor.g, priceColor.b, 1, UIFont.Medium)
+    local status, statusColor = ParadiseEconomy.getListingStatusView(listing)
+    list:drawTextRight(status, x + w - 8, priceY + 1, statusColor.r, statusColor.g, statusColor.b, 1, UIFont.Small)
+    local pl = getPlayer()
+    local own = pl and ParadiseEconomy.usernameKey(listing.seller) == ParadiseEconomy.usernameKey(pl:getUsername())
+    local barColor, barText, barTextColor
+    if own then
+        barColor, barText, barTextColor = theme.accentDim, "YOUR LISTING", theme.text
+    elseif listing.expired then
+        barColor, barText, barTextColor = { r = 0.30, g = 0.14, b = 0.13, a = 1 }, "EXPIRED", theme.danger
+    else
+        barColor = theme.gold
+        barText = "BUY  " .. ParadiseEconomy.formatNumber(listing.price) .. "  "
+            .. (listing.currency == "paradisium" and "P" or "J")
+        barTextColor = { r = 0.05, g = 0.06, b = 0.07, a = 1 }
+    end
+    local barY = y + h - 26
+    list:drawRect(x + 1, barY, w - 2, 25, barColor.a, barColor.r, barColor.g, barColor.b)
+    list:drawTextCentre(barText, x + w / 2, barY + 6, barTextColor.r, barTextColor.g, barTextColor.b, 1, UIFont.Small)
+end
+
+function ParadiseEconomy.MartPanel:drawBrowseRow(y, item, alt)
+    local list = self
+    local gap = list.cardGap or 10
+    local cardW = list.cardW or 200
+    local cardH = list.itemheight - 10
+    for index, listing in ipairs(item.item.listings or {}) do
+        local x = (index - 1) * (cardW + gap)
+        list.target:drawBrowseCard(list, x, y, cardW, cardH, listing)
+    end
+    return y + list.itemheight
 end
 
 function ParadiseEconomy.MartPanel:drawStoreListing(y, item, alt)
@@ -1607,8 +2268,13 @@ function ParadiseEconomy.MartPanel:drawInventoryItem(y, item, alt)
     elseif alt then
         self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
-    self:drawText(ParadiseEconomy.fitText(item.text, self.width - 16, UIFont.Small), 8, y + 4,
+    self:drawText(ParadiseEconomy.fitText(item.text, self.width - 140, UIFont.Small), 8, y + 4,
         theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
+    local category = item.item and item.item.getCategory and item.item:getCategory() or nil
+    if category then
+        self:drawTextRight(ParadiseEconomy.fitText(tostring(category), 120, UIFont.Small), self.width - 8, y + 4,
+            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    end
     return y + self.itemheight
 end
 
@@ -1620,98 +2286,130 @@ function ParadiseEconomy.MartPanel:drawMartListing(y, item, alt)
     elseif alt then
         self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
-    local action = listing.direction == "sell" and "Mart Sells" or "Mart Buys"
-    self:drawText("[" .. tostring(listing.category or "General") .. "]", 8, y + 6,
-        theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
-    self:drawText(ParadiseEconomy.fitText(tostring(listing.fullType), self.width - 370, UIFont.Small), 150, y + 6,
+    local action = listing.direction == "sell" and "MART BUYS" or "MART SELLS"
+    local tint = ParadiseEconomy.getCategoryColor(listing.category)
+    local chipText = ParadiseEconomy.fitText(tostring(listing.category or "General"), 120, UIFont.Small)
+    local chipW = getTextManager():MeasureStringX(UIFont.Small, chipText) + 14
+    self:drawRect(8, y + 6, chipW, 16, 0.18, tint.r, tint.g, tint.b)
+    self:drawRectBorder(8, y + 6, chipW, 16, 0.55, tint.r, tint.g, tint.b)
+    self:drawText(chipText, 15, y + 7, tint.r, tint.g, tint.b, 1, UIFont.Small)
+    self:drawText(ParadiseEconomy.fitText(tostring(listing.fullType), self.width - 430, UIFont.Small), 150, y + 7,
         theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
-    self:drawText(action, self.width - 210, y + 6, theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
-    self:drawTextRight(tostring(listing.price) .. " " .. tostring(listing.currency), self.width - 10, y + 6,
+    self:drawText(action, self.width - 210, y + 7, theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
+    local priceText = ParadiseEconomy.formatNumber(listing.price)
+    local priceW = getTextManager():MeasureStringX(UIFont.Small, priceText)
+    local icon = listing.currency == "paradisium" and ParadiseEconomy.icons.paradisium or ParadiseEconomy.icons.jimoleon
+    if icon then self:drawTextureScaled(icon, self.width - 12 - priceW - 18, y + 6, 14, 14, 1) end
+    self:drawTextRight(priceText, self.width - 10, y + 7,
         theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
     return y + self.itemheight
 end
 
-function ParadiseEconomy.MartPanel:drawBrowseDetail()
+function ParadiseEconomy.MartPanel:drawBrowseChips()
     local theme = ParadiseEconomy.Theme
-    local x, y = self.browseDetailX, self.browseDetailY
-    local w, h = self.browseDetailW, self.browseDetailH
-    ParadiseEconomy.drawCard(self, x, y, w, h, theme.accent)
-    local listing = self:getSelectedBrowse()
-    if not listing then
-        self:drawText("Select a player shop listing.", x + 12, y + 12,
+    for _, chip in ipairs(self.browseChips or {}) do
+        local active = (chip.key == "__all" and not self.browseCategory) or chip.key == self.browseCategory
+        local bg = active and theme.accentDim or theme.cardBg
+        local border = active and theme.accent or theme.borderSoft
+        self:drawRect(chip.x, chip.y, chip.w, chip.h, bg.a, bg.r, bg.g, bg.b)
+        self:drawRectBorder(chip.x, chip.y, chip.w, chip.h, border.a, border.r, border.g, border.b)
+        local color = active and theme.text or theme.textMuted
+        self:drawTextCentre(chip.label, chip.x + chip.w / 2, chip.y + 4, color.r, color.g, color.b, 1, UIFont.Small)
+    end
+end
+
+function ParadiseEconomy.MartPanel:drawBrowseTab()
+    local theme = ParadiseEconomy.Theme
+    local w = self.width
+    local countText = self.browseCountText or (tostring(self.browseItemCount or 0) .. " ITEMS")
+    local countW = self.browseCountW or math.max(64, getTextManager():MeasureStringX(UIFont.Small, countText) + 18)
+    self:drawRect(w - 15 - countW, 96, countW, 24, theme.cardBg.a, theme.cardBg.r, theme.cardBg.g, theme.cardBg.b)
+    self:drawRectBorder(w - 15 - countW, 96, countW, 24, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+    self:drawTextCentre(countText, w - 15 - countW / 2, 101,
+        theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
+    self:drawBrowseChips()
+    if #(self.browseCache or {}) == 0 then
+        self:drawTextCentre("No player listings match this filter.", w / 2, self.browseList:getY() + 40,
             theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-        return
     end
-    local name = listing.itemData and listing.itemData.name or listing.fullType or "Item"
-    self:drawText(ParadiseEconomy.fitText(name, w - 24, UIFont.Medium), x + 12, y + 10,
-        theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
-    local summary = listing.itemData and ParadiseEconomy.ItemData.getSummary(listing.itemData) or ""
-    self:drawText(ParadiseEconomy.fitText(summary, w - 24, UIFont.Small), x + 12, y + 32,
-        theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
-    self:drawRect(x + 12, y + 52, w - 24, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
-    local lease = ParadiseEconomy.getLeaseInfo(listing.merchantExpiresAt)
-    local leaseColor = ParadiseEconomy.getLeaseColor(lease.status)
-    local function row(label, value, yy, color)
-        color = color or theme.textDim
-        self:drawText(label, x + 12, yy, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-        self:drawTextRight(ParadiseEconomy.fitText(tostring(value), w - 120, UIFont.Small), x + w - 12, yy,
-            color.r, color.g, color.b, 1, UIFont.Small)
-    end
-    row("Seller", listing.seller or "-", y + 60, theme.text)
-    row("Store", listing.merchantTitle or "-", y + 78, theme.text)
-    row("Merchant ID", listing.merchantAccountId or "-", y + 96, theme.accent)
-    row("Lease", lease.label, y + 114, leaseColor)
-    row("Price", tostring(listing.price) .. " " .. tostring(listing.currency), y + 138, theme.gold)
-    local percent = tonumber(listing.taxPercent) or self:getTaxPercent()
-    local payout, tax = ParadiseEconomy.getPlayerShopPayout(listing.price, percent)
-    row("Tax (" .. string.format("%g", percent or 0) .. "%)", tostring(tax) .. " " .. tostring(listing.currency), y + 156, theme.warn)
-    row("Seller receives", tostring(payout) .. " " .. tostring(listing.currency), y + 174, theme.green)
-    row("Posted", ParadiseEconomy.formatTimestamp(listing.createdAt), y + 198, theme.textDim)
-    local pl = getPlayer()
-    if pl and ParadiseEconomy.usernameKey(listing.seller) == ParadiseEconomy.usernameKey(pl:getUsername()) then
-        self:drawText("This is your listing. Cancel it from My Store.", x + 12, y + 220,
+end
+
+function ParadiseEconomy.MartPanel:drawStoreTab()
+    local theme = ParadiseEconomy.Theme
+    local w = self.width
+    ParadiseEconomy.drawCard(self, 15, 96, w - 30, 88, theme.accentDim)
+    self:drawText("MERCHANT STALL", 29, 106, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
+    local merchant = self:getMerchant()
+    if merchant then
+        local lease = ParadiseEconomy.getLeaseInfo(merchant.expiresAt)
+        local color = ParadiseEconomy.getLeaseColor(lease.status)
+        self:drawTextRight("LEASE  " .. string.upper(lease.label), w - 29, 106, color.r, color.g, color.b, 1, UIFont.Small)
+        local merchantText = "MERCHANT  " .. tostring(merchant.id) .. "  ·  OWNER  " .. string.upper(tostring(merchant.owner or "-"))
+        self:drawText(ParadiseEconomy.fitText(merchantText, w - 380, UIFont.Small), 29, 152,
+            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+        self:drawTextRight("EARNINGS  " .. ParadiseEconomy.formatBalances(merchant.earnings), w - 29, 152,
+            theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
+    else
+        self:drawText("NO MERCHANT STALL IN THIS ZONE YET. POST A CARRIED ITEM TO OPEN ONE.", 29, 110,
             theme.warn.r, theme.warn.g, theme.warn.b, 1, UIFont.Small)
+        self:drawText("Your stall is created automatically with your first post and follows this zone's lease and tax terms.", 29, 132,
+            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    end
+    self:drawText("CARRIED ITEMS", 15, 188, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
+    self:drawTextRight(tostring(#(self.inventoryCache or {})) .. " ITEMS", 15 + self.invSearch:getWidth(), 188,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("YOUR TRADE POSTS", self.myListings:getX(), 188, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
+    self:drawTextRight(tostring(#(self.storeCache or {})) .. " POSTS", self.myListings:getX() + self.myListings:getWidth(), 188,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("PRICE", self.storePrice:getX(), self.storePrice:getY() - 15,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("CURRENCY", self.storeCurrency:getX(), self.storeCurrency:getY() - 15,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+end
+
+function ParadiseEconomy.MartPanel:drawMartTab()
+    local theme = ParadiseEconomy.Theme
+    local w = self.width
+    local headerY = self.martList:getY() - 17
+    self:drawText("CATEGORY", 21, headerY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("ITEM", 150, headerY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("MODE", w - 210, headerY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawTextRight("PRICE", w - 15, headerY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawRect(15, headerY + 12, w - 30, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+    self:drawText("QTY", self.quantity:getX() - 32, self.quantity:getY() + 5,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    if #(self.martCache or {}) == 0 then
+        self:drawTextCentre("No item mart entries for this filter.", w / 2, self.martList:getY() + 40,
+            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     end
 end
 
 function ParadiseEconomy.MartPanel:prerender()
     ISCollapsableWindow.prerender(self)
     local theme = ParadiseEconomy.Theme
+    local w = self.width
+    ParadiseEconomy.drawPanelHeader(self, "TRADESHOP  ·  PLAYER LISTINGS AND ITEM MART", "04")
+    ParadiseEconomy.drawTabUnderline(self, self.tabBrowse, self.tab == "browse")
+    ParadiseEconomy.drawTabUnderline(self, self.tabStore, self.tab == "store")
+    ParadiseEconomy.drawTabUnderline(self, self.tabMart, self.tab == "mart")
+
     local market = self:getMarket()
     local trade = self:getTrade()
-    local zoneText = "Zone: " .. tostring(market.tradeZoneTitle or "No Trade Zone")
-    if trade then zoneText = zoneText .. "  |  Trade: " .. tostring(trade.title or trade.tradeId or trade.id) end
-    self:drawText(ParadiseEconomy.fitText(zoneText, self.width - 360, UIFont.Small), 15, 61,
+    local zoneText = "ZONE  " .. string.upper(tostring(market.tradeZoneTitle or "NO TRADE ZONE"))
+    if trade then zoneText = zoneText .. "  ·  TRADE  " .. string.upper(tostring(trade.title or trade.tradeId or trade.id)) end
+    local leaseDays = tonumber(trade and trade.merchantLeaseDays or market.leaseDays) or 0
+    zoneText = zoneText .. "  ·  " .. (leaseDays > 0 and (tostring(math.floor(leaseDays)) .. " DAY LEASES") or "NO LEASE LIMIT")
+        .. "  ·  TAX " .. string.format("%g", self:getTaxPercent() or 0) .. "%"
+    self:drawTextRight(ParadiseEconomy.fitText(zoneText, w - 530, UIFont.Small), w - 20, 64,
         theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
-    local leaseDays = trade and trade.merchantLeaseDays or market.leaseDays
-    local leaseText = (tonumber(leaseDays) or 0) > 0 and (tostring(math.floor(tonumber(leaseDays))) .. " day leases") or "No lease limit"
-    self:drawTextRight(leaseText .. "  |  Tax " .. string.format("%g", self:getTaxPercent() or 0) .. "%",
-        self.width - 15, 61, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawRect(15, 86, w - 30, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
 
     if self.tab == "browse" then
-        self:drawBrowseDetail()
+        self:drawBrowseTab()
     elseif self.tab == "store" then
-        ParadiseEconomy.drawCard(self, 15, 86, self.width - 30, 80, theme.accentDim)
-        local merchant = self:getMerchant()
-        if merchant then
-            local lease = ParadiseEconomy.getLeaseInfo(merchant.expiresAt)
-            local color = ParadiseEconomy.getLeaseColor(lease.status)
-            self:drawTextRight("Lease: " .. lease.label, self.renewLeaseButton:getX() - 12, 94,
-                color.r, color.g, color.b, 1, UIFont.Small)
-            self:drawText("Earnings: " .. ParadiseEconomy.formatBalances(merchant.earnings), 15, 128,
-                theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
-            local merchantText = "Merchant: " .. tostring(merchant.id) .. "  |  Owner: " .. tostring(merchant.owner)
-            self:drawTextRight(ParadiseEconomy.fitText(merchantText, math.max(120, self.collectButton:getX() - 250), UIFont.Small),
-                self.collectButton:getX() - 12, 128, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-        else
-            self:drawText("No merchant store in this zone yet. Post a carried item to open one.", 15, 98,
-                theme.warn.r, theme.warn.g, theme.warn.b, 1, UIFont.Small)
-            self:drawText("Your store is created automatically with your first post.", 15, 120,
-                theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-        end
-        self:drawText("Carried items", 15, 164, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
-        self:drawText("Your trade posts", self.myListings:getX(), 164,
-            theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
+        self:drawStoreTab()
+    elseif self.tab == "mart" then
+        self:drawMartTab()
     end
 
     local draggingIn = ISMouseDrag.dragging and #ISMouseDrag.dragging > 0 and self:isMouseOver()
@@ -1759,32 +2457,32 @@ end
 function ParadiseEconomy.TradeManagementPanel:createChildren()
     ISCollapsableWindow.createChildren(self)
 
-    self.zone = ISComboBox:new(15, 30, 300, 25, self, ParadiseEconomy.TradeManagementPanel.onZoneChanged)
+    self.zone = ISComboBox:new(15, 62, 300, 25, self, ParadiseEconomy.TradeManagementPanel.onZoneChanged)
     self.zone.tooltip = "Trade zone to manage"
     self.zone:initialise()
     self:addChild(self.zone)
-    self.leaseDays = ISTextEntryBox:new(325, 30, 64, 25)
+    self.leaseDays = ISTextEntryBox:new("", 325, 62, 64, 25)
     self.leaseDays.tooltip = "Merchant lease days for this trade zone (0 disables leases)"
     self.leaseDays:initialise()
     self.leaseDays:instantiate()
     self.leaseDays:setOnlyNumbers(true)
     self:addChild(self.leaseDays)
-    self.applyLeaseButton = ISButton:new(397, 30, 150, 25, "Apply Lease Days", self, ParadiseEconomy.TradeManagementPanel.applyLeaseDays)
+    self.applyLeaseButton = ISButton:new(397, 62, 150, 25, "APPLY LEASE DAYS", self, ParadiseEconomy.TradeManagementPanel.applyLeaseDays)
     self.applyLeaseButton.tooltip = "Grant this lease duration to every merchant in the zone"
     self.applyLeaseButton:initialise()
     self:addChild(self.applyLeaseButton)
 
-    self.tabMerchants = ISButton:new(15, 64, 110, 26, "Merchants", self, ParadiseEconomy.TradeManagementPanel.onTab)
+    self.tabMerchants = ISButton:new(15, 94, 170, 24, "MERCHANTS", self, ParadiseEconomy.TradeManagementPanel.onTab)
     self.tabMerchants.internal = "merchants"
     self.tabMerchants.tooltip = "Merchant leases in the selected trade zone"
     self.tabMerchants:initialise()
     self:addChild(self.tabMerchants)
-    self.tabPosts = ISButton:new(131, 64, 120, 26, "Player Posts", self, ParadiseEconomy.TradeManagementPanel.onTab)
+    self.tabPosts = ISButton:new(193, 94, 185, 24, "PLAYER POSTS", self, ParadiseEconomy.TradeManagementPanel.onTab)
     self.tabPosts.internal = "posts"
     self.tabPosts.tooltip = "Every player trade post in the selected zone, including expired posts"
     self.tabPosts:initialise()
     self:addChild(self.tabPosts)
-    self.tabMart = ISButton:new(257, 64, 155, 26, "Item Mart & Funds", self, ParadiseEconomy.TradeManagementPanel.onTab)
+    self.tabMart = ISButton:new(386, 94, 200, 24, "ITEM MART & FUNDS", self, ParadiseEconomy.TradeManagementPanel.onTab)
     self.tabMart.internal = "mart"
     self.tabMart.tooltip = "Item mart listings, trade tax, owner and funds"
     self.tabMart:initialise()
@@ -1810,40 +2508,45 @@ function ParadiseEconomy.TradeManagementPanel:createChildren()
     self.merchantPostsButton.tooltip = "Show every trade post from this merchant, including expired posts"
     self.merchantPostsButton:initialise()
     self:addChild(self.merchantPostsButton)
-    self.merchantOwnerButton = ISButton:new(0, 0, 170, 26, "Open Owner Account", self, ParadiseEconomy.TradeManagementPanel.openMerchantOwner)
+    self.merchantOwnerButton = ISButton:new(0, 0, 170, 26, "ADMIN · OPEN OWNER", self, ParadiseEconomy.TradeManagementPanel.openMerchantOwner)
+    self.merchantOwnerButton.tooltip = "Admin only: open the merchant owner's account in Economy Administration"
     self.merchantOwnerButton:initialise()
     self:addChild(self.merchantOwnerButton)
 
-    self.postMerchant = ISComboBox:new(15, 100, 260, 25, self, ParadiseEconomy.TradeManagementPanel.onPostMerchantChanged)
+    self.postMerchant = ISComboBox:new(15, 126, 260, 25, self, ParadiseEconomy.TradeManagementPanel.onPostMerchantChanged)
     self.postMerchant.tooltip = "Filter player posts by merchant"
     self.postMerchant:initialise()
     self:addChild(self.postMerchant)
-    self.postSearch = ISTextEntryBox:new(283, 100, 300, 25)
+    self.postSearch = ISTextEntryBox:new("", 283, 126, 300, 25)
     self.postSearch.target = self
     self.postSearch.onTextChangeFunction = ParadiseEconomy.TradeManagementPanel.onPostSearchChanged
     self.postSearch.tooltip = "Search posts by item, seller or merchant id"
     self.postSearch:initialise()
     self.postSearch:instantiate()
+    self.postSearch:setPlaceholderText("Search posts by item, seller or merchant id...")
     self:addChild(self.postSearch)
-    self.postList = ISScrollingListBox:new(15, 132, 330, 300)
+    self.postList = ISScrollingListBox:new(15, 160, 330, 300)
     self.postList:initialise()
     self.postList.itemheight = 44
     self.postList.font = UIFont.Small
     self.postList.doDrawItem = ParadiseEconomy.TradeManagementPanel.drawPost
     self.postList:setOnMouseDownFunction(self, ParadiseEconomy.TradeManagementPanel.onPostSelect)
     self:addChild(self.postList)
-    self.postOwnerButton = ISButton:new(0, 0, 190, 26, "Open Seller Account", self, ParadiseEconomy.TradeManagementPanel.openPostSeller)
+    self.postOwnerButton = ISButton:new(0, 0, 190, 26, "ADMIN · OPEN SELLER", self, ParadiseEconomy.TradeManagementPanel.openPostSeller)
+    self.postOwnerButton.tooltip = "Admin only: open the seller's account in Economy Administration"
     self.postOwnerButton:initialise()
     self:addChild(self.postOwnerButton)
 
-    self.adminView = ParadiseEconomy.MartAdminView:new(15, 100, self.width - 30, self.height - 134, self)
-    self.adminView.onSelectedZoneChange = function(view, zoneId)
-        self:onChildZoneChanged(zoneId)
-    end
+    self.adminView = ParadiseEconomy.MartAdminView:new(15, 126, self.width - 30, self.height - 160, self)
     self:addChild(self.adminView)
 
     ParadiseEconomy.styleWindow(self)
     ParadiseEconomy.styleTree(self)
+    local adminButtonColor = ParadiseEconomy.Theme.gold
+    self.merchantOwnerButton.borderColor = adminButtonColor
+    self.merchantOwnerButton.textColor = adminButtonColor
+    self.postOwnerButton.borderColor = adminButtonColor
+    self.postOwnerButton.textColor = adminButtonColor
     self:refreshState()
     self:applyTab()
     self:layout()
@@ -1877,10 +2580,14 @@ function ParadiseEconomy.TradeManagementPanel:getSelectedPost()
 end
 
 function ParadiseEconomy.TradeManagementPanel:setTabState(button, active)
-    local theme = ParadiseEconomy.Theme
-    button.backgroundColor = active and theme.accentDim or theme.buttonBg
-    button.backgroundColorMouseOver = active and theme.accentDim or theme.buttonHover
-    button.textColor = active and theme.text or theme.textDim
+    ParadiseEconomy.styleTabButton(button, active)
+end
+
+function ParadiseEconomy.TradeManagementPanel:updateTabTitles()
+    if not self.tabMerchants then return end
+    self.tabMerchants:setTitle("MERCHANTS  " .. tostring(#(self.merchantCache or {})))
+    self.tabPosts:setTitle("PLAYER POSTS  " .. tostring(#(self.postCache or {})))
+    self.tabMart:setTitle("ITEM MART & FUNDS")
 end
 
 function ParadiseEconomy.TradeManagementPanel:applyTab()
@@ -1892,15 +2599,16 @@ function ParadiseEconomy.TradeManagementPanel:applyTab()
     self.merchantExpireButton:setVisible(isMerchants)
     self.merchantClearButton:setVisible(isMerchants)
     self.merchantPostsButton:setVisible(isMerchants)
-    self.merchantOwnerButton:setVisible(isMerchants)
+    self.merchantOwnerButton:setVisible(isMerchants and self.isAdm)
     self.postMerchant:setVisible(isPosts)
     self.postSearch:setVisible(isPosts)
     self.postList:setVisible(isPosts)
-    self.postOwnerButton:setVisible(isPosts)
+    self.postOwnerButton:setVisible(isPosts and self.isAdm)
     self.adminView:setVisible(isMart)
     self:setTabState(self.tabMerchants, isMerchants)
     self:setTabState(self.tabPosts, isPosts)
     self:setTabState(self.tabMart, isMart)
+    self:updateTabTitles()
 end
 
 function ParadiseEconomy.TradeManagementPanel:onTab(button)
@@ -1912,43 +2620,58 @@ end
 function ParadiseEconomy.TradeManagementPanel:layout()
     if not self.zone then return end
     local w, h = self.width, self.height
-    local contentY = 100
+    local rowY = 62
+    local contentY = 126
     local footerY = h - 34
     self.zone:setX(15)
-    self.zone:setY(30)
+    self.zone:setY(rowY)
     self.zone:setWidth(math.min(320, math.max(240, w * 0.30)))
     local zoneW = self.zone:getWidth()
     self.leaseDays:setX(23 + zoneW)
-    self.leaseDays:setY(30)
+    self.leaseDays:setY(rowY)
     self.applyLeaseButton:setX(95 + zoneW)
-    self.applyLeaseButton:setY(30)
+    self.applyLeaseButton:setY(rowY)
+    self.applyLeaseButton:setWidth(150)
     self.tabMerchants:setX(15)
-    self.tabMerchants:setY(64)
-    self.tabPosts:setX(131)
-    self.tabPosts:setY(64)
-    self.tabMart:setX(257)
-    self.tabMart:setY(64)
+    self.tabMerchants:setY(94)
+    self.tabMerchants:setWidth(170)
+    self.tabMerchants:setHeight(24)
+    self.tabPosts:setX(193)
+    self.tabPosts:setY(94)
+    self.tabPosts:setWidth(185)
+    self.tabPosts:setHeight(24)
+    self.tabMart:setX(386)
+    self.tabMart:setY(94)
+    self.tabMart:setWidth(200)
+    self.tabMart:setHeight(24)
 
-    local leftW = math.min(370, math.max(300, w * 0.33))
-    local detailX = 15 + leftW + 12
-    local detailW = w - 15 - detailX
-    self.merchantList:setX(15)
-    self.merchantList:setY(contentY)
-    self.merchantList:setWidth(leftW)
-    self.merchantList:setHeight(footerY - contentY)
-    self.merchantDetailX = detailX
-    self.merchantDetailY = contentY
-    self.merchantDetailW = detailW
-    self.merchantDetailH = math.max(140, footerY - contentY - 72)
-    self.merchantRenewButton:setX(detailX)
+    local tableX = 15
+    local tableW = w - 30
+    local headerH = 20
+    local tableH = math.max(120, math.floor((footerY - contentY) * 0.54))
+    local tableY = contentY + headerH
+    local detailY = tableY + tableH + 10
+    local detailH = math.max(120, footerY - detailY)
+    self.tableX = tableX
+    self.tableW = tableW
+    self.tableHeaderY = contentY
+    self.merchantList:setX(tableX)
+    self.merchantList:setY(tableY)
+    self.merchantList:setWidth(tableW)
+    self.merchantList:setHeight(tableH)
+    self.merchantDetailX = tableX
+    self.merchantDetailY = detailY
+    self.merchantDetailW = tableW
+    self.merchantDetailH = detailH
+    self.merchantRenewButton:setX(w - 395)
     self.merchantRenewButton:setY(footerY - 64)
-    self.merchantExpireButton:setX(detailX + 140)
+    self.merchantExpireButton:setX(w - 255)
     self.merchantExpireButton:setY(footerY - 64)
-    self.merchantClearButton:setX(detailX + 260)
+    self.merchantClearButton:setX(w - 135)
     self.merchantClearButton:setY(footerY - 64)
-    self.merchantPostsButton:setX(detailX)
+    self.merchantPostsButton:setX(w - 345)
     self.merchantPostsButton:setY(footerY - 32)
-    self.merchantOwnerButton:setX(detailX + 160)
+    self.merchantOwnerButton:setX(w - 185)
     self.merchantOwnerButton:setY(footerY - 32)
 
     self.postMerchant:setX(15)
@@ -1956,15 +2679,19 @@ function ParadiseEconomy.TradeManagementPanel:layout()
     self.postMerchant:setWidth(260)
     self.postSearch:setX(283)
     self.postSearch:setY(contentY)
-    self.postSearch:setWidth(math.max(120, leftW - 268))
-    self.postList:setX(15)
-    self.postList:setY(contentY + 32)
-    self.postList:setWidth(leftW)
-    self.postList:setHeight(footerY - (contentY + 32))
-    self.postDetailX = detailX
-    self.postDetailY = contentY + 32
-    self.postDetailW = detailW
-    self.postDetailH = math.max(140, footerY - contentY - 42)
+    self.postSearch:setWidth(math.max(120, tableW - 268))
+    local postHeaderY = contentY + 34
+    self.postHeaderY = postHeaderY
+    local postTableY = postHeaderY + 20
+    local postTableH = math.max(100, math.floor((footerY - postHeaderY) * 0.54))
+    self.postList:setX(tableX)
+    self.postList:setY(postTableY)
+    self.postList:setWidth(tableW)
+    self.postList:setHeight(postTableH)
+    self.postDetailX = tableX
+    self.postDetailY = postTableY + postTableH + 10
+    self.postDetailW = tableW
+    self.postDetailH = math.max(100, footerY - self.postDetailY)
     self.postOwnerButton:setX(w - 15 - 190)
     self.postOwnerButton:setY(footerY - 32)
 
@@ -2055,6 +2782,7 @@ function ParadiseEconomy.TradeManagementPanel:refreshMerchants()
         self.merchantList.selected = 1
     end
     self.selectedMerchantId = self.merchantList.selected > 0 and self.merchantCache[self.merchantList.selected].id or nil
+    self:updateTabTitles()
 end
 
 function ParadiseEconomy.TradeManagementPanel:refreshPostFilter()
@@ -2110,15 +2838,7 @@ function ParadiseEconomy.TradeManagementPanel:refreshPosts()
         self.postList.selected = 1
     end
     self.selectedPostId = self.postList.selected > 0 and self.postCache[self.postList.selected].id or nil
-end
-
-function ParadiseEconomy.TradeManagementPanel:syncZoneCombo(zoneId)
-    for int, id in ipairs(self.zone.zoneIds or {}) do
-        if id == zoneId then
-            self.zone.selected = int
-            return
-        end
-    end
+    self:updateTabTitles()
 end
 
 function ParadiseEconomy.TradeManagementPanel:onZoneChanged(target, combo)
@@ -2131,16 +2851,6 @@ function ParadiseEconomy.TradeManagementPanel:onZoneChanged(target, combo)
     target:refreshPostFilter()
     target:refreshPosts()
     if target.adminView then target.adminView:setSelectedZone(target.selectedZoneId) end
-end
-
-function ParadiseEconomy.TradeManagementPanel:onChildZoneChanged(zoneId)
-    if not zoneId then return end
-    self.selectedZoneId = zoneId
-    self:syncZoneCombo(zoneId)
-    self:refreshLeaseEntry()
-    self:refreshMerchants()
-    self:refreshPostFilter()
-    self:refreshPosts()
 end
 
 function ParadiseEconomy.TradeManagementPanel.onMerchantSelect(target, merchant)
@@ -2236,10 +2946,10 @@ function ParadiseEconomy.TradeManagementPanel:update()
     self.merchantExpireButton:setEnable(merchant ~= nil)
     self.merchantClearButton:setEnable(merchant ~= nil)
     self.merchantPostsButton:setEnable(merchant ~= nil)
-    self.merchantOwnerButton:setVisible(self.isAdm)
+    self.merchantOwnerButton:setVisible(self.isAdm and self.tab == "merchants")
     self.merchantOwnerButton:setEnable(self.isAdm and merchant ~= nil and merchant.owner ~= nil)
     local post = self:getSelectedPost()
-    self.postOwnerButton:setVisible(self.isAdm)
+    self.postOwnerButton:setVisible(self.isAdm and self.tab == "posts")
     self.postOwnerButton:setEnable(self.isAdm and post ~= nil and post.seller ~= nil)
     local days = self.leaseDays:getInternalText()
     self.applyLeaseButton:setEnable(self.selectedZoneId ~= nil and days:match("^%d+$") ~= nil)
@@ -2254,6 +2964,32 @@ function ParadiseEconomy.TradeManagementPanel:close()
     end
 end
 
+function ParadiseEconomy.getTradeTableColumns(width)
+    width = tonumber(width) or 1000
+    return {
+        detail = math.floor(width * 0.30),
+        col2 = 8 + math.floor(width * 0.31),
+        col3 = 8 + math.floor(width * 0.46),
+        col4 = 8 + math.floor(width * 0.56),
+        col5 = 8 + math.floor(width * 0.72),
+    }
+end
+
+function ParadiseEconomy.getTradeStatusChip(panel, y, label, color)
+    local chipW = getTextManager():MeasureStringX(UIFont.Small, label) + 14
+    local x = panel.width - 24 - chipW
+    panel:drawRect(x, y, chipW, 16, 0.16, color.r, color.g, color.b)
+    panel:drawRectBorder(x, y, chipW, 16, 0.65, color.r, color.g, color.b)
+    panel:drawText(label, x + 7, y + 2, color.r, color.g, color.b, 1, UIFont.Small)
+end
+
+function ParadiseEconomy.getTradeLeaseStatusLabel(lease, archived)
+    if archived then return "ARCHIVED" end
+    local status = tostring(lease.status or "none")
+    if status == "none" then return "NO EXPIRY" end
+    return string.upper(status)
+end
+
 function ParadiseEconomy.TradeManagementPanel:drawMerchant(y, item, alt)
     local merchant = item.item
     local theme = ParadiseEconomy.Theme
@@ -2262,16 +2998,23 @@ function ParadiseEconomy.TradeManagementPanel:drawMerchant(y, item, alt)
     elseif alt then
         self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
+    local columns = ParadiseEconomy.getTradeTableColumns(self.width)
     local lease = ParadiseEconomy.getLeaseInfo(merchant.expiresAt)
     local color = merchant.archived and theme.danger or ParadiseEconomy.getLeaseColor(lease.status)
     local title = tostring(merchant.title or merchant.owner or merchant.id)
-    self:drawText(ParadiseEconomy.fitText(title, self.width - 150, UIFont.Small), 8, y + 5,
+    self:drawText(ParadiseEconomy.fitText(title, columns.detail - 16, UIFont.Small), 8, y + 7,
         theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
-    self:drawTextRight(merchant.archived and "Archived" or lease.label, self.width - 8, y + 5,
-        color.r, color.g, color.b, 1, UIFont.Small)
-    local subtitle = tostring(merchant.owner or "-") .. "  |  " .. tostring(merchant.id)
-    self:drawText(ParadiseEconomy.fitText(subtitle, self.width - 16, UIFont.Small), 8, y + 24,
+    ParadiseEconomy.getTradeStatusChip(self, y + 6, ParadiseEconomy.getTradeLeaseStatusLabel(lease, merchant.archived), color)
+    self:drawText(ParadiseEconomy.fitText(tostring(merchant.owner or "-"), columns.detail - 16, UIFont.Small), 8, y + 26,
         theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
+    self:drawText(ParadiseEconomy.fitText(tostring(merchant.id or "-"), columns.col3 - columns.col2 - 12, UIFont.Small),
+        columns.col2, y + 17, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
+    self:drawText(tostring(merchant.listingCount or 0), columns.col3, y + 17,
+        theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
+    self:drawText(tostring(ParadiseEconomy.formatLeaseExpiry(merchant.expiresAt)), columns.col4, y + 17,
+        color.r, color.g, color.b, 1, UIFont.Small)
+    self:drawText(ParadiseEconomy.formatBalances(merchant.earnings), columns.col5, y + 17,
+        theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
     return y + self.itemheight
 end
 
@@ -2283,18 +3026,26 @@ function ParadiseEconomy.TradeManagementPanel:drawPost(y, item, alt)
     elseif alt then
         self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
-    local name = post.itemData and post.itemData.name or post.fullType or "Item"
-    self:drawText(ParadiseEconomy.fitText(name, self.width - 180, UIFont.Small), 8, y + 5,
-        theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
-    self:drawTextRight(tostring(post.price) .. " " .. tostring(post.currency), self.width - 8, y + 5,
-        theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
+    local columns = ParadiseEconomy.getTradeTableColumns(self.width)
     local lease = ParadiseEconomy.getLeaseInfo(post.merchantExpiresAt)
     local color = post.merchantArchived and theme.danger or ParadiseEconomy.getLeaseColor(lease.status)
-    local subtitle = tostring(post.seller) .. "  |  " .. tostring(post.merchantAccountId or "-")
-    self:drawText(ParadiseEconomy.fitText(subtitle, self.width - 160, UIFont.Small), 8, y + 24,
+    local name = post.itemData and post.itemData.name or post.fullType or "Item"
+    self:drawText(ParadiseEconomy.fitText(name, columns.detail - 16, UIFont.Small), 8, y + 7,
+        theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
+    local archived = post.merchantArchived == true
+    local stateLabel = archived and "ARCHIVED" or (post.expired and "EXPIRED" or ParadiseEconomy.getTradeLeaseStatusLabel(lease, false))
+    local stateColor = (archived or post.expired) and theme.danger or color
+    ParadiseEconomy.getTradeStatusChip(self, y + 6, stateLabel, stateColor)
+    self:drawText(ParadiseEconomy.fitText(tostring(post.seller or "-"), columns.detail - 16, UIFont.Small), 8, y + 26,
         theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
-    local stateLabel = post.merchantArchived and "Archived" or (post.expired and "Expired" or lease.label)
-    self:drawTextRight(stateLabel, self.width - 8, y + 24,
+    self:drawText(ParadiseEconomy.fitText(tostring(post.merchantTitle or post.merchantAccountId or "-"),
+        columns.col3 - columns.col2 - 12, UIFont.Small), columns.col2, y + 17,
+        theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
+    self:drawText(tostring(post.price) .. " " .. tostring(post.currency), columns.col3, y + 17,
+        theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
+    self:drawText(tostring(ParadiseEconomy.formatTimestamp(post.createdAt)), columns.col4, y + 17,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText(tostring(ParadiseEconomy.formatLeaseExpiry(post.merchantExpiresAt)), columns.col5, y + 17,
         color.r, color.g, color.b, 1, UIFont.Small)
     return y + self.itemheight
 end
@@ -2306,32 +3057,36 @@ function ParadiseEconomy.TradeManagementPanel:drawMerchantDetail()
     ParadiseEconomy.drawCard(self, x, y, w, h, theme.accentDim)
     local merchant = self:getSelectedMerchant()
     if not merchant then
-        self:drawText("Select a merchant to inspect its lease.", x + 12, y + 12,
+        self:drawText("Select a merchant row to inspect its lease.", x + 14, y + 12,
             theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
         return
     end
     local lease = ParadiseEconomy.getLeaseInfo(merchant.expiresAt)
-    local color = ParadiseEconomy.getLeaseColor(lease.status)
-    local function row(label, value, yy, valueColor)
+    local color = merchant.archived and theme.danger or ParadiseEconomy.getLeaseColor(lease.status)
+    local colW = math.max(200, math.floor((w - 458) / 2))
+    local col1 = x + 14
+    local col2 = col1 + colW + 20
+    local function row(label, value, colX, yy, valueColor)
         valueColor = valueColor or theme.textDim
-        self:drawText(label, x + 12, yy, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-        self:drawTextRight(ParadiseEconomy.fitText(tostring(value), w - 150, UIFont.Small), x + w - 12, yy,
+        self:drawText(label, colX, yy, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+        self:drawTextRight(ParadiseEconomy.fitText(tostring(value), colW - 110, UIFont.Small), colX + colW - 6, yy,
             valueColor.r, valueColor.g, valueColor.b, 1, UIFont.Small)
     end
-    self:drawText(ParadiseEconomy.fitText(merchant.title or merchant.owner or merchant.id, w - 24, UIFont.Medium),
-        x + 12, y + 10, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
-    row("Owner", merchant.owner or "-", y + 42, theme.text)
-    row("Merchant ID", merchant.id or "-", y + 60, theme.accent)
-    row("Zone", tostring(merchant.zoneName or merchant.zoneId or "-"), y + 78, theme.textDim)
-    row("Lease status", lease.label, y + 102, color)
-    row("Expires", ParadiseEconomy.formatLeaseExpiry(merchant.expiresAt), y + 120, color)
-    row("Lease days", tostring(merchant.leaseDays or 0), y + 138, theme.textDim)
+    self:drawText(ParadiseEconomy.fitText(merchant.title or merchant.owner or merchant.id, w - 420, UIFont.Medium),
+        x + 14, y + 10, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
+    self:drawRect(x + 14, y + 30, w - 28, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+    row("Owner", merchant.owner or "-", col1, y + 42, theme.text)
+    row("Merchant ID", merchant.id or "-", col1, y + 62, theme.accent)
+    row("Zone", tostring(merchant.zoneName or merchant.zoneId or "-"), col1, y + 82, theme.textDim)
+    row("Lease status", lease.label, col1, y + 102, color)
+    row("Lease days", tostring(merchant.leaseDays or 0), col1, y + 122, theme.textDim)
+    row("Archived", merchant.archived and "Yes" or "No", col1, y + 142, merchant.archived and theme.danger or theme.green)
+    row("Expires", ParadiseEconomy.formatLeaseExpiry(merchant.expiresAt), col2, y + 42, color)
     local renewed = tonumber(merchant.lastRenewedAt) or 0
-    row("Last renewed", renewed > 0 and ParadiseEconomy.formatLeaseExpiry(renewed) or "-", y + 156, theme.textDim)
-    row("Earnings", ParadiseEconomy.formatBalances(merchant.earnings), y + 180, theme.gold)
-    row("Trade posts", tostring(merchant.listingCount or 0), y + 198, theme.textDim)
-    row("Tax route", merchant.taxRoute or "server", y + 216, theme.textDim)
-    row("Archived", merchant.archived and "Yes" or "No", y + 234, merchant.archived and theme.danger or theme.green)
+    row("Last renewed", renewed > 0 and ParadiseEconomy.formatLeaseExpiry(renewed) or "-", col2, y + 62, theme.textDim)
+    row("Earnings", ParadiseEconomy.formatBalances(merchant.earnings), col2, y + 82, theme.gold)
+    row("Trade posts", tostring(merchant.listingCount or 0), col2, y + 102, theme.textDim)
+    row("Tax route", merchant.taxRoute or "server", col2, y + 122, theme.textDim)
 end
 
 function ParadiseEconomy.TradeManagementPanel:drawPostDetail()
@@ -2341,58 +3096,98 @@ function ParadiseEconomy.TradeManagementPanel:drawPostDetail()
     ParadiseEconomy.drawCard(self, x, y, w, h, theme.accent)
     local post = self:getSelectedPost()
     if not post then
-        self:drawText("Select a player post.", x + 12, y + 12,
+        self:drawText("Select a player post to inspect its details.", x + 14, y + 12,
             theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
         return
     end
-    local name = post.itemData and post.itemData.name or post.fullType or "Item"
-    self:drawText(ParadiseEconomy.fitText(name, w - 24, UIFont.Medium), x + 12, y + 10,
-        theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
-    local summary = post.itemData and ParadiseEconomy.ItemData.getSummary(post.itemData) or ""
-    self:drawText(ParadiseEconomy.fitText(summary, w - 24, UIFont.Small), x + 12, y + 32,
-        theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
-    self:drawRect(x + 12, y + 52, w - 24, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
     local lease = ParadiseEconomy.getLeaseInfo(post.merchantExpiresAt)
     local color = ParadiseEconomy.getLeaseColor(lease.status)
-    local function row(label, value, yy, valueColor)
+    local colW = math.max(200, math.floor((w - 458) / 2))
+    local col1 = x + 14
+    local col2 = col1 + colW + 20
+    local function row(label, value, colX, yy, valueColor)
         valueColor = valueColor or theme.textDim
-        self:drawText(label, x + 12, yy, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-        self:drawTextRight(ParadiseEconomy.fitText(tostring(value), w - 160, UIFont.Small), x + w - 12, yy,
+        self:drawText(label, colX, yy, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+        self:drawTextRight(ParadiseEconomy.fitText(tostring(value), colW - 110, UIFont.Small), colX + colW - 6, yy,
             valueColor.r, valueColor.g, valueColor.b, 1, UIFont.Small)
     end
-    row("Seller", post.seller or "-", y + 60, theme.text)
-    row("Merchant", post.merchantTitle or "-", y + 78, theme.text)
-    row("Merchant ID", post.merchantAccountId or "-", y + 96, theme.accent)
-    row("Merchant owner", post.merchantOwner or "-", y + 114, theme.textDim)
-    row("Zone", tostring(post.zoneTitle or post.zoneId or "-"), y + 132, theme.textDim)
-    row("Price", tostring(post.price) .. " " .. tostring(post.currency), y + 156, theme.gold)
-    row("Posted", ParadiseEconomy.formatTimestamp(post.createdAt), y + 174, theme.textDim)
+    local name = post.itemData and post.itemData.name or post.fullType or "Item"
+    self:drawText(ParadiseEconomy.fitText(name, w - 420, UIFont.Medium), x + 14, y + 10,
+        theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
+    local summary = post.itemData and ParadiseEconomy.ItemData.getSummary(post.itemData) or ""
+    self:drawText(ParadiseEconomy.fitText(summary, w - 420, UIFont.Small), x + 14, y + 30,
+        theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
+    self:drawRect(x + 14, y + 48, w - 28, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+    row("Seller", post.seller or "-", col1, y + 58, theme.text)
+    row("Merchant", post.merchantTitle or "-", col1, y + 78, theme.text)
+    row("Merchant ID", post.merchantAccountId or "-", col1, y + 98, theme.accent)
+    row("Merchant owner", post.merchantOwner or "-", col1, y + 118, theme.textDim)
+    row("Zone", tostring(post.zoneTitle or post.zoneId or "-"), col2, y + 58, theme.textDim)
+    row("Price", tostring(post.price) .. " " .. tostring(post.currency), col2, y + 78, theme.gold)
+    row("Posted", ParadiseEconomy.formatTimestamp(post.createdAt), col2, y + 98, theme.textDim)
     local stateLabel = post.merchantArchived and "Archived" or (post.expired and "Expired" or lease.label)
     local stateColor = (post.merchantArchived or post.expired) and theme.danger or color
-    row("Lease status", stateLabel, y + 198, stateColor)
-    row("Lease expires", ParadiseEconomy.formatLeaseExpiry(post.merchantExpiresAt), y + 216, stateColor)
+    row("Lease status", stateLabel, col2, y + 118, stateColor)
+    row("Lease expires", ParadiseEconomy.formatLeaseExpiry(post.merchantExpiresAt), col2, y + 138, stateColor)
     if post.merchantArchived then
-        self:drawText("Archived merchant store. This post is visible to management only.", x + 12, y + 240,
+        self:drawText("Archived merchant store. This post is visible to management only.", x + 14, y + h - 20,
             theme.danger.r, theme.danger.g, theme.danger.b, 1, UIFont.Small)
     elseif post.expired then
-        self:drawText("Expired posts stay visible to management only.", x + 12, y + 240,
+        self:drawText("Expired posts stay visible to management only.", x + 14, y + h - 20,
             theme.danger.r, theme.danger.g, theme.danger.b, 1, UIFont.Small)
     end
+end
+
+function ParadiseEconomy.TradeManagementPanel:drawTableHeader(label1, label2, label3, label4, label5, headerY)
+    local theme = ParadiseEconomy.Theme
+    headerY = headerY or self.tableHeaderY or 126
+    local x = self.tableX or 15
+    local tableW = self.tableW or (self.width - 30)
+    local columns = ParadiseEconomy.getTradeTableColumns(tableW)
+    local y = headerY + 4
+    self:drawText(label1, x + 8, y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText(label2, x + columns.col2, y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText(label3, x + columns.col3, y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText(label4, x + columns.col4, y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    if label5 then self:drawText(label5, x + columns.col5, y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small) end
+    self:drawTextRight("STATUS", x + tableW - 24, y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawRect(x, headerY + 18, tableW, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
 end
 
 function ParadiseEconomy.TradeManagementPanel:prerender()
     ISCollapsableWindow.prerender(self)
     local theme = ParadiseEconomy.Theme
+    local w = self.width
+    ParadiseEconomy.drawPanelHeader(self, "TRADE ZONE ADMINISTRATION  ·  MERCHANTS, POSTS AND ITEM MART", "07")
+    self:drawRect(w - 110, 64, 95, 22, 0.12, theme.green.r, theme.green.g, theme.green.b)
+    self:drawRectBorder(w - 110, 64, 95, 22, theme.green.a, theme.green.r, theme.green.g, theme.green.b)
+    self:drawTextCentre("MANAGED", w - 62, 68, theme.green.r, theme.green.g, theme.green.b, 1, UIFont.Small)
     local zone = self:getSelectedZone()
     if zone then
-        local info = "Tax " .. string.format("%g", tonumber(zone.tradeTax) or 0) .. "%  |  Owner: " .. tostring(zone.owner or "-")
-        self:drawTextRight(ParadiseEconomy.fitText(info, self.width - 580, UIFont.Small), self.width - 15, 37,
-            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+        local info = "TAX " .. string.format("%g", tonumber(zone.tradeTax) or 0) .. "%  ·  OWNER  "
+            .. string.upper(tostring(zone.owner or "-"))
+        self:drawTextRight(ParadiseEconomy.fitText(info, w - 520, UIFont.Small), w - 120, 68,
+            theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
     end
+    ParadiseEconomy.drawTabUnderline(self, self.tabMerchants, self.tab == "merchants")
+    ParadiseEconomy.drawTabUnderline(self, self.tabPosts, self.tab == "posts")
+    ParadiseEconomy.drawTabUnderline(self, self.tabMart, self.tab == "mart")
+    self:drawRect(15, 120, w - 30, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+
     if self.tab == "merchants" then
+        self:drawTableHeader("MERCHANT / OWNER", "MERCHANT ID", "LISTINGS", "LEASE END", "REVENUE")
         self:drawMerchantDetail()
+        if #(self.merchantCache or {}) == 0 then
+            self:drawTextCentre("No merchant stalls in this trade zone yet.", w / 2, self.merchantList:getY() + 30,
+                theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+        end
     elseif self.tab == "posts" then
+        self:drawTableHeader("ITEM / SELLER", "MERCHANT", "PRICE", "POSTED", "LEASE END", self.postHeaderY)
         self:drawPostDetail()
+        if #(self.postCache or {}) == 0 then
+            self:drawTextCentre("No player trade posts match this filter.", w / 2, self.postList:getY() + 30,
+                theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+        end
     end
     self:drawRect(0, self.height - 34, self.width, 34, theme.headerBg.a, theme.headerBg.r, theme.headerBg.g, theme.headerBg.b)
     local message = ParadiseEconomy.clientState.message
@@ -2470,9 +3265,11 @@ Events.OnFillInventoryObjectContextMenu.Remove(ParadiseEconomy.fillInventoryCont
 Events.OnFillInventoryObjectContextMenu.Add(ParadiseEconomy.fillInventoryContext)
 
 function ParadiseEconomy.ListingPanel:new(x, y, item, onClose)
-    local obj = ISCollapsableWindow.new(self, x, y, 520, 190)
-    obj.title = "Post Item in Tradeshop"
+    local obj = ISCollapsableWindow.new(self, x, y, 560, 390)
+    obj.title = "Post Listing"
+    obj.resizable = false
     obj.item = item
+    obj.itemData = item and ParadiseEconomy.ItemData.toData(item) or nil
     obj.onCloseCallback = onClose
     obj.closed = false
     return obj
@@ -2480,27 +3277,35 @@ end
 
 function ParadiseEconomy.ListingPanel:createChildren()
     ISCollapsableWindow.createChildren(self)
-    self.currency = ISComboBox:new(15, 94, 145, 25, self)
+    self.currency = ISComboBox:new(15, 158, 160, 26, self)
+    self.currency.tooltip = "Currency the buyer pays in"
     self.currency:initialise()
     self.currency:addOption("jimoleon")
     self.currency:addOption("paradisium")
     self:addChild(self.currency)
-    self.price = ISTextEntryBox:new("", 170, 94, 120, 25)
+    self.price = ISTextEntryBox:new("", 185, 158, 160, 26)
+    self.price.tooltip = "Asking price for this item"
     self.price:initialise()
     self.price:instantiate()
     self.price:setOnlyNumbers(true)
+    self.price:setPlaceholderText("0")
     self:addChild(self.price)
-    self.postButton = ISButton:new(300, 94, 95, 25, "Post Item", self, ParadiseEconomy.ListingPanel.post)
-    self.postButton:initialise()
-    self:addChild(self.postButton)
-    self.cancelButton = ISButton:new(405, 94, 95, 25, "Cancel", self, ParadiseEconomy.ListingPanel.close)
+    self.cancelButton = ISButton:new(self.width - 375, self.height - 46, 150, 30, "CANCEL", self, ParadiseEconomy.ListingPanel.close)
     self.cancelButton:initialise()
     self:addChild(self.cancelButton)
+    self.postButton = ISButton:new(self.width - 215, self.height - 46, 200, 30, "POST LISTING", self, ParadiseEconomy.ListingPanel.post)
+    self.postButton.tooltip = "Create this trade post in your merchant stall"
+    self.postButton:initialise()
+    self:addChild(self.postButton)
     ParadiseEconomy.styleWindow(self)
     ParadiseEconomy.styleTree(self)
+    local theme = ParadiseEconomy.Theme
+    self.postButton.backgroundColor = theme.gold
+    self.postButton.backgroundColorMouseOver = { r = 1.0, g = 0.86, b = 0.45, a = 1.0 }
+    self.postButton.textColor = { r = 0.05, g = 0.06, b = 0.07, a = 1.0 }
 end
 
-function ParadiseEconomy.ListingPanel:getTaxWarning()
+function ParadiseEconomy.ListingPanel:getLeaseWarning()
     local market = ParadiseEconomy.clientState.market or {}
     local zoneId = market.tradeZoneId
     for _, merchant in ipairs(ParadiseEconomy.clientState.merchants or {}) do
@@ -2508,34 +3313,73 @@ function ParadiseEconomy.ListingPanel:getTaxWarning()
             return "Your merchant lease has expired. Renew it in Tradeshop > My Store before posting."
         end
     end
+    return nil
+end
+
+function ParadiseEconomy.ListingPanel:getTaxPercent()
+    local market = ParadiseEconomy.clientState.market or {}
     local trade = ParadiseEconomy.getActiveTrade()
-    local percent = trade and trade.tradeTax or ParadiseEconomy.getTradeTaxPercentFor(market.tradeZoneId)
-    local payout, tax = ParadiseEconomy.getPlayerShopPayout(self.price:getInternalText(), percent)
-    local title = trade and tostring(trade.title or trade.tradeId) or tostring(market.tradeZoneTitle or "Trade")
-    if payout then
-        return "Sales tax warning: " .. string.format("%g", percent or 0) .. "% to " .. title
-            .. " deducts " .. tostring(tax) .. ". You receive " .. tostring(payout) .. "."
-    end
-    return "Sales tax warning: " .. string.format("%g", percent or 0) .. "% goes to " .. title .. "."
+    return trade and trade.tradeTax or ParadiseEconomy.getTradeTaxPercentFor(market.tradeZoneId)
+end
+
+function ParadiseEconomy.ListingPanel:getCurrency()
+    return self.currency.options[self.currency.selected] or "jimoleon"
 end
 
 function ParadiseEconomy.ListingPanel:prerender()
     ISCollapsableWindow.prerender(self)
     local theme = ParadiseEconomy.Theme
-    local data = ParadiseEconomy.ItemData.toData(self.item)
-    self:drawText(tostring(self.item and self.item:getDisplayName() or "Item"), 15, 35,
+    local w = self.width
+    ParadiseEconomy.drawPanelHeader(self, "POST LISTING  ·  PRICE A CARRIED ITEM FOR YOUR MERCHANT STALL", "05")
+
+    local data = self.itemData or {}
+    local name = tostring(data.name or (self.item and self.item:getDisplayName()) or "Item")
+    local tint = ParadiseEconomy.getCategoryColor(data.category)
+    ParadiseEconomy.drawCard(self, 15, 66, w - 30, 64, tint)
+    self:drawRect(25, 74, 48, 48, 0.22, tint.r, tint.g, tint.b)
+    self:drawRectBorder(25, 74, 48, 48, 0.55, tint.r, tint.g, tint.b)
+    self:drawTextCentre(ParadiseEconomy.getItemInitials(name), 49, 90, tint.r, tint.g, tint.b, 0.95, UIFont.Medium)
+    self:drawText(ParadiseEconomy.fitText(name, w - 220, UIFont.Medium), 85, 76,
         theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
-    self:drawText(ParadiseEconomy.fitText(ParadiseEconomy.ItemData.getSummary(data), self.width - 30, UIFont.Small), 15, 62,
+    local summary = ParadiseEconomy.ItemData.getSummary(data)
+    local detail = tostring(data.fullType or "Item")
+    if summary and summary ~= "" then detail = detail .. "  ·  " .. summary end
+    self:drawText(ParadiseEconomy.fitText(detail, w - 220, UIFont.Small), 85, 100,
         theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
-    self:drawText("Currency", 15, 78, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    self:drawText("Price", 170, 78, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    self:drawText(ParadiseEconomy.fitText(self:getTaxWarning(), self.width - 30, UIFont.Small), 15, 132,
-        theme.warn.r, theme.warn.g, theme.warn.b, 1, UIFont.Small)
+    self:drawTextRight("YOUR ITEM", w - 29, 78, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
+
+    self:drawText("CURRENCY", 15, 142, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("ASKING PRICE", 185, 142, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+
+    ParadiseEconomy.drawCard(self, 15, 196, w - 30, 104, theme.gold)
+    local percent = self:getTaxPercent()
+    local amount = tonumber(self.price:getInternalText()) or 0
+    local payout, tax = ParadiseEconomy.getPlayerShopPayout(amount, percent)
+    local currency = self:getCurrency()
+    local icon = currency == "paradisium" and ParadiseEconomy.icons.paradisium or ParadiseEconomy.icons.jimoleon
+    local function summaryRow(label, value, yy, color)
+        self:drawText(label, 29, yy, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+        local valueW = getTextManager():MeasureStringX(UIFont.Small, value)
+        if icon then self:drawTextureScaled(icon, w - 49 - valueW - 14, yy - 1, 14, 14, 1) end
+        self:drawTextRight(value, w - 29, yy, color.r, color.g, color.b, 1, UIFont.Small)
+    end
+    summaryRow("LISTING PRICE", amount > 0 and ParadiseEconomy.formatNumber(amount) or "-", 210, theme.text)
+    summaryRow("ZONE TAX (" .. string.format("%g", percent or 0) .. "%)",
+        tax and ParadiseEconomy.formatNumber(tax) or "-", 234, theme.warn)
+    self:drawRect(29, 256, w - 58, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+    summaryRow("EST. PAYOUT", payout and ParadiseEconomy.formatNumber(payout) or "-", 268, theme.green)
+
+    local warning = self:getLeaseWarning()
+    if warning then
+        self:drawText(ParadiseEconomy.fitText(warning, w - 30, UIFont.Small), 15, 312,
+            theme.warn.r, theme.warn.g, theme.warn.b, 1, UIFont.Small)
+    end
 end
 
 function ParadiseEconomy.ListingPanel:update()
     ISCollapsableWindow.update(self)
     if not ParadiseEconomy.canUsePlayerEconomy(getPlayer()) then self:close() end
+    self.postButton:setEnable((tonumber(self.price:getInternalText()) or 0) > 0)
 end
 
 function ParadiseEconomy.ListingPanel:post()
@@ -2568,8 +3412,8 @@ function ParadiseEconomy.openListingPanel(item, onClose)
         ParadiseEconomy.listingInstance:close()
     end
     local panel = ParadiseEconomy.ListingPanel:new(
-        (getCore():getScreenWidth() - 520) / 2,
-        (getCore():getScreenHeight() - 190) / 2,
+        (getCore():getScreenWidth() - 560) / 2,
+        (getCore():getScreenHeight() - 390) / 2,
         item, onClose)
     panel:initialise()
     panel:addToUIManager()
@@ -2729,7 +3573,7 @@ end
 
 function ParadiseEconomy.AdminPanel:new(x, y, w, h, targetUser)
     local obj = ISCollapsableWindow.new(self, x, y, w, h)
-    obj.title = "Paradise Economy - Admin Accounts"
+    obj.title = "Economy Administration"
     obj.resizable = true
     obj.minimumWidth = 900
     obj.minimumHeight = 640
@@ -2738,219 +3582,386 @@ function ParadiseEconomy.AdminPanel:new(x, y, w, h, targetUser)
     obj.destAccountId = nil
     obj.accountMap = {}
     obj.pendingMessage = nil
+    obj.createOpen = false
+    obj.lastWidth = 0
+    obj.lastHeight = 0
     return obj
 end
 
 function ParadiseEconomy.AdminPanel:createChildren()
     ISCollapsableWindow.createChildren(self)
-    self.typeFilter = ISComboBox:new(15, 40, 150, 25, self, ParadiseEconomy.AdminPanel.refresh)
+
+    self.typeFilter = ISComboBox:new(15, 66, 190, 26, self, ParadiseEconomy.AdminPanel.refresh)
     self.typeFilter:initialise()
-    for _, entry in ipairs(ParadiseEconomy.accountFilterTypes) do self.typeFilter:addOption(entry.label) end
+    for _, entry in ipairs(ParadiseEconomy.accountFilterTypes) do
+        local label = entry.label .. " accounts"
+        if entry.key == "all" then label = "All account types" end
+        if entry.key == "custom" then label = "Custom accounts" end
+        self.typeFilter:addOption(label)
+    end
     self:addChild(self.typeFilter)
 
-    self.search = ISTextEntryBox:new("", 175, 40, 285, 25)
+    self.search = ISTextEntryBox:new("", 213, 66, 300, 26)
     self.search.target = self
     self.search.onTextChangeFunction = ParadiseEconomy.AdminPanel.onSearchChanged
     self.search:initialise()
     self.search:instantiate()
+    self.search:setPlaceholderText("Search accounts...")
     self:addChild(self.search)
 
-    self.refreshButton = ISButton:new(470, 40, 100, 25, "Request State", self, ParadiseEconomy.AdminPanel.requestState)
-    self.refreshButton:initialise()
-    self:addChild(self.refreshButton)
-    self.syncButton = ISButton:new(578, 40, 88, 25, "Sync Zones", self, ParadiseEconomy.AdminPanel.syncZones)
-    self.syncButton:initialise()
-    self:addChild(self.syncButton)
-    self.purgeButton = ISButton:new(674, 40, 88, 25, "Purge Ledger", self, ParadiseEconomy.AdminPanel.purgeLedger)
-    self.purgeButton:initialise()
-    self:addChild(self.purgeButton)
-    self.tablesButton = ISButton:new(770, 40, 100, 25, "Data Tables", self, ParadiseEconomy.AdminPanel.openTables)
-    self.tablesButton:initialise()
-    self:addChild(self.tablesButton)
+    self.createButton = ISButton:new(500, 66, 150, 26, "CREATE ACCOUNT", self, ParadiseEconomy.AdminPanel.toggleCreate)
+    self.createButton.tooltip = "Admin only: create personal, merchant, trade or custom accounts."
+    self.createButton:initialise()
+    self:addChild(self.createButton)
 
-    self.accounts = ISScrollingListBox:new(15, 120, 520, 360)
+    self.newType = ISComboBox:new(27, 124, 120, 24, self)
+    self.newType:initialise()
+    for _, entry in ipairs(ParadiseEconomy.accountCreateTypes) do self.newType:addOption(entry.label) end
+    self:addChild(self.newType)
+    self.newOwner = ISTextEntryBox:new("", 155, 124, 150, 24)
+    self.newOwner.tooltip = "Owner username for personal / merchant accounts"
+    self.newOwner:initialise()
+    self.newOwner:instantiate()
+    self.newOwner:setPlaceholderText("Owner username...")
+    self:addChild(self.newOwner)
+    self.newZone = ISComboBox:new(313, 124, 200, 24, self)
+    self.newZone:setToolTipMap({ defaultTooltip = "Trade zone for merchant / trade accounts" })
+    self.newZone:initialise()
+    self:addChild(self.newZone)
+    self.newName = ISTextEntryBox:new("", 27, 154, 200, 24)
+    self.newName.tooltip = "Display name for custom accounts"
+    self.newName:initialise()
+    self.newName:instantiate()
+    self.newName:setPlaceholderText("Custom account name...")
+    self:addChild(self.newName)
+    self.createConfirmButton = ISButton:new(0, 154, 90, 24, "CREATE", self, ParadiseEconomy.AdminPanel.createAccount)
+    self.createConfirmButton:initialise()
+    self:addChild(self.createConfirmButton)
+    self.createCancelButton = ISButton:new(0, 154, 80, 24, "CANCEL", self, ParadiseEconomy.AdminPanel.closeCreate)
+    self.createCancelButton:initialise()
+    self:addChild(self.createCancelButton)
+
+    self.accounts = ISScrollingListBox:new(15, 128, 600, 300)
     self.accounts:initialise()
-    self.accounts:instantiate()
-    self.accounts.itemheight = 24
+    self.accounts.itemheight = 48
     self.accounts.font = UIFont.Small
     self.accounts.doDrawItem = ParadiseEconomy.AdminPanel.drawAccount
-    self.accounts.drawBorder = true
-    self.accounts.borderColor = { r = 0.2, g = 0.2, b = 0.5, a = 0.1 }
-    self.accounts.listHeaderColor = { r = 0.0, g = 0.0, b = 0.4, a = 0.1 }
-    self.accounts:addColumn("Account", 4)
-    self.accounts:addColumn("Type", 220)
-    self.accounts:addColumn("Zone / Owner", 300)
-    self.accounts:addColumn("Balances", 400)
     self.accounts:setOnMouseDownFunction(self, ParadiseEconomy.AdminPanel.selectAccount)
     self.accounts:setOnMouseDoubleClick(self, ParadiseEconomy.AdminPanel.onAccountDoubleClick)
     self:addChild(self.accounts)
 
-    self.newType = ISComboBox:new(15, 0, 115, 25, self)
-    self.newType:initialise()
-    for _, entry in ipairs(ParadiseEconomy.accountCreateTypes) do self.newType:addOption(entry.label) end
-    self:addChild(self.newType)
-    self.newOwner = ISTextEntryBox:new("", 0, 0, 150, 25)
-    self.newOwner.tooltip = "Owner username for personal / merchant accounts"
-    self.newOwner:initialise()
-    self.newOwner:instantiate()
-    self:addChild(self.newOwner)
-    self.newZone = ISComboBox:new(0, 0, 200, 25, self)
-    self.newZone:setToolTipMap({ defaultTooltip = "Trade zone for merchant / trade accounts" })
-    self.newZone:initialise()
-    self:addChild(self.newZone)
-    self.newName = ISTextEntryBox:new("", 0, 0, 150, 25)
-    self.newName.tooltip = "Display name for custom accounts"
-    self.newName:initialise()
-    self.newName:instantiate()
-    self:addChild(self.newName)
-    self.createButton = ISButton:new(0, 0, 105, 25, "Add Account", self, ParadiseEconomy.AdminPanel.createAccount)
-    self.createButton:initialise()
-    self:addChild(self.createButton)
+    self.tablesButton = ISButton:new(0, 74, 64, 20, "TABLES", self, ParadiseEconomy.AdminPanel.openTables)
+    self.tablesButton:initialise()
+    self:addChild(self.tablesButton)
+    self.serverButton = ISButton:new(0, 74, 64, 20, "SERVER", self, ParadiseEconomy.AdminPanel.selectServer)
+    self.serverButton:initialise()
+    self:addChild(self.serverButton)
 
-    self.bucket = ISComboBox:new(500, 210, 145, 25, self)
+    self.operation = ISComboBox:new(0, 0, 200, 24, self)
+    self.operation:initialise()
+    self.operation:addOption("Add funds")
+    self.operation:addOption("Remove funds")
+    self.operation:addOption("Set balance")
+    self:addChild(self.operation)
+
+    self.bucket = ISComboBox:new(0, 0, 100, 24, self)
     self.bucket:initialise()
     self:addChild(self.bucket)
-    self.currency = ISComboBox:new(655, 210, 140, 25, self)
+    self.currency = ISComboBox:new(0, 0, 100, 24, self)
     self.currency:initialise()
     self.currency:addOption("jimoleon")
     self.currency:addOption("paradisium")
     self:addChild(self.currency)
-    self.amount = ISTextEntryBox:new("", 805, 210, 150, 25)
+    self.amount = ISTextEntryBox:new("", 0, 0, 150, 24)
     self.amount:initialise()
     self.amount:instantiate()
     self.amount:setOnlyNumbers(true)
+    self.amount:setPlaceholderText("Amount")
     self:addChild(self.amount)
+    self.applyButton = ISButton:new(0, 0, 200, 26, "APPLY OPERATION", self, ParadiseEconomy.AdminPanel.applyOperation)
+    self.applyButton.tooltip = "Admin only: add, remove or set the selected account balance."
+    self.applyButton:initialise()
+    self:addChild(self.applyButton)
 
-    self.addButton = ISButton:new(500, 244, 145, 25, "Add", self, ParadiseEconomy.AdminPanel.adjust)
-    self.addButton:initialise()
-    self.addButton.internal = "add"
-    self:addChild(self.addButton)
-    self.reduceButton = ISButton:new(655, 244, 140, 25, "Reduce", self, ParadiseEconomy.AdminPanel.adjust)
-    self.reduceButton:initialise()
-    self.reduceButton.internal = "remove"
-    self:addChild(self.reduceButton)
-    self.setButton = ISButton:new(805, 244, 150, 25, "Set", self, ParadiseEconomy.AdminPanel.adjust)
-    self.setButton:initialise()
-    self.setButton.internal = "set"
-    self:addChild(self.setButton)
-
-    self.destAccount = ISComboBox:new(500, 314, 455, 25, self, ParadiseEconomy.AdminPanel.onDestChanged)
+    self.destAccount = ISComboBox:new(0, 0, 300, 24, self, ParadiseEconomy.AdminPanel.onDestChanged)
     self.destAccount:initialise()
     self:addChild(self.destAccount)
-    self.fromBucket = ISComboBox:new(500, 358, 145, 25, self)
+    self.fromBucket = ISComboBox:new(0, 0, 90, 24, self)
     self.fromBucket:initialise()
     self:addChild(self.fromBucket)
-    self.toBucket = ISComboBox:new(655, 358, 140, 25, self)
+    self.toBucket = ISComboBox:new(0, 0, 90, 24, self)
     self.toBucket:initialise()
     self:addChild(self.toBucket)
-    self.rerouteAmount = ISTextEntryBox:new("", 805, 358, 150, 25)
+    self.rerouteAmount = ISTextEntryBox:new("", 0, 0, 90, 24)
     self.rerouteAmount:initialise()
     self.rerouteAmount:instantiate()
     self.rerouteAmount:setOnlyNumbers(true)
+    self.rerouteAmount:setPlaceholderText("Amount")
     self:addChild(self.rerouteAmount)
-    self.rerouteButton = ISButton:new(500, 394, 170, 25, "Reroute Funds", self, ParadiseEconomy.AdminPanel.reroute)
+    self.rerouteButton = ISButton:new(0, 0, 300, 26, "REROUTE ACCOUNT", self, ParadiseEconomy.AdminPanel.reroute)
+    self.rerouteButton.tooltip = "Admin only: move funds from this account to another account."
     self.rerouteButton:initialise()
     self:addChild(self.rerouteButton)
 
-    self.deleteButton = ISButton:new(500, 454, 160, 25, "Delete Account", self, ParadiseEconomy.AdminPanel.deleteAccount)
-    self.deleteButton:initialise()
-    self:addChild(self.deleteButton)
-    self.openButton = ISButton:new(670, 454, 160, 25, "Open Account", self, ParadiseEconomy.AdminPanel.openAccount)
-    self.openButton:initialise()
-    self:addChild(self.openButton)
-    self.serverButton = ISButton:new(840, 454, 135, 25, "Server Account", self, ParadiseEconomy.AdminPanel.selectServer)
-    self.serverButton:initialise()
-    self:addChild(self.serverButton)
-
-    self.taxRoute = ISTextEntryBox:new(500, 432, 300, 25)
+    self.taxRoute = ISTextEntryBox:new("", 0, 0, 200, 24)
     self.taxRoute.tooltip = "Tax route account ID for the selected merchant account"
     self.taxRoute:initialise()
     self.taxRoute:instantiate()
+    self.taxRoute:setPlaceholderText("Account ID...")
     self:addChild(self.taxRoute)
-    self.taxRouteButton = ISButton:new(810, 432, 145, 25, "Set Tax Route", self, ParadiseEconomy.AdminPanel.setTaxRoute)
+    self.taxRouteButton = ISButton:new(0, 0, 70, 24, "SET", self, ParadiseEconomy.AdminPanel.setTaxRoute)
+    self.taxRouteButton.tooltip = "Admin only: set this merchant's tax route account."
     self.taxRouteButton:initialise()
     self:addChild(self.taxRouteButton)
 
+    self.syncButton = ISButton:new(0, 0, 118, 28, "SYNC ZONES", self, ParadiseEconomy.AdminPanel.syncZones)
+    self.syncButton:initialise()
+    self:addChild(self.syncButton)
+    self.rebuildButton = ISButton:new(0, 0, 118, 28, "REBUILD INDEX", self, ParadiseEconomy.AdminPanel.rebuildIndex)
+    self.rebuildButton:initialise()
+    self:addChild(self.rebuildButton)
+    self.purgeButton = ISButton:new(0, 0, 118, 28, "PURGE LEDGER", self, ParadiseEconomy.AdminPanel.purgeLedger)
+    self.purgeButton:initialise()
+    self:addChild(self.purgeButton)
+    self.deleteButton = ISButton:new(0, 0, 118, 28, "DELETE ACCOUNT", self, ParadiseEconomy.AdminPanel.deleteAccount)
+    self.deleteButton:initialise()
+    self:addChild(self.deleteButton)
+
     ParadiseEconomy.styleWindow(self)
     ParadiseEconomy.styleTree(self)
-    self:layout()
-    self:refreshZoneOptions()
+    self.accounts.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
+    self.accounts.borderColor = { r = 0, g = 0, b = 0, a = 0 }
+    local theme = ParadiseEconomy.Theme
+    self.createButton.borderColor = theme.gold
+    self.rerouteButton.borderColor = theme.gold
+    self.taxRouteButton.borderColor = theme.gold
+    self.applyButton.backgroundColor = theme.gold
+    self.applyButton.backgroundColorMouseOver = { r = 0.99, g = 0.86, b = 0.45, a = 1 }
+    self.applyButton.textColor = { r = 0.06, g = 0.07, b = 0.08, a = 1 }
+    self.applyButton.borderColor = theme.gold
+    self.createConfirmButton.borderColor = theme.accent
+    self.createConfirmButton.textColor = theme.text
+    self.purgeButton.borderColor = theme.danger
+    self.purgeButton.textColor = theme.danger
+    self.deleteButton.borderColor = theme.danger
+    self.deleteButton.textColor = theme.danger
+    self:setCreateOpen(false)
+    self:refresh()
 end
 
 function ParadiseEconomy.AdminPanel:layout()
     if not self.accounts then return end
-    local contentX = 13
-    local contentW = self.width - 26
-    local top = self:titleBarHeight() + 8
-    local fontH = getTextManager():getFontHeight(UIFont.Small)
-    local toolbarY = top + fontH + 4
-    self.headerY = top
+    local w, h = self.width, self.height
+    local rightW = math.max(300, math.min(360, math.floor(w * 0.30)))
+    local leftW = w - 30 - rightW - 14
+    self.leftX, self.leftW = 15, leftW
+    self.rightX, self.rightW = 15 + leftW + 14, rightW
+
+    local toolbarY = 66
     self.toolbarY = toolbarY
+    local filterW = 190
+    local createW = 150
+    self.createX = 15 + leftW - createW
+    self.typeFilter:setX(15)
+    self.typeFilter:setY(toolbarY)
+    self.typeFilter:setWidth(filterW)
+    self.typeFilter:setHeight(26)
+    self.createButton:setX(self.createX)
+    self.createButton:setY(toolbarY)
+    self.createButton:setWidth(createW)
+    self.createButton:setHeight(26)
+    self.search:setX(15 + filterW + 8)
+    self.search:setY(toolbarY)
+    self.search:setWidth(math.max(120, self.createX - 8 - (15 + filterW + 8)))
+    self.search:setHeight(26)
 
-    local buttonW, gap = 100, 6
-    local tablesX = contentX + contentW - buttonW
-    local purgeX = tablesX - gap - 88
-    local syncX = purgeX - gap - 88
-    local requestX = syncX - gap - 100
-    self.typeFilter:setX(contentX); self.typeFilter:setY(toolbarY)
-    self.typeFilter:setWidth(150)
-    self.search:setX(contentX + 156); self.search:setY(toolbarY)
-    self.search:setWidth(math.max(120, requestX - gap - self.search:getX()))
-    self.refreshButton:setX(requestX); self.refreshButton:setY(toolbarY); self.refreshButton:setWidth(100)
-    self.syncButton:setX(syncX); self.syncButton:setY(toolbarY); self.syncButton:setWidth(88)
-    self.purgeButton:setX(purgeX); self.purgeButton:setY(toolbarY); self.purgeButton:setWidth(88)
-    self.tablesButton:setX(tablesX); self.tablesButton:setY(toolbarY); self.tablesButton:setWidth(buttonW)
+    local createY = 100
+    self.createRowY = createY
+    self.createRowH = 88
+    local innerX = 27
+    local innerW = leftW - 24
+    local typeW, ownerW, confirmW, cancelW = 120, 150, 90, 80
+    self.newType:setX(innerX)
+    self.newType:setY(createY + 24)
+    self.newType:setWidth(typeW)
+    self.newType:setHeight(24)
+    self.newOwner:setX(innerX + typeW + 8)
+    self.newOwner:setY(createY + 24)
+    self.newOwner:setWidth(ownerW)
+    self.newOwner:setHeight(24)
+    self.newZone:setX(innerX + typeW + ownerW + 16)
+    self.newZone:setY(createY + 24)
+    self.newZone:setWidth(math.max(100, innerW - typeW - ownerW - 16))
+    self.newZone:setHeight(24)
+    self.newName:setX(innerX)
+    self.newName:setY(createY + 54)
+    self.newName:setWidth(math.max(100, innerW - confirmW - cancelW - 16))
+    self.newName:setHeight(24)
+    self.createCancelButton:setX(innerX + innerW - cancelW)
+    self.createCancelButton:setY(createY + 54)
+    self.createCancelButton:setWidth(cancelW)
+    self.createCancelButton:setHeight(24)
+    self.createConfirmButton:setX(innerX + innerW - cancelW - 8 - confirmW)
+    self.createConfirmButton:setY(createY + 54)
+    self.createConfirmButton:setWidth(confirmW)
+    self.createConfirmButton:setHeight(24)
 
-    local newLabelY = toolbarY + 25 + 8
-    local newY = newLabelY + fontH + 4
-    self.newAccountLabelY = newLabelY
-    local typeW, ownerW, nameW, addW = 115, 150, 150, 105
-    local zoneW = math.max(140, contentW - typeW - ownerW - nameW - addW - 40)
-    local x = contentX
-    self.newType:setX(x); self.newType:setY(newY); self.newType:setWidth(typeW); x = x + typeW + 8
-    self.newOwner:setX(x); self.newOwner:setY(newY); self.newOwner:setWidth(ownerW); x = x + ownerW + 8
-    self.newZone:setX(x); self.newZone:setY(newY); self.newZone:setWidth(zoneW); x = x + zoneW + 8
-    self.newName:setX(x); self.newName:setY(newY); self.newName:setWidth(nameW); x = x + nameW + 8
-    self.createButton:setX(x); self.createButton:setY(newY); self.createButton:setWidth(addW)
-
-    local listY = newY + 27 + 10 + self.accounts.itemheight
-    local leftW = math.max(360, math.floor(contentW * 0.55))
-    local listH = math.max(160, self.height - listY - 14)
-    self.accounts:setX(contentX)
-    self.accounts:setY(listY)
+    local listHeaderY = self.createOpen and (createY + self.createRowH + 12) or 104
+    self.listHeaderY = listHeaderY
+    self.listY = listHeaderY + 24
+    local maintenanceH = 86
+    self.maintenanceY = h - 8 - maintenanceH
+    self.maintenanceH = maintenanceH
+    local listH = math.max(120, self.maintenanceY - 12 - self.listY)
+    self.listH = listH
+    self.accounts:setX(15)
+    self.accounts:setY(self.listY)
     self.accounts:setWidth(leftW)
     self.accounts:setHeight(listH)
-    self.accounts.columns[1].size = 4
-    self.accounts.columns[2].size = math.floor(leftW * 0.40)
-    self.accounts.columns[3].size = math.floor(leftW * 0.56)
-    self.accounts.columns[4].size = math.floor(leftW * 0.72)
 
-    local rightX = contentX + leftW + 14
-    local rightW = contentX + contentW - rightX
-    local rightY = listY
-    self.rightX, self.rightW, self.rightY = rightX, rightW, rightY
-    local colW = math.floor((rightW - 20) / 3)
-    local col3X = rightX + 2 * (colW + 10)
-    self.bucket:setX(rightX); self.bucket:setY(rightY + 142); self.bucket:setWidth(colW)
-    self.currency:setX(rightX + colW + 10); self.currency:setY(rightY + 142); self.currency:setWidth(colW)
-    self.amount:setX(col3X); self.amount:setY(rightY + 142); self.amount:setWidth(rightW - 2 * (colW + 10))
-    self.addButton:setX(rightX); self.addButton:setY(rightY + 174); self.addButton:setWidth(colW)
-    self.reduceButton:setX(rightX + colW + 10); self.reduceButton:setY(rightY + 174); self.reduceButton:setWidth(colW)
-    self.setButton:setX(col3X); self.setButton:setY(rightY + 174); self.setButton:setWidth(rightW - 2 * (colW + 10))
-    self.destAccount:setX(rightX); self.destAccount:setY(rightY + 246); self.destAccount:setWidth(rightW)
-    self.fromBucket:setX(rightX); self.fromBucket:setY(rightY + 294); self.fromBucket:setWidth(colW)
-    self.toBucket:setX(rightX + colW + 10); self.toBucket:setY(rightY + 294); self.toBucket:setWidth(colW)
-    self.rerouteAmount:setX(col3X); self.rerouteAmount:setY(rightY + 294); self.rerouteAmount:setWidth(rightW - 2 * (colW + 10))
-    self.rerouteButton:setX(rightX); self.rerouteButton:setY(rightY + 326); self.rerouteButton:setWidth(170)
-    self.deleteButton:setX(rightX); self.deleteButton:setY(rightY + 380); self.deleteButton:setWidth(160)
-    self.openButton:setX(rightX + 170); self.openButton:setY(rightY + 380); self.openButton:setWidth(160)
-    self.serverButton:setX(rightX + 340); self.serverButton:setY(rightY + 380)
-    self.serverButton:setWidth(math.max(120, rightW - 340))
-    self.taxRoute:setX(rightX); self.taxRoute:setY(rightY + 432)
-    self.taxRoute:setWidth(math.max(160, rightW - 160))
-    self.taxRouteButton:setX(rightX + rightW - 150); self.taxRouteButton:setY(rightY + 432)
-    self.taxRouteButton:setWidth(150)
-    self._lastLayoutW, self._lastLayoutH = self.width, self.height
+    local idW = math.max(90, math.floor(leftW * 0.17))
+    local ownerColW = math.max(120, math.floor(leftW * 0.34))
+    self.rowIdX = 12
+    self.rowOwnerX = 12 + idW
+    self.rowTypeX = 12 + idW + ownerColW
+    self.rowPRight = leftW - 14
+    self.rowJRight = self.rowPRight - math.max(100, math.floor(leftW * 0.17))
+
+    local cardX = self.rightX
+    local cardY = 66
+    local cardH = self.maintenanceY - 12 - cardY
+    self.detailX, self.detailY, self.detailW, self.detailH = cardX, cardY, rightW, cardH
+    local detailInnerX = cardX + 14
+    local detailInnerW = rightW - 28
+    self.detailInnerX, self.detailInnerW = detailInnerX, detailInnerW
+    self.detailLabelY = cardY + 14
+    self.detailTitleY = cardY + 32
+    self.detailMetaY = cardY + 54
+    self.balanceLabelY = cardY + 74
+    self.balancePitch = 48
+    self.balanceBoxH = 27
+    local fieldW = math.floor((detailInnerW - 10) / 2)
+    self.fieldW = fieldW
+    self.fieldCol2X = detailInnerX + fieldW + 10
+    self.opLabelY = cardY + 168
+    self.opComboY = cardY + 182
+    self.bucketRowY = cardY + 212
+    self.amountLabelY = cardY + 240
+    self.amountY = cardY + 252
+    self.applyY = cardY + 282
+    self.routeDividerY = cardY + 314
+    self.routeLabelY = cardY + 318
+    self.destY = cardY + 330
+    self.routeRowY = cardY + 360
+    self.rerouteY = cardY + 392
+    self.taxLabelY = cardY + 424
+    self.taxRowY = cardY + 436
+
+    local routeColW = math.floor((detailInnerW - 16) / 3)
+    self.routeColW = routeColW
+    self.operation:setX(detailInnerX)
+    self.operation:setY(self.opComboY)
+    self.operation:setWidth(detailInnerW)
+    self.operation:setHeight(24)
+    self.bucket:setX(detailInnerX)
+    self.bucket:setY(self.bucketRowY)
+    self.bucket:setWidth(fieldW)
+    self.bucket:setHeight(24)
+    self.currency:setX(self.fieldCol2X)
+    self.currency:setY(self.bucketRowY)
+    self.currency:setWidth(fieldW)
+    self.currency:setHeight(24)
+    self.amount:setX(detailInnerX)
+    self.amount:setY(self.amountY)
+    self.amount:setWidth(detailInnerW)
+    self.amount:setHeight(24)
+    self.applyButton:setX(detailInnerX)
+    self.applyButton:setY(self.applyY)
+    self.applyButton:setWidth(detailInnerW)
+    self.applyButton:setHeight(26)
+    self.destAccount:setX(detailInnerX)
+    self.destAccount:setY(self.destY)
+    self.destAccount:setWidth(detailInnerW)
+    self.destAccount:setHeight(24)
+    self.fromBucket:setX(detailInnerX)
+    self.fromBucket:setY(self.routeRowY)
+    self.fromBucket:setWidth(routeColW)
+    self.fromBucket:setHeight(24)
+    self.toBucket:setX(detailInnerX + routeColW + 8)
+    self.toBucket:setY(self.routeRowY)
+    self.toBucket:setWidth(routeColW)
+    self.toBucket:setHeight(24)
+    self.rerouteAmount:setX(detailInnerX + 2 * (routeColW + 8))
+    self.rerouteAmount:setY(self.routeRowY)
+    self.rerouteAmount:setWidth(math.max(60, detailInnerW - 2 * (routeColW + 8)))
+    self.rerouteAmount:setHeight(24)
+    self.rerouteButton:setX(detailInnerX)
+    self.rerouteButton:setY(self.rerouteY)
+    self.rerouteButton:setWidth(detailInnerW)
+    self.rerouteButton:setHeight(26)
+    self.taxRoute:setX(detailInnerX)
+    self.taxRoute:setY(self.taxRowY)
+    self.taxRoute:setWidth(math.max(100, detailInnerW - 78))
+    self.taxRoute:setHeight(24)
+    self.taxRouteButton:setX(detailInnerX + detailInnerW - 70)
+    self.taxRouteButton:setY(self.taxRowY)
+    self.taxRouteButton:setWidth(70)
+    self.taxRouteButton:setHeight(24)
+
+    self.tablesButton:setX(cardX + rightW - 14 - 64)
+    self.tablesButton:setY(cardY + 8)
+    self.tablesButton:setWidth(64)
+    self.tablesButton:setHeight(20)
+    self.serverButton:setX(cardX + rightW - 14 - 64 - 6 - 64)
+    self.serverButton:setY(cardY + 8)
+    self.serverButton:setWidth(64)
+    self.serverButton:setHeight(20)
+
+    local buttonW, gap = 118, 8
+    local buttonX = w - 15 - buttonW
+    local buttonY = self.maintenanceY + 29
+    self.deleteButton:setX(buttonX)
+    self.deleteButton:setY(buttonY)
+    self.deleteButton:setWidth(buttonW)
+    self.deleteButton:setHeight(28)
+    buttonX = buttonX - gap - buttonW
+    self.purgeButton:setX(buttonX)
+    self.purgeButton:setY(buttonY)
+    self.purgeButton:setWidth(buttonW)
+    self.purgeButton:setHeight(28)
+    buttonX = buttonX - gap - buttonW
+    self.rebuildButton:setX(buttonX)
+    self.rebuildButton:setY(buttonY)
+    self.rebuildButton:setWidth(buttonW)
+    self.rebuildButton:setHeight(28)
+    buttonX = buttonX - gap - buttonW
+    self.syncButton:setX(buttonX)
+    self.syncButton:setY(buttonY)
+    self.syncButton:setWidth(buttonW)
+    self.syncButton:setHeight(28)
+    self.maintenanceTextRight = buttonX - 16
+
+    self.lastWidth, self.lastHeight = w, h
+end
+
+function ParadiseEconomy.AdminPanel:setCreateOpen(open)
+    self.createOpen = open == true
+    for _, widget in ipairs({ self.newType, self.newOwner, self.newZone, self.newName,
+        self.createConfirmButton, self.createCancelButton }) do
+        widget:setVisible(self.createOpen)
+    end
+    if self.createButton then
+        self.createButton:setTitle(self.createOpen and "CANCEL CREATE" or "CREATE ACCOUNT")
+    end
+    if self.accounts then self:layout() end
+end
+
+function ParadiseEconomy.AdminPanel:toggleCreate()
+    self:setCreateOpen(not self.createOpen)
+end
+
+function ParadiseEconomy.AdminPanel:closeCreate()
+    self:setCreateOpen(false)
 end
 
 function ParadiseEconomy.AdminPanel:update()
@@ -2959,7 +3970,7 @@ function ParadiseEconomy.AdminPanel:update()
         if ParadiseEconomy.AdminPanel.ClosePanel then ParadiseEconomy.AdminPanel.ClosePanel() end
         return
     end
-    if self._lastLayoutW ~= self.width or self._lastLayoutH ~= self.height then
+    if self.lastWidth ~= self.width or self.lastHeight ~= self.height then
         self:layout()
     end
     self:refreshButtons()
@@ -3050,6 +4061,9 @@ function ParadiseEconomy.AdminPanel:createAccount()
         zoneId = zoneId,
         name = self.newName:getInternalText(),
     })
+    self.newOwner:setText("")
+    self.newName:setText("")
+    self:closeCreate()
 end
 
 function ParadiseEconomy.AdminPanel:refreshDestAccounts()
@@ -3082,8 +4096,11 @@ function ParadiseEconomy.AdminPanel:refreshSelection(force)
     self:fillBucketCombo(self.bucket, account)
     self:fillBucketCombo(self.fromBucket, account)
     self:fillBucketCombo(self.toBucket, self:getDestAccount())
-    if self.taxRoute and (force or not self.taxRoute:isFocused()) then
-        self.taxRoute:setText(account and account.type == "merchant" and tostring(account.taxRoute or "") or "")
+    local isMerchant = account ~= nil and account.type == "merchant"
+    self.taxRoute:setVisible(isMerchant)
+    self.taxRouteButton:setVisible(isMerchant)
+    if isMerchant and (force or not self.taxRoute:isFocused()) then
+        self.taxRoute:setText(tostring(account.taxRoute or ""))
     end
     self:refreshButtons()
 end
@@ -3094,15 +4111,13 @@ function ParadiseEconomy.AdminPanel:refreshButtons()
     local amount = self.amount and self.amount:getInternalText() or ""
     local validAmount = amount:match("^%d+$") ~= nil and tonumber(amount) > 0
     local validSetAmount = amount:match("^%d+$") ~= nil
-    local rerouteAmount = self.rerouteAmount and self.rerouteAmount:getInternalText() or ""
-    self.addButton:setEnable(hasAccount and validAmount)
-    self.reduceButton:setEnable(hasAccount and validAmount)
-    self.setButton:setEnable(hasAccount and validSetAmount)
+    local operation = self.operation.selected or 1
+    self.applyButton:setEnable(hasAccount and (operation == 3 and validSetAmount or validAmount))
     local dest = self:getDestAccount()
+    local rerouteAmount = self.rerouteAmount and self.rerouteAmount:getInternalText() or ""
     self.rerouteButton:setEnable(hasAccount and dest ~= nil and dest.id ~= account.id
         and rerouteAmount:match("^%d+$") ~= nil and tonumber(rerouteAmount) > 0)
     self.deleteButton:setEnable(hasAccount and account.id ~= ParadiseEconomy.serverAccountId)
-    self.openButton:setEnable(hasAccount)
     local taxRoute = self.taxRoute and self.taxRoute:getInternalText() or ""
     self.taxRouteButton:setEnable(hasAccount and account.type == "merchant" and taxRoute ~= "")
 end
@@ -3117,8 +4132,10 @@ function ParadiseEconomy.AdminPanel:refresh()
     self.accountMap = {}
     local filter = self:getFilterKey()
     local search = string.lower(self.search:getInternalText() or "")
+    local allAccounts = ParadiseEconomy.getAccountsList()
+    self.search:setPlaceholderText("Search " .. ParadiseEconomy.formatNumber(#allAccounts) .. " accounts...")
     local found = false
-    for _, account in ipairs(ParadiseEconomy.getAccountsList()) do
+    for _, account in ipairs(allAccounts) do
         self.accountMap[account.id] = account
         local typeMatch = filter == "all" or account.type == filter
         local text = string.lower(tostring(account.id or "") .. " " .. tostring(account.owner or "") .. " "
@@ -3163,6 +4180,10 @@ function ParadiseEconomy.AdminPanel:syncZones()
     ParadiseEconomy.send("adminSyncZones")
 end
 
+function ParadiseEconomy.AdminPanel:rebuildIndex()
+    ParadiseEconomy.send("adminRebuildIndex")
+end
+
 function ParadiseEconomy.AdminPanel:setTaxRoute()
     local account = self:getSelectedAccount()
     if not account or account.type ~= "merchant" then return end
@@ -3172,15 +4193,21 @@ function ParadiseEconomy.AdminPanel:setTaxRoute()
     })
 end
 
-function ParadiseEconomy.AdminPanel:adjust(button)
+function ParadiseEconomy.AdminPanel:applyOperation()
     local account = self:getSelectedAccount()
     if not account then return end
+    local operation = "add"
+    if self.operation.selected == 2 then
+        operation = "remove"
+    elseif self.operation.selected == 3 then
+        operation = "set"
+    end
     ParadiseEconomy.send("adminAdjust", {
         accountId = account.id,
         bucket = self.bucket.bucketKeys[self.bucket.selected],
         currency = self.currency.options[self.currency.selected],
         amount = self.amount:getInternalText(),
-        operation = button.internal,
+        operation = operation,
     })
 end
 
@@ -3249,7 +4276,7 @@ function ParadiseEconomy.AdminPanel:selectServer()
     self.targetUsername = nil
     self.selectedAccountId = ParadiseEconomy.serverAccountId
     if self.search then self.search:setText("") end
-    self:setTitle("Paradise Economy - Admin Accounts")
+    self:setTitle("Economy Administration")
     self:refresh()
 end
 
@@ -3273,77 +4300,177 @@ function ParadiseEconomy.AdminPanel:setTargetUsername(targetUser)
         if self.search then self.search:setText("") end
     end
     if not self.search then return end
-    self:setTitle(self.targetUsername and "Paradise Economy - Admin: " .. self.targetUsername or "Paradise Economy - Admin Accounts")
+    self:setTitle(self.targetUsername and "Economy Administration - Admin: " .. self.targetUsername or "Economy Administration")
     self:refresh()
 end
 
+function ParadiseEconomy.AdminPanel.drawCoinValue(panel, rightX, y, amount, color, icon)
+    local text = ParadiseEconomy.formatNumber(amount)
+    local textW = getTextManager():MeasureStringX(UIFont.Small, text)
+    if icon then panel:drawTextureScaled(icon, rightX - textW - 19, y - 1, 14, 14, 1) end
+    panel:drawText(text, rightX - textW, y, color.r, color.g, color.b, 1, UIFont.Small)
+end
+
+function ParadiseEconomy.AdminPanel.drawCoinHeader(panel, rightX, y, icon)
+    local label = "BALANCE"
+    local textW = getTextManager():MeasureStringX(UIFont.Small, label)
+    local theme = ParadiseEconomy.Theme
+    if icon then panel:drawTextureScaled(icon, rightX - textW - 18, y - 1, 12, 12, 1) end
+    panel:drawText(label, rightX - textW, y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+end
+
 function ParadiseEconomy.AdminPanel:drawAccount(y, item, alt)
-    if self.selected == item.index then
-        self:drawRect(0, y, self.width, self.itemheight, 0.32, 0.70, 0.35, 0.16)
-    elseif alt then
-        self:drawRect(0, y, self.width, self.itemheight, 0.13, 0.30, 0.32, 0.32)
-    end
-    self:drawRectBorder(0, y, self.width, self.itemheight, 0.45, 0.30, 0.35, 0.45)
     local account = item.item
-    local typeLabel = ParadiseEconomy.accountTypeLabels[account.type] or account.type or "?"
-    local zoneLabel = account.zoneName or account.zoneId or account.owner or account.name or "-"
-    self:drawText(ParadiseEconomy.getAccountLabel(account), self.columns[1].size + 10, y + 4, 1, 1, 1, 0.95, self.font)
-    self:drawText(typeLabel, self.columns[2].size + 10, y + 4, 0.75, 0.9, 1, 0.95, self.font)
-    self:drawText(tostring(zoneLabel), self.columns[3].size + 10, y + 4, 0.8, 0.8, 0.8, 0.95, self.font)
-    self:drawText(ParadiseEconomy.formatAccountBalances(account), self.columns[4].size + 10, y + 4, 1, 0.85, 0.25, 0.95, self.font)
-    return y + self.itemheight
+    local theme = ParadiseEconomy.Theme
+    local selected = self.selected == item.index
+    local rowH = self.itemheight
+    if selected then
+        self:drawRect(0, y, self.width, rowH - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
+        self:drawRectBorder(0, y, self.width, rowH - 1, 0.9, theme.gold.r, theme.gold.g, theme.gold.b)
+        self:drawRect(0, y, 3, rowH - 1, 1, theme.gold.r, theme.gold.g, theme.gold.b)
+    elseif alt then
+        self:drawRect(0, y, self.width, rowH - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
+    end
+    self:drawRect(0, y + rowH - 1, self.width, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+
+    self:drawText(tostring(account.id or "?"), self.rowIdX, y + 17,
+        theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
+    local title = tostring(account.title or account.owner or account.name or account.id or "?")
+    self:drawText(ParadiseEconomy.fitText(title, math.max(60, self.rowTypeX - 14 - self.rowOwnerX), UIFont.Medium),
+        self.rowOwnerX, y + 14, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
+    local typeLabel, typeColor = ParadiseEconomy.getAccountTypeStyle(account.type)
+    local chipW = getTextManager():MeasureStringX(UIFont.Small, typeLabel) + 16
+    self:drawRect(self.rowTypeX, y + 15, chipW, 18, 0.16, typeColor.r, typeColor.g, typeColor.b)
+    self:drawRectBorder(self.rowTypeX, y + 15, chipW, 18, 0.6, typeColor.r, typeColor.g, typeColor.b)
+    self:drawText(typeLabel, self.rowTypeX + 8, y + 17, typeColor.r, typeColor.g, typeColor.b, 1, UIFont.Small)
+
+    local buckets = ParadiseEconomy.getAccountBuckets(account)
+    local bucket = buckets[1] and account[buckets[1].key] or nil
+    ParadiseEconomy.AdminPanel.drawCoinValue(self, self.rowJRight, y + 17,
+        ParadiseEconomy.getBalance(bucket, "jimoleon"), theme.gold, ParadiseEconomy.icons.jimoleon)
+    ParadiseEconomy.AdminPanel.drawCoinValue(self, self.rowPRight, y + 17,
+        ParadiseEconomy.getBalance(bucket, "paradisium"), theme.accent, ParadiseEconomy.icons.paradisium)
+    return y + rowH
 end
 
 function ParadiseEconomy.AdminPanel:prerender()
     ISCollapsableWindow.prerender(self)
-    local rightX = self.rightX or 500
-    local rightY = self.rightY or 150
-    local rightW = self.rightW or 400
-    local account = self:getSelectedAccount()
-    self:drawText("Account directory (" .. tostring(#(self.accounts.items or {})) .. ")",
-        15, self.headerY or 30, 0.7, 0.9, 1, 1, UIFont.Small)
-    self:drawText("New Account:", 13, self.newAccountLabelY or 60, 0.7, 0.9, 1, 1, UIFont.Small)
+    local theme = ParadiseEconomy.Theme
+    local w = self.width
+    ParadiseEconomy.drawPanelHeader(self, "ACCOUNT DIRECTORY  ·  BALANCES, LEDGER AND SYSTEM TOOLS", "10", "ADMIN")
 
-    self:drawText("Selected account", rightX, rightY, 0.7, 0.9, 1, 1, UIFont.Small)
-    if account then
-        self:drawText(ParadiseEconomy.getAccountLabel(account), rightX, rightY + 16, 1, 1, 1, 1, UIFont.Small)
-        self:drawText(tostring(account.id), rightX, rightY + 32, 0.75, 0.9, 1, 1, UIFont.Small)
-        local owner = "Owner: " .. tostring(account.owner or account.name or "-")
-        if account.zoneId then owner = owner .. " | Zone: " .. tostring(account.zoneName or account.zoneId) end
-        if account.tradeId then owner = owner .. " | Trade ID: " .. tostring(account.tradeId) end
-        if account.taxRoute then owner = owner .. " | Tax route: " .. tostring(account.taxRoute) end
-        if account.archived then owner = owner .. " | Archived" end
-        self:drawText(owner, rightX, rightY + 48, 0.8, 0.8, 0.8, 1, UIFont.Small)
-        self:drawText(ParadiseEconomy.formatAccountBalances(account), rightX, rightY + 64, 1, 0.85, 0.25, 1, UIFont.Small)
-        if account.type == "trade" then
-            local detail = "Tax: " .. string.format("%g", ParadiseEconomy.getTradeTaxPercent(account)) .. "% | Mart items: "
-                .. tostring(#(account.itemMart or {})) .. " | Title: " .. tostring(account.title or "-")
-            self:drawText(detail, rightX, rightY + 80, 0.75, 0.85, 0.9, 1, UIFont.Small)
-        elseif account.type == "merchant" then
-            self:drawText("Listings: " .. tostring(#(account.listings or {})) .. " | Title: "
-                .. tostring(account.title or "-"), rightX, rightY + 80, 0.75, 0.85, 0.9, 1, UIFont.Small)
-        elseif account.type == "personal" then
-            self:drawText("Title: " .. tostring(account.title or account.owner or "-"), rightX, rightY + 80, 0.75, 0.85, 0.9, 1, UIFont.Small)
-        end
-    else
-        self:drawText("Select an account from the directory.", rightX, rightY + 16, 0.8, 0.8, 0.8, 1, UIFont.Small)
+    if self.createOpen then
+        ParadiseEconomy.drawCard(self, 15, self.createRowY, self.leftW, self.createRowH, theme.accentDim)
+        self:drawText("NEW ACCOUNT", 27, self.createRowY + 8,
+            theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
+        ParadiseEconomy.drawAdminChip(self,
+            27 + getTextManager():MeasureStringX(UIFont.Small, "NEW ACCOUNT") + 8, self.createRowY + 7)
+        self:drawTextRight("Type · owner · zone · name", 15 + self.leftW - 14, self.createRowY + 8,
+            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     end
 
-    self:drawText("Adjust balance", rightX, rightY + 108, 0.7, 0.9, 1, 1, UIFont.Small)
-    local colW = math.floor((rightW - 20) / 3)
-    self:drawText("Bucket", rightX, rightY + 126, 0.7, 0.75, 0.8, 1, UIFont.Small)
-    self:drawText("Currency", rightX + colW + 10, rightY + 126, 0.7, 0.75, 0.8, 1, UIFont.Small)
-    self:drawText("Amount", rightX + 2 * (colW + 10), rightY + 126, 0.7, 0.75, 0.8, 1, UIFont.Small)
-    self:drawText("Reroute funds", rightX, rightY + 212, 0.7, 0.9, 1, 1, UIFont.Small)
-    self:drawText("Destination account", rightX, rightY + 230, 0.7, 0.75, 0.8, 1, UIFont.Small)
-    self:drawText("From bucket", rightX, rightY + 278, 0.7, 0.75, 0.8, 1, UIFont.Small)
-    self:drawText("To bucket", rightX + colW + 10, rightY + 278, 0.7, 0.75, 0.8, 1, UIFont.Small)
-    self:drawText("Amount", rightX + 2 * (colW + 10), rightY + 278, 0.7, 0.75, 0.8, 1, UIFont.Small)
-    self:drawText("Account tools", rightX, rightY + 362, 0.7, 0.9, 1, 1, UIFont.Small)
-    self:drawText("Merchant tax route (account ID)", rightX, rightY + 414, 0.7, 0.75, 0.8, 1, UIFont.Small)
+    local listX = self.accounts:getX()
+    local headerY = self.listHeaderY
+    self:drawRect(15, headerY, self.leftW, 24, theme.headerBg.a, theme.headerBg.r, theme.headerBg.g, theme.headerBg.b)
+    self:drawRect(15, headerY + 24, self.leftW, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+    self:drawText("ACCOUNT ID", listX + self.rowIdX, headerY + 7,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("OWNER / TITLE", listX + self.rowOwnerX, headerY + 7,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("TYPE", listX + self.rowTypeX, headerY + 7,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    ParadiseEconomy.AdminPanel.drawCoinHeader(self, listX + self.rowJRight, headerY + 7,
+        ParadiseEconomy.icons.jimoleon)
+    ParadiseEconomy.AdminPanel.drawCoinHeader(self, listX + self.rowPRight, headerY + 7,
+        ParadiseEconomy.icons.paradisium)
+    if #self.accounts.items == 0 then
+        self:drawTextCentre("No accounts match this filter.", listX + leftW / 2, self.listY + 40,
+            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    end
+
+    ParadiseEconomy.drawCard(self, self.detailX, self.detailY, self.detailW, self.detailH, theme.accentDim)
+    self:drawText("SELECTED ACCOUNT", self.detailInnerX, self.detailLabelY,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    local account = self:getSelectedAccount()
+    if account then
+        local line = tostring(account.id or "?") .. " / "
+            .. tostring(account.title or account.owner or account.name or "?")
+        self:drawText(ParadiseEconomy.fitText(line, self.detailInnerW, UIFont.Medium), self.detailInnerX, self.detailTitleY,
+            theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
+        local meta = "Owner: " .. tostring(account.owner or account.name or "-")
+        if account.zoneName or account.zoneId then
+            meta = meta .. "  ·  Zone: " .. tostring(account.zoneName or account.zoneId)
+        end
+        if account.taxRoute then meta = meta .. "  ·  Tax: " .. tostring(account.taxRoute) end
+        self:drawText(ParadiseEconomy.fitText(meta, self.detailInnerW, UIFont.Small), self.detailInnerX, self.detailMetaY,
+            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+
+        local buckets = ParadiseEconomy.getAccountBuckets(account)
+        for index = 1, math.min(#buckets, 2) do
+            local entry = buckets[index]
+            local tab = account[entry.key]
+            local rowY = self.balanceLabelY + (index - 1) * self.balancePitch
+            local label = string.upper(tostring(entry.label))
+            self:drawText("JIMOLEON " .. label, self.detailInnerX, rowY,
+                theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+            self:drawText("PARADISIUM " .. label, self.fieldCol2X, rowY,
+                theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+            local boxY = rowY + 13
+            self:drawRect(self.detailInnerX, boxY, self.fieldW, self.balanceBoxH,
+                theme.entryBg.a, theme.entryBg.r, theme.entryBg.g, theme.entryBg.b)
+            self:drawRectBorder(self.detailInnerX, boxY, self.fieldW, self.balanceBoxH,
+                theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+            self:drawText(ParadiseEconomy.formatNumber(ParadiseEconomy.getBalance(tab, "jimoleon")),
+                self.detailInnerX + 8, boxY + 7, theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
+            self:drawRect(self.fieldCol2X, boxY, self.fieldW, self.balanceBoxH,
+                theme.entryBg.a, theme.entryBg.r, theme.entryBg.g, theme.entryBg.b)
+            self:drawRectBorder(self.fieldCol2X, boxY, self.fieldW, self.balanceBoxH,
+                theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+            self:drawText(ParadiseEconomy.formatNumber(ParadiseEconomy.getBalance(tab, "paradisium")),
+                self.fieldCol2X + 8, boxY + 7, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
+        end
+    else
+        self:drawText("Select an account from the directory.", self.detailInnerX, self.detailTitleY,
+            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    end
+
+    self:drawText("OPERATION", self.detailInnerX, self.opLabelY,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    ParadiseEconomy.drawAdminChip(self,
+        self.detailInnerX + getTextManager():MeasureStringX(UIFont.Small, "OPERATION") + 8, self.opLabelY - 1)
+    self:drawText("AMOUNT", self.detailInnerX, self.amountLabelY,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawRect(self.detailInnerX, self.routeDividerY, self.detailInnerW, 1,
+        theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+    self:drawText("ROUTE TO", self.detailInnerX, self.routeLabelY,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    ParadiseEconomy.drawAdminChip(self,
+        self.detailInnerX + getTextManager():MeasureStringX(UIFont.Small, "ROUTE TO") + 8, self.routeLabelY - 1)
+    if account and account.type == "merchant" then
+        self:drawText("TAX ROUTE ACCOUNT ID", self.detailInnerX, self.taxLabelY,
+            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+        ParadiseEconomy.drawAdminChip(self,
+            self.detailInnerX + getTextManager():MeasureStringX(UIFont.Small, "TAX ROUTE ACCOUNT ID") + 8,
+            self.taxLabelY - 1)
+    end
+
+    self:drawRect(15, self.maintenanceY, w - 30, self.maintenanceH, 0.55, 0.20, 0.07, 0.05)
+    self:drawRectBorder(15, self.maintenanceY, w - 30, self.maintenanceH, 0.55,
+        theme.danger.r, theme.danger.g, theme.danger.b)
+    self:drawRect(15, self.maintenanceY, 3, self.maintenanceH, 0.9,
+        theme.danger.r, theme.danger.g, theme.danger.b)
+    self:drawText("SYSTEM MAINTENANCE", 29, self.maintenanceY + 14,
+        theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
+    ParadiseEconomy.drawAdminChip(self,
+        29 + getTextManager():MeasureStringX(UIFont.Medium, "SYSTEM MAINTENANCE") + 10, self.maintenanceY + 14)
+    local subtitle = "High-impact actions require confirmation and are written to the audit ledger."
+    self:drawText(ParadiseEconomy.fitText(subtitle, math.max(120, self.maintenanceTextRight - 29), UIFont.Small),
+        29, self.maintenanceY + 40, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+
     local message = self.pendingMessage or ParadiseEconomy.clientState.message
     if message then
-        self:drawTextRight(tostring(message), self.width - 15, self.headerY or 30, 1, 0.9, 0.55, 1, UIFont.Small)
+        self:drawTextRight(ParadiseEconomy.fitText(tostring(message), math.max(160, w - 450), UIFont.Small),
+            w - 80, 29, theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
     end
 end
 
@@ -3707,138 +4834,155 @@ end
 function ParadiseEconomy.MartAdminView:createChildren()
     ISPanel.createChildren(self)
 
-    self.zone = ISComboBox:new(15, 14, 300, 25, self, ParadiseEconomy.MartAdminView.onZoneChanged)
-    self.zone:initialise()
-    self:addChild(self.zone)
-    self.titleEntry = ISTextEntryBox:new("", 325, 14, 275, 25)
+    self.titleEntry = ISTextEntryBox:new("", 29, 64, 300, 24)
     self.titleEntry.tooltip = "Trade account title"
     self.titleEntry:initialise()
     self.titleEntry:instantiate()
+    self.titleEntry:setPlaceholderText("Trade account title...")
     self:addChild(self.titleEntry)
-    self.renameButton = ISButton:new(610, 14, 135, 25, "Rename Trade", self, ParadiseEconomy.MartAdminView.renameTrade)
-    self.renameButton:initialise()
-    self:addChild(self.renameButton)
+    self.ownerEntry = ISTextEntryBox:new("", 400, 64, 300, 24)
+    self.ownerEntry.tooltip = "Trade account owner username"
+    self.ownerEntry:initialise()
+    self.ownerEntry:instantiate()
+    self.ownerEntry:setPlaceholderText("Owner username...")
+    self:addChild(self.ownerEntry)
+    self.saveDetailsButton = ISButton:new(700, 64, 150, 24, "SAVE DETAILS", self, ParadiseEconomy.MartAdminView.saveDetails)
+    self.saveDetailsButton:initialise()
+    self:addChild(self.saveDetailsButton)
 
-    self.taxEntry = ISTextEntryBox:new("", 15, 58, 80, 25)
+    self.taxEntry = ISTextEntryBox:new("", 29, 110, 110, 24)
     self.taxEntry.tooltip = "Trade tax percent (0-100)"
     self.taxEntry:initialise()
     self.taxEntry:instantiate()
     self.taxEntry:setOnlyNumbers(true)
+    self.taxEntry:setPlaceholderText("0")
     self:addChild(self.taxEntry)
-    self.setTaxButton = ISButton:new(103, 58, 90, 25, "Set Tax", self, ParadiseEconomy.MartAdminView.setTax)
-    self.setTaxButton:initialise()
-    self:addChild(self.setTaxButton)
-    self.withdrawCurrency = ISComboBox:new(205, 58, 115, 25, self)
+
+    self.withdrawCurrency = ISComboBox:new(29, 172, 110, 24, self)
     self.withdrawCurrency:initialise()
     self.withdrawCurrency:addOption("jimoleon")
     self.withdrawCurrency:addOption("paradisium")
     self:addChild(self.withdrawCurrency)
-    self.withdrawAmount = ISTextEntryBox:new("", 328, 58, 95, 25)
+    self.withdrawAmount = ISTextEntryBox:new("", 147, 172, 110, 24)
     self.withdrawAmount:initialise()
     self.withdrawAmount:instantiate()
     self.withdrawAmount:setOnlyNumbers(true)
+    self.withdrawAmount:setPlaceholderText("Amount")
     self:addChild(self.withdrawAmount)
-    self.withdrawButton = ISButton:new(431, 58, 110, 25, "Withdraw", self, ParadiseEconomy.MartAdminView.withdraw)
+    self.withdrawButton = ISButton:new(265, 172, 110, 24, "WITHDRAW", self, ParadiseEconomy.MartAdminView.withdraw)
     self.withdrawButton:initialise()
     self:addChild(self.withdrawButton)
-    self.transferCurrency = ISComboBox:new(549, 58, 110, 25, self)
+
+    self.transferCurrency = ISComboBox:new(414, 172, 110, 24, self)
     self.transferCurrency:initialise()
     self.transferCurrency:addOption("jimoleon")
     self.transferCurrency:addOption("paradisium")
     self:addChild(self.transferCurrency)
-    self.transferAmount = ISTextEntryBox:new("", 667, 58, 78, 25)
+    self.transferAmount = ISTextEntryBox:new("", 532, 172, 100, 24)
     self.transferAmount:initialise()
     self.transferAmount:instantiate()
     self.transferAmount:setOnlyNumbers(true)
+    self.transferAmount:setPlaceholderText("Amount")
     self:addChild(self.transferAmount)
-
-    self.transferTarget = ISTextEntryBox:new("", 15, 100, 210, 25)
+    self.transferTarget = ISTextEntryBox:new("", 640, 172, 200, 24)
     self.transferTarget.tooltip = "Username of the player account receiving the transfer"
     self.transferTarget:initialise()
     self.transferTarget:instantiate()
+    self.transferTarget:setPlaceholderText("Username...")
     self:addChild(self.transferTarget)
-    self.transferButton = ISButton:new(233, 100, 110, 25, "Transfer", self, ParadiseEconomy.MartAdminView.transfer)
+    self.transferButton = ISButton:new(850, 172, 110, 24, "TRANSFER", self, ParadiseEconomy.MartAdminView.transfer)
     self.transferButton:initialise()
     self:addChild(self.transferButton)
-    self.ownerEntry = ISTextEntryBox:new("", 355, 100, 200, 25)
-    self.ownerEntry.tooltip = "Trade account owner username"
-    self.ownerEntry:initialise()
-    self.ownerEntry:instantiate()
-    self:addChild(self.ownerEntry)
-    self.ownerButton = ISButton:new(563, 100, 90, 25, "Set Owner", self, ParadiseEconomy.MartAdminView.setOwner)
-    self.ownerButton:initialise()
-    self:addChild(self.ownerButton)
 
-    self.itemSearch = ISTextEntryBox:new("", 15, 138, 225, 25)
+    self.addEntryButton = ISButton:new(850, 222, 120, 22, "+ ADD ENTRY", self, ParadiseEconomy.MartAdminView.addEntry)
+    self.addEntryButton.tooltip = "Clear the editor and focus the item type field"
+    self.addEntryButton:initialise()
+    self:addChild(self.addEntryButton)
+
+    self.itemSearch = ISTextEntryBox:new("", 29, 254, 200, 22)
     self.itemSearch.target = self
     self.itemSearch.onTextChangeFunction = ParadiseEconomy.MartAdminView.onItemSearchChanged
     self.itemSearch:initialise()
     self.itemSearch:instantiate()
+    self.itemSearch:setPlaceholderText("Search item script or name...")
     self:addChild(self.itemSearch)
-    self.itemFilterButton = ISButton:new(248, 138, 70, 25, "Find", self, ParadiseEconomy.MartAdminView.refreshItems)
+    self.itemFilterButton = ISButton:new(234, 254, 56, 22, "Find", self, ParadiseEconomy.MartAdminView.refreshItems)
     self.itemFilterButton:initialise()
     self:addChild(self.itemFilterButton)
-    self.items = ISScrollingListBox:new(15, 166, 300, 200)
+    self.items = ISScrollingListBox:new(29, 282, 290, 160)
     self.items:initialise()
-    self.items.itemheight = 20
+    self.items.itemheight = 22
     self.items.font = UIFont.Small
     self.items.doDrawItem = ParadiseEconomy.MartAdminView.drawItem
     self.items:setOnMouseDownFunction(self, ParadiseEconomy.MartAdminView.selectItem)
     self:addChild(self.items)
 
-    self.listingSearch = ISTextEntryBox:new("", 325, 138, 250, 25)
+    self.listingSearch = ISTextEntryBox:new("", 335, 254, 220, 22)
     self.listingSearch.target = self
     self.listingSearch.onTextChangeFunction = ParadiseEconomy.MartAdminView.onListingSearchChanged
     self.listingSearch:initialise()
     self.listingSearch:instantiate()
+    self.listingSearch:setPlaceholderText("Search mart listings...")
     self:addChild(self.listingSearch)
-    self.listingFilterButton = ISButton:new(583, 138, 70, 25, "Search", self, ParadiseEconomy.MartAdminView.refreshListings)
+    self.listingFilterButton = ISButton:new(560, 254, 60, 22, "Search", self, ParadiseEconomy.MartAdminView.refreshListings)
     self.listingFilterButton:initialise()
     self:addChild(self.listingFilterButton)
-    self.listings = ISScrollingListBox:new(325, 166, self.width - 340, 200)
+    self.listings = ISScrollingListBox:new(335, 282, 400, 160)
     self.listings:initialise()
-    self.listings.itemheight = 24
+    self.listings.itemheight = 30
     self.listings.font = UIFont.Small
     self.listings.doDrawItem = ParadiseEconomy.MartAdminView.drawListing
     self.listings:setOnMouseDownFunction(self, ParadiseEconomy.MartAdminView.selectListing)
     self:addChild(self.listings)
 
-    self.category = ISTextEntryBox:new("", 15, 399, 150, 25)
+    self.category = ISTextEntryBox:new("", 29, 484, 120, 24)
     self.category.tooltip = "Mart category"
     self.category:initialise()
     self.category:instantiate()
+    self.category:setPlaceholderText("General")
     self:addChild(self.category)
-    self.fullType = ISTextEntryBox:new("", 173, 399, 300, 25)
+    self.fullType = ISTextEntryBox:new("", 157, 484, 300, 24)
     self.fullType.tooltip = "Item script name"
     self.fullType:initialise()
     self.fullType:instantiate()
+    self.fullType:setPlaceholderText("Base.Item...")
     self:addChild(self.fullType)
-    self.direction = ISComboBox:new(485, 399, 140, 25, self)
+    self.direction = ISComboBox:new(465, 484, 120, 24, self)
     self.direction:initialise()
     self.direction:addOption("Mart Sells")
     self.direction:addOption("Mart Buys")
     self:addChild(self.direction)
-    self.currency = ISComboBox:new(635, 399, 110, 25, self)
+    self.currency = ISComboBox:new(593, 484, 110, 24, self)
     self.currency:initialise()
     self.currency:addOption("jimoleon")
     self.currency:addOption("paradisium")
     self:addChild(self.currency)
-    self.price = ISTextEntryBox:new("", 15, 431, 120, 25)
+    self.price = ISTextEntryBox:new("", 711, 484, 100, 24)
     self.price:initialise()
     self.price:instantiate()
     self.price:setOnlyNumbers(true)
+    self.price:setPlaceholderText("0")
     self:addChild(self.price)
-    self.clearButton = ISButton:new(143, 431, 90, 25, "Clear", self, ParadiseEconomy.MartAdminView.clearEditor)
+    self.clearButton = ISButton:new(29, 516, 80, 24, "CLEAR", self, ParadiseEconomy.MartAdminView.clearEditor)
     self.clearButton:initialise()
     self:addChild(self.clearButton)
-    self.deleteListingButton = ISButton:new(241, 431, 130, 25, "Delete Listing", self, ParadiseEconomy.MartAdminView.deleteListing)
+    self.deleteListingButton = ISButton:new(117, 516, 120, 24, "DELETE ENTRY", self, ParadiseEconomy.MartAdminView.deleteListing)
     self.deleteListingButton:initialise()
     self:addChild(self.deleteListingButton)
-    self.saveButton = ISButton:new(625, 431, 120, 25, "Save Listing", self, ParadiseEconomy.MartAdminView.saveListing)
+    self.saveButton = ISButton:new(750, 516, 150, 24, "SAVE LISTING", self, ParadiseEconomy.MartAdminView.saveListing)
     self.saveButton:initialise()
     self:addChild(self.saveButton)
 
     ParadiseEconomy.styleTree(self)
+    local theme = ParadiseEconomy.Theme
+    self.saveDetailsButton.backgroundColor = theme.gold
+    self.saveDetailsButton.backgroundColorMouseOver = { r = 0.99, g = 0.86, b = 0.45, a = 1 }
+    self.saveDetailsButton.textColor = { r = 0.06, g = 0.07, b = 0.08, a = 1 }
+    self.saveDetailsButton.borderColor = theme.gold
+    self.saveButton.backgroundColor = theme.gold
+    self.saveButton.backgroundColorMouseOver = { r = 0.99, g = 0.86, b = 0.45, a = 1 }
+    self.saveButton.textColor = { r = 0.06, g = 0.07, b = 0.08, a = 1 }
+    self.saveButton.borderColor = theme.gold
     self:refreshItems()
     self:refreshMarket()
     self:layout()
@@ -3892,19 +5036,32 @@ end
 function ParadiseEconomy.MartAdminView:drawListing(y, item, alt)
     local listing = item.item
     local theme = ParadiseEconomy.Theme
-    local action = listing.direction == "sell" and "Mart Buys" or "Mart Sells"
+    local w = self.width
     if self.selected == item.index then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
+        self:drawRect(0, y, w, self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
     elseif alt then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
+        self:drawRect(0, y, w, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
-    self:drawText("[" .. tostring(listing.category or "General") .. "]", 6, y + 5,
-        theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
-    self:drawText(tostring(listing.fullType), 120, y + 5, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
-    self:drawText(action, math.floor(self.width * 0.58), y + 5,
-        theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
-    self:drawTextRight(tostring(listing.price) .. " " .. tostring(listing.currency), self.width - 8, y + 5,
-        theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
+    local name = tostring(listing.fullType or "?")
+    local nameW = math.max(120, math.floor(w * 0.32))
+    self:drawText(ParadiseEconomy.fitText(name, nameW, UIFont.Small), 10, y + 9,
+        theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
+    local tint = ParadiseEconomy.getCategoryColor(listing.category)
+    local chipText = ParadiseEconomy.fitText(tostring(listing.category or "General"), 110, UIFont.Small)
+    local chipW = getTextManager():MeasureStringX(UIFont.Small, chipText) + 14
+    local chipX = 10 + nameW + 14
+    self:drawRect(chipX, y + 6, chipW, 16, 0.16, tint.r, tint.g, tint.b)
+    self:drawRectBorder(chipX, y + 6, chipW, 16, 0.55, tint.r, tint.g, tint.b)
+    self:drawText(chipText, chipX + 7, y + 7, tint.r, tint.g, tint.b, 1, UIFont.Small)
+    local action = listing.direction == "sell" and "MART BUYS" or "MART SELLS"
+    local actionColor = listing.direction == "sell" and theme.gold or theme.accent
+    self:drawText(action, chipX + chipW + 14, y + 9, actionColor.r, actionColor.g, actionColor.b, 1, UIFont.Small)
+    self:drawTextRight("EDIT", w - 10, y + 9, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    local priceText = ParadiseEconomy.formatNumber(listing.price)
+    local priceW = getTextManager():MeasureStringX(UIFont.Small, priceText)
+    self:drawTextRight(priceText, w - 46, y + 9, theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
+    local icon = listing.currency == "paradisium" and ParadiseEconomy.icons.paradisium or ParadiseEconomy.icons.jimoleon
+    if icon then self:drawTextureScaled(icon, w - 64 - priceW, y + 8, 14, 14, 1) end
     return y + self.itemheight
 end
 
@@ -3915,7 +5072,8 @@ function ParadiseEconomy.MartAdminView:drawItem(y, item, alt)
     elseif alt then
         self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
-    self:drawText(tostring(item.text), 6, y + 2, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
+    self:drawText(ParadiseEconomy.fitText(tostring(item.text), self.width - 16, UIFont.Small), 8, y + 4,
+        theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
     return y + self.itemheight
 end
 
@@ -3934,46 +5092,8 @@ function ParadiseEconomy.MartAdminView:setSelectedZone(zoneId)
     self:refreshMarket()
 end
 
-function ParadiseEconomy.MartAdminView.onZoneChanged(target, combo)
-    target.selectedZoneId = combo.zoneIds and combo.zoneIds[combo.selected] or nil
-    target.selectedListingId = nil
-    target:clearEditor()
-    target:refreshMarket()
-    if target.onSelectedZoneChange then target.onSelectedZoneChange(target, target.selectedZoneId) end
-end
-
-function ParadiseEconomy.MartAdminView:refreshZones()
-    if not self.zone then return end
-    local previous = self.selectedZoneId
-    self.zone.zoneIds = {}
-    self.zone:clear()
-    self.zone:setToolTipMap({ defaultTooltip = "Trade account to manage" })
-    self.zone.selected = 0
-    local selectedIndex
-    for _, trade in ipairs(self:getTradeList()) do
-        self.zone:addOption(tostring(trade.title or trade.tradeId or trade.zoneId) .. " | " .. tostring(trade.zoneId))
-        self.zone.zoneIds[#self.zone.zoneIds + 1] = trade.zoneId
-        if trade.zoneId == previous then selectedIndex = #self.zone.zoneIds end
-    end
-    if #self.zone.zoneIds == 0 then
-        self.zone:addOption("No trade accounts")
-        self.zone.selected = 1
-        self.selectedZoneId = nil
-        return
-    end
-    if not selectedIndex then
-        local market = ParadiseEconomy.clientState.market or {}
-        for int, zoneId in ipairs(self.zone.zoneIds) do
-            if zoneId == market.tradeZoneId then selectedIndex = int end
-        end
-    end
-    self.zone.selected = selectedIndex or 1
-    self.selectedZoneId = self.zone.zoneIds[self.zone.selected]
-end
-
 function ParadiseEconomy.MartAdminView:refreshMarket()
-    if not self.zone then return end
-    self:refreshZones()
+    if not self.titleEntry then return end
     local trade = self:getSelectedTrade()
     if trade then
         if not self.titleEntry:isFocused() then self.titleEntry:setText(tostring(trade.title or trade.tradeId or "")) end
@@ -3986,9 +5106,16 @@ function ParadiseEconomy.MartAdminView:refreshMarket()
         self:clearEditor()
     end
     local adminView = self:isAdminView()
-    self.ownerEntry:setVisible(adminView)
-    self.ownerButton:setVisible(adminView)
+    self.ownerEntry:setEditable(adminView)
+    self.ownerEntry.tooltip = adminView and "Trade account owner username" or "Only admins can change the trade owner"
     self:refreshListings()
+end
+
+function ParadiseEconomy.MartAdminView:saveDetails()
+    if not self.selectedZoneId then return end
+    if self.titleEntry:getInternalText() ~= "" then self:renameTrade() end
+    if self.taxEntry:getInternalText():match("^%d+$") then self:setTax() end
+    self:setOwner()
 end
 
 function ParadiseEconomy.MartAdminView:renameTrade()
@@ -4003,7 +5130,9 @@ end
 
 function ParadiseEconomy.MartAdminView:setOwner()
     if not self.selectedZoneId or not self:isAdminView() then return end
-    ParadiseEconomy.send("adminSetTradeOwner", { zoneId = self.selectedZoneId, owner = self.ownerEntry:getInternalText() })
+    local owner = self.ownerEntry:getInternalText()
+    if owner == "" then return end
+    ParadiseEconomy.send("adminSetTradeOwner", { zoneId = self.selectedZoneId, owner = owner })
 end
 
 function ParadiseEconomy.MartAdminView:withdraw()
@@ -4089,6 +5218,11 @@ function ParadiseEconomy.MartAdminView.onDeleteListingConfirmed(target, button, 
     end
 end
 
+function ParadiseEconomy.MartAdminView:addEntry()
+    self:clearEditor()
+    if self.fullType then self.fullType:focus() end
+end
+
 function ParadiseEconomy.MartAdminView:clearEditor()
     self.selectedListingId = nil
     self.category:setText("")
@@ -4122,42 +5256,169 @@ end
 
 function ParadiseEconomy.MartAdminView:layout()
     if not self.items then return end
-    local contentW = self.width - 30
-    local listY = 166
-    local listH = math.max(70, self.height - listY - 158)
-    self.listY, self.listH = listY, listH
-    self.items:setWidth(300)
-    self.items:setHeight(listH)
-    self.items:setY(listY)
-    self.listings:setX(325)
-    self.listings:setY(listY)
-    self.listings:setWidth(math.max(300, contentW - 310))
-    self.listings:setHeight(listH)
-    self.listingSearch:setWidth(math.max(120, contentW - 310 - 75))
-    self.listingFilterButton:setX(325 + math.max(120, contentW - 310 - 75) + 5)
+    local w, h = self.width, self.height
 
-    self.editorLabelY = listY + listH + 8
-    local fieldY = self.editorLabelY + 16
-    local buttonY = fieldY + 32
-    self.editorFieldY, self.editorButtonY = fieldY, buttonY
-    self.fullType:setX(173)
-    self.fullType:setWidth(math.max(160, self.width - 173 - 15 - 110 - 140 - 20))
-    self.direction:setX(self.width - 15 - 110 - 10 - 140)
-    self.direction:setY(fieldY)
-    self.direction:setWidth(140)
-    self.currency:setX(self.width - 15 - 110)
-    self.currency:setY(fieldY)
-    self.currency:setWidth(110)
-    self.category:setY(fieldY)
-    self.fullType:setY(fieldY)
-    self.price:setY(buttonY)
-    self.clearButton:setY(buttonY)
-    self.deleteListingButton:setY(buttonY)
-    self.saveButton:setX(self.width - 15 - 120)
-    self.saveButton:setY(buttonY)
-    self.messageY = self.height - 24
-    self.lastWidth = self.width
-    self.lastHeight = self.height
+    self.accountCardY = 42
+    self.accountCardH = 104
+    self.accountLabelY = self.accountCardY + 8
+    self.accountFieldY = self.accountCardY + 22
+    self.accountLabel2Y = self.accountCardY + 54
+    self.accountField2Y = self.accountCardY + 68
+
+    local saveW = 150
+    local gap = 16
+    local titleW = math.max(140, math.floor((w - 29 - saveW - 12 - 29 - gap) / 2))
+    local ownerX = 29 + titleW + gap
+    self.titleW = titleW
+    self.ownerX = ownerX
+    self.saveX = w - 29 - saveW
+    self.titleEntry:setX(29)
+    self.titleEntry:setY(self.accountFieldY)
+    self.titleEntry:setWidth(titleW)
+    self.titleEntry:setHeight(24)
+    self.ownerEntry:setX(ownerX)
+    self.ownerEntry:setY(self.accountFieldY)
+    self.ownerEntry:setWidth(math.max(120, self.saveX - 12 - ownerX))
+    self.ownerEntry:setHeight(24)
+    self.saveDetailsButton:setX(self.saveX)
+    self.saveDetailsButton:setY(self.accountFieldY)
+    self.saveDetailsButton:setWidth(saveW)
+    self.saveDetailsButton:setHeight(24)
+
+    self.taxEntry:setX(29)
+    self.taxEntry:setY(self.accountField2Y)
+    self.taxEntry:setWidth(110)
+    self.taxEntry:setHeight(24)
+    self.fundsX = 155
+    self.fundsFieldY = self.accountField2Y
+    self.fundsW = math.max(140, w - 29 - self.fundsX)
+
+    self.fundsCardY = 152
+    self.fundsCardH = 64
+    self.fundsLabelY = self.fundsCardY + 6
+    self.actionY = self.fundsCardY + 20
+    self.withdrawCurrency:setX(29)
+    self.withdrawCurrency:setY(self.actionY)
+    self.withdrawCurrency:setWidth(110)
+    self.withdrawCurrency:setHeight(24)
+    self.withdrawAmount:setX(147)
+    self.withdrawAmount:setY(self.actionY)
+    self.withdrawAmount:setWidth(110)
+    self.withdrawAmount:setHeight(24)
+    self.withdrawButton:setX(265)
+    self.withdrawButton:setY(self.actionY)
+    self.withdrawButton:setWidth(110)
+    self.withdrawButton:setHeight(24)
+    local transferX = math.max(410, math.floor(w * 0.38))
+    self.transferX = transferX
+    self.transferCurrency:setX(transferX)
+    self.transferCurrency:setY(self.actionY)
+    self.transferCurrency:setWidth(110)
+    self.transferCurrency:setHeight(24)
+    self.transferAmount:setX(transferX + 118)
+    self.transferAmount:setY(self.actionY)
+    self.transferAmount:setWidth(100)
+    self.transferAmount:setHeight(24)
+    local targetX = transferX + 226
+    self.transferTarget:setX(targetX)
+    self.transferTarget:setY(self.actionY)
+    self.transferTarget:setWidth(math.max(80, w - 29 - 110 - 10 - targetX))
+    self.transferTarget:setHeight(24)
+    self.transferButton:setX(w - 29 - 110)
+    self.transferButton:setY(self.actionY)
+    self.transferButton:setWidth(110)
+    self.transferButton:setHeight(24)
+
+    self.inventoryCardY = 222
+    local editorH = 108
+    self.editorCardY = h - editorH - 8
+    self.editorCardH = editorH
+    self.inventoryCardH = math.max(140, self.editorCardY - 10 - self.inventoryCardY)
+    self.inventoryHeaderY = self.inventoryCardY + 8
+    self.addEntryButton:setX(w - 29 - 120)
+    self.addEntryButton:setY(self.inventoryCardY + 4)
+    self.addEntryButton:setWidth(120)
+    self.addEntryButton:setHeight(22)
+    local searchY = self.inventoryCardY + 46
+    self.inventoryLabelY = self.inventoryCardY + 30
+    self.inventorySearchY = searchY
+    local itemSearchW = math.min(220, math.max(140, math.floor((w - 58) * 0.24)))
+    self.itemSearch:setX(29)
+    self.itemSearch:setY(searchY)
+    self.itemSearch:setWidth(itemSearchW)
+    self.itemSearch:setHeight(22)
+    self.itemFilterButton:setX(29 + itemSearchW + 5)
+    self.itemFilterButton:setY(searchY)
+    self.itemFilterButton:setWidth(56)
+    self.itemFilterButton:setHeight(22)
+    self.listingX = 335
+    self.listingSearch:setX(self.listingX)
+    self.listingSearch:setY(searchY)
+    self.listingSearch:setWidth(math.max(140, w - 29 - 60 - 6 - self.listingX))
+    self.listingSearch:setHeight(22)
+    self.listingFilterButton:setX(w - 29 - 60)
+    self.listingFilterButton:setY(searchY)
+    self.listingFilterButton:setWidth(60)
+    self.listingFilterButton:setHeight(22)
+    local listY = searchY + 28
+    local listH = math.max(80, self.inventoryCardY + self.inventoryCardH - 8 - listY)
+    self.listY, self.listH = listY, listH
+    self.items:setX(29)
+    self.items:setY(listY)
+    self.items:setWidth(290)
+    self.items:setHeight(listH)
+    self.listings:setX(self.listingX)
+    self.listings:setY(listY)
+    self.listings:setWidth(math.max(200, w - 29 - self.listingX))
+    self.listings:setHeight(listH)
+
+    self.editorLabelY = self.editorCardY + 6
+    self.editorFieldLabelY = self.editorCardY + 24
+    self.editorFieldY = self.editorCardY + 38
+    self.editorButtonY = self.editorCardY + 74
+    local compact = (w - 58) < 760
+    local saveW = compact and 130 or 150
+    local priceW = compact and 85 or 100
+    local currencyW = compact and 95 or 110
+    local directionW = compact and 100 or 120
+    self.category:setX(29)
+    self.category:setY(self.editorFieldY)
+    self.category:setWidth(120)
+    self.category:setHeight(24)
+    self.fullType:setY(self.editorFieldY)
+    self.fullType:setHeight(24)
+    local saveButtonX = w - 29 - saveW
+    self.saveButton:setX(saveButtonX)
+    self.saveButton:setY(self.editorButtonY)
+    self.saveButton:setWidth(saveW)
+    self.saveButton:setHeight(24)
+    self.priceX = saveButtonX - 12 - priceW
+    self.price:setX(self.priceX)
+    self.price:setY(self.editorFieldY)
+    self.price:setWidth(priceW)
+    self.price:setHeight(24)
+    self.currencyX = self.priceX - 10 - currencyW
+    self.currency:setX(self.currencyX)
+    self.currency:setY(self.editorFieldY)
+    self.currency:setWidth(currencyW)
+    self.currency:setHeight(24)
+    self.directionX = self.currencyX - 8 - directionW
+    self.direction:setX(self.directionX)
+    self.direction:setY(self.editorFieldY)
+    self.direction:setWidth(directionW)
+    self.direction:setHeight(24)
+    self.fullType:setX(157)
+    self.fullType:setWidth(math.max(compact and 100 or 120, self.directionX - 16 - 157))
+    self.clearButton:setX(29)
+    self.clearButton:setY(self.editorButtonY)
+    self.clearButton:setWidth(80)
+    self.clearButton:setHeight(24)
+    self.deleteListingButton:setX(117)
+    self.deleteListingButton:setY(self.editorButtonY)
+    self.deleteListingButton:setWidth(120)
+    self.deleteListingButton:setHeight(24)
+    self.lastWidth = w
+    self.lastHeight = h
 end
 
 function ParadiseEconomy.MartAdminView:update()
@@ -4170,41 +5431,92 @@ function ParadiseEconomy.MartAdminView:update()
     local price = self.price and self.price:getInternalText() or ""
     local withdrawAmount = self.withdrawAmount:getInternalText()
     local transferAmount = self.transferAmount:getInternalText()
-    self.renameButton:setEnable(hasTrade and self.titleEntry:getInternalText() ~= "")
-    self.setTaxButton:setEnable(hasTrade and self.taxEntry:getInternalText() ~= "")
-    self.ownerButton:setEnable(hasTrade and self:isAdminView() and self.ownerEntry:getInternalText() ~= "")
+    self.saveDetailsButton:setEnable(hasTrade and self.titleEntry:getInternalText() ~= "")
     self.withdrawButton:setEnable(hasTrade and withdrawAmount:match("^%d+$") ~= nil and tonumber(withdrawAmount) > 0)
     self.transferButton:setEnable(hasTrade and self.transferTarget:getInternalText() ~= ""
         and transferAmount:match("^%d+$") ~= nil and tonumber(transferAmount) > 0)
+    self.addEntryButton:setEnable(hasTrade)
     self.deleteListingButton:setEnable(hasListing)
     self.saveButton:setEnable(hasTrade and fullType ~= "" and price:match("^%d+$") ~= nil and tonumber(price) > 0)
 end
 
 function ParadiseEconomy.MartAdminView:prerender()
     ISPanel.prerender(self)
-    self:drawText("Trade settings", 15, 0, 0.7, 0.9, 1, 1, UIFont.Small)
-    self:drawText("Trade tax / withdraw / transfer funds", 15, 44, 0.7, 0.75, 0.8, 1, UIFont.Small)
-    self:drawText("Transfer to player", 15, 86, 0.7, 0.75, 0.8, 1, UIFont.Small)
-    if self:isAdminView() then self:drawText("Trade owner (admin)", 355, 86, 0.7, 0.75, 0.8, 1, UIFont.Small) end
-    self:drawText("Item types", 15, 124, 0.7, 0.9, 1, 1, UIFont.Small)
-    self:drawText("Trade mart listings", 325, 124, 0.7, 0.9, 1, 1, UIFont.Small)
-    self:drawText("Listing editor", 15, self.editorLabelY or 390, 0.7, 0.9, 1, 1, UIFont.Small)
-    local fieldY = self.editorFieldY or 400
-    local buttonY = self.editorButtonY or 432
-    self:drawText("Category", 15, fieldY - 14, 0.7, 0.75, 0.8, 1, UIFont.Small)
-    self:drawText("Item type", 173, fieldY - 14, 0.7, 0.75, 0.8, 1, UIFont.Small)
-    self:drawText("Action", self.width - 265, fieldY - 14, 0.7, 0.75, 0.8, 1, UIFont.Small)
-    self:drawText("Currency", self.width - 125, fieldY - 14, 0.7, 0.75, 0.8, 1, UIFont.Small)
-    self:drawText("Price", 15, buttonY - 14, 0.7, 0.75, 0.8, 1, UIFont.Small)
+    local theme = ParadiseEconomy.Theme
+    local w = self.width
     local trade = self:getSelectedTrade()
-    if trade then
-        self:drawTextRight("Title: " .. tostring(trade.title or trade.tradeId) .. " | Owner: " .. tostring(trade.owner or "-")
-            .. " | Funds: " .. ParadiseEconomy.formatBalances(trade.digital), self.width - 15, 0, 0.55, 0.95, 0.7, 1, UIFont.Small)
-    else
-        self:drawTextRight("No manageable trade account", self.width - 15, 0, 1, 0.65, 0.2, 1, UIFont.Small)
+
+    self:drawRect(15, 8, 34, 20, theme.gold.a, theme.gold.r, theme.gold.g, theme.gold.b)
+    self:drawTextCentre("08", 32, 12, 0.06, 0.07, 0.08, 1, UIFont.Small)
+    self:drawText("MART ADMIN VIEW", 57, 10, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
+    local headerText = trade and ("TRADE ACCOUNT  ·  " .. tostring(trade.tradeId or trade.zoneId or "")) or "NO TRADE ACCOUNT"
+    self:drawTextRight(ParadiseEconomy.fitText(headerText, math.max(200, w - 420), UIFont.Small), w - 15, 12,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawRect(15, 36, w - 30, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+
+    ParadiseEconomy.drawCard(self, 15, self.accountCardY, w - 30, self.accountCardH, theme.accentDim)
+    self:drawText("TRADE ACCOUNT TITLE", 29, self.accountLabelY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText(self:isAdminView() and "OWNER (ADMIN)" or "OWNER", self.ownerX, self.accountLabelY,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("TRADE TAX / %", 29, self.accountLabel2Y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("AVAILABLE FUNDS", self.fundsX, self.accountLabel2Y,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+
+    self:drawRect(self.fundsX, self.fundsFieldY, self.fundsW, 24,
+        theme.entryBg.a, theme.entryBg.r, theme.entryBg.g, theme.entryBg.b)
+    self:drawRectBorder(self.fundsX, self.fundsFieldY, self.fundsW, 24,
+        theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+    local funds = trade and trade.digital or {}
+    local fundsX = self.fundsX + 9
+    local jText = ParadiseEconomy.formatNumber(ParadiseEconomy.getBalance(funds, "jimoleon"))
+    if ParadiseEconomy.icons.jimoleon then
+        self:drawTextureScaled(ParadiseEconomy.icons.jimoleon, fundsX, self.fundsFieldY + 5, 14, 14, 1)
+        fundsX = fundsX + 19
     end
-    local message = ParadiseEconomy.clientState.message
-    if message then self:drawText(tostring(message), 15, self.messageY or (self.height - 24), 1, 0.9, 0.55, 1, UIFont.Small) end
+    self:drawText(jText, fundsX, self.fundsFieldY + 5, theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
+    fundsX = fundsX + getTextManager():MeasureStringX(UIFont.Small, jText) + 24
+    local pText = ParadiseEconomy.formatNumber(ParadiseEconomy.getBalance(funds, "paradisium"))
+    if ParadiseEconomy.icons.paradisium then
+        self:drawTextureScaled(ParadiseEconomy.icons.paradisium, fundsX, self.fundsFieldY + 5, 14, 14, 1)
+        fundsX = fundsX + 19
+    end
+    self:drawText(pText, fundsX, self.fundsFieldY + 5, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
+
+    ParadiseEconomy.drawCard(self, 15, self.fundsCardY, w - 30, self.fundsCardH, theme.borderSoft)
+    self:drawText("WITHDRAW TO SELF", 29, self.fundsLabelY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("TRANSFER TO PLAYER", self.transferX, self.fundsLabelY,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+
+    ParadiseEconomy.drawCard(self, 15, self.inventoryCardY, w - 30, self.inventoryCardH, theme.borderSoft)
+    local headings = "GLOBAL ITEM MART INVENTORY"
+    local listings = trade and trade.itemMart or {}
+    self:drawText(headings, 29, self.inventoryHeaderY, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
+    self:drawText("  ·  " .. tostring(#listings) .. " ENTRIES",
+        29 + getTextManager():MeasureStringX(UIFont.Small, headings), self.inventoryHeaderY,
+        theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
+    self:drawRect(29, self.inventoryCardY + 24, w - 58, 1,
+        theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+    self:drawText("ITEM CATALOG", 29, self.inventoryLabelY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("MART LISTINGS", self.listingX, self.inventoryLabelY,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    if self.listings and #self.listings.items == 0 then
+        self:drawTextCentre("No item mart entries match this view.",
+            self.listings:getX() + self.listings:getWidth() / 2, self.listings:getY() + 16,
+            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    end
+
+    ParadiseEconomy.drawCard(self, 15, self.editorCardY, w - 30, self.editorCardH, theme.accentDim)
+    self:drawText("LISTING EDITOR", 29, self.editorLabelY, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
+    local listing = self:getSelectedListing()
+    local editorText = listing and ("EDITING  " .. tostring(listing.fullType)) or "NEW ENTRY"
+    self:drawTextRight(ParadiseEconomy.fitText(editorText, math.max(150, w - 420), UIFont.Small), w - 29, self.editorLabelY,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    local fieldLabelY = self.editorFieldLabelY
+    self:drawText("CATEGORY", 29, fieldLabelY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("ITEM TYPE", 157, fieldLabelY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("ACTION", self.directionX, fieldLabelY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("CURRENCY", self.currencyX, fieldLabelY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("PRICE", self.priceX, fieldLabelY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
 end
 
 function ParadiseEconomy.HUD:new(x, y)

@@ -25,7 +25,7 @@ ParadisePanels.table = {
         setInstance = function(instance) ParadiseEconomy.instance = instance end,
         create = function()
             if not ParadiseEconomy.isEnabled() then return nil end
-            local width, height = math.min(760, getCore():getScreenWidth() - 40), math.min(560, getCore():getScreenHeight() - 40)
+            local width, height = math.min(1000, getCore():getScreenWidth() - 40), math.min(700, getCore():getScreenHeight() - 40)
             return initialise(ParadiseEconomy.Panel:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height))
         end,
         onOpen = function() ParadiseEconomy.send("requestState") end,
