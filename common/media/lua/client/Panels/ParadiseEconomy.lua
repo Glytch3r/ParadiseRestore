@@ -33,7 +33,7 @@ ParadiseEconomy.clientState = ParadiseEconomy.clientState or {
     merchants = {},
     accounts = {},
     zones = {},
-    transactions = {},
+    ledgerRows = {},
     orphanedPlayerListings = {},
     shops = {},
     myShops = {},
@@ -62,7 +62,6 @@ ParadiseEconomy.tableTypes = ParadiseEconomy.tableTypes or {
     { key = "tradeMarts", label = "Trade Item Marts" },
     { key = "merchantListings", label = "Merchant Listings" },
     { key = "playerListings", label = "Player Listings" },
-    { key = "transactions", label = "Transactions" },
     { key = "orphaned", label = "Orphaned Listings" },
 }
 ParadiseEconomy.icons = ParadiseEconomy.icons or {
@@ -274,36 +273,6 @@ function ParadiseEconomy.getListingStatusView(listing)
     end
     if tonumber(data.ammoCount) then return "AMMO " .. tostring(math.floor(tonumber(data.ammoCount))), theme.accent end
     return "LISTED", theme.textMuted
-end
-
-function ParadiseEconomy.formatNumber(value)
-    local text = tostring(math.floor(tonumber(value) or 0))
-    local sign = ""
-    if string.sub(text, 1, 1) == "-" then
-        sign = "-"
-        text = string.sub(text, 2)
-    end
-    local grouped = string.reverse(text)
-    grouped = string.gsub(grouped, "(%d%d%d)", "%1,")
-    grouped = string.reverse(grouped)
-    if string.sub(grouped, 1, 1) == "," then grouped = string.sub(grouped, 2) end
-    return sign .. grouped
-end
-
-function ParadiseEconomy.getLedgerEntry(tx)
-    local theme = ParadiseEconomy.Theme
-    local action = string.lower(tostring(tx.action or ""))
-    local tag = tx.currency == "paradisium" and "P" or "J"
-    local text = ParadiseEconomy.formatNumber(tx.amount) .. " " .. tag
-    if string.find(action, "sale", 1, true) or string.find(action, "deposited", 1, true)
-        or string.find(action, "collected", 1, true) or string.find(action, "pillaged", 1, true) then
-        return "+" .. text, theme.green
-    end
-    if string.find(action, "purchase", 1, true) or string.find(action, "buy", 1, true)
-        or string.find(action, "transferred", 1, true) or string.find(action, "withdrew", 1, true) then
-        return "-" .. text, theme.danger
-    end
-    return text, theme.textDim
 end
 
 function ParadiseEconomy.getLeaseInfo(expiresAt)
@@ -631,15 +600,18 @@ function ParadiseEconomy.AccountPanel:resolveAccount()
     return self.account
 end
 
-function ParadiseEconomy.AccountPanel:refresh()
+function ParadiseEconomy.AccountPanel:refresh(skipRequest)
     if not self.transactions then return end
     local account = self:resolveAccount()
     self.transactions:clear()
     local id = account and account.id or nil
-    for _, tx in ipairs(ParadiseEconomy.clientState.transactions or {}) do
-        if not id or tx.accountId == id or tx.counterpartyId == id or tx.from == id or tx.to == id then
-            self.transactions:addItem(tostring(tx.time), tx)
+    for _, row in ipairs(ParadiseEconomy.clientState.ledgerRows or {}) do
+        if not id or row.a == id or row.b == id then
+            self.transactions:addItem(tostring(row.t), row)
         end
+    end
+    if not skipRequest and self:isVisible() then
+        ParadiseEconomy.send("ledgerMine", { accountId = id })
     end
 end
 
@@ -1193,41 +1165,50 @@ function ParadiseEconomy.Panel:openLedger()
     end
 end
 
+function ParadiseEconomy.getLedgerColor(key)
+    local theme = ParadiseEconomy.Theme
+    if key == "in" then return theme.green end
+    if key == "out" then return theme.danger end
+    return theme.textDim
+end
+
 function ParadiseEconomy.Panel:drawTransaction(y, item, alt)
-    local tx = item.item
-    self:drawText(tostring(tx.action) .. " | " .. tostring(tx.amount) .. " " .. tostring(tx.currency)
-        .. " | " .. tostring(tx.from) .. " -> " .. tostring(tx.to), 8, y + 4, 1, 1, 1, 1, UIFont.Small)
+    local row = item.item
+    local theme = ParadiseEconomy.Theme
+    local color = ParadiseEconomy.getLedgerColor(row.k)
+    self:drawText(ParadiseEconomy.Ledger.timeText(row), 8, y + 4, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText(ParadiseEconomy.fitText(row.x or "-", self.width - 80, UIFont.Small), 62, y + 4,
+        color.r, color.g, color.b, 1, UIFont.Small)
     return y + self.itemheight
 end
 
 function ParadiseEconomy.Panel:drawLedgerRow(y, item, alt)
-    local tx = item.item
+    local row = item.item
     local theme = ParadiseEconomy.Theme
     if self.selected == item.index then
         self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
     elseif alt then
         self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
-    local timeText = tx.time and os.date("%H:%M", math.floor(tonumber(tx.time) or 0)) or "--:--"
-    self:drawText(timeText, 8, y + 5, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    local action = string.upper(tostring(tx.action or "-"))
-    self:drawText(ParadiseEconomy.fitText(action, 165, UIFont.Small), 86, y + 5,
+    local color = ParadiseEconomy.getLedgerColor(row.k)
+    self:drawText(ParadiseEconomy.Ledger.timeText(row), 8, y + 5, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText(ParadiseEconomy.fitText(row.x or "-", 165, UIFont.Small), 86, y + 5,
         theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
-    local amountText, amountColor = ParadiseEconomy.getLedgerEntry(tx)
-    self:drawText(amountText, 260, y + 5, amountColor.r, amountColor.g, amountColor.b, 1, UIFont.Small)
-    local detail = tostring(tx.detail or "-")
-    self:drawText(ParadiseEconomy.fitText(detail, self.width - 500, UIFont.Small), 380, y + 5,
+    self:drawText(tostring(row.m or ""), 260, y + 5, color.r, color.g, color.b, 1, UIFont.Small)
+    self:drawText(ParadiseEconomy.fitText(row.e or "", self.width - 500, UIFont.Small), 380, y + 5,
         theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
-    self:drawTextRight("SETTLED", self.width - 10, y + 5, theme.green.r, theme.green.g, theme.green.b, 1, UIFont.Small)
+    self:drawTextRight(tostring(row.d or ""), self.width - 10, y + 5,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     return y + self.itemheight
 end
 
-function ParadiseEconomy.Panel:refresh()
+function ParadiseEconomy.Panel:refresh(skipRequest)
     if not self.transactions then return end
     self.transactions:clear()
-    for _, tx in ipairs(ParadiseEconomy.clientState.transactions or {}) do
-        self.transactions:addItem(tostring(tx.time), tx)
+    for _, row in ipairs(ParadiseEconomy.clientState.ledgerRows or {}) do
+        self.transactions:addItem(tostring(row.t), row)
     end
+    if not skipRequest and self:isVisible() then ParadiseEconomy.send("ledgerMine") end
 end
 
 function ParadiseEconomy.Panel:prerender()
@@ -3651,7 +3632,7 @@ function ParadiseEconomy.sync(module, command, args)
         state.personal = state.personal or { digital = {}, onhand = {} }
         state.accounts = state.accounts or {}
         state.merchants = state.merchants or {}
-        state.transactions = state.transactions or {}
+        state.ledgerRows = ParadiseEconomy.clientState.ledgerRows or {}
         state.orphanedPlayerListings = state.orphanedPlayerListings or {}
         state.shops = state.shops or {}
         state.myShops = state.myShops or {}
@@ -3662,7 +3643,7 @@ function ParadiseEconomy.sync(module, command, args)
         state.market.playerListings = state.market.playerListings or {}
         ParadiseEconomy.clientState = state
         if ParadiseEconomy.instance then ParadiseEconomy.instance:refresh() end
-        if ParadiseEconomy.accountPanel then ParadiseEconomy.accountPanel:refresh() end
+        if ParadiseEconomy.accountPanel then ParadiseEconomy.accountPanel:refresh(true) end
         if ParadiseEconomy.accountBrowser then ParadiseEconomy.accountBrowser:refresh() end
         if ParadiseEconomy.martInstance then ParadiseEconomy.martInstance:refreshMarket() end
         if ParadiseEconomy.tradeManagementInstance then ParadiseEconomy.tradeManagementInstance:refreshState() end
@@ -3682,6 +3663,10 @@ function ParadiseEconomy.sync(module, command, args)
         if ParadiseEconomy.martInstance then
             ParadiseEconomy.martInstance:applyShopState(args.kind, args.id, args.shop, args.message)
         end
+    elseif command == "ledgerMine" then
+        ParadiseEconomy.clientState.ledgerRows = args and args.rows or {}
+        if ParadiseEconomy.instance then ParadiseEconomy.instance:refresh(true) end
+        if ParadiseEconomy.accountPanel then ParadiseEconomy.accountPanel:refresh(true) end
     elseif command == "say" then
         local pl = getPlayer()
         if pl and args and args.message then pl:Say(args.message) end
@@ -5235,29 +5220,6 @@ function ParadiseEconomy.TablesPanel:getRecords()
             add(tostring(listing.seller) .. " | " .. self:summaryItem(listing) .. " | "
                 .. tostring(listing.price) .. " " .. tostring(listing.currency)
                 .. " | " .. tostring(listing.zoneTitle or listing.zoneId), self:listingDetail(listing))
-        end
-    elseif key == "transactions" then
-        local transactions = ParadiseEconomy.clientState.transactions or {}
-        for index = #transactions, 1, -1 do
-            local tx = transactions[index]
-            add(tostring(tx.time) .. " | " .. tostring(tx.action) .. " | " .. tostring(tx.amount) .. " "
-                .. tostring(tx.currency) .. " | " .. tostring(tx.from) .. " -> " .. tostring(tx.to), function()
-                return {
-                    "time: " .. tostring(tx.time),
-                    "username: " .. tostring(tx.username),
-                    "steamid: " .. tostring(tx.steamid),
-                    "action: " .. tostring(tx.action),
-                    "currency: " .. tostring(tx.currency),
-                    "amount: " .. tostring(tx.amount),
-                    "from: " .. tostring(tx.from),
-                    "to: " .. tostring(tx.to),
-                    "accountId: " .. tostring(tx.accountId),
-                    "counterpartyId: " .. tostring(tx.counterpartyId),
-                    "zoneId: " .. tostring(tx.zoneId),
-                    "bucket: " .. tostring(tx.bucket),
-                    "detail: " .. tostring(tx.detail),
-                }
-            end)
         end
     elseif key == "orphaned" then
         for _, listing in ipairs(ParadiseEconomy.clientState.orphanedPlayerListings or {}) do

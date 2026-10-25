@@ -547,7 +547,7 @@ function Ledger.timeOfDay(time)
 end
 
 function Ledger.timeText(rec)
-    local tod = math.floor(tonumber(rec and rec.tod) or 0) % 86400
+    local tod = math.floor(tonumber(rec and (rec.tod or rec.t)) or 0) % 86400
     return string.format("%02d:%02d", math.floor(tod / 3600), math.floor((tod % 3600) / 60))
 end
 
