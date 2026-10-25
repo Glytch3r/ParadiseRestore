@@ -2,7 +2,7 @@ if isClient() then return end
 
 ParadiseEconomy = ParadiseEconomy or {}
 
-local SCHEMA_VERSION = 8
+local SCHEMA_VERSION = 9
 
 local function ensureBucket(tab)
     tab = tab or {}
@@ -188,7 +188,6 @@ end
 function ParadiseEconomy.getStore()
     local store = ModData.getOrCreate(ParadiseEconomy.storeName)
     store.accounts = store.accounts or {}
-    store.transactions = store.transactions or {}
     store.market = store.market or { tabs = {}, playerListings = {}, nextListingId = 1 }
     store.market.tabs = store.market.tabs or {}
     store.market.playerListings = store.market.playerListings or {}
@@ -216,6 +215,7 @@ function ParadiseEconomy.getStore()
         ParadiseEconomy.migrateMerchantLeases(store)
         if version < 7 then ParadiseEconomy.migrateShopSquares(store) end
         if version < 8 then ParadiseEconomy.migrateOwnershipModel(store) end
+        if version < 9 then ParadiseEconomy.migrateLedger(store) end
         store.schemaVersion = SCHEMA_VERSION
     end
     ParadiseEconomy.ensureServerAccount(store)
@@ -539,7 +539,6 @@ end
 function ParadiseEconomy.migrateAccountIds(store)
     store.accounts = store.accounts or {}
     store.zones = store.zones or {}
-    store.transactions = store.transactions or {}
     store.orphanedPlayerListings = store.orphanedPlayerListings or {}
     store.market = store.market or {}
     store.market.playerListings = store.market.playerListings or {}
@@ -579,7 +578,7 @@ function ParadiseEconomy.migrateAccountIds(store)
             if mapped then zone.tradeAccountId = mapped end
         end
     end
-    for _, tx in ipairs(store.transactions) do
+    for _, tx in ipairs(store.transactions or {}) do
         if tx.accountId then
             local mapped = idMap[tostring(tx.accountId)]
             if mapped then tx.accountId = mapped end
@@ -609,6 +608,31 @@ function ParadiseEconomy.migrateAccountIds(store)
         end
     end
     return store
+end
+
+function ParadiseEconomy.migrateLedger(store)
+    local ledger = ParadiseEconomy.getLedger()
+    local function resolveId(value)
+        value = tostring(value or "")
+        if value == "" then return nil end
+        if store.accounts and store.accounts[value] then return value end
+        local key = ParadiseEconomy.usernameKey(value)
+        return key and store.personalIndex and store.personalIndex[key] or nil
+    end
+    for _, tx in ipairs(store.transactions or {}) do
+        local rec = ParadiseEconomy.Ledger.fromLegacyTx(tx, resolveId)
+        if rec then
+            local day = ParadiseEconomy.Ledger.dayKey(rec.time)
+            local bucket = ledger.days[day]
+            if not bucket then
+                bucket = {}
+                ledger.days[day] = bucket
+            end
+            rec.day = day
+            bucket[#bucket + 1] = ParadiseEconomy.Ledger.encode(rec)
+        end
+    end
+    store.transactions = nil
 end
 
 function ParadiseEconomy.resolveZoneIdByTitle(title)
@@ -742,7 +766,7 @@ function ParadiseEconomy.migrateStore(store)
     store.nextAccountSerial = serial
     store.accounts = accounts
 
-    for _, tx in ipairs(store.transactions) do
+    for _, tx in ipairs(store.transactions or {}) do
         if tx.accountId and idMap[tostring(tx.accountId)] then tx.accountId = idMap[tostring(tx.accountId)] end
         if tx.counterpartyId and idMap[tostring(tx.counterpartyId)] then tx.counterpartyId = idMap[tostring(tx.counterpartyId)] end
     end
@@ -837,7 +861,7 @@ function ParadiseEconomy.migrateStore(store)
         end
     end
 
-    for _, tx in ipairs(store.transactions) do
+    for _, tx in ipairs(store.transactions or {}) do
         if tx.accountId and idMap[tostring(tx.accountId)] then tx.accountId = idMap[tostring(tx.accountId)] end
         if tx.counterpartyId and idMap[tostring(tx.counterpartyId)] then tx.counterpartyId = idMap[tostring(tx.counterpartyId)] end
     end
@@ -2301,6 +2325,119 @@ function ParadiseEconomy.transmit()
     if ModData.transmit then ModData.transmit(ParadiseEconomy.storeName) end
 end
 
+ParadiseEconomy.ledgerStoreName = "ParadiseEconomy_Ledger"
+
+function ParadiseEconomy.getLedger()
+    local ledger = ModData.getOrCreate(ParadiseEconomy.ledgerStoreName)
+    ledger.version = tonumber(ledger.version) or 1
+    ledger.days = ledger.days or {}
+    return ledger
+end
+
+function ParadiseEconomy.appendLedger(rec)
+    if type(rec) ~= "table" then return end
+    local ledger = ParadiseEconomy.getLedger()
+    local day = rec.day or ParadiseEconomy.Ledger.dayKey(rec.time or os.time())
+    local bucket = ledger.days[day]
+    if not bucket then
+        bucket = {}
+        ledger.days[day] = bucket
+    end
+    rec.day = day
+    bucket[#bucket + 1] = ParadiseEconomy.Ledger.encode(rec)
+end
+
+function ParadiseEconomy.getLedgerDays()
+    local ledger = ParadiseEconomy.getLedger()
+    local days = {}
+    for day, bucket in pairs(ledger.days) do
+        days[#days + 1] = { d = day, n = #bucket }
+    end
+    table.sort(days, function(a, b) return a.d > b.d end)
+    return days
+end
+
+function ParadiseEconomy.getLedgerPage(day, page, pageSize)
+    local ledger = ParadiseEconomy.getLedger()
+    local bucket = ledger.days[tostring(day or "")] or {}
+    pageSize = math.max(1, math.floor(tonumber(pageSize) or 20))
+    local total = #bucket
+    local pages = math.max(1, math.ceil(total / pageSize))
+    page = math.max(1, math.min(pages, math.floor(tonumber(page) or 1)))
+    local rows = {}
+    local first = (page - 1) * pageSize + 1
+    for index = first, math.min(total, first + pageSize - 1) do
+        rows[#rows + 1] = bucket[index]
+    end
+    return { day = tostring(day or ""), page = page, pages = pages, count = total, rows = rows }
+end
+
+function ParadiseEconomy.Ledger.debugDays()
+    return ParadiseEconomy.getLedgerDays()
+end
+
+function ParadiseEconomy.Ledger.debugPage(day, page)
+    return ParadiseEconomy.getLedgerPage(day, page, 20)
+end
+
+function ParadiseEconomy.getLedgerNames(store)
+    local names = {}
+    for id, account in pairs((store and store.accounts) or {}) do
+        names[id] = account.title or account.name or account.owner or id
+    end
+    return names
+end
+
+function ParadiseEconomy.getLedgerZoneNames(store)
+    local zones = {}
+    for id, zone in pairs((store and store.zones) or {}) do
+        zones[id] = zone.name or id
+    end
+    return zones
+end
+
+function ParadiseEconomy.getPlayerLedgerRows(user, accountId, limit, isAdm)
+    limit = math.max(1, math.floor(tonumber(limit) or 200))
+    local store = ParadiseEconomy.getStore()
+    local accIds = {}
+    if accountId then
+        local account = store.accounts[tostring(accountId)]
+        local owned = account and ParadiseEconomy.usernameKey(account.owner) == ParadiseEconomy.usernameKey(user)
+        if account and (isAdm == true or owned) then accIds[account.id] = true end
+    else
+        local key = ParadiseEconomy.usernameKey(user)
+        for id, account in pairs(store.accounts) do
+            if ParadiseEconomy.usernameKey(account.owner) == key then accIds[id] = true end
+        end
+    end
+    local ctx = {
+        user = user,
+        accIds = accIds,
+        names = ParadiseEconomy.getLedgerNames(store),
+        zones = ParadiseEconomy.getLedgerZoneNames(store),
+    }
+    local ledger = ParadiseEconomy.getLedger()
+    local rows = {}
+    for _, entry in ipairs(ParadiseEconomy.getLedgerDays()) do
+        local bucket = ledger.days[entry.d] or {}
+        for index = #bucket, 1, -1 do
+            local rec = ParadiseEconomy.Ledger.decode(bucket[index], entry.d)
+            if ParadiseEconomy.Ledger.involves(rec, accIds, accountId and nil or user) then
+                local title, detail, colorKey, amountText = ParadiseEconomy.Ledger.playerText(rec, ctx)
+                rows[#rows + 1] = {
+                    t = rec.tod, d = rec.day, x = title, e = detail or "",
+                    k = colorKey or "flat", m = amountText or "",
+                    a = rec.a or "", b = rec.b or "",
+                }
+                if #rows >= limit then
+                    return { rows = rows, count = #rows }
+                end
+            end
+        end
+    end
+    return { rows = rows, count = #rows }
+end
+
 function ParadiseEconomy.writeLog(tx)
     local writer = getFileWriter("ParadiseEconomy/" .. os.date("%Y-%m-%d") .. ".log", true, true)
     if not writer then return false end
@@ -2315,8 +2452,10 @@ function ParadiseEconomy.writeLog(tx)
 end
 
 function ParadiseEconomy.record(pl, action, currency, amount, fromUser, toUser, detail, meta)
+    meta = type(meta) == "table" and meta or {}
+    local now = os.time()
     local tx = {
-        time = os.time(),
+        time = now,
         username = pl and pl:getUsername() or tostring(fromUser or "server"),
         steamid = pl and ParadiseEconomy.getSteamIdOrUser(pl) or "",
         action = tostring(action or ""),
@@ -2332,9 +2471,38 @@ function ParadiseEconomy.record(pl, action, currency, amount, fromUser, toUser, 
         tx.zoneId = meta.zoneId and tostring(meta.zoneId) or nil
         tx.bucket = meta.bucket and tostring(meta.bucket) or nil
     end
-    local transactions = ParadiseEconomy.getStore().transactions
-    transactions[#transactions + 1] = tx
-    while #transactions > 5000 do table.remove(transactions, 1) end
+    local store = ParadiseEconomy.getStore()
+    local function resolveId(value)
+        value = tostring(value or "")
+        if value == "" then return "" end
+        if store.accounts[value] then return value end
+        local account = ParadiseEconomy.getPersonalAccount(value, false)
+        return account and account.id or ""
+    end
+    local mapped = ParadiseEconomy.Ledger.actions[tx.action] or { kind = "G" }
+    local rec = {
+        kind = mapped.kind,
+        reason = mapped.reason,
+        time = now,
+        actor = tx.username,
+        a = meta.accountId and tostring(meta.accountId) or resolveId(fromUser),
+        b = meta.counterpartyId and tostring(meta.counterpartyId) or resolveId(toUser),
+        cur = ParadiseEconomy.Ledger.currencyCode(currency),
+        amount = tx.amount,
+        item = meta.itemType and tostring(meta.itemType) or nil,
+        qty = meta.quantity,
+        tax = meta.tax,
+        taxAcc = meta.taxAccountId and tostring(meta.taxAccountId) or nil,
+        zone = meta.zoneId and tostring(meta.zoneId) or nil,
+        note = meta.note and tostring(meta.note) or nil,
+    }
+    if mapped.kind == "G" then
+        rec.action = tx.action
+        rec.note = tx.detail
+    elseif not rec.note then
+        rec.note = tx.detail
+    end
+    ParadiseEconomy.appendLedger(rec)
     ParadiseEconomy.writeLog(tx)
     return tx
 end
@@ -2391,27 +2559,6 @@ function ParadiseEconomy.transferBetweenAccounts(fromAccount, toAccount, currenc
         return false, fromBucket, toBucket, "Transaction failed"
     end
     return true, fromBucket, toBucket
-end
-
-function ParadiseEconomy.getTransactions(user, isAdm)
-    local rows = {}
-    local key = ParadiseEconomy.usernameKey(user)
-    local store = ParadiseEconomy.getStore()
-    local owned = {}
-    if key then
-        for id, account in pairs(store.accounts) do
-            if ParadiseEconomy.usernameKey(account.owner) == key then owned[id] = true end
-        end
-    end
-    for index = #store.transactions, 1, -1 do
-        local tx = store.transactions[index]
-        if isAdm or owned[tx.accountId] or owned[tx.counterpartyId] or
-            (key and (ParadiseEconomy.usernameKey(tx.from) == key or ParadiseEconomy.usernameKey(tx.to) == key)) then
-            rows[#rows + 1] = tx
-        end
-        if #rows >= 500 then break end
-    end
-    return rows
 end
 
 function ParadiseEconomy.findWallet(inv, itemId, requireMoney)
@@ -2535,7 +2682,6 @@ function ParadiseEconomy.sendState(pl, message, extra)
     local payload = {
         personal = personal,
         merchants = merchants,
-        transactions = ParadiseEconomy.getTransactions(user, isAdm),
         accounts = isAdm and store.accounts or nil,
         zones = isAdm and store.zones or nil,
         orphanedPlayerListings = isAdm and store.orphanedPlayerListings or nil,
@@ -2758,6 +2904,7 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
                                         accountId = merchant.id,
                                         counterpartyId = feeTarget and feeTarget.id or nil,
                                         zoneId = merchant.zoneId,
+                                        note = tostring(leaseDays) .. " days",
                                     })
                             end
                         else
@@ -2778,6 +2925,7 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
                                         accountId = merchant.id,
                                         counterpartyId = paidTo and paidTo.id or nil,
                                         zoneId = merchant.zoneId,
+                                        note = tostring(leaseDays) .. " days",
                                     })
                             end
                         else
@@ -3017,7 +3165,10 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
             message = "Merchant fee set to " .. tostring(dailyFee) .. " " .. feeCurrency .. " per day"
             syncAll = true
             ParadiseEconomy.record(pl, "zone daily fee set", feeCurrency, dailyFee, zone.owner, trade.id,
-                tostring(dailyFee) .. " per day", { accountId = trade.id, zoneId = zone.id })
+                tostring(dailyFee) .. " per day", {
+                    accountId = trade.id, zoneId = zone.id,
+                    note = tostring(dailyFee) .. " " .. tostring(feeCurrency),
+                })
         end
     elseif command == "zoneSetOwner" then
         local zoneId = ParadiseEconomy.normalizeZoneId(args.zoneId)
@@ -3142,6 +3293,7 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
                     ParadiseEconomy.record(pl, "merchant " .. (suspended and "suspended" or "resumed"), "mixed", 0,
                         user, account.id, tostring(account.title or account.owner or ""), {
                             accountId = account.id, zoneId = account.zoneId,
+                            note = tostring(args.reason or ""),
                         })
                 end
             end
@@ -3212,6 +3364,7 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
                             accountId = account.id,
                             counterpartyId = paidTo and paidTo.id or nil,
                             zoneId = account.zoneId,
+                            note = tostring(account.leaseDays) .. " days",
                         })
                 end
             end
@@ -3305,6 +3458,8 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
                     trade and trade.id or mart.id,
                     tostring(listing.category) .. ":" .. listing.direction .. ":" .. listing.fullType, {
                         accountId = trade and trade.id or nil, zoneId = mart.zoneId,
+                        itemType = listing.fullType, quantity = listing.quantity or 1,
+                        note = tostring(listing.category) .. ":" .. tostring(listing.direction),
                     })
             end
         end
@@ -3385,7 +3540,7 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
             end
             if adjusted then
                 ParadiseEconomy.record(pl, "admin " .. operation, currency, args.amount, user, account.id, "account adjustment", {
-                    accountId = account.id, bucket = bucket,
+                    accountId = account.id, bucket = bucket, note = tostring(bucket),
                 })
                 message = "Account updated"
                 syncAll = true
@@ -3439,11 +3594,16 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
             return
         end
     elseif command == "adminPurgeLedger" and isAdm then
-        ParadiseEconomy.getStore().transactions = {}
+        local ledger = ParadiseEconomy.getLedger()
+        if args.day then
+            ledger.days[tostring(args.day)] = nil
+        else
+            ledger.days = {}
+        end
         ParadiseEconomy.record(pl, "admin purged ledger", "mixed", 0, user, "ledger", "transaction history cleared", {
             accountId = ParadiseEconomy.getPersonalAccount(user, true).id,
         })
-        message = "Transaction ledger cleared"
+        message = "Transaction history cleared"
         syncAll = true
     elseif command == "adminRebuildIndex" and isAdm then
         local indexed, duplicates = ParadiseEconomy.rebuildAccountIndexes()
@@ -3491,6 +3651,7 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
                 ParadiseEconomy.record(pl, "market purchase", listing.currency, total, user,
                     tostring(ownerAccount.title or ownerAccount.name), quantity .. "x " .. listing.fullType, {
                         accountId = personal.id, counterpartyId = ownerAccount.id, zoneId = mart.zoneId, bucket = "digital",
+                        itemType = listing.fullType, quantity = quantity,
                     })
                 message = "Purchase complete"
                 syncAll = true
@@ -3529,6 +3690,7 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
                 ParadiseEconomy.record(pl, "market sale", listing.currency, total,
                     tostring(ownerAccount.title or ownerAccount.name), user, quantity .. "x " .. listing.fullType, {
                         accountId = personal.id, counterpartyId = ownerAccount.id, zoneId = mart.zoneId, bucket = "digital",
+                        itemType = listing.fullType, quantity = quantity,
                     })
                 message = "Sale complete"
                 syncAll = true
@@ -3542,6 +3704,7 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
                 listing.id .. ":" .. listing.itemData.fullType, {
                     accountId = merchantOrMessage.id,
                     zoneId = listing.zoneId,
+                    itemType = listing.itemData.fullType, quantity = 1,
                 })
             message = "Item posted in your merchant store"
             syncAll = true
@@ -3574,6 +3737,8 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
                     counterpartyId = merchant.id,
                     zoneId = merchant.zoneId,
                     bucket = info.paidBucket,
+                    itemType = listing.itemData.fullType, quantity = 1,
+                    tax = tax, taxAccountId = taxAccount and taxAccount.id or nil,
                 })
             if tax and tax > 0 then
                 ParadiseEconomy.record(pl, "trade tax collected", listing.currency, tax, listing.seller, taxAccount.id,
@@ -3607,6 +3772,7 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
                 listing.id .. ":" .. listing.itemData.fullType, {
                     accountId = merchant.id,
                     zoneId = merchant.zoneId,
+                    itemType = listing.itemData.fullType, quantity = 1,
                 })
             message = "Listing returned to inventory"
             syncAll = true
