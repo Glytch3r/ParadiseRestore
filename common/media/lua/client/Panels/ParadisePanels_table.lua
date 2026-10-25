@@ -119,6 +119,20 @@ ParadisePanels.table = {
         onOpen = function() ParadiseEconomy.send("requestState") end,
     },
     {
+        key = "economyLedger",
+        isAdmOnly = true,
+        getModule = function() return ParadiseEconomy.LedgerPanel end,
+        getInstance = function() return ParadiseEconomy.ledgerPanel end,
+        setInstance = function(instance) ParadiseEconomy.ledgerPanel = instance end,
+        create = function()
+            if not ParadiseEconomy.isEnabled() or not ParadiseEconomy.canManageEconomy() then return nil end
+            local width, height = math.min(1000, getCore():getScreenWidth() - 40), math.min(700, getCore():getScreenHeight() - 40)
+            return initialise(ParadiseEconomy.LedgerPanel:new((getCore():getScreenWidth() - width) / 2,
+                (getCore():getScreenHeight() - height) / 2, width, height))
+        end,
+        onOpen = function(panel) panel:requestDays() end,
+    },
+    {
         key = "safehouseAdmin",
         isAdmOnly = true,
         getModule = function() return ParadiseDev and ParadiseDev.SafehouseAdmin end,

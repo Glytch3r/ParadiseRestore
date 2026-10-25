@@ -3667,6 +3667,10 @@ function ParadiseEconomy.sync(module, command, args)
         ParadiseEconomy.clientState.ledgerRows = args and args.rows or {}
         if ParadiseEconomy.instance then ParadiseEconomy.instance:refresh(true) end
         if ParadiseEconomy.accountPanel then ParadiseEconomy.accountPanel:refresh(true) end
+    elseif command == "ledgerDays" then
+        if ParadiseEconomy.ledgerPanel then ParadiseEconomy.ledgerPanel:applyDays(args) end
+    elseif command == "ledgerPage" then
+        if ParadiseEconomy.ledgerPanel then ParadiseEconomy.ledgerPanel:applyPage(args) end
     elseif command == "say" then
         local pl = getPlayer()
         if pl and args and args.message then pl:Say(args.message) end
@@ -4130,6 +4134,9 @@ function ParadiseEconomy.AdminPanel:createChildren()
     self.tablesButton = ISButton:new(0, 74, 64, 20, "TABLES", self, ParadiseEconomy.AdminPanel.openTables)
     self.tablesButton:initialise()
     self:addChild(self.tablesButton)
+    self.ledgerButton = ISButton:new(0, 74, 64, 20, "LEDGER", self, ParadiseEconomy.AdminPanel.openLedger)
+    self.ledgerButton:initialise()
+    self:addChild(self.ledgerButton)
     self.serverButton = ISButton:new(0, 74, 64, 20, "SERVER", self, ParadiseEconomy.AdminPanel.selectServer)
     self.serverButton:initialise()
     self:addChild(self.serverButton)
@@ -4397,6 +4404,10 @@ function ParadiseEconomy.AdminPanel:layout()
     self.serverButton:setY(cardY + 8)
     self.serverButton:setWidth(64)
     self.serverButton:setHeight(20)
+    self.ledgerButton:setX(cardX + rightW - 14 - 64 - 6 - 64 - 6 - 64)
+    self.ledgerButton:setY(cardY + 8)
+    self.ledgerButton:setWidth(64)
+    self.ledgerButton:setHeight(20)
     self.freezeButton:setX(detailInnerX)
     self.freezeButton:setY(self.taxRowY)
     self.freezeButton:setWidth(detailInnerW)
@@ -4785,6 +4796,12 @@ end
 function ParadiseEconomy.AdminPanel:openTables()
     if ParadiseEconomy.TablesPanel and ParadiseEconomy.TablesPanel.OpenPanel then
         ParadiseEconomy.TablesPanel.OpenPanel()
+    end
+end
+
+function ParadiseEconomy.AdminPanel:openLedger()
+    if ParadiseEconomy.LedgerPanel and ParadiseEconomy.LedgerPanel.OpenPanel then
+        ParadiseEconomy.LedgerPanel.OpenPanel()
     end
 end
 
@@ -6247,3 +6264,248 @@ function ParadiseEconomy.createHUD()
 end
 Events.OnCreatePlayer.Remove(ParadiseEconomy.createHUD)
 Events.OnCreatePlayer.Add(ParadiseEconomy.createHUD)
+
+ParadiseEconomy.LedgerPanel = ISCollapsableWindow:derive("ParadiseEconomyLedgerPanel")
+
+function ParadiseEconomy.LedgerPanel:new(x, y, w, h)
+    local obj = ISCollapsableWindow.new(self, x, y, w, h)
+    obj.title = "Paradise Economy - Ledger"
+    obj.resizable = true
+    obj.minimumWidth = 900
+    obj.minimumHeight = 600
+    obj.days = {}
+    obj.rows = {}
+    obj.page = 1
+    obj.pages = 1
+    obj.count = 0
+    obj.selectedDay = nil
+    obj.detailLines = {}
+    obj.lastWidth = 0
+    obj.lastHeight = 0
+    return obj
+end
+
+function ParadiseEconomy.LedgerPanel:createChildren()
+    ISCollapsableWindow.createChildren(self)
+    ParadiseEconomy.styleWindow(self)
+    self.refreshButton = ISButton:new(0, 0, 110, 25, "REFRESH", self, ParadiseEconomy.LedgerPanel.requestDays)
+    self.refreshButton:initialise()
+    self:addChild(self.refreshButton)
+    self.dayList = ISScrollingListBox:new(15, 70, 250, 300)
+    self.dayList:initialise()
+    self.dayList.itemheight = 24
+    self.dayList.font = UIFont.Small
+    self.dayList.doDrawItem = ParadiseEconomy.LedgerPanel.drawDay
+    self.dayList:setOnMouseDownFunction(self, ParadiseEconomy.LedgerPanel.selectDay)
+    self.dayList.panel = self
+    self:addChild(self.dayList)
+    self.rowList = ISScrollingListBox:new(275, 70, 300, 300)
+    self.rowList:initialise()
+    self.rowList.itemheight = 22
+    self.rowList.font = UIFont.Small
+    self.rowList.doDrawItem = ParadiseEconomy.LedgerPanel.drawRow
+    self.rowList:setOnMouseDownFunction(self, ParadiseEconomy.LedgerPanel.selectRow)
+    self.rowList.panel = self
+    self:addChild(self.rowList)
+    self.prevButton = ISButton:new(0, 0, 80, 24, "PREV", self, ParadiseEconomy.LedgerPanel.prevPage)
+    self.prevButton:initialise()
+    self:addChild(self.prevButton)
+    self.nextButton = ISButton:new(0, 0, 80, 24, "NEXT", self, ParadiseEconomy.LedgerPanel.nextPage)
+    self.nextButton:initialise()
+    self:addChild(self.nextButton)
+    ParadiseEconomy.styleTree(self)
+    self:layout()
+end
+
+function ParadiseEconomy.LedgerPanel:layout()
+    if not self.rowList then return end
+    local contentX = 15
+    local contentW = self.width - 30
+    local top = self:titleBarHeight() + 8
+    self.refreshButton:setX(contentX + contentW - 110)
+    self.refreshButton:setY(top)
+    self.refreshButton:setWidth(110)
+    local listY = top + 34
+    local dayW = 250
+    self.dayList:setX(contentX)
+    self.dayList:setY(listY)
+    self.dayList:setWidth(dayW)
+    local detailH = 150
+    local listH = math.max(160, self.height - listY - 30 - detailH - 40)
+    self.dayList:setHeight(listH)
+    self.rowList:setX(contentX + dayW + 10)
+    self.rowList:setY(listY)
+    self.rowList:setWidth(contentW - dayW - 10)
+    self.rowList:setHeight(listH)
+    self.pagerY = listY + listH + 8
+    self.prevButton:setX(contentX)
+    self.prevButton:setY(self.pagerY)
+    self.prevButton:setWidth(80)
+    self.nextButton:setX(contentX + 86)
+    self.nextButton:setY(self.pagerY)
+    self.nextButton:setWidth(80)
+    self.detailY = self.pagerY + 32
+    self.lastWidth, self.lastHeight = self.width, self.height
+end
+
+function ParadiseEconomy.LedgerPanel:update()
+    ISCollapsableWindow.update(self)
+    if not self.rowList then return end
+    if self.width ~= self.lastWidth or self.height ~= self.lastHeight then self:layout() end
+    self.prevButton:setEnable(self.page > 1)
+    self.nextButton:setEnable(self.page < self.pages)
+end
+
+function ParadiseEconomy.LedgerPanel:close()
+    if ParadiseEconomy.LedgerPanel.ClosePanel then
+        ParadiseEconomy.LedgerPanel.ClosePanel()
+    else
+        self:setVisible(false)
+        self:removeFromUIManager()
+    end
+end
+
+function ParadiseEconomy.LedgerPanel:requestDays()
+    ParadiseEconomy.send("ledgerDays")
+end
+
+function ParadiseEconomy.LedgerPanel:requestPage(day, page)
+    if not day then return end
+    ParadiseEconomy.send("ledgerPage", { day = day, page = page or 1 })
+end
+
+function ParadiseEconomy.LedgerPanel:prevPage()
+    if self.page > 1 then self:requestPage(self.selectedDay, self.page - 1) end
+end
+
+function ParadiseEconomy.LedgerPanel:nextPage()
+    if self.page < self.pages then self:requestPage(self.selectedDay, self.page + 1) end
+end
+
+function ParadiseEconomy.LedgerPanel:applyDays(payload)
+    self.days = payload and payload.days or {}
+    self.dayList:clear()
+    for _, entry in ipairs(self.days) do
+        self.dayList:addItem(entry.d, entry)
+    end
+    local known = false
+    if self.selectedDay then
+        for _, entry in ipairs(self.days) do
+            if entry.d == self.selectedDay then
+                known = true
+                break
+            end
+        end
+    end
+    if not known then
+        self.selectedDay = nil
+        self.page = 1
+        self.pages = 1
+        self.count = 0
+        self.rows = {}
+        self.rowList:clear()
+        self.detailLines = {}
+    end
+    if self.days[1] then
+        self:selectDay(self.days[1])
+    end
+end
+
+function ParadiseEconomy.LedgerPanel:applyPage(payload)
+    payload = payload or {}
+    self.selectedDay = payload.day or self.selectedDay
+    self.page = tonumber(payload.page) or 1
+    self.pages = math.max(1, tonumber(payload.pages) or 1)
+    self.count = tonumber(payload.count) or 0
+    self.rows = payload.rows or {}
+    self.rowList:clear()
+    self.detailLines = {}
+    for index, packed in ipairs(self.rows) do
+        self.rowList:addItem(tostring(index), { packed = packed, index = index })
+    end
+end
+
+function ParadiseEconomy.LedgerPanel:selectDay(entry)
+    if not entry or not entry.d then return end
+    self.selectedDay = entry.d
+    self.page = 1
+    self:requestPage(self.selectedDay, 1)
+end
+
+function ParadiseEconomy.LedgerPanel:selectRow(entry)
+    if not entry then return end
+    local rec = ParadiseEconomy.Ledger.decode(entry.packed, self.selectedDay)
+    local names = {}
+    for id, account in pairs(ParadiseEconomy.clientState.accounts or {}) do
+        names[id] = account.title or account.name or account.owner or id
+    end
+    local zones = {}
+    for id, zone in pairs(ParadiseEconomy.clientState.zones or {}) do
+        zones[id] = zone.name or id
+    end
+    local pl = getPlayer()
+    local title, detail = ParadiseEconomy.Ledger.playerText(rec, {
+        user = pl and pl:getUsername() or "",
+        accIds = {},
+        names = names,
+        zones = zones,
+    })
+    local lines = ParadiseEconomy.Ledger.adminDetail(rec)
+    lines[#lines + 1] = "player " .. tostring(title)
+    if detail and detail ~= "" then lines[#lines + 1] = "player detail " .. tostring(detail) end
+    self.detailLines = lines
+end
+
+function ParadiseEconomy.LedgerPanel:drawDay(y, item, alt)
+    local entry = item.item
+    local theme = ParadiseEconomy.Theme
+    if self.selected == item.index then
+        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
+    elseif alt then
+        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
+    end
+    self:drawText(tostring(entry.d), 8, y + 5, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
+    self:drawTextRight(tostring(entry.n) .. " ENTRIES", self.width - 8, y + 5,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    return y + self.itemheight
+end
+
+function ParadiseEconomy.LedgerPanel:drawRow(y, item, alt)
+    local panel = self.panel
+    local theme = ParadiseEconomy.Theme
+    if self.selected == item.index then
+        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
+    elseif alt then
+        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
+    end
+    local day = panel and panel.selectedDay or nil
+    local rec = ParadiseEconomy.Ledger.decode(item.item.packed, day)
+    self:drawText(ParadiseEconomy.fitText(ParadiseEconomy.Ledger.adminText(rec), self.width - 16, UIFont.Small),
+        8, y + 4, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
+    return y + self.itemheight
+end
+
+function ParadiseEconomy.LedgerPanel:prerender()
+    ISCollapsableWindow.prerender(self)
+    local theme = ParadiseEconomy.Theme
+    local w = self.width
+    self:drawText("DAYS", 15, self.dayList:getY() - 16, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("PAGE " .. tostring(self.page) .. " / " .. tostring(self.pages) .. "  -  "
+        .. tostring(self.count) .. " ENTRIES  -  " .. tostring(self.selectedDay or "-"),
+        190, self.pagerY + 5, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    ParadiseEconomy.drawCard(self, 15, self.detailY - 6, w - 30, math.max(60, self.height - self.detailY + 2), theme.borderSoft)
+    if #(self.detailLines or {}) == 0 then
+        self:drawText("Select a row to inspect the packed record and its player rendering.", 29,
+            self.detailY + 8, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    else
+        for index = 1, math.min(#self.detailLines, 7) do
+            self:drawText(ParadiseEconomy.fitText(self.detailLines[index], w - 54, UIFont.Small),
+                29, self.detailY + 6 + (index - 1) * 17,
+                theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
+        end
+    end
+    if #(self.days or {}) == 0 then
+        self:drawTextCentre("No ledger entries yet.", self.rowList:getX() + self.rowList:getWidth() / 2,
+            self.rowList:getY() + 30, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    end
+end
