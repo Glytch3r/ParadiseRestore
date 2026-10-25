@@ -6406,7 +6406,10 @@ function ParadiseEconomy.LedgerPanel:applyDays(payload)
         self.rowList:clear()
         self.detailLines = {}
     end
-    if self.days[1] then
+    if known then
+        self:requestPage(self.selectedDay, self.page)
+    elseif self.days[1] then
+        self.dayList.selected = 1
         self:selectDay(self.days[1])
     end
 end
