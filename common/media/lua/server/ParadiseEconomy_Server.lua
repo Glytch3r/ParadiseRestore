@@ -2,7 +2,7 @@ if isClient() then return end
 
 ParadiseEconomy = ParadiseEconomy or {}
 
-local SCHEMA_VERSION = 5
+local SCHEMA_VERSION = 6
 
 local function ensureBucket(tab)
     tab = tab or {}
@@ -40,6 +40,7 @@ function ParadiseEconomy.getStore()
     store.market.nextListingId = tonumber(store.market.nextListingId) or 1
     store.market.nextItemMartId = tonumber(store.market.nextItemMartId) or 1
     store.personalIndex = store.personalIndex or {}
+    store.merchantIndex = store.merchantIndex or {}
     store.nextAccountSerial = tonumber(store.nextAccountSerial) or 1
     store.playerShops = store.playerShops or {}
     store.orphanedPlayerListings = store.orphanedPlayerListings or {}
@@ -54,10 +55,106 @@ function ParadiseEconomy.getStore()
     local version = tonumber(store.schemaVersion) or 1
     if version < SCHEMA_VERSION then
         if version < 4 then ParadiseEconomy.migrateStore(store) end
+        if version < 6 then ParadiseEconomy.migrateAccountIds(store) end
         ParadiseEconomy.migrateMerchantLeases(store)
         store.schemaVersion = SCHEMA_VERSION
     end
     ParadiseEconomy.ensureServerAccount(store)
+    return store
+end
+
+ParadiseEconomy.accountIdLength = 6
+ParadiseEconomy.accountIdAlphabet = "abcdefghjkmnpqrstuvwxyz23456789"
+
+function ParadiseEconomy.generateAccountId(store, taken)
+    local alphabet = ParadiseEconomy.accountIdAlphabet
+    for _ = 1, 200 do
+        local chars = {}
+        for int = 1, ParadiseEconomy.accountIdLength do
+            local index = ZombRand(1, #alphabet + 1)
+            chars[int] = string.sub(alphabet, index, index)
+        end
+        local id = table.concat(chars)
+        if id ~= ParadiseEconomy.serverAccountId
+            and not (store and store.accounts and store.accounts[id])
+            and not (taken and taken[id]) then
+            return id
+        end
+    end
+    return nil
+end
+
+function ParadiseEconomy.migrateAccountIds(store)
+    store.accounts = store.accounts or {}
+    store.zones = store.zones or {}
+    store.transactions = store.transactions or {}
+    store.orphanedPlayerListings = store.orphanedPlayerListings or {}
+    store.market = store.market or {}
+    store.market.playerListings = store.market.playerListings or {}
+    local idMap = {}
+    local accounts = {}
+    for oldId, account in pairs(store.accounts) do
+        if type(account) == "table" then
+            oldId = tostring(oldId)
+            local newId = oldId
+            if oldId ~= ParadiseEconomy.serverAccountId then
+                newId = ParadiseEconomy.generateAccountId(store, accounts) or oldId
+            end
+            account.id = newId
+            accounts[newId] = account
+            if newId ~= oldId then idMap[oldId] = newId end
+        end
+    end
+    store.accounts = accounts
+    local function remapListing(listing)
+        if type(listing) == "table" and listing.merchantAccountId then
+            local mapped = idMap[tostring(listing.merchantAccountId)]
+            if mapped then listing.merchantAccountId = mapped end
+        end
+    end
+    for _, account in pairs(store.accounts) do
+        if account.taxRoute then
+            local mapped = idMap[tostring(account.taxRoute)]
+            if mapped then account.taxRoute = mapped end
+        end
+        for _, listing in ipairs(account.listings or {}) do remapListing(listing) end
+    end
+    for _, listing in ipairs(store.orphanedPlayerListings) do remapListing(listing) end
+    for _, listing in ipairs(store.market.playerListings) do remapListing(listing) end
+    for _, zone in pairs(store.zones) do
+        if zone.tradeAccountId then
+            local mapped = idMap[tostring(zone.tradeAccountId)]
+            if mapped then zone.tradeAccountId = mapped end
+        end
+    end
+    for _, tx in ipairs(store.transactions) do
+        if tx.accountId then
+            local mapped = idMap[tostring(tx.accountId)]
+            if mapped then tx.accountId = mapped end
+        end
+        if tx.counterpartyId then
+            local mapped = idMap[tostring(tx.counterpartyId)]
+            if mapped then tx.counterpartyId = mapped end
+        end
+    end
+    for accountId, account in pairs(store.accounts) do
+        if account.type == "trade" and account.zoneId then
+            local zone = store.zones[account.zoneId]
+            if zone and not store.accounts[tostring(zone.tradeAccountId or "")] then zone.tradeAccountId = accountId end
+        end
+    end
+    store.personalIndex = {}
+    store.merchantIndex = {}
+    for accountId, account in pairs(store.accounts) do
+        local key = ParadiseEconomy.usernameKey(account.owner)
+        if key then
+            if account.type == "personal" then
+                if not store.personalIndex[key] then store.personalIndex[key] = accountId end
+            elseif account.type == "merchant" and account.zoneId then
+                store.merchantIndex[account.zoneId .. "|" .. key] = accountId
+            end
+        end
+    end
     return store
 end
 
@@ -374,7 +471,12 @@ function ParadiseEconomy.migrateMerchantLeases(store)
     end
     for _, account in pairs(store.accounts) do
         if account.type == "merchant" and tonumber(account.expiresAt) == nil then
-            local trade = account.zoneId and store.accounts[ParadiseEconomy.tradeAccountId(account.zoneId)] or nil
+            local zone = account.zoneId and store.zones and store.zones[account.zoneId] or nil
+            local trade = zone and zone.tradeAccountId and store.accounts[zone.tradeAccountId] or nil
+            if not trade and account.zoneId then
+                local tradeId = ParadiseEconomy.findTradeAccountId(store, account.zoneId)
+                trade = tradeId and store.accounts[tradeId] or nil
+            end
             ParadiseEconomy.grantMerchantLease(account, ParadiseEconomy.getMerchantLeaseDays(trade), now)
         end
     end
@@ -484,15 +586,29 @@ function ParadiseEconomy.registerZone(zoneId, name, isTrade)
     return zone
 end
 
+function ParadiseEconomy.findTradeAccountId(store, zoneId)
+    for accountId, account in pairs(store.accounts or {}) do
+        if account.type == "trade" and account.zoneId == zoneId then return accountId end
+    end
+    return nil
+end
+
 function ParadiseEconomy.ensureTradeAccount(zoneId, zoneName)
     zoneId = ParadiseEconomy.normalizeZoneId(zoneId)
     if not zoneId then return nil end
     local store = ParadiseEconomy.getStore()
-    local id = ParadiseEconomy.tradeAccountId(zoneId)
+    local zone = store.zones[zoneId]
     zoneName = tostring(zoneName or ""):match("^%s*(.-)%s*$")
     if zoneName == "" then zoneName = zoneId end
-    local account = store.accounts[id]
+    local id = zone and zone.tradeAccountId or nil
+    local account = id and store.accounts[id] or nil
     if not account then
+        id = ParadiseEconomy.findTradeAccountId(store, zoneId)
+        account = id and store.accounts[id] or nil
+    end
+    if not account then
+        id = ParadiseEconomy.generateAccountId(store)
+        if not id then return nil end
         account = {
             id = id,
             type = "trade",
@@ -508,7 +624,9 @@ function ParadiseEconomy.ensureTradeAccount(zoneId, zoneName)
         }
         store.accounts[id] = account
     end
+    if zone then zone.tradeAccountId = id end
     account.type = "trade"
+    account.zoneId = zoneId
     account.zoneName = account.zoneName or zoneName
     account.tradeId = zoneName
     account.title = ParadiseEconomy.normalizeTradeZoneTitle(account.title) or zoneName
@@ -536,7 +654,7 @@ function ParadiseEconomy.onZoneRemoved(zoneId)
     local store = ParadiseEconomy.getStore()
     local zone = store.zones[zoneId]
     if zone then zone.removed = os.time() end
-    local tradeId = zone and zone.tradeAccountId or ParadiseEconomy.tradeAccountId(zoneId)
+    local tradeId = zone and zone.tradeAccountId or ParadiseEconomy.findTradeAccountId(store, zoneId)
     local trade = tradeId and store.accounts[tradeId] or nil
     if trade then trade.archived = true end
     for _, account in pairs(store.accounts) do
@@ -572,6 +690,25 @@ function ParadiseEconomy.ensureAllTradeZoneAccounts()
     return count
 end
 
+function ParadiseEconomy.refreshAccountOwnerCase(account, user)
+    if type(account) ~= "table" or not account.owner then return end
+    local owner = ParadiseEconomy.normalizeUsername(user)
+    if not owner or owner == account.owner then return end
+    if ParadiseEconomy.usernameKey(account.owner) ~= ParadiseEconomy.usernameKey(owner) then return end
+    local previous = account.owner
+    account.owner = owner
+    if account.type == "personal" then
+        if ParadiseEconomy.usernameKey(account.title) == ParadiseEconomy.usernameKey(previous) then
+            account.title = owner
+        end
+    elseif account.type == "merchant" then
+        local zoneName = tostring(account.zoneName or account.zoneId or "")
+        if account.title == (tostring(previous) .. " @ " .. zoneName) then
+            account.title = tostring(owner) .. " @ " .. zoneName
+        end
+    end
+end
+
 function ParadiseEconomy.getPersonalAccount(user, create)
     local key = ParadiseEconomy.usernameKey(user)
     if not key then return nil end
@@ -590,12 +727,8 @@ function ParadiseEconomy.getPersonalAccount(user, create)
         end
     end
     if not account and create then
-        local serial = math.max(1, tonumber(store.nextAccountSerial) or 1)
-        repeat
-            id = "p:" .. tostring(serial)
-            serial = serial + 1
-        until not store.accounts[id]
-        store.nextAccountSerial = serial
+        id = ParadiseEconomy.generateAccountId(store)
+        if not id then return nil end
         account = {
             id = id,
             type = "personal",
@@ -612,49 +745,82 @@ function ParadiseEconomy.getPersonalAccount(user, create)
         account.digital = ensureBucket(account.digital or account.online)
         account.onhand = ensureBucket(account.onhand)
         account.owner = account.owner or ParadiseEconomy.normalizeUsername(user)
+        ParadiseEconomy.refreshAccountOwnerCase(account, user)
         account.title = ParadiseEconomy.normalizeTradeZoneTitle(account.title) or account.owner
         account.online = nil
     end
     return account
 end
 
-function ParadiseEconomy.rebuildPersonalIndex()
+function ParadiseEconomy.rebuildAccountIndexes()
     local store = ParadiseEconomy.getStore()
     store.personalIndex = {}
+    store.merchantIndex = {}
     local candidates = {}
+    local merchantCandidates = {}
     for accountId, account in pairs(store.accounts or {}) do
-        if account.type == "personal" then
-            local key = ParadiseEconomy.usernameKey(account.owner)
-            if key then
-                candidates[key] = candidates[key] or {}
-                candidates[key][#candidates[key] + 1] = accountId
-            end
+        local key = ParadiseEconomy.usernameKey(account.owner)
+        if key and account.type == "personal" then
+            candidates[key] = candidates[key] or {}
+            candidates[key][#candidates[key] + 1] = accountId
+        elseif key and account.type == "merchant" and account.zoneId then
+            local indexKey = account.zoneId .. "|" .. key
+            merchantCandidates[indexKey] = merchantCandidates[indexKey] or {}
+            merchantCandidates[indexKey][#merchantCandidates[indexKey] + 1] = accountId
         end
     end
     local indexed, duplicates = 0, 0
-    for key, ids in pairs(candidates) do
+    local function pickOldest(ids)
         table.sort(ids, function(a, b)
-            local aSerial = tonumber(tostring(a):match("^p:(%d+)$")) or math.huge
-            local bSerial = tonumber(tostring(b):match("^p:(%d+)$")) or math.huge
-            if aSerial == bSerial then return a < b end
-            return aSerial < bSerial
+            local accountA, accountB = store.accounts[a], store.accounts[b]
+            local createdA = accountA and tonumber(accountA.createdAt) or math.huge
+            local createdB = accountB and tonumber(accountB.createdAt) or math.huge
+            if createdA == createdB then return a < b end
+            return createdA < createdB
         end)
-        store.personalIndex[key] = ids[1]
+        return ids[1], #ids - 1
+    end
+    for key, ids in pairs(candidates) do
+        local id, skipped = pickOldest(ids)
+        store.personalIndex[key] = id
         indexed = indexed + 1
-        duplicates = duplicates + (#ids - 1)
+        duplicates = duplicates + skipped
+    end
+    for indexKey, ids in pairs(merchantCandidates) do
+        local id, skipped = pickOldest(ids)
+        store.merchantIndex[indexKey] = id
+        indexed = indexed + 1
+        duplicates = duplicates + skipped
     end
     return indexed, duplicates
 end
 
+
 function ParadiseEconomy.getMerchantAccount(zoneId, user, create)
-    local id = ParadiseEconomy.merchantAccountId(zoneId, user)
-    if not id then return nil end
     zoneId = ParadiseEconomy.normalizeZoneId(zoneId)
-    local store = ParadiseEconomy.getStore()
-    local account = store.accounts[id]
     local owner = ParadiseEconomy.normalizeUsername(user)
+    if not zoneId or not owner then return nil end
+    local key = ParadiseEconomy.usernameKey(owner)
+    local store = ParadiseEconomy.getStore()
+    store.merchantIndex = store.merchantIndex or {}
+    local indexKey = zoneId .. "|" .. key
+    local id = store.merchantIndex[indexKey]
+    local account = id and store.accounts[id] or nil
+    if not account then
+        for accountId, check in pairs(store.accounts) do
+            if check.type == "merchant" and check.zoneId == zoneId
+                and ParadiseEconomy.usernameKey(check.owner) == key then
+                id = accountId
+                account = check
+                store.merchantIndex[indexKey] = accountId
+                break
+            end
+        end
+    end
     if not account and create then
-        local zone = zoneId and store.zones[zoneId] or nil
+        id = ParadiseEconomy.generateAccountId(store)
+        if not id then return nil end
+        local zone = store.zones[zoneId]
         local zoneName = tostring(zone and zone.name or zoneId)
         account = {
             id = id,
@@ -663,21 +829,23 @@ function ParadiseEconomy.getMerchantAccount(zoneId, user, create)
             zoneName = zoneName,
             owner = owner,
             title = tostring(owner) .. " @ " .. zoneName,
-            taxRoute = zone and zone.tradeAccountId or (zoneId and ParadiseEconomy.tradeAccountId(zoneId)) or ParadiseEconomy.serverAccountId,
+            taxRoute = zone and zone.tradeAccountId or ParadiseEconomy.serverAccountId,
             listings = {},
             earnings = { jimoleon = 0, paradisium = 0 },
             createdAt = os.time(),
         }
         store.accounts[id] = account
+        store.merchantIndex[indexKey] = id
     end
     if account then
         account.listings = account.listings or {}
         account.earnings = ensureBucket(account.earnings)
+        ParadiseEconomy.refreshAccountOwnerCase(account, owner)
         account.title = ParadiseEconomy.normalizeTradeZoneTitle(account.title)
             or (tostring(account.owner or owner or "Merchant") .. " @ " .. tostring(account.zoneName or zoneId))
         if not account.taxRoute or not store.accounts[account.taxRoute] then
-            local zone = zoneId and store.zones[zoneId] or nil
-            account.taxRoute = zone and zone.tradeAccountId or (zoneId and ParadiseEconomy.tradeAccountId(zoneId)) or ParadiseEconomy.serverAccountId
+            local zone = store.zones[zoneId]
+            account.taxRoute = zone and zone.tradeAccountId or ParadiseEconomy.serverAccountId
         end
         ParadiseEconomy.ensureMerchantLease(account)
     end
@@ -688,12 +856,17 @@ function ParadiseEconomy.getTradeAccount(zoneId, create)
     zoneId = ParadiseEconomy.normalizeZoneId(zoneId)
     if not zoneId then return nil end
     local store = ParadiseEconomy.getStore()
-    local id = ParadiseEconomy.tradeAccountId(zoneId)
-    local account = store.accounts[id]
+    local zone = store.zones[zoneId]
+    local id = zone and zone.tradeAccountId or nil
+    local account = id and store.accounts[id] or nil
+    if not account then
+        id = ParadiseEconomy.findTradeAccountId(store, zoneId)
+        account = id and store.accounts[id] or nil
+        if account and zone then zone.tradeAccountId = id end
+    end
     if not account and create then
-        local zone = store.zones[zoneId]
-        ParadiseEconomy.ensureTradeAccount(zoneId, zone and zone.name or zoneId)
-        account = store.accounts[id]
+        local tradeId = ParadiseEconomy.ensureTradeAccount(zoneId, zone and zone.name or zoneId)
+        account = tradeId and store.accounts[tradeId] or nil
     end
     return account
 end
@@ -725,6 +898,7 @@ function ParadiseEconomy.getPlayerMerchants(user)
     if not key then return list end
     for _, account in pairs(ParadiseEconomy.getStore().accounts) do
         if account.type == "merchant" and ParadiseEconomy.usernameKey(account.owner) == key then
+            ParadiseEconomy.refreshAccountOwnerCase(account, user)
             list[#list + 1] = account
         end
     end
@@ -1452,6 +1626,9 @@ function ParadiseEconomy.deleteAccount(accountId)
         for _, listing in ipairs(account.listings or {}) do
             store.orphanedPlayerListings[#store.orphanedPlayerListings + 1] = listing
         end
+        for key, id in pairs(store.merchantIndex or {}) do
+            if id == accountId then store.merchantIndex[key] = nil end
+        end
     elseif account.type == "trade" then
         local zone = store.zones[account.zoneId]
         if zone and zone.tradeAccountId == accountId then zone.tradeAccountId = nil end
@@ -1494,14 +1671,8 @@ function ParadiseEconomy.createAccountOfType(accountType, owner, zoneId, name)
     end
     if name == "" then name = owner end
     if not name or name == "" then return nil, "Account name is required" end
-    local slug = string.lower(name):gsub("[^%w]+", "_"):gsub("^_+", ""):gsub("_+$", "")
-    if slug == "" then slug = "account" end
-    local id = "c:" .. slug
-    local suffix = 2
-    while store.accounts[id] do
-        id = "c:" .. slug .. "_" .. tostring(suffix)
-        suffix = suffix + 1
-    end
+    local id = ParadiseEconomy.generateAccountId(store)
+    if not id then return nil, "Account could not be created" end
     local account = {
         id = id,
         type = "custom",
@@ -1884,11 +2055,11 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
         message = "Transaction ledger cleared"
         syncAll = true
     elseif command == "adminRebuildIndex" and isAdm then
-        local indexed, duplicates = ParadiseEconomy.rebuildPersonalIndex()
-        message = "Rebuilt personal index: " .. tostring(indexed) .. " linked"
+        local indexed, duplicates = ParadiseEconomy.rebuildAccountIndexes()
+        message = "Rebuilt account indexes: " .. tostring(indexed) .. " linked"
         if duplicates > 0 then message = message .. ", " .. tostring(duplicates) .. " duplicates skipped" end
         syncAll = true
-        ParadiseEconomy.record(pl, "admin rebuilt personal index", "mixed", 0, user, "index", message, {
+        ParadiseEconomy.record(pl, "admin rebuilt account indexes", "mixed", 0, user, "index", message, {
             accountId = ParadiseEconomy.getPersonalAccount(user, true).id,
         })
     elseif command == "adminSyncZones" and isAdm then

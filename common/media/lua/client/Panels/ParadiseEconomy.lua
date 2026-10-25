@@ -1115,8 +1115,8 @@ function ParadiseEconomy.Panel:prerender()
     self:drawTextCentre("02", w - 42, 29, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Medium)
     self:drawRect(15, 56, w - 30, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
 
-    local accountId = tostring(personal.id or "p:-----")
-    local owner = string.upper(tostring(personal.owner or personal.title or (player and player:getUsername()) or "UNLINKED"))
+    local accountId = tostring(personal.id or "------")
+    local owner = tostring(personal.owner or personal.title or (player and player:getUsername()) or "UNLINKED")
     self:drawText(accountId, 18, 64, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
     local idWidth = getTextManager():MeasureStringX(UIFont.Small, accountId)
     local ownerX = 18 + idWidth + 8
@@ -2344,7 +2344,7 @@ function ParadiseEconomy.MartPanel:drawStoreTab()
         local lease = ParadiseEconomy.getLeaseInfo(merchant.expiresAt)
         local color = ParadiseEconomy.getLeaseColor(lease.status)
         self:drawTextRight("LEASE  " .. string.upper(lease.label), w - 29, 106, color.r, color.g, color.b, 1, UIFont.Small)
-        local merchantText = "MERCHANT  " .. tostring(merchant.id) .. "  ·  OWNER  " .. string.upper(tostring(merchant.owner or "-"))
+        local merchantText = "MERCHANT  " .. tostring(merchant.id) .. "  ·  OWNER  " .. tostring(merchant.owner or "-")
         self:drawText(ParadiseEconomy.fitText(merchantText, w - 380, UIFont.Small), 29, 152,
             theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
         self:drawTextRight("EARNINGS  " .. ParadiseEconomy.formatBalances(merchant.earnings), w - 29, 152,
@@ -3165,7 +3165,7 @@ function ParadiseEconomy.TradeManagementPanel:prerender()
     local zone = self:getSelectedZone()
     if zone then
         local info = "TAX " .. string.format("%g", tonumber(zone.tradeTax) or 0) .. "%  ·  OWNER  "
-            .. string.upper(tostring(zone.owner or "-"))
+            .. tostring(zone.owner or "-")
         self:drawTextRight(ParadiseEconomy.fitText(info, w - 520, UIFont.Small), w - 120, 68,
             theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
     end

@@ -55,17 +55,6 @@ function ParadiseEconomy.tradeAccountId(zoneId)
     return zoneId and ("t:" .. zoneId) or nil
 end
 
-function ParadiseEconomy.getAccountType(accountId)
-    accountId = tostring(accountId or "")
-    if accountId == ParadiseEconomy.serverAccountId then return "server" end
-    local prefix = accountId:match("^(%a+):")
-    if prefix == "p" then return "personal" end
-    if prefix == "m" then return "merchant" end
-    if prefix == "t" then return "trade" end
-    if prefix == "c" then return "custom" end
-    return nil
-end
-
 function ParadiseEconomy.normalizeCurrency(currency)
     currency = string.lower(tostring(currency or ""))
     return ParadiseEconomy.currencies[currency] and currency or nil
