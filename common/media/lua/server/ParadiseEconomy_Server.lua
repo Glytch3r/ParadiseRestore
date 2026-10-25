@@ -2854,6 +2854,24 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
         ParadiseEconomy.sendState(pl, "ParadiseMart is only available in a Trade Zone", { purchase = purchaseResult })
         return
     end
+    if command == "ledgerDays" then
+        if isAdm then
+            sendServerCommand(pl, ParadiseEconomy.module, "ledgerDays",
+                { days = ParadiseEconomy.getLedgerDays() })
+        end
+        return
+    elseif command == "ledgerPage" then
+        if isAdm then
+            sendServerCommand(pl, ParadiseEconomy.module, "ledgerPage",
+                ParadiseEconomy.getLedgerPage(args.day, args.page, 20))
+        end
+        return
+    elseif command == "ledgerMine" then
+        local scope = args.accountId and tostring(args.accountId) or nil
+        sendServerCommand(pl, ParadiseEconomy.module, "ledgerMine",
+            ParadiseEconomy.getPlayerLedgerRows(user, scope, 200, isAdm))
+        return
+    end
     if command == "requestState" then
         ParadiseEconomy.sendState(pl)
         return
