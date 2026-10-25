@@ -4901,7 +4901,7 @@ function ParadiseEconomy.AdminPanel:prerender()
     ParadiseEconomy.AdminPanel.drawCoinHeader(self, listX + self.rowPRight, headerY + 7,
         ParadiseEconomy.icons.paradisium)
     if #self.accounts.items == 0 then
-        self:drawTextCentre("No accounts match this filter.", listX + leftW / 2, self.listY + 40,
+        self:drawTextCentre("No accounts match this filter.", listX + self.leftW / 2, self.listY + 40,
             theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     end
 

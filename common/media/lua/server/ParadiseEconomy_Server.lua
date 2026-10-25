@@ -2837,48 +2837,77 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
     if module ~= ParadiseEconomy.module or not pl then return end
     if not ParadiseEconomy.isEnabled() then return end
     args = args or {}
-    local user = pl:getUsername()
-    local currency = ParadiseEconomy.normalizeCurrency(args.currency)
-    local amount = ParadiseEconomy.normalizeAmount(args.amount)
-    local isAdm = ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) or false
-    local message
-    local syncAll = false
-    local purchaseResult
-    local shopResult
+    local ctx = {
+        command = command,
+        pl = pl,
+        args = args,
+        user = pl:getUsername(),
+        currency = ParadiseEconomy.normalizeCurrency(args.currency),
+        amount = ParadiseEconomy.normalizeAmount(args.amount),
+        isAdm = ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) or false,
+    }
     if (command == "marketBuy" or command == "marketSell" or command == "playerShopPost" or
         command == "playerShopBuy") and not ParadiseEconomy.canUsePlayerEconomy(pl) then
         if command == "playerShopBuy" and args.source == "drag" then
-            purchaseResult = { ok = false, listingId = args.listingId,
+            ctx.purchaseResult = { ok = false, listingId = args.listingId,
                 message = "ParadiseMart is only available in a Trade Zone" }
         end
-        ParadiseEconomy.sendState(pl, "ParadiseMart is only available in a Trade Zone", { purchase = purchaseResult })
+        ParadiseEconomy.sendState(pl, "ParadiseMart is only available in a Trade Zone",
+            { purchase = ctx.purchaseResult })
         return
     end
-    if command == "ledgerDays" then
-        if isAdm then
-            sendServerCommand(pl, ParadiseEconomy.module, "ledgerDays",
-                { days = ParadiseEconomy.getLedgerDays() })
-        end
-        return
-    elseif command == "ledgerPage" then
-        if isAdm then
-            sendServerCommand(pl, ParadiseEconomy.module, "ledgerPage",
-                ParadiseEconomy.getLedgerPage(args.day, args.page, 20))
-        end
-        return
-    elseif command == "ledgerMine" then
-        local scope = args.accountId and tostring(args.accountId) or nil
-        sendServerCommand(pl, ParadiseEconomy.module, "ledgerMine",
-            ParadiseEconomy.getPlayerLedgerRows(user, scope, 200, isAdm))
-        return
-    end
+    if ParadiseEconomy.handleLedgerCommand(ctx) then return end
     if command == "requestState" then
         ParadiseEconomy.sendState(pl)
         return
     elseif command == "requestShop" then
         ParadiseEconomy.sendShopState(pl, args.kind, args.id)
         return
-    elseif command == "registerStore" then
+    end
+    for _, handler in ipairs(ParadiseEconomy.commandGroups) do
+        if handler(ctx) then break end
+    end
+    if ctx.stop then return end
+    ParadiseEconomy.transmit()
+    local extra = nil
+    if ctx.purchaseResult then extra = extra or {}; extra.purchase = ctx.purchaseResult end
+    if ctx.shopResult then extra = extra or {}; extra.shopRequest = ctx.shopResult end
+    if ctx.syncAll then ParadiseEconomy.sendStateToAll(pl, ctx.message, extra)
+    else ParadiseEconomy.sendState(pl, ctx.message or "Transaction rejected", extra) end
+end
+Events.OnClientCommand.Remove(ParadiseEconomy.onClientCommand)
+Events.OnClientCommand.Add(ParadiseEconomy.onClientCommand)
+
+function ParadiseEconomy.handleLedgerCommand(ctx)
+    local pl, args, user, isAdm = ctx.pl, ctx.args, ctx.user, ctx.isAdm
+    local command = ctx.command
+    if command == "ledgerDays" then
+        if isAdm then
+            sendServerCommand(pl, ParadiseEconomy.module, "ledgerDays",
+                { days = ParadiseEconomy.getLedgerDays() })
+        end
+        return true
+    elseif command == "ledgerPage" then
+        if isAdm then
+            sendServerCommand(pl, ParadiseEconomy.module, "ledgerPage",
+                ParadiseEconomy.getLedgerPage(args.day, args.page, 20))
+        end
+        return true
+    elseif command == "ledgerMine" then
+        local scope = args.accountId and tostring(args.accountId) or nil
+        sendServerCommand(pl, ParadiseEconomy.module, "ledgerMine",
+            ParadiseEconomy.getPlayerLedgerRows(user, scope, 200, isAdm))
+        return true
+    end
+    return false
+end
+
+function ParadiseEconomy.handleStoreCommand(ctx)
+    local pl, args, user, isAdm = ctx.pl, ctx.args, ctx.user, ctx.isAdm
+    local message, syncAll = ctx.message, ctx.syncAll
+    local shopResult = ctx.shopResult
+    local command = ctx.command
+    if command == "registerStore" then
         local sx, sy, sz = ParadiseEconomy.normalizeSquare(args.x, args.y, args.z)
         if not sx then
             message = "Invalid square"
@@ -3025,7 +3054,20 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
             message = categoryMessage
             syncAll = saved
         end
-    elseif command == "deposit" then
+    else
+        return false
+    end
+    ctx.message, ctx.syncAll = message, syncAll
+    ctx.shopResult = shopResult
+    return true
+end
+
+function ParadiseEconomy.handleFundsCommand(ctx)
+    local pl, args, user, isAdm = ctx.pl, ctx.args, ctx.user, ctx.isAdm
+    local currency, amount = ctx.currency, ctx.amount
+    local message, syncAll = ctx.message, ctx.syncAll
+    local command = ctx.command
+    if command == "deposit" then
         local moved, moveMessage = ParadiseEconomy.movePlayerAccount(pl, currency, amount, true)
         if moved then
             local personal = ParadiseEconomy.getPersonalAccount(user, true)
@@ -3112,7 +3154,18 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
         else
             message = "No merchant earnings to collect"
         end
-    elseif command == "tradeSetTitle" then
+    else
+        return false
+    end
+    ctx.message, ctx.syncAll = message, syncAll
+    return true
+end
+
+function ParadiseEconomy.handleZoneCommand(ctx)
+    local pl, args, user, isAdm = ctx.pl, ctx.args, ctx.user, ctx.isAdm
+    local message, syncAll = ctx.message, ctx.syncAll
+    local command = ctx.command
+    if command == "tradeSetTitle" then
         local trade = ParadiseEconomy.getTradeAccount(args.zoneId, false)
         if not trade then
             message = "Trade account not found"
@@ -3244,7 +3297,19 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
                 syncAll = true
             end
         end
-    elseif command == "financeWithdraw" then
+    else
+        return false
+    end
+    ctx.message, ctx.syncAll = message, syncAll
+    return true
+end
+
+function ParadiseEconomy.handleFinanceCommand(ctx)
+    local pl, args, user, isAdm = ctx.pl, ctx.args, ctx.user, ctx.isAdm
+    local currency, amount = ctx.currency, ctx.amount
+    local message, syncAll = ctx.message, ctx.syncAll
+    local command = ctx.command
+    if command == "financeWithdraw" then
         local finance = ParadiseEconomy.getZoneFinanceAccount(args.zoneId, false)
         if not finance then
             message = "Finance account not found"
@@ -3293,7 +3358,19 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
                 message = transferMessage or "Finance account has insufficient funds"
             end
         end
-    elseif command == "merchantSuspend" then
+    else
+        return false
+    end
+    ctx.message, ctx.syncAll = message, syncAll
+    return true
+end
+
+function ParadiseEconomy.handleMerchantCommand(ctx)
+    local pl, args, user, isAdm = ctx.pl, ctx.args, ctx.user, ctx.isAdm
+    local currency, amount = ctx.currency, ctx.amount
+    local message, syncAll = ctx.message, ctx.syncAll
+    local command = ctx.command
+    if command == "merchantSuspend" then
         local account = ParadiseEconomy.getAccountById(args.accountId)
         if not account or account.type ~= "merchant" then
             message = "Merchant account not found"
@@ -3511,7 +3588,19 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
                 })
             end
         end
-    elseif command == "adminSetTradeOwner" and isAdm then
+    else
+        return false
+    end
+    ctx.message, ctx.syncAll = message, syncAll
+    return true
+end
+
+function ParadiseEconomy.handleAdminCommand(ctx)
+    local pl, args, user, isAdm = ctx.pl, ctx.args, ctx.user, ctx.isAdm
+    local currency, amount = ctx.currency, ctx.amount
+    local message, syncAll = ctx.message, ctx.syncAll
+    local command = ctx.command
+    if command == "adminSetTradeOwner" and isAdm then
         local trade = ParadiseEconomy.getTradeAccount(args.zoneId, false)
         local owner = ParadiseEconomy.normalizeUsername(args.owner)
         if not trade then
@@ -3610,7 +3699,8 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
             syncAll = true
         else
             ParadiseEconomy.sendState(pl, message)
-            return
+            ctx.stop = true
+            return true
         end
     elseif command == "adminPurgeLedger" and isAdm then
         local ledger = ParadiseEconomy.getLedger()
@@ -3636,7 +3726,18 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
         local count = ParadiseEconomy.ensureAllTradeZoneAccounts()
         message = "Synced " .. tostring(count) .. " trade zone accounts"
         syncAll = true
-    elseif command == "marketBuy" then
+    else
+        return false
+    end
+    ctx.message, ctx.syncAll = message, syncAll
+    return true
+end
+
+function ParadiseEconomy.handleMarketCommand(ctx)
+    local pl, args, user = ctx.pl, ctx.args, ctx.user
+    local message, syncAll = ctx.message, ctx.syncAll
+    local command = ctx.command
+    if command == "marketBuy" then
         local mart = ParadiseEconomy.resolveMartArg(args)
         local ownerAccount = mart and ParadiseEconomy.getMartOwnerAccount(mart) or nil
         local listing = mart and ParadiseEconomy.getMartItem(mart, args.listingId) or nil
@@ -3715,7 +3816,20 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
                 syncAll = true
             end
         end
-    elseif command == "playerShopPost" then
+    else
+        return false
+    end
+    ctx.message, ctx.syncAll = message, syncAll
+    return true
+end
+
+function ParadiseEconomy.handlePlayerShopCommand(ctx)
+    local pl, args, user = ctx.pl, ctx.args, ctx.user
+    local currency, amount = ctx.currency, ctx.amount
+    local message, syncAll = ctx.message, ctx.syncAll
+    local purchaseResult = ctx.purchaseResult
+    local command = ctx.command
+    if command == "playerShopPost" then
         local listing, merchantOrMessage = ParadiseEconomy.postPlayerListing(pl, args.merchantId,
             args.itemId, currency, amount)
         if listing then
@@ -3796,16 +3910,24 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
             message = "Listing returned to inventory"
             syncAll = true
         end
+    else
+        return false
     end
-    ParadiseEconomy.transmit()
-    local extra = nil
-    if purchaseResult then extra = extra or {}; extra.purchase = purchaseResult end
-    if shopResult then extra = extra or {}; extra.shopRequest = shopResult end
-    if syncAll then ParadiseEconomy.sendStateToAll(pl, message, extra)
-    else ParadiseEconomy.sendState(pl, message or "Transaction rejected", extra) end
+    ctx.message, ctx.syncAll = message, syncAll
+    ctx.purchaseResult = purchaseResult
+    return true
 end
-Events.OnClientCommand.Remove(ParadiseEconomy.onClientCommand)
-Events.OnClientCommand.Add(ParadiseEconomy.onClientCommand)
+
+ParadiseEconomy.commandGroups = {
+    ParadiseEconomy.handleStoreCommand,
+    ParadiseEconomy.handleFundsCommand,
+    ParadiseEconomy.handleZoneCommand,
+    ParadiseEconomy.handleFinanceCommand,
+    ParadiseEconomy.handleMerchantCommand,
+    ParadiseEconomy.handleAdminCommand,
+    ParadiseEconomy.handleMarketCommand,
+    ParadiseEconomy.handlePlayerShopCommand,
+}
 
 function ParadiseEconomy.onCharacterDeath(pl)
     if not ParadiseEconomy.isEnabled() then return end
