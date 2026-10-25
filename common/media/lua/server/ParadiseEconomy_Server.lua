@@ -3405,7 +3405,8 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
                 message = leaseMessage
                 syncAll = changed
                 if changed then
-                    ParadiseEconomy.record(pl, "merchant lease " .. action, "mixed", 0, user, account.id,
+                    local actionLabel = action == "expire" and "expired" or action
+                    ParadiseEconomy.record(pl, "merchant lease " .. actionLabel, "mixed", 0, user, account.id,
                         action, { accountId = account.id, zoneId = account.zoneId })
                 end
             end
