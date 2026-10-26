@@ -143,7 +143,9 @@ function ParadiseEconomy.addZoneAccountsMenu(menu, context, sq)
     end
     local header = sub:addOption("Zone: " .. tostring(zone.name) .. " [" .. tostring(zone.id) .. "]")
     header.notAvailable = true
-    if next(ParadiseEconomy.clientState.accounts or {}) == nil then
+    local hasAccounts = false
+    for _ in pairs(ParadiseEconomy.clientState.accounts or {}) do hasAccounts = true break end
+    if not hasAccounts then
         local loading = sub:addOption("Economy data not loaded")
         loading.notAvailable = true
     elseif #accounts == 0 then
