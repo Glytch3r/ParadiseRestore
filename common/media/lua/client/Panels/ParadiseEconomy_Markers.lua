@@ -11,6 +11,16 @@ function ParadiseEconomy.SquareMarkerOverlay:new(x, y, w, h)
     return o
 end
 
+-- Native right-click dispatch consumes nil even when mouse consumption is disabled.
+-- Match ISToolTip so this drawing overlay passes both right-click events.
+function ParadiseEconomy.SquareMarkerOverlay:onRightMouseDown(x, y)
+    return false
+end
+
+function ParadiseEconomy.SquareMarkerOverlay:onRightMouseUp(x, y)
+    return false
+end
+
 function ParadiseEconomy.SquareMarkerOverlay:update()
     local width, height = getCore():getScreenWidth(), getCore():getScreenHeight()
     if self.width ~= width then self:setWidth(width) end
