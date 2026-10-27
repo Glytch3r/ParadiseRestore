@@ -87,7 +87,10 @@ ParadisePanels.table = {
             return initialise(ParadiseEconomy.TradeManagementPanel:new(
                 (getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height))
         end,
-        onOpen = function() ParadiseEconomy.send("requestState") end,
+        onOpen = function(panel, scope)
+            panel:setScope(scope)
+            ParadiseEconomy.send("requestState")
+        end,
     },
     {
         key = "economyAdmin",

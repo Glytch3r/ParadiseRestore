@@ -278,11 +278,15 @@ end
 
 function ParadiseEconomy.getLeaseInfo(expiresAt)
     expiresAt = tonumber(expiresAt) or 0
-    if expiresAt <= 0 then return "No expiry", "none", 0 end
+    if expiresAt <= 0 then return { label = "No expiry", status = "none", remaining = 0 } end
     local remaining = expiresAt - getTimestampMs()
-    if remaining <= 0 then return "Expired", "expired", 0 end
+    if remaining <= 0 then return { label = "Expired", status = "expired", remaining = 0 } end
     local status = remaining <= ParadiseEconomy.merchantLeaseDayMs and "expiring" or "active"
-    return ParadiseEconomy.formatMerchantLeaseDuration(remaining) .. " left", status, remaining
+    return {
+        label = ParadiseEconomy.formatMerchantLeaseDuration(remaining) .. " left",
+        status = status,
+        remaining = remaining,
+    }
 end
 
 function ParadiseEconomy.getLeaseColor(status)
@@ -1651,6 +1655,9 @@ function ParadiseEconomy.MartPanel:applyTab()
     self:setTabState(self.tabBrowse, isBrowse)
     self:setTabState(self.tabStore, isStore)
     self:setTabState(self.tabMart, isMart)
+    if self.manageButton then
+        self.manageButton:setTitle(isMart and "MANAGE MART ITEMS" or "Trade Management")
+    end
     self:setMartDirectionState()
 end
 
@@ -2193,8 +2200,25 @@ function ParadiseEconomy.MartPanel:onCancelListing()
 end
 
 function ParadiseEconomy.MartPanel:openManagement()
+    local scope
+    if self.shopKind == "mart" then
+        local zoneId = self.shop and self.shop.zoneId or nil
+        if not zoneId and self.shopId then
+            for _, shop in ipairs(ParadiseEconomy.clientState.shops or {}) do
+                if shop.kind == "mart" and tostring(shop.id) == tostring(self.shopId) then
+                    zoneId = shop.zoneId
+                    break
+                end
+            end
+        end
+        scope = {
+            tab = "mart",
+            zoneId = zoneId or self:getZoneId(),
+            martId = self.shopId or (self.shop and self.shop.id),
+        }
+    end
     if ParadiseEconomy.TradeManagementPanel and ParadiseEconomy.TradeManagementPanel.OpenPanel then
-        ParadiseEconomy.TradeManagementPanel.OpenPanel()
+        ParadiseEconomy.TradeManagementPanel.OpenPanel(scope)
     end
 end
 
@@ -2453,7 +2477,7 @@ function ParadiseEconomy.MartPanel:update()
         local price = tonumber(self.storePrice:getInternalText())
         local leaseDays = tonumber(merchant and merchant.leaseDays) or 0
         local isOwner = self.shop ~= nil and self.shop.isOwner == true
-        self.storeTitle:setEnable(merchant ~= nil)
+        self.storeTitle:setEditable(merchant ~= nil)
         self.renameStoreButton:setEnable(merchant ~= nil and self.storeTitle:getInternalText() ~= "")
         self.renewLeaseButton:setEnable(merchant ~= nil and leaseDays > 0)
         self.collectButton:setEnable(isOwner and merchant ~= nil and ParadiseEconomy.hasMoney(merchant.earnings))
@@ -2929,6 +2953,15 @@ function ParadiseEconomy.TradeManagementPanel:createChildren()
     self:refreshState()
     self:applyTab()
     self:layout()
+end
+
+function ParadiseEconomy.TradeManagementPanel:setScope(scope)
+    scope = scope or {}
+    if scope.zoneId then self.selectedZoneId = scope.zoneId end
+    if scope.tab then self.tab = scope.tab end
+    self:refreshState()
+    self:applyTab()
+    if scope.martId and self.adminView then self.adminView:setSelectedMart(scope.martId) end
 end
 
 function ParadiseEconomy.TradeManagementPanel:getZoneList()
@@ -3829,8 +3862,8 @@ function ParadiseEconomy.ListingPanel:getLeaseWarning()
             return "This merchant store is " .. tostring(merchant.statusLabel or "closed")
                 .. ". Posting is disabled until the store reopens."
         end
-        local _, status = ParadiseEconomy.getLeaseInfo(merchant.expiresAt)
-        if status == "expired" then
+        local lease = ParadiseEconomy.getLeaseInfo(merchant.expiresAt)
+        if lease.status == "expired" then
             return "Your merchant lease has expired. Renew it before posting."
         end
         return nil

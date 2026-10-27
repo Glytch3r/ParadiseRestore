@@ -906,3 +906,15 @@ option ParadiseZ.LifeProfileSaveSeconds
     type = integer, min = 10, max = 300, default = 30,
     page = ParadiseZ, translation = ParadiseZ_LifeProfileSaveSeconds,
 }
+
+option ParadiseZpvp.AimZMax
+{
+	type = integer,	 min = 0,  max = 4,  default = 2,
+	page = ParadiseZpvp, translation = ParadiseZpvp_AimZMax,
+}
+
+option ParadiseZpvp.AimZRequireSight
+{
+	type = boolean, default = true,
+	page = ParadiseZpvp, translation = ParadiseZpvp_AimZRequireSight,
+}

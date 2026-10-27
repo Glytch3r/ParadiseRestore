@@ -405,6 +405,8 @@
   "Sandbox_ParadiseZ_ScoreboardSlowerRefresh": "Paradise Z Scoreboard Slower Refresh",
   "Sandbox_ParadiseZpvp_PvPInjuryChance": "Paradise Zpvp Pv PInjury Chance",
   "Sandbox_ParadiseZpvp_CustomPvP": "Enable Custom PvP",
+  "Sandbox_ParadiseZpvp_AimZMax": "Aim Z Level Steps",
+  "Sandbox_ParadiseZpvp_AimZRequireSight": "Aim Z Requires Line Of Sight",
   "Sandbox_ParadiseZpvp_VanillaNonPvpZone": "Paradise Zpvp Vanilla Non Pvp Zone",
   "Sandbox_ParadiseZpvp_ExileCoords": "Paradise Zpvp Exile Coords",
   "Sandbox_ParadiseZpvp_HitFlashDecay": "Paradise Zpvp Hit Flash Decay",
