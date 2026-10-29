@@ -70,6 +70,14 @@ function ParadiseEconomy.normalizeAmount(amount)
     return math.floor(amount)
 end
 
+function ParadiseEconomy.normalizeListingPrice(amount)
+    amount = tostring(amount or "")
+    if not amount:match("^%d+$") then return nil end
+    amount = tonumber(amount)
+    if not amount or amount < 0 or amount > ParadiseEconomy.maxBalance then return nil end
+    return math.floor(amount)
+end
+
 function ParadiseEconomy.normalizeMoveAmount(amount)
     if type(amount) == "number" then
         if amount ~= amount or amount < 1 or amount > 9007199254740991 then return nil end
@@ -489,7 +497,7 @@ end
 function ParadiseEconomy.newPlayerListing(id, seller, itemData, currency, price, createdAt, zoneTitle, zoneId, merchantAccountId)
     seller = ParadiseEconomy.normalizeUsername(seller)
     currency = ParadiseEconomy.normalizeCurrency(currency)
-    price = ParadiseEconomy.normalizeAmount(price)
+    price = ParadiseEconomy.normalizeListingPrice(price)
     zoneTitle = ParadiseEconomy.normalizeTradeZoneTitle(zoneTitle)
     zoneId = ParadiseEconomy.normalizeZoneId(zoneId)
     if not id or not seller or type(itemData) ~= "table" or not itemData.fullType or not currency or not price then return nil end

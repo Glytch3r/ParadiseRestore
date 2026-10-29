@@ -2199,7 +2199,7 @@ function ParadiseEconomy.postPlayerListing(pl, merchantId, itemId, currency, pri
         return false, "Your account is frozen; transaction cancelled."
     end
     currency = ParadiseEconomy.normalizeCurrency(currency)
-    price = ParadiseEconomy.normalizeAmount(price)
+    price = ParadiseEconomy.normalizeListingPrice(price)
     local item = ParadiseEconomy.findCarriedItem(pl, itemId)
     if not item or not currency or not price or ParadiseEconomy.isEquipped(pl, item) then return false end
     local itemData = ParadiseEconomy.ItemData.toData(item)
@@ -2266,6 +2266,9 @@ function ParadiseEconomy.buyPlayerListing(pl, listingId, opts)
         if merchant.suspended == true then return false, "This merchant store is suspended" end
         return false, "This merchant listing has expired"
     end
+    if (tonumber(listing.price) or 0) < 1 then
+        return false, "This listing has no price yet"
+    end
     if ParadiseEconomy.usernameKey(listing.seller) == ParadiseEconomy.usernameKey(pl:getUsername()) then
         return false, "You cannot buy your own listing"
     end
@@ -2331,40 +2334,72 @@ function ParadiseEconomy.buyPlayerListing(pl, listingId, opts)
     return listing, item, tax, payout, merchant, taxAccount, buyer, info
 end
 
+function ParadiseEconomy.setPlayerListingPrice(pl, listingId, currency, price)
+    local listing, merchant = ParadiseEconomy.findPlayerListing(listingId)
+    if not listing or not merchant then return false, "Listing not found" end
+    if ParadiseEconomy.usernameKey(merchant.owner) ~= ParadiseEconomy.usernameKey(pl:getUsername()) then
+        return false, "You do not own this merchant store"
+    end
+    if not ParadiseEconomy.isPlayerNearSquare(pl, merchant.x, merchant.y, merchant.z) then
+        return false, "You must stand at your merchant store square"
+    end
+    if ParadiseEconomy.isMerchantClosed(merchant) then
+        return false, "This merchant store is closed"
+    end
+    currency = ParadiseEconomy.normalizeCurrency(currency)
+    price = ParadiseEconomy.normalizeListingPrice(price)
+    if not currency or not price then return false, "Invalid listing price" end
+    listing.currency = currency
+    listing.price = price
+    return listing, "Listing price updated"
+end
+
 function ParadiseEconomy.cancelPlayerListing(pl, listingId)
     local listing, merchant, index = ParadiseEconomy.findPlayerListing(listingId)
     if not listing or not merchant then return false end
     if ParadiseEconomy.usernameKey(listing.seller) ~= ParadiseEconomy.usernameKey(pl:getUsername()) then return false end
+    if not ParadiseEconomy.isPlayerNearSquare(pl, merchant.x, merchant.y, merchant.z) then return false end
     local item = ParadiseEconomy.spawnItemData(pl, listing.itemData)
     if not item then return false end
     table.remove(merchant.listings, index)
     return listing, item, merchant
 end
 
-function ParadiseEconomy.collectMerchantEarnings(pl)
+function ParadiseEconomy.collectMerchantEarnings(pl, merchantId)
     local personal = ParadiseEconomy.getPersonalAccount(pl:getUsername(), true)
     if not personal then return nil end
     if ParadiseEconomy.isAccountFrozen(personal) then
         return false, "Your account is frozen; transaction cancelled."
     end
+    local merchant = merchantId and ParadiseEconomy.getAccountById(merchantId) or nil
+    if not merchant or merchant.type ~= "merchant" then
+        return false, "Merchant store not found"
+    end
+    if ParadiseEconomy.usernameKey(merchant.owner) ~= ParadiseEconomy.usernameKey(pl:getUsername()) then
+        return false, "You do not own this merchant store"
+    end
+    if not ParadiseEconomy.isPlayerNearSquare(pl, merchant.x, merchant.y, merchant.z) then
+        return false, "Stand at this merchant store to collect"
+    end
     local collected = { jimoleon = 0, paradisium = 0 }
-    for _, merchant in ipairs(ParadiseEconomy.getPlayerMerchants(pl:getUsername())) do
-        for _, currency in ipairs({ "jimoleon", "paradisium" }) do
-            local amount = ParadiseEconomy.getBalance(merchant.earnings or {}, currency)
-            if amount > 0 and ParadiseEconomy.takeBalance(merchant.earnings, currency, amount) then
-                ParadiseEconomy.addBalance(personal.digital, currency, amount)
+    for _, currency in ipairs({ "jimoleon", "paradisium" }) do
+        local amount = ParadiseEconomy.getBalance(merchant.earnings or {}, currency)
+        if amount > 0 and ParadiseEconomy.takeBalance(merchant.earnings, currency, amount) then
+            if ParadiseEconomy.addAccountBalance(personal, currency, amount, "onhand") then
                 collected[currency] = collected[currency] + amount
                 ParadiseEconomy.record(pl, "merchant collected", currency, amount, pl:getUsername(), pl:getUsername(),
                     tostring(merchant.title or merchant.zoneName or merchant.zoneId), {
                         accountId = merchant.id,
                         counterpartyId = personal.id,
                         zoneId = merchant.zoneId,
-                        bucket = "digital",
+                        bucket = "onhand",
                     })
+            else
+                ParadiseEconomy.addBalance(merchant.earnings, currency, amount)
             end
         end
     end
-    return collected
+    return collected, merchant
 end
 
 function ParadiseEconomy.getSteamIdOrUser(pl)
@@ -3219,11 +3254,12 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
         user = pl:getUsername(),
         currency = ParadiseEconomy.normalizeCurrency(args.currency),
         amount = ParadiseEconomy.normalizeAmount(args.amount),
+        listingPrice = ParadiseEconomy.normalizeListingPrice(args.amount),
         isAdm = ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) or false,
         asPlayer = args.asPlayer == true,
     }
     if (command == "marketBuy" or command == "marketSell" or command == "playerShopPost" or
-        command == "playerShopBuy") and not ParadiseEconomy.canUsePlayerEconomy(pl) then
+        command == "playerShopBuy" or command == "playerShopPrice") and not ParadiseEconomy.canUsePlayerEconomy(pl) then
         if command == "playerShopBuy" and args.source == "drag" then
             ctx.purchaseResult = { ok = false, listingId = args.listingId,
                 message = "ParadiseMart is only available in a Trade Zone" }
@@ -3485,6 +3521,9 @@ function ParadiseEconomy.handleFundsCommand(ctx)
             message = payError or "No account is tied to that name"
         elseif not ParadiseEconomy.canPayAccount(target) then
             message = "That account can't receive transfers"
+        elseif target.type == "merchant"
+            and not ParadiseEconomy.isPlayerNearSquare(pl, target.x, target.y, target.z) then
+            message = "You must be at that merchant's zone to send funds"
         elseif personal == target then
             message = "Cannot transfer to your own account"
         elseif not ParadiseEconomy.isKnownPayTarget(store, user, personal, target)
@@ -3564,9 +3603,10 @@ function ParadiseEconomy.handleFundsCommand(ctx)
             end
         end
     elseif command == "merchantCollect" then
-        local collected, collectMessage = ParadiseEconomy.collectMerchantEarnings(pl)
+        local collected, collectMessage = ParadiseEconomy.collectMerchantEarnings(pl, args.merchantId)
         if collected and (collected.jimoleon > 0 or collected.paradisium > 0) then
-            message = "Collected " .. collected.jimoleon .. " Jimoleons and " .. collected.paradisium .. " Paradisium"
+            message = "Collected " .. collected.jimoleon .. " Jimoleons and " .. collected.paradisium
+                .. " Paradisium to on-hand"
         elseif collected == false then
             message = collectMessage
         else
@@ -4286,7 +4326,7 @@ function ParadiseEconomy.handlePlayerShopCommand(ctx)
     local command = ctx.command
     if command == "playerShopPost" then
         local listing, merchantOrMessage = ParadiseEconomy.postPlayerListing(pl, args.merchantId,
-            args.itemId, currency, amount)
+            args.itemId, currency, ctx.listingPrice)
         if listing then
             ParadiseEconomy.record(pl, "player shop posted", listing.currency, listing.price, user, tostring(merchantOrMessage.title),
                 listing.id .. ":" .. listing.itemData.fullType, {
@@ -4352,6 +4392,15 @@ function ParadiseEconomy.handlePlayerShopCommand(ctx)
         else
             message = itemOrMessage
             purchaseResult = { ok = false, listingId = args.listingId, message = itemOrMessage }
+        end
+    elseif command == "playerShopPrice" then
+        local listing, priceMessage = ParadiseEconomy.setPlayerListingPrice(pl, args.listingId,
+            currency, ctx.listingPrice)
+        if listing then
+            message = priceMessage
+            syncAll = true
+        else
+            message = priceMessage
         end
     elseif command == "playerShopCancel" then
         local listing, item, merchant = ParadiseEconomy.cancelPlayerListing(pl, args.listingId)

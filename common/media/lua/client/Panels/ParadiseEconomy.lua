@@ -73,6 +73,13 @@ ParadiseEconomy.icons = ParadiseEconomy.icons or {
     bookmarkOn = getTexture("media/ui/Paradise/Economy/BookmarkOn.png"),
     eye = getTexture("media/ui/Paradise/Economy/EyeOn.png"),
     eyeOff = getTexture("media/ui/Paradise/Economy/EyeOff.png"),
+    panelWallet = getTexture("media/ui/Paradise/Economy/PanelWallet.png"),
+    panelStore = getTexture("media/ui/Paradise/Economy/PanelStore.png"),
+    panelTag = getTexture("media/ui/Paradise/Economy/PanelTag.png"),
+    panelZone = getTexture("media/ui/Paradise/Economy/PanelZone.png"),
+    panelClipboard = getTexture("media/ui/Paradise/Economy/PanelClipboard.png"),
+    panelBook = getTexture("media/ui/Paradise/Economy/PanelBook.png"),
+    panelGear = getTexture("media/ui/Paradise/Economy/PanelGear.png"),
 }
 if ParadiseEconomy.adminView == nil then ParadiseEconomy.adminView = true end
 ParadiseEconomy.bookmarkRev = 0
@@ -210,7 +217,7 @@ function ParadiseEconomy.drawAdminChip(panel, x, y, label)
     return chipW
 end
 
-function ParadiseEconomy.drawPanelHeader(panel, subtitle, badge, tag)
+function ParadiseEconomy.drawPanelHeader(panel, subtitle, icon, tag)
     local theme = ParadiseEconomy.Theme
     local w = panel.width
     panel:drawText(tostring(subtitle), 18, 29, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
@@ -221,9 +228,11 @@ function ParadiseEconomy.drawPanelHeader(panel, subtitle, badge, tag)
         panel:drawRectBorder(tagX, 26, tagW, 20, 0.7, theme.gold.r, theme.gold.g, theme.gold.b)
         panel:drawText(tag, tagX + 7, 30, theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
     end
-    panel:drawRect(w - 68, 22, 52, 28, theme.gold.a, theme.gold.r, theme.gold.g, theme.gold.b)
-    panel:drawRectBorder(w - 68, 22, 52, 28, theme.gold.a, theme.gold.r, theme.gold.g, theme.gold.b)
-    panel:drawTextCentre(tostring(badge), w - 42, 29, 0.06, 0.07, 0.08, 1, UIFont.Medium)
+    panel:drawRect(w - 68, 22, 52, 28, 0.14, theme.gold.r, theme.gold.g, theme.gold.b)
+    panel:drawRectBorder(w - 68, 22, 52, 28, 0.7, theme.gold.r, theme.gold.g, theme.gold.b)
+    if icon then
+        panel:drawTextureScaled(icon, w - 54, 24, 24, 24, 1)
+    end
     panel:drawRect(15, 56, w - 30, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
 end
 
@@ -846,7 +855,8 @@ end
 
 function ParadiseEconomy.AccountBrowser:prerender()
     ISCollapsableWindow.prerender(self)
-    ParadiseEconomy.drawPanelHeader(self, "ECONOMY ACCOUNTS  ·  PERSONAL, MERCHANT, TRADE AND SERVER", "09", "ADMIN")
+    ParadiseEconomy.drawPanelHeader(self, "ECONOMY ACCOUNTS  ·  PERSONAL, MERCHANT, TRADE AND SERVER",
+        ParadiseEconomy.icons.panelBook, "ADMIN")
     local theme = ParadiseEconomy.Theme
     self:drawText("Double-click an account or use OPEN ACCOUNT.", 15, self.height - 34,
         theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
@@ -1582,10 +1592,11 @@ function ParadiseEconomy.Panel:prerender()
     local personal = ParadiseEconomy.getStatePersonal()
     local player = getPlayer()
 
-    self:drawText("ParadiseEconomy.Panel", 18, 29, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("YOUR MONEY  ·  BALANCES, WITHDRAWALS AND TRANSFERS", 18, 29,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     self:drawRect(w - 68, 22, 52, 28, theme.cardBg.a, theme.cardBg.r, theme.cardBg.g, theme.cardBg.b)
     self:drawRectBorder(w - 68, 22, 52, 28, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
-    self:drawTextCentre("02", w - 42, 29, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Medium)
+    self:drawTextureScaled(ParadiseEconomy.icons.panelWallet, w - 54, 24, 24, 24, 1)
     self:drawRect(15, 56, w - 30, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
 
     local accountId = tostring(personal.id or "------")
@@ -1784,7 +1795,7 @@ function ParadiseEconomy.MartPanel:createChildren()
     self.invList:setOnMouseDownFunction(self, ParadiseEconomy.MartPanel.onInventorySelect)
     self:addChild(self.invList)
     self.storePrice = ISTextEntryBox:new("", 15, 420, 80, 24)
-    self.storePrice.tooltip = "Listing price"
+    self.storePrice.tooltip = "Price for the selected store item"
     self.storePrice:initialise()
     self.storePrice:instantiate()
     self.storePrice:setOnlyNumbers(true)
@@ -1794,7 +1805,8 @@ function ParadiseEconomy.MartPanel:createChildren()
     self.storeCurrency:addOption("jimoleon")
     self.storeCurrency:addOption("paradisium")
     self:addChild(self.storeCurrency)
-    self.postButton = ISButton:new(210, 420, 100, 24, "Post Item", self, ParadiseEconomy.MartPanel.onPostSelected)
+    self.postButton = ISButton:new(210, 420, 100, 24, "->", self, ParadiseEconomy.MartPanel.onPostSelected)
+    self.postButton.tooltip = "Move the selected carried item into your store, unpriced"
     self.postButton:initialise()
     self:addChild(self.postButton)
     self.myListings = ISScrollingListBox:new(330, 204, 300, 260)
@@ -1804,9 +1816,14 @@ function ParadiseEconomy.MartPanel:createChildren()
     self.myListings.doDrawItem = ParadiseEconomy.MartPanel.drawStoreListing
     self.myListings:setOnMouseDownFunction(self, ParadiseEconomy.MartPanel.onStoreListingSelect)
     self:addChild(self.myListings)
-    self.cancelButton = ISButton:new(0, 0, 170, 26, "Cancel Listing", self, ParadiseEconomy.MartPanel.onCancelListing)
+    self.cancelButton = ISButton:new(0, 0, 170, 26, "<-", self, ParadiseEconomy.MartPanel.onCancelListing)
+    self.cancelButton.tooltip = "Return the selected store item to your inventory"
     self.cancelButton:initialise()
     self:addChild(self.cancelButton)
+    self.savePriceButton = ISButton:new(0, 0, 130, 24, "Save Price", self, ParadiseEconomy.MartPanel.onSavePrice)
+    self.savePriceButton.tooltip = "Save the price and currency for the selected store item"
+    self.savePriceButton:initialise()
+    self:addChild(self.savePriceButton)
 
     self.category = ISComboBox:new(15, 96, 190, 24, self, ParadiseEconomy.MartPanel.onCategoryChanged)
     self.category:initialise()
@@ -1828,6 +1845,39 @@ function ParadiseEconomy.MartPanel:createChildren()
     self.martTradeButton = ISButton:new(self.width - 185, 96, 170, 24, "Buy Selected", self, ParadiseEconomy.MartPanel.onMartTrade)
     self.martTradeButton:initialise()
     self:addChild(self.martTradeButton)
+    self.martSearch = ISTextEntryBox:new("", 15, 126, 240, 24)
+    self.martSearch.target = self
+    self.martSearch.onTextChangeFunction = ParadiseEconomy.MartPanel.onMartFilterChanged
+    self.martSearch.tooltip = "Search mart listings by item, category or price"
+    self.martSearch:initialise()
+    self.martSearch:instantiate()
+    self.martSearch:setPlaceholderText("Search mart items...")
+    self:addChild(self.martSearch)
+    self.martCurrency = ISComboBox:new(263, 126, 110, 24, self, ParadiseEconomy.MartPanel.onMartFilterChanged)
+    self.martCurrency.tooltip = "Filter mart listings by currency"
+    self.martCurrency:initialise()
+    self.martCurrency:addOption("All")
+    self.martCurrency:addOption("jimoleon")
+    self.martCurrency:addOption("paradisium")
+    self:addChild(self.martCurrency)
+    self.martMinPrice = ISTextEntryBox:new("", 381, 126, 80, 24)
+    self.martMinPrice.tooltip = "Minimum price"
+    self.martMinPrice:initialise()
+    self.martMinPrice:instantiate()
+    self.martMinPrice:setOnlyNumbers(true)
+    self.martMinPrice:setPlaceholderText("Min")
+    self:addChild(self.martMinPrice)
+    self.martMaxPrice = ISTextEntryBox:new("", 469, 126, 80, 24)
+    self.martMaxPrice.tooltip = "Maximum price"
+    self.martMaxPrice:initialise()
+    self.martMaxPrice:instantiate()
+    self.martMaxPrice:setOnlyNumbers(true)
+    self.martMaxPrice:setPlaceholderText("Max")
+    self:addChild(self.martMaxPrice)
+    self.martClearButton = ISButton:new(557, 126, 70, 24, "Clear", self, ParadiseEconomy.MartPanel.onMartClearFilters)
+    self.martClearButton.tooltip = "Clear mart filters"
+    self.martClearButton:initialise()
+    self:addChild(self.martClearButton)
     self.martList = ISScrollingListBox:new(15, 152, self.width - 30, 300)
     self.martList:initialise()
     self.martList.itemheight = 28
@@ -2081,12 +2131,18 @@ function ParadiseEconomy.MartPanel:applyTab()
     self.postButton:setVisible(isStore)
     self.myListings:setVisible(isStore)
     self.cancelButton:setVisible(isStore)
+    self.savePriceButton:setVisible(isStore)
     self.category:setVisible(false)
     self.buyButton:setVisible(isMart)
     self.sellButton:setVisible(isMart)
     self.quantity:setVisible(isMart)
     self.martTradeButton:setVisible(isMart)
     self.martList:setVisible(isMart)
+    self.martSearch:setVisible(isMart)
+    self.martCurrency:setVisible(isMart)
+    self.martMinPrice:setVisible(isMart)
+    self.martMaxPrice:setVisible(isMart)
+    self.martClearButton:setVisible(isMart)
     self.tabBrowse:setVisible(not martOnly)
     self.tabStore:setVisible(not martOnly)
     self.tabMart:setVisible(martOnly)
@@ -2155,30 +2211,42 @@ function ParadiseEconomy.MartPanel:layout()
     self.renewLeaseButton:setY(contentY + 26)
     self.collectButton:setX(w - 303)
     self.collectButton:setY(contentY + 26)
-    local leftW = math.min(360, math.max(300, w * 0.34))
-    local rightX = 15 + leftW + 15
+    local leftW = math.max(260, math.floor((w - 30 - 56) / 2))
+    local storeX = 15
+    local invX = storeX + leftW + 56
     local listTop = contentY + 108
-    self.invSearch:setX(15)
+    self.myListings:setX(storeX)
+    self.myListings:setY(listTop)
+    self.myListings:setWidth(leftW)
+    self.myListings:setHeight(math.max(60, footerY - listTop - 46))
+    self.invSearch:setX(invX)
     self.invSearch:setY(listTop)
     self.invSearch:setWidth(leftW)
-    self.invList:setX(15)
+    self.invList:setX(invX)
     self.invList:setY(listTop + 30)
     self.invList:setWidth(leftW)
-    self.invList:setHeight(math.max(60, footerY - (listTop + 30) - 62))
-    local postY = self.invList:getY() + self.invList:getHeight() + 8
-    self.storePrice:setX(15)
-    self.storePrice:setY(postY)
-    self.storeCurrency:setX(100)
-    self.storeCurrency:setY(postY)
-    self.postButton:setX(210)
-    self.postButton:setY(postY)
-    self.postButton:setWidth(math.max(80, leftW - 195))
-    self.myListings:setX(rightX)
-    self.myListings:setY(listTop)
-    self.myListings:setWidth(math.max(200, w - 15 - rightX))
-    self.myListings:setHeight(math.max(60, footerY - listTop - 40))
-    self.cancelButton:setX(w - 185)
-    self.cancelButton:setY(footerY - 32)
+    self.invList:setHeight(math.max(60, footerY - (listTop + 30) - 8))
+    local priceY = footerY - 26
+    self.storePrice:setX(storeX)
+    self.storePrice:setY(priceY)
+    self.storePrice:setWidth(80)
+    self.storeCurrency:setX(storeX + 86)
+    self.storeCurrency:setY(priceY)
+    self.storeCurrency:setWidth(100)
+    self.savePriceButton:setX(storeX + 192)
+    self.savePriceButton:setY(priceY)
+    self.savePriceButton:setWidth(math.max(60, leftW - 192))
+    local arrowX = storeX + leftW + 8
+    local arrowW = 40
+    local arrowY = listTop + math.floor((footerY - 26 - listTop) / 2) - 34
+    self.postButton:setX(arrowX)
+    self.postButton:setY(arrowY)
+    self.postButton:setWidth(arrowW)
+    self.postButton:setHeight(28)
+    self.cancelButton:setX(arrowX)
+    self.cancelButton:setY(arrowY + 36)
+    self.cancelButton:setWidth(arrowW)
+    self.cancelButton:setHeight(28)
 
     self.category:setX(15)
     self.category:setY(contentY)
@@ -2197,7 +2265,9 @@ function ParadiseEconomy.MartPanel:layout()
 end
 
 function ParadiseEconomy.MartPanel:getChipTop()
-    return (self.contentTop or ParadiseEconomy.martLayout.contentY) + 34
+    local top = (self.contentTop or ParadiseEconomy.martLayout.contentY) + 34
+    if self.tab == "mart" then top = top + 30 end
+    return top
 end
 
 function ParadiseEconomy.MartPanel:computeMartChips()
@@ -2225,6 +2295,29 @@ end
 function ParadiseEconomy.MartPanel:positionMart()
     if not self.martList then return end
     local footerY = self.height - 34
+    local contentY = self.contentTop or ParadiseEconomy.martLayout.contentY
+    local filterY = contentY + 30
+    self.martFilterY = filterY
+    self.martSearch:setX(15)
+    self.martSearch:setY(filterY)
+    self.martSearch:setWidth(240)
+    self.martSearch:setHeight(24)
+    self.martCurrency:setX(263)
+    self.martCurrency:setY(filterY)
+    self.martCurrency:setWidth(110)
+    self.martCurrency:setHeight(24)
+    self.martMinPrice:setX(381)
+    self.martMinPrice:setY(filterY)
+    self.martMinPrice:setWidth(80)
+    self.martMinPrice:setHeight(24)
+    self.martMaxPrice:setX(469)
+    self.martMaxPrice:setY(filterY)
+    self.martMaxPrice:setWidth(80)
+    self.martMaxPrice:setHeight(24)
+    self.martClearButton:setX(557)
+    self.martClearButton:setY(filterY)
+    self.martClearButton:setWidth(70)
+    self.martClearButton:setHeight(24)
     self:computeMartChips()
     local listY = (self.martChipsBottom or self:getChipTop()) + 24
     self.martList:setX(15)
@@ -2436,8 +2529,18 @@ function ParadiseEconomy.MartPanel:refreshInventory()
     self.selectedInventoryId = self.invList.selected > 0 and self.invList.items[self.invList.selected].item:getID() or nil
 end
 
+function ParadiseEconomy.MartPanel:isPricedListing(listing)
+    return listing ~= nil and (tonumber(listing.price) or 0) > 0
+end
+
 function ParadiseEconomy.MartPanel:getBrowseListings()
-    if self.shopKind == "store" and self.shop then return self.shop.listings or {} end
+    local list = {}
+    if self.shopKind == "store" and self.shop then
+        for _, listing in ipairs(self.shop.listings or {}) do
+            if self:isPricedListing(listing) then list[#list + 1] = listing end
+        end
+        return list
+    end
     if not self.shopKind then
         local pl = getPlayer()
         local square = pl and pl:getSquare() or nil
@@ -2446,9 +2549,10 @@ function ParadiseEconomy.MartPanel:getBrowseListings()
         for _, shop in ipairs(ParadiseEconomy.getShopsAtSquare(square:getX(), square:getY(), square:getZ())) do
             if shop.kind == "store" then ids[tostring(shop.id)] = true end
         end
-        local list = {}
         for _, listing in ipairs(self:getMarket().playerListings or {}) do
-            if ids[tostring(listing.merchantAccountId)] then list[#list + 1] = listing end
+            if ids[tostring(listing.merchantAccountId)] and self:isPricedListing(listing) then
+                list[#list + 1] = listing
+            end
         end
         return list
     end
@@ -2500,10 +2604,23 @@ function ParadiseEconomy.MartPanel:refreshMart()
     if not self.martList then return end
     local previous = self.selectedMartListingId
     local category = self:getSelectedCategory()
+    local search = string.lower(self.martSearch and self.martSearch:getInternalText() or "")
+    local currency = self.martCurrency and self.martCurrency.options[self.martCurrency.selected] or "All"
+    local minPrice = tonumber(self.martMinPrice and self.martMinPrice:getInternalText() or "") or 0
+    local maxPrice = tonumber(self.martMaxPrice and self.martMaxPrice:getInternalText() or "") or 0
     self.martList:clear()
     self.martCache = {}
     for _, listing in ipairs(self:getMartListings()) do
-        if listing.direction == self.martDirection and (not category or listing.category == category) then
+        local price = tonumber(listing.price) or 0
+        local text = string.lower(tostring(listing.fullType or "") .. " " .. tostring(listing.category or "")
+            .. " " .. tostring(price))
+        local pass = listing.direction == self.martDirection
+            and (not category or listing.category == category)
+            and (currency == "All" or listing.currency == currency)
+            and price >= minPrice
+            and (maxPrice <= 0 or price <= maxPrice)
+            and (search == "" or text:find(search, 1, true))
+        if pass then
             self.martList:addItem(tostring(listing.fullType), listing)
             self.martCache[#self.martCache + 1] = listing
         end
@@ -2522,6 +2639,19 @@ function ParadiseEconomy.MartPanel:refreshMart()
         self.martList.selected = 1
     end
     self.selectedMartListingId = self.martList.selected > 0 and self.martCache[self.martList.selected].id or nil
+end
+
+function ParadiseEconomy.MartPanel:onMartFilterChanged(target)
+    if target and target.refreshMart then target:refreshMart() end
+end
+
+function ParadiseEconomy.MartPanel:onMartClearFilters()
+    self.martSearch:setText("")
+    self.martCurrency.selected = 1
+    self.martMinPrice:setText("")
+    self.martMaxPrice:setText("")
+    self.martCategory = nil
+    self:refreshMart()
 end
 
 function ParadiseEconomy.MartPanel:getSelectedBrowse()
@@ -2605,7 +2735,18 @@ function ParadiseEconomy.MartPanel:buyBrowseListing(listing)
 end
 
 function ParadiseEconomy.MartPanel.onStoreListingSelect(target, listing)
-    if target and listing then target.selectedStoreListingId = listing.id end
+    if target and listing then
+        target.selectedStoreListingId = listing.id
+        target:loadStoreListingEditor(listing)
+    end
+end
+
+function ParadiseEconomy.MartPanel:loadStoreListingEditor(listing)
+    if not listing then return end
+    local price = tonumber(listing.price) or 0
+    self.storePrice:setText(price > 0 and tostring(price) or "")
+    local currency = tostring(listing.currency or "jimoleon")
+    self.storeCurrency.selected = currency == "paradisium" and 2 or 1
 end
 
 function ParadiseEconomy.MartPanel.onInventorySelect(target, item)
@@ -2629,34 +2770,51 @@ function ParadiseEconomy.MartPanel:onRenewLease()
 end
 
 function ParadiseEconomy.MartPanel:onCollect()
-    if self.shop and self.shop.isOwner == true then ParadiseEconomy.send("merchantCollect") end
+    if self.shop and self.shop.isOwner == true then
+        ParadiseEconomy.send("merchantCollect", { merchantId = self.shop.id })
+    end
 end
 
 function ParadiseEconomy.MartPanel:onPostSelected()
     local item = self:getSelectedInventoryItem()
     local merchant = self:getMerchant()
-    local price = self.storePrice:getInternalText()
     if not item or not merchant or (self.shop and self.shop.isOwner ~= true) then return end
     if self.shop and self.shop.closed then
         self:setDropHint("This merchant store is " .. tostring(self.shop.statusLabel or "closed")
             .. ". Renew the lease before posting.")
         return
     end
-    if not tonumber(price) or tonumber(price) <= 0 then return end
     ParadiseEconomy.send("playerShopPost", {
         merchantId = merchant.id,
         itemId = item:getID(),
         currency = self.storeCurrency.options[self.storeCurrency.selected],
-        amount = price,
+        amount = 0,
     })
     self.storePrice:setText("")
+    self:setDropHint("Item moved into your store. Click it in the store list to set a price.")
 end
 
 function ParadiseEconomy.MartPanel:onCancelListing()
     local listing = self:getSelectedStoreListing()
     if listing and self.shop and self.shop.isOwner == true then
         ParadiseEconomy.send("playerShopCancel", { listingId = listing.id })
+        self.storePrice:setText("")
     end
+end
+
+function ParadiseEconomy.MartPanel:onSavePrice()
+    local listing = self:getSelectedStoreListing()
+    if not listing or not self.shop or self.shop.isOwner ~= true then return end
+    local price = self.storePrice:getInternalText()
+    if not tonumber(price) or tonumber(price) <= 0 then
+        self:setDropHint("Set a price greater than 0 for this store item.")
+        return
+    end
+    ParadiseEconomy.send("playerShopPrice", {
+        listingId = listing.id,
+        currency = self.storeCurrency.options[self.storeCurrency.selected],
+        amount = price,
+    })
 end
 
 function ParadiseEconomy.MartPanel:openManagement()
@@ -2939,7 +3097,6 @@ function ParadiseEconomy.MartPanel:update()
         if merchant and not self.storeTitle:isFocused() and self.storeTitle:getInternalText() ~= tostring(merchant.title or "") then
             self.storeTitle:setText(tostring(merchant.title or ""))
         end
-        local price = tonumber(self.storePrice:getInternalText())
         local leaseDays = tonumber(merchant and merchant.leaseDays) or 0
         local isOwner = self.shop ~= nil and self.shop.isOwner == true
         self.storeTitle:setEditable(merchant ~= nil)
@@ -2947,8 +3104,9 @@ function ParadiseEconomy.MartPanel:update()
         self.renewLeaseButton:setEnable(merchant ~= nil and leaseDays > 0)
         self.collectButton:setEnable(isOwner and merchant ~= nil and ParadiseEconomy.hasMoney(merchant.earnings))
         self.postButton:setEnable(isOwner and merchant ~= nil and self.shop.closed ~= true
-            and self:getSelectedInventoryItem() ~= nil and price ~= nil and price > 0)
+            and self:getSelectedInventoryItem() ~= nil)
         self.cancelButton:setEnable(isOwner and self:getSelectedStoreListing() ~= nil)
+        self.savePriceButton:setEnable(isOwner and self:getSelectedStoreListing() ~= nil)
     elseif self.tab == "mart" then
         local listing = self:getSelectedMartListing()
         local quantity = tonumber(self.quantity:getInternalText())
@@ -3050,16 +3208,16 @@ function ParadiseEconomy.MartPanel:drawStoreListing(y, item, alt)
         self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
     local name = listing.itemData and listing.itemData.name or listing.fullType or "Item"
+    local price = tonumber(listing.price) or 0
+    local priceText = price > 0 and (ParadiseEconomy.formatNumber(price) .. " " .. tostring(listing.currency)) or "UNPRICED"
+    local priceColor = price > 0 and theme.gold or theme.warn
     self:drawText(ParadiseEconomy.fitText(name, self.width - 160, UIFont.Small), 8, y + 4,
         theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
-    self:drawTextRight(tostring(listing.price) .. " " .. tostring(listing.currency), self.width - 8, y + 4,
-        theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
-    local lease = ParadiseEconomy.getLeaseInfo(listing.merchantExpiresAt)
-    local color = ParadiseEconomy.getLeaseColor(lease.status)
-    local subtitle = "Merchant " .. tostring(listing.merchantAccountId or "-")
-    self:drawText(ParadiseEconomy.fitText(subtitle, self.width - 160, UIFont.Small), 8, y + 21,
+    self:drawTextRight(priceText, self.width - 8, y + 4,
+        priceColor.r, priceColor.g, priceColor.b, 1, UIFont.Small)
+    local fullType = listing.itemData and listing.itemData.fullType or listing.fullType or "Item"
+    self:drawText(ParadiseEconomy.fitText(fullType, self.width - 16, UIFont.Small), 8, y + 21,
         theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
-    self:drawTextRight(lease.label, self.width - 8, y + 21, color.r, color.g, color.b, 1, UIFont.Small)
     return y + self.itemheight
 end
 
@@ -3173,17 +3331,22 @@ function ParadiseEconomy.MartPanel:drawStoreTab()
             theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
         self:drawTextRight("EARNINGS  " .. ParadiseEconomy.formatBalances(merchant.earnings), w - 29, contentY + 56,
             theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
+        local defaultTitle = tostring(merchant.owner or "") .. " @ " .. tostring(merchant.zoneName or "")
+        if tostring(merchant.title or "") == defaultTitle then
+            self:drawText("NAME YOUR STORE", self.renameStoreButton:getX() + self.renameStoreButton:getWidth() + 14,
+                contentY + 32, theme.warn.r, theme.warn.g, theme.warn.b, 1, UIFont.Small)
+        end
     else
         self:drawText("NO MERCHANT STORE OF YOURS AT THIS SQUARE.", 29, contentY + 14,
             theme.warn.r, theme.warn.g, theme.warn.b, 1, UIFont.Small)
         self:drawText("Right-click the square you want and choose Register Merchant Store Here.", 29, contentY + 36,
             theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     end
-    self:drawText("CARRIED ITEMS", 15, contentY + 92, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
-    self:drawTextRight(tostring(#(self.inventoryCache or {})) .. " ITEMS", 15 + self.invSearch:getWidth(), contentY + 92,
-        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     self:drawText("YOUR STORE LISTINGS", self.myListings:getX(), contentY + 92, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
     self:drawTextRight(tostring(#(self.storeCache or {})) .. " POSTS", self.myListings:getX() + self.myListings:getWidth(), contentY + 92,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("CARRIED ITEMS", self.invSearch:getX(), contentY + 92, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
+    self:drawTextRight(tostring(#(self.inventoryCache or {})) .. " ITEMS", self.invSearch:getX() + self.invSearch:getWidth(), contentY + 92,
         theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     self:drawText("PRICE", self.storePrice:getX(), self.storePrice:getY() - 15,
         theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
@@ -3219,7 +3382,7 @@ function ParadiseEconomy.MartPanel:prerender()
     elseif self.shopKind == "mart" then
         headerText = "MARKET  ·  " .. string.upper(tostring(self:getShopTitle()))
     end
-    ParadiseEconomy.drawPanelHeader(self, headerText, "04")
+    ParadiseEconomy.drawPanelHeader(self, headerText, ParadiseEconomy.icons.panelStore)
     ParadiseEconomy.drawTabUnderline(self, self.tabBrowse, self.tab == "browse")
     ParadiseEconomy.drawTabUnderline(self, self.tabStore, self.tab == "store")
     ParadiseEconomy.drawTabUnderline(self, self.tabMart, self.tab == "mart")
@@ -4155,7 +4318,8 @@ function ParadiseEconomy.TradeManagementPanel:prerender()
     ISCollapsableWindow.prerender(self)
     local theme = ParadiseEconomy.Theme
     local w = self.width
-    ParadiseEconomy.drawPanelHeader(self, "TRADE ZONE ADMINISTRATION  ·  MERCHANTS, POSTS AND ITEM MART", "07")
+    ParadiseEconomy.drawPanelHeader(self, "TRADE ZONE ADMINISTRATION  ·  MERCHANTS, POSTS AND ITEM MART",
+        ParadiseEconomy.icons.panelZone)
     self:drawRect(w - 110, 64, 95, 22, 0.12, theme.green.r, theme.green.g, theme.green.b)
     self:drawRectBorder(w - 110, 64, 95, 22, theme.green.a, theme.green.r, theme.green.g, theme.green.b)
     self:drawTextCentre("MANAGED", w - 62, 68, theme.green.r, theme.green.g, theme.green.b, 1, UIFont.Small)
@@ -4383,7 +4547,8 @@ function ParadiseEconomy.ListingPanel:prerender()
     ISCollapsableWindow.prerender(self)
     local theme = ParadiseEconomy.Theme
     local w = self.width
-    ParadiseEconomy.drawPanelHeader(self, "POST LISTING  ·  PRICE A CARRIED ITEM FOR YOUR MERCHANT STALL", "05")
+    ParadiseEconomy.drawPanelHeader(self, "POST LISTING  ·  PRICE A CARRIED ITEM FOR YOUR MERCHANT STALL",
+        ParadiseEconomy.icons.panelTag)
 
     local data = self.itemData or {}
     local name = tostring(data.name or (self.item and self.item:getDisplayName()) or "Item")
@@ -5521,7 +5686,8 @@ function ParadiseEconomy.AdminPanel:prerender()
     ISCollapsableWindow.prerender(self)
     local theme = ParadiseEconomy.Theme
     local w = self.width
-    ParadiseEconomy.drawPanelHeader(self, "ACCOUNT DIRECTORY  ·  BALANCES, LEDGER AND SYSTEM TOOLS", "10", "ADMIN")
+    ParadiseEconomy.drawPanelHeader(self, "ACCOUNT DIRECTORY  ·  BALANCES, LEDGER AND SYSTEM TOOLS",
+        ParadiseEconomy.icons.panelGear, "ADMIN")
 
     if self.createOpen then
         ParadiseEconomy.drawCard(self, 15, self.createRowY, self.leftW, self.createRowH, theme.accentDim)
@@ -6113,11 +6279,19 @@ function ParadiseEconomy.MartAdminView:createChildren()
     self.itemSearch.onTextChangeFunction = ParadiseEconomy.MartAdminView.onItemSearchChanged
     self.itemSearch:initialise()
     self.itemSearch:instantiate()
-    self.itemSearch:setPlaceholderText("Search item script or name...")
+    self.itemSearch:setPlaceholderText("Search item...")
     self:addChild(self.itemSearch)
     self.itemFilterButton = ISButton:new(234, 254, 56, 22, "Find", self, ParadiseEconomy.MartAdminView.refreshItems)
     self.itemFilterButton:initialise()
     self:addChild(self.itemFilterButton)
+    self.itemCategory = ISComboBox:new(144, 254, 92, 22, self, ParadiseEconomy.MartAdminView.onItemFilterChanged)
+    self.itemCategory.tooltip = "Filter by item display category"
+    self.itemCategory:initialise()
+    self:addChild(self.itemCategory)
+    self.itemModule = ISComboBox:new(241, 254, 80, 22, self, ParadiseEconomy.MartAdminView.onItemFilterChanged)
+    self.itemModule.tooltip = "Filter by item module"
+    self.itemModule:initialise()
+    self:addChild(self.itemModule)
     self.items = ISScrollingListBox:new(29, 282, 290, 160)
     self.items:initialise()
     self.items.itemheight = 22
@@ -6545,29 +6719,79 @@ end
 function ParadiseEconomy.MartAdminView:getItemScripts()
     if ParadiseEconomy.martItemCache then return ParadiseEconomy.martItemCache end
     local cache = {}
+    local categories, seenCategories = {}, {}
+    local modules, seenModules = {}, {}
     local all = ScriptManager.instance:getAllItems()
     for int = 0, all:size() - 1 do
         local scrItem = all:get(int)
         local fullType = tostring(scrItem:getFullName())
         local displayName = tostring(scrItem:getDisplayName() or "")
-        cache[#cache + 1] = { id = fullType, search = string.lower(fullType .. " " .. displayName) }
+        local category = tostring(scrItem:getDisplayCategory() or "Misc")
+        local module = fullType:match("^([^%.]+)%.") or fullType
+        cache[#cache + 1] = {
+            id = fullType,
+            search = string.lower(fullType .. " " .. displayName),
+            category = category,
+            module = module,
+        }
+        if not seenCategories[category] then
+            seenCategories[category] = true
+            categories[#categories + 1] = category
+        end
+        if not seenModules[module] then
+            seenModules[module] = true
+            modules[#modules + 1] = module
+        end
     end
+    table.sort(categories)
+    table.sort(modules)
+    ParadiseEconomy.martItemCategories = categories
+    ParadiseEconomy.martItemModules = modules
     ParadiseEconomy.martItemCache = cache
     return cache
 end
 
 function ParadiseEconomy.resetMartItemCache()
     ParadiseEconomy.martItemCache = nil
+    ParadiseEconomy.martItemCategories = nil
+    ParadiseEconomy.martItemModules = nil
 end
 Events.OnCreatePlayer.Remove(ParadiseEconomy.resetMartItemCache)
 Events.OnCreatePlayer.Add(ParadiseEconomy.resetMartItemCache)
 
+function ParadiseEconomy.MartAdminView:ensureItemFilters()
+    if self.itemFiltersReady then return end
+    self.itemFiltersReady = true
+    self.itemCategory:clear()
+    self.itemCategory:addOption("All")
+    for _, name in ipairs(ParadiseEconomy.martItemCategories or {}) do
+        self.itemCategory:addOption(name)
+    end
+    self.itemCategory.selected = 1
+    self.itemModule:clear()
+    self.itemModule:addOption("All")
+    for _, name in ipairs(ParadiseEconomy.martItemModules or {}) do
+        self.itemModule:addOption(name)
+    end
+    self.itemModule.selected = 1
+end
+
+function ParadiseEconomy.MartAdminView:onItemFilterChanged(target, combo)
+    if target and target.refreshItems then target:refreshItems() end
+end
+
 function ParadiseEconomy.MartAdminView:refreshItems()
     if not self.items then return end
+    local scripts = self:getItemScripts()
+    self:ensureItemFilters()
     self.items:clear()
     local search = string.lower(self.itemSearch and self.itemSearch:getInternalText() or "")
-    for _, entry in ipairs(self:getItemScripts()) do
-        if search == "" or entry.search:find(search, 1, true) then
+    local category = self.itemCategory and self.itemCategory.options[self.itemCategory.selected] or "All"
+    local module = self.itemModule and self.itemModule.options[self.itemModule.selected] or "All"
+    for _, entry in ipairs(scripts) do
+        if (category == "All" or entry.category == category)
+            and (module == "All" or entry.module == module)
+            and (search == "" or entry.search:find(search, 1, true)) then
             self.items:addItem(entry.id, entry.id)
         end
     end
@@ -6707,15 +6931,20 @@ function ParadiseEconomy.MartAdminView:layout()
     local searchY = self.inventoryCardY + 46
     self.inventoryLabelY = self.inventoryCardY + 30
     self.inventorySearchY = searchY
-    local itemSearchW = math.min(220, math.max(140, math.floor((w - 58) * 0.24)))
+    local itemSearchW = math.min(110, math.max(90, math.floor((w - 58) * 0.12)))
     self.itemSearch:setX(29)
     self.itemSearch:setY(searchY)
     self.itemSearch:setWidth(itemSearchW)
     self.itemSearch:setHeight(22)
-    self.itemFilterButton:setX(29 + itemSearchW + 5)
-    self.itemFilterButton:setY(searchY)
-    self.itemFilterButton:setWidth(56)
-    self.itemFilterButton:setHeight(22)
+    self.itemFilterButton:setVisible(false)
+    self.itemCategory:setX(29 + itemSearchW + 5)
+    self.itemCategory:setY(searchY)
+    self.itemCategory:setWidth(92)
+    self.itemCategory:setHeight(22)
+    self.itemModule:setX(self.itemCategory:getX() + 97)
+    self.itemModule:setY(searchY)
+    self.itemModule:setWidth(78)
+    self.itemModule:setHeight(22)
     self.listingX = 335
     self.listingSearch:setX(self.listingX)
     self.listingSearch:setY(searchY)
@@ -6826,8 +7055,9 @@ function ParadiseEconomy.MartAdminView:prerender()
     local mart = self:getSelectedMart()
     local martCount = #self:getMartList()
 
-    self:drawRect(15, 8, 34, 20, theme.gold.a, theme.gold.r, theme.gold.g, theme.gold.b)
-    self:drawTextCentre("08", 32, 12, 0.06, 0.07, 0.08, 1, UIFont.Small)
+    self:drawRect(15, 8, 34, 20, 0.14, theme.gold.r, theme.gold.g, theme.gold.b)
+    self:drawRectBorder(15, 8, 34, 20, 0.7, theme.gold.r, theme.gold.g, theme.gold.b)
+    self:drawTextureScaled(ParadiseEconomy.icons.panelClipboard, 24, 10, 16, 16, 1)
     self:drawText("MART ADMIN VIEW", 57, 10, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
     local headerText = trade and ("TREASURY  ·  " .. tostring(trade.tradeId or trade.zoneId or "")
         .. "  ·  " .. tostring(martCount) .. " MARKETS") or "NO TRADE ACCOUNT"
