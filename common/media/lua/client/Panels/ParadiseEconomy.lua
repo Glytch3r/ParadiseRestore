@@ -3,6 +3,7 @@ require "ISUI/ISButton"
 require "ISUI/ISTextEntryBox"
 require "ISUI/ISComboBox"
 require "ISUI/ISContextMenu"
+require "ISUI/ISTextBox"
 require "ISUI/ISScrollingListBox"
 require "ISUI/ISPanel"
 require "ISUI/ISModalDialog"
@@ -68,7 +69,13 @@ ParadiseEconomy.tableTypes = ParadiseEconomy.tableTypes or {
 ParadiseEconomy.icons = ParadiseEconomy.icons or {
     jimoleon = getTexture("media/ui/Paradise/Economy/Jimoleon.png"),
     paradisium = getTexture("media/ui/Paradise/Economy/Paradisium.png"),
+    bookmark = getTexture("media/ui/Paradise/Economy/Bookmark.png"),
+    bookmarkOn = getTexture("media/ui/Paradise/Economy/BookmarkOn.png"),
+    eye = getTexture("media/ui/Paradise/Economy/EyeOn.png"),
+    eyeOff = getTexture("media/ui/Paradise/Economy/EyeOff.png"),
 }
+if ParadiseEconomy.adminView == nil then ParadiseEconomy.adminView = true end
+ParadiseEconomy.bookmarkRev = 0
 
 ParadiseEconomy.Theme = {
     windowBg = { r = 0.050, g = 0.065, b = 0.085, a = 0.97 },
@@ -608,6 +615,9 @@ function ParadiseEconomy.AccountPanel:createChildren()
     self.transactions.itemheight = 24
     self.transactions.doDrawItem = ParadiseEconomy.Panel.drawTransaction
     self:addChild(self.transactions)
+    self.bookmarkButton = ParadiseEconomy.addBookmarkButton(self, self.width - 62, 33,
+        function(panel) return panel.account and tostring(panel.account.id or "") or "" end)
+    self.eyeButton = ParadiseEconomy.addAdminViewButton(self, self.width - 32, 33)
     ParadiseEconomy.styleTree(self)
 end
 
@@ -652,6 +662,10 @@ function ParadiseEconomy.AccountPanel:update()
     ISCollapsableWindow.update(self)
     self.transactions:setWidth(self.width - 30)
     self.transactions:setHeight(math.max(60, self.height - 260))
+    if self.bookmarkButton then self.bookmarkButton:setX(self.width - 62) end
+    if self.eyeButton then self.eyeButton:setX(self.width - 32) end
+    ParadiseEconomy.refreshBookmarkButton(self.bookmarkButton)
+    ParadiseEconomy.refreshEyeButton(self.eyeButton)
 end
 
 function ParadiseEconomy.AccountPanel:close()
@@ -919,17 +933,246 @@ end
 function ParadiseEconomy.send(command, args)
     if not ParadiseEconomy.isEnabled() then return end
     local pl = getPlayer()
-    if pl then sendClientCommand(pl, ParadiseEconomy.module, command, args or {}) end
+    if not pl then return end
+    args = args or {}
+    if not ParadiseEconomy.adminViewOn() then args.asPlayer = true end
+    sendClientCommand(pl, ParadiseEconomy.module, command, args)
+end
+
+function ParadiseEconomy.adminViewOn()
+    return ParadiseEconomy.adminView ~= false
+end
+
+ParadiseEconomy.playerHiddenKeys = {
+    economyAccountBrowser = true,
+    economyAdmin = true,
+    economyTables = true,
+    economyLedger = true,
+}
+
+function ParadiseEconomy.closePlayerHiddenPanels()
+    if not ParadisePanels or not ParadisePanels.Close then return end
+    for _, entry in ipairs(ParadisePanels.table or {}) do
+        if ParadiseEconomy.playerHiddenKeys[entry.key] and entry.getInstance and entry.getInstance() then
+            ParadisePanels.Close(entry)
+        end
+    end
+end
+
+function ParadiseEconomy.setAdminView(on)
+    ParadiseEconomy.adminView = on and true or false
+    if not ParadiseEconomy.adminView then ParadiseEconomy.closePlayerHiddenPanels() end
+    ParadiseEconomy.send("requestState")
+    if ParadiseEconomy.martInstance then ParadiseEconomy.martInstance:requestShop() end
+end
+
+function ParadiseEconomy.toggleAdminView()
+    ParadiseEconomy.setAdminView(not ParadiseEconomy.adminViewOn())
+end
+
+function ParadiseEconomy.onAdminViewButton(target, button)
+    ParadiseEconomy.toggleAdminView()
+end
+
+function ParadiseEconomy.setGlyph(button, texture, tooltip)
+    if not button then return end
+    if button.glyphTexture ~= texture then
+        button.glyphTexture = texture
+        if texture then
+            button:setImage(texture)
+            button:forceImageSize(18, 18)
+        end
+    end
+    if tooltip and button.glyphTooltip ~= tooltip then
+        button.glyphTooltip = tooltip
+        button.tooltip = tooltip
+    end
+end
+
+function ParadiseEconomy.addGlyphButton(parent, x, y, w, h, tooltip, onClick, texture)
+    local button = ISButton:new(x, y, w, h, "", parent, onClick)
+    button:initialise()
+    button.tooltip = tooltip
+    if texture then
+        button:setImage(texture)
+        button:forceImageSize(18, 18)
+        button.glyphTexture = texture
+    end
+    parent:addChild(button)
+    return button
+end
+
+function ParadiseEconomy.addAdminViewButton(parent, x, y)
+    if not ParadiseEconomy.isLocalAdmin() then return nil end
+    local button = ParadiseEconomy.addGlyphButton(parent, x, y, 26, 24, "",
+        ParadiseEconomy.onAdminViewButton, ParadiseEconomy.icons.eye)
+    ParadiseEconomy.refreshEyeButton(button)
+    return button
+end
+
+function ParadiseEconomy.refreshEyeButton(button)
+    if not button then return end
+    local on = ParadiseEconomy.adminViewOn()
+    ParadiseEconomy.setGlyph(button, on and ParadiseEconomy.icons.eye or ParadiseEconomy.icons.eyeOff,
+        on and "Admin view. Click to see the economy exactly like a player."
+            or "Player view. Click to go back to the admin view.")
+    button:setVisible(ParadiseEconomy.isLocalAdmin())
+end
+
+function ParadiseEconomy.getBookmarks()
+    return (ParadiseEconomy.clientState.addressBook or {}).contacts or {}
+end
+
+function ParadiseEconomy.findBookmark(text)
+    text = tostring(text or ""):match("^%s*(.-)%s*$")
+    if text == "" then return nil end
+    local lower = string.lower(text)
+    for _, row in ipairs(ParadiseEconomy.getBookmarks()) do
+        for _, field in ipairs({ "key", "accountId", "martId", "user" }) do
+            local value = row[field]
+            if value and string.lower(tostring(value)) == lower then return row end
+        end
+    end
+    return nil
+end
+
+function ParadiseEconomy.isBookmarked(text)
+    local row = ParadiseEconomy.findBookmark(text)
+    return row ~= nil and row.pinned == true
+end
+
+function ParadiseEconomy.toggleBookmark(text)
+    text = tostring(text or ""):match("^%s*(.-)%s*$")
+    if text == "" then
+        ParadiseEconomy.clientState.message = "Nothing to save"
+        return
+    end
+    ParadiseEconomy.send("bookmark", { action = "toggle", text = text })
+end
+
+function ParadiseEconomy.saveCurrentBookmark(text)
+    text = tostring(text or ""):match("^%s*(.-)%s*$")
+    if text == "" then
+        ParadiseEconomy.clientState.message = "Nothing to save"
+        return
+    end
+    ParadiseEconomy.send("bookmark", { action = "add", text = text })
+end
+
+function ParadiseEconomy.onBookmarkButton(target, button)
+    local text = button.getText and button.getText(target) or ""
+    ParadiseEconomy.toggleBookmark(text)
+end
+
+function ParadiseEconomy.addBookmarkButton(parent, x, y, getText)
+    local button = ParadiseEconomy.addGlyphButton(parent, x, y, 26, 24, "Save this target",
+        ParadiseEconomy.onBookmarkButton, ParadiseEconomy.icons.bookmark)
+    button.getText = getText
+    ParadiseEconomy.refreshBookmarkButton(button)
+    return button
+end
+
+function ParadiseEconomy.refreshBookmarkButton(button)
+    if not button then return end
+    local text = button.getText and button.getText(button.target) or ""
+    if text == button.glyphText and ParadiseEconomy.bookmarkRev == button.glyphRev then return end
+    button.glyphText = text
+    button.glyphRev = ParadiseEconomy.bookmarkRev
+    local saved = ParadiseEconomy.isBookmarked(text)
+    ParadiseEconomy.setGlyph(button, saved and ParadiseEconomy.icons.bookmarkOn or ParadiseEconomy.icons.bookmark,
+        saved and "Remove this target from your saved list"
+            or (text ~= "" and "Save this target in your address book" or "Nothing to save yet"))
+end
+
+function ParadiseEconomy.renameBookmark(row)
+    local pl = getPlayer()
+    local modal = ISTextBox:new(0, 0, 300, 180, "Bookmark name", tostring(row.name or row.label or ""),
+        ParadiseEconomy, ParadiseEconomy.onBookmarkName, pl and pl:getPlayerNum() or 0, row)
+    modal.maxChars = 24
+    modal:initialise()
+    modal:addToUIManager()
+end
+
+function ParadiseEconomy.onBookmarkName(target, button, row)
+    if not button or button.internal ~= "OK" or not button.parent or not button.parent.entry then return end
+    ParadiseEconomy.send("bookmark", { action = "rename", key = row.key, name = button.parent.entry:getText() })
+end
+
+function ParadiseEconomy.removeBookmark(row)
+    ParadiseEconomy.send("bookmark", { action = "remove", key = row.key })
+end
+
+function ParadiseEconomy.debugBookmark(text)
+    ParadiseEconomy.saveCurrentBookmark(text)
+    return tostring(text)
+end
+
+function ParadiseEconomy.debugBook()
+    local rows = ParadiseEconomy.getBookmarks()
+    print("[ParadiseEconomy] client address book (" .. tostring(#rows) .. " rows)")
+    for index, row in ipairs(rows) do
+        print("[ParadiseEconomy] " .. tostring(index) .. ". " .. tostring(row.label)
+            .. "  key=" .. tostring(row.key) .. "  via=" .. tostring(row.via)
+            .. "  saved=" .. tostring(row.pinned == true)
+            .. "  resolvable=" .. tostring(row.resolvable == true))
+    end
+    return rows
+end
+
+function ParadiseEconomy.debugAdminView(on)
+    if on == nil then return ParadiseEconomy.adminViewOn() end
+    ParadiseEconomy.setAdminView(on and true or false)
+    return ParadiseEconomy.adminViewOn()
+end
+
+function ParadiseEconomy.getBookmarkValue(row, mode)
+    if mode == "account" then return row.resolvable and row.accountId or nil end
+    if mode == "user" then return row.resolvable and row.user or nil end
+    return row.accountId or row.martId or row.user or row.key
 end
 
 function ParadiseEconomy.getAddressContacts(mode)
-    local contacts = (ParadiseEconomy.clientState.addressBook or {}).contacts or {}
     local list = {}
-    for _, contact in ipairs(contacts) do
-        local value = mode == "account" and contact.accountId or contact.user
-        if value and value ~= "" then list[#list + 1] = { contact = contact, value = value } end
+    for _, row in ipairs(ParadiseEconomy.getBookmarks()) do
+        local value = ParadiseEconomy.getBookmarkValue(row, mode)
+        if value and value ~= "" then list[#list + 1] = { contact = row, value = tostring(value) } end
     end
     return list
+end
+
+function ParadiseEconomy.applyBookmark(entry, row, value)
+    if row.shopKind == "mart" and row.martId then
+        ParadiseEconomy.openShop("mart", row.martId)
+        return
+    end
+    if value then entry:setText(value) end
+end
+
+function ParadiseEconomy.getBookmarkShop(row)
+    if not row.resolvable then return nil end
+    if row.shopKind == "mart" then return "mart", row.martId end
+    if row.shopKind == "store" then return "store", row.accountId end
+    return nil
+end
+
+function ParadiseEconomy.addBookmarkSubOptions(sub, entry, item)
+    local row, value = item.contact, item.value
+    if row.accountId or row.user then
+        local use = sub:addOption("Use", nil, function() entry:setText(value) end)
+        if not row.resolvable then use.notAvailable = true end
+    end
+    local kind, shopId = ParadiseEconomy.getBookmarkShop(row)
+    if shopId then
+        sub:addOption("Open", nil, function() ParadiseEconomy.openShop(kind, shopId) end)
+    end
+    sub:addOption("Rename", nil, function() ParadiseEconomy.renameBookmark(row) end)
+    sub:addOption("Remove", nil, function() ParadiseEconomy.removeBookmark(row) end)
+end
+
+function ParadiseEconomy.addAddressBookHeader(context, title)
+    local option = context:addOption(title, nil, function() end)
+    option.notAvailable = true
+    return option
 end
 
 function ParadiseEconomy.openAddressBookMenu(entry, mode)
@@ -938,12 +1181,37 @@ function ParadiseEconomy.openAddressBookMenu(entry, mode)
     local context = ISContextMenu.get(pl and pl:getPlayerNum() or 0, getMouseX(), getMouseY())
     local contacts = ParadiseEconomy.getAddressContacts(mode)
     if #contacts == 0 then
-        context:addOption("No saved contacts yet", nil, function() end)
+        ParadiseEconomy.addAddressBookHeader(context, "No saved contacts yet")
         return
     end
+    local payMode = mode ~= "user" and mode ~= "account"
+    local section = nil
     for _, item in ipairs(contacts) do
-        local value = item.value
-        context:addOption(item.contact.label, nil, function() entry:setText(value) end)
+        local row = item.contact
+        if payMode then
+            local wanted = row.pinned and "saved" or "recent"
+            if wanted ~= section then
+                section = wanted
+                ParadiseEconomy.addAddressBookHeader(context, wanted == "saved" and "Bookmarks" or "Recent")
+            end
+        end
+        local title = tostring(row.label or row.key)
+        if not row.resolvable then title = title .. "  ·  no account found" end
+        local option = context:addOption(title, nil, function()
+            if not row.resolvable then return end
+            ParadiseEconomy.applyBookmark(entry, row, item.value)
+        end)
+        option.iconTexture = row.pinned and ParadiseEconomy.icons.bookmarkOn or ParadiseEconomy.icons.bookmark
+        if not row.resolvable then option.notAvailable = true end
+        local sub = ISContextMenu:getNew(context)
+        ParadiseEconomy.addBookmarkSubOptions(sub, entry, item)
+        context:addSubMenu(option, sub)
+    end
+    if payMode then
+        local footer = context:addOption("Save Current", nil, function()
+            ParadiseEconomy.saveCurrentBookmark(entry:getInternalText())
+        end)
+        footer.iconTexture = ParadiseEconomy.icons.bookmarkOn
     end
 end
 
@@ -1001,7 +1269,7 @@ function ParadiseEconomy.Panel:createChildren()
     self.walletButton:initialise()
     self:addChild(self.walletButton)
     self.recipient = ISTextEntryBox:new("", 0, 0, 210, 25)
-    self.recipient.tooltip = "Recipient username"
+    self.recipient.tooltip = "Recipient username, account number or mart id"
     self.recipient:initialise()
     self.recipient:instantiate()
     self:addChild(self.recipient)
@@ -1009,6 +1277,9 @@ function ParadiseEconomy.Panel:createChildren()
     self.recipientBook.tooltip = "Address book: pick a saved contact"
     self.recipientBook:initialise()
     self:addChild(self.recipientBook)
+    self.recipientBookmark = ParadiseEconomy.addBookmarkButton(self, 0, 0,
+        function(panel) return panel.recipient:getInternalText() end)
+    self.eyeButton = ParadiseEconomy.addAdminViewButton(self, 0, 22)
     self.transferAmount = ISTextEntryBox:new("", 0, 0, 120, 25)
     self.transferAmount.tooltip = "Amount to transfer"
     self.transferAmount:initialise()
@@ -1072,6 +1343,10 @@ function ParadiseEconomy.Panel:layout()
     self.martButton:setX(w - 200)
     self.martButton:setY(22)
     self.martButton:setWidth(110)
+    if self.eyeButton then
+        self.eyeButton:setX(w - 232)
+        self.eyeButton:setY(22)
+    end
     local inner = 29
     local bankInnerW = self.bankW - 28
     local opW = math.floor(bankInnerW * 0.42)
@@ -1108,8 +1383,9 @@ function ParadiseEconomy.Panel:layout()
     local transferInnerX = self.transferX + 14
     local transferInnerW = self.transferW - 28
     local bookW = 30
-    local recipientW = math.floor(transferInnerW * 0.60) - bookW - 4
-    local transferAmountW = transferInnerW - recipientW - bookW - 8
+    local glyphW = 26
+    local recipientW = math.floor(transferInnerW * 0.60) - bookW - glyphW - 8
+    local transferAmountW = transferInnerW - recipientW - bookW - glyphW - 16
     self.recipient:setX(transferInnerX)
     self.recipient:setY(fieldY)
     self.recipient:setWidth(recipientW)
@@ -1117,7 +1393,11 @@ function ParadiseEconomy.Panel:layout()
     self.recipientBook:setY(fieldY)
     self.recipientBook:setWidth(bookW)
     self.recipientBook:setHeight(25)
-    self.transferAmount:setX(transferInnerX + recipientW + bookW + 8)
+    self.recipientBookmark:setX(transferInnerX + recipientW + bookW + 8)
+    self.recipientBookmark:setY(fieldY)
+    self.recipientBookmark:setWidth(glyphW)
+    self.recipientBookmark:setHeight(25)
+    self.transferAmount:setX(transferInnerX + recipientW + bookW + glyphW + 12)
     self.transferAmount:setY(fieldY)
     self.transferAmount:setWidth(transferAmountW)
     self.transferButton:setX(transferInnerX)
@@ -1179,15 +1459,19 @@ function ParadiseEconomy.Panel:onWalletAction()
 end
 
 function ParadiseEconomy.Panel:onTransfer()
-    ParadiseEconomy.send("transfer", {
+    local recipient = tostring(self.recipient:getInternalText() or ""):match("^%s*(.-)%s*$")
+    local pending = ParadiseEconomy.clientState.payConfirm
+    local args = {
         currency = self:getCurrency(),
         amount = self.transferAmount:getInternalText(),
-        username = self.recipient:getInternalText(),
-    })
+        username = recipient,
+    }
+    if pending and tostring(pending.text) == recipient then args.confirm = true end
+    ParadiseEconomy.send("transfer", args)
 end
 
 function ParadiseEconomy.Panel:openRecipientBook()
-    ParadiseEconomy.openAddressBookMenu(self.recipient, "user")
+    ParadiseEconomy.openAddressBookMenu(self.recipient, "pay")
 end
 
 function ParadiseEconomy.Panel:update()
@@ -1203,6 +1487,11 @@ function ParadiseEconomy.Panel:update()
     local transferAmount = tonumber(self.transferAmount:getInternalText())
     local recipient = self.recipient:getInternalText()
     self.transferButton:setEnable(transferAmount ~= nil and transferAmount > 0 and recipient ~= nil and recipient ~= "")
+    local pending = ParadiseEconomy.clientState.payConfirm
+    local armed = pending ~= nil and tostring(pending.text) == tostring(recipient or ""):match("^%s*(.-)%s*$")
+    self.transferButton:setTitle(armed and "CONFIRM SEND" or "SEND TRANSFER")
+    ParadiseEconomy.refreshBookmarkButton(self.recipientBookmark)
+    ParadiseEconomy.refreshEyeButton(self.eyeButton)
 end
 
 function ParadiseEconomy.Panel:close()
@@ -1436,6 +1725,9 @@ function ParadiseEconomy.MartPanel:createChildren()
     self.manageButton.tooltip = "Renew merchant leases and review every player post in your trade zones"
     self.manageButton:initialise()
     self:addChild(self.manageButton)
+    self.bookmarkButton = ParadiseEconomy.addBookmarkButton(self, self.width - 291, 22,
+        function(panel) return panel.shopId and tostring(panel.shopId) or "" end)
+    self.eyeButton = ParadiseEconomy.addAdminViewButton(self, self.width - 261, 22)
 
     self.browseSearch = ISTextEntryBox:new("", 15, 96, self.width - 30, 24)
     self.browseSearch.target = self
@@ -1836,6 +2128,14 @@ function ParadiseEconomy.MartPanel:layout()
     self.tabMart:setHeight(24)
     self.manageButton:setX(w - 231)
     self.manageButton:setY(22)
+    if self.eyeButton then
+        self.eyeButton:setX(w - 261)
+        self.eyeButton:setY(22)
+    end
+    if self.bookmarkButton then
+        self.bookmarkButton:setX(w - (self.eyeButton and 291 or 261))
+        self.bookmarkButton:setY(22)
+    end
 
     local countText = tostring(self.browseItemCount or 0) .. " ITEMS"
     local countW = math.max(64, getTextManager():MeasureStringX(UIFont.Small, countText) + 18)
@@ -2628,6 +2928,11 @@ function ParadiseEconomy.MartPanel:update()
     local canManage = ParadiseEconomy.canManageTradeZones()
     self.manageButton:setVisible(canManage)
     self.manageButton:setEnable(canManage)
+    if self.bookmarkButton then
+        self.bookmarkButton:setVisible(self.shopId ~= nil and self.shopKind ~= nil)
+        ParadiseEconomy.refreshBookmarkButton(self.bookmarkButton)
+    end
+    ParadiseEconomy.refreshEyeButton(self.eyeButton)
     if self.tab == "store" then
         local merchant = self:getMerchant()
         self.merchant = merchant
@@ -3909,6 +4214,7 @@ function ParadiseEconomy.sync(module, command, args)
         state.market.marts = state.market.marts or {}
         state.market.playerListings = state.market.playerListings or {}
         ParadiseEconomy.clientState = state
+        ParadiseEconomy.bookmarkRev = (ParadiseEconomy.bookmarkRev or 0) + 1
         if ParadiseEconomy.instance then ParadiseEconomy.instance:refresh() end
         if ParadiseEconomy.accountPanel then ParadiseEconomy.accountPanel:refresh(true) end
         if ParadiseEconomy.accountBrowser then ParadiseEconomy.accountBrowser:refresh() end

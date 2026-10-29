@@ -4,6 +4,8 @@ ParadiseEconomy = ParadiseEconomy or {}
 
 local SCHEMA_VERSION = 10
 
+ParadiseEconomy.schemaVersion = SCHEMA_VERSION
+
 local function ensureBucket(tab)
     tab = tab or {}
     tab.jimoleon = math.max(0, math.floor(tonumber(tab.jimoleon) or 0))
@@ -218,6 +220,7 @@ function ParadiseEconomy.getStore()
         if version < 8 then ParadiseEconomy.migrateOwnershipModel(store) end
         if version < 9 then ParadiseEconomy.migrateLedger(store) end
         if version < 10 then ParadiseEconomy.migrateAddressBooks(store) end
+        store.previousSchemaVersion = version
         store.schemaVersion = SCHEMA_VERSION
     end
     ParadiseEconomy.ensureServerAccount(store)
@@ -2511,11 +2514,33 @@ function ParadiseEconomy.migrateAddressBooks(store)
         for key, entry in pairs(book.entries) do
             local k = tostring(key)
             entry.via = entry.via or ((k:find("^u:") and "user") or (k:find("^mart%-") and "mart") or "id")
-            if entry.via == "id" and entry.pinned ~= true and not store.accounts[key] then
-                book.entries[key] = nil
-            end
         end
     end
+end
+
+function ParadiseEconomy.countBookmarks(store)
+    local books, entries, pinned = 0, 0, 0
+    for _, book in pairs((store or ParadiseEconomy.getStore()).addressBooks or {}) do
+        books = books + 1
+        for _, entry in pairs(book.entries or {}) do
+            entries = entries + 1
+            if entry.pinned then pinned = pinned + 1 end
+        end
+    end
+    return books, entries, pinned
+end
+
+function ParadiseEconomy.debugSchema()
+    local store = ParadiseEconomy.getStore()
+    local books, entries, pinned = ParadiseEconomy.countBookmarks(store)
+    local version = tonumber(store.schemaVersion) or 1
+    print("[ParadiseEconomy] schema " .. tostring(version) .. " / running " .. tostring(ParadiseEconomy.schemaVersion)
+        .. " / upgraded from " .. tostring(store.previousSchemaVersion or version))
+    print("[ParadiseEconomy] address books " .. tostring(books) .. "  entries " .. tostring(entries)
+        .. "  saved " .. tostring(pinned))
+    print("[ParadiseEconomy] schema 10 only adds entry.via, entry.name and entry.pinned; an older build"
+        .. " still reads this store, it just treats every entry as an auto contact")
+    return version
 end
 
 function ParadiseEconomy.getOwnedAccountIds(store, user)
