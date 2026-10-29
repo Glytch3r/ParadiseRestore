@@ -75,32 +75,7 @@ ParadiseZ.promptSlider("Enter value:", function(target, value)
 end) ]]
 
 
-function ParadiseZ.highlightSqHandler()
-    local function highlightSq(sq)
-        local flr = sq:getFloor()
-        if flr then
-            flr:setHighlightColor(1, 1, 0, 1)
-            flr:setHighlighted(true, true)
-        end
-    end
-    ParadiseZ.highlightTick = ParadiseZ.highlightTick + 1
-    if ParadiseZ.highlightTick % 3 == 0 then
-        ParadiseZ.highlightTick = 0
-        local rad = SandboxVars.ParadiseZ.ClearRadius or 15
-        local pl = getPlayer()
-        local cell = pl:getCell()
-        local x, y, z = pl:getX(), pl:getY(), pl:getZ()
-        for xDelta = -rad, rad do
-            for yDelta = -rad, rad do
-                local sq = cell:getOrCreateGridSquare(x + xDelta, y + yDelta, z)
-                highlightSq(sq)
-            end
-        end
-    end
-end
-
 function ParadiseZ.closeModal()
-    Events.OnPlayerUpdate.Remove(ParadiseZ.highlightSqHandler)
     if ParadiseZ.ClearModalInstance then
         ParadiseZ.ClearModalInstance:destroy()
         ParadiseZ.ClearModalInstance = nil
@@ -137,9 +112,6 @@ function ParadiseZ.popup(title, text, yesFn, yesTitle)
     ParadiseZ.ClearModalInstance.yes = yesTitle and tostring(yesTitle) or getText("UI_Yes")
     ParadiseZ.ClearModalInstance.no  = getText("UI_Cancel")
     ParadiseZ.ClearModalInstance.title = title or ""
-
-    ParadiseZ.highlightTick = 0
-    Events.OnPlayerUpdate.Add(ParadiseZ.highlightSqHandler)
 
     ParadiseZ.ClearModalInstance.onRightMouseUp = function()
         ParadiseZ.closeModal()

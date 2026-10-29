@@ -2,7 +2,7 @@ if isClient() then return end
 
 ParadiseEconomy = ParadiseEconomy or {}
 
-local SCHEMA_VERSION = 9
+local SCHEMA_VERSION = 10
 
 local function ensureBucket(tab)
     tab = tab or {}
@@ -217,6 +217,7 @@ function ParadiseEconomy.getStore()
         if version < 7 then ParadiseEconomy.migrateShopSquares(store) end
         if version < 8 then ParadiseEconomy.migrateOwnershipModel(store) end
         if version < 9 then ParadiseEconomy.migrateLedger(store) end
+        if version < 10 then ParadiseEconomy.migrateAddressBooks(store) end
         store.schemaVersion = SCHEMA_VERSION
     end
     ParadiseEconomy.ensureServerAccount(store)
@@ -577,6 +578,12 @@ function ParadiseEconomy.migrateAccountIds(store)
         if zone.tradeAccountId then
             local mapped = idMap[tostring(zone.tradeAccountId)]
             if mapped then zone.tradeAccountId = mapped end
+        end
+    end
+    for _, mart in pairs(store.marts or {}) do
+        if mart.ownerAccountId then
+            local mapped = idMap[tostring(mart.ownerAccountId)]
+            if mapped then mart.ownerAccountId = mapped end
         end
     end
     for _, tx in ipairs(store.transactions or {}) do
@@ -1609,9 +1616,16 @@ function ParadiseEconomy.canManageAccount(pl, account)
     return ParadiseEconomy.isAccountOwner(pl, account)
 end
 
+function ParadiseEconomy.managesTradeAccount(pl, account, isAdm)
+    if type(account) ~= "table" then return false end
+    if account.type ~= "trade" and account.type ~= "finance" then return false end
+    if isAdm then return true end
+    return ParadiseEconomy.isAccountOwner(pl, account)
+end
+
 function ParadiseEconomy.canManageTradeAccount(pl, account)
-    return type(account) == "table" and (account.type == "trade" or account.type == "finance")
-        and ParadiseEconomy.canManageAccount(pl, account)
+    return ParadiseEconomy.managesTradeAccount(pl, account,
+        ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) or false)
 end
 
 function ParadiseEconomy.canManageFinanceAccount(pl, account)
@@ -1743,6 +1757,22 @@ function ParadiseEconomy.getZoneMartViews(zoneId, includeListings)
     return views
 end
 
+function ParadiseEconomy.getMerchantTaxRoute(store, merchant)
+    if type(merchant) ~= "table" then return nil end
+    store = store or ParadiseEconomy.getStore()
+    local route = store.accounts[tostring(merchant.taxRoute or "")]
+    if route then return route end
+    local zoneId = ParadiseEconomy.normalizeZoneId(merchant.zoneId)
+    if not zoneId then return nil end
+    local zone = store.zones and store.zones[zoneId] or nil
+    local tradeId = zone and zone.tradeAccountId or nil
+    if not tradeId then
+        tradeId = ParadiseEconomy.findTradeAccountId(store, zoneId)
+        if tradeId and zone then zone.tradeAccountId = tradeId end
+    end
+    return tradeId and store.accounts[tradeId] or nil
+end
+
 function ParadiseEconomy.getPublicShops(store)
     store = store or ParadiseEconomy.getStore()
     local shops = {}
@@ -1751,6 +1781,7 @@ function ParadiseEconomy.getPublicShops(store)
         if account.type == "merchant" and account.archived ~= true
             and ParadiseEconomy.normalizeSquare(account.x, account.y, account.z) then
             local status = ParadiseEconomy.getMerchantStatus(account, now)
+            local taxAccount = ParadiseEconomy.getMerchantTaxRoute(store, account)
             shops[#shops + 1] = {
                 kind = "store",
                 id = account.id,
@@ -1763,6 +1794,8 @@ function ParadiseEconomy.getPublicShops(store)
                 status = status,
                 statusLabel = ParadiseEconomy.getMerchantStatusLabel(account, now),
                 closed = status ~= "active",
+                taxAccountId = taxAccount and taxAccount.id or nil,
+                taxAccountTitle = taxAccount and (taxAccount.title or taxAccount.name) or nil,
             }
         end
     end
@@ -1802,17 +1835,16 @@ function ParadiseEconomy.canManageMart(pl, mart)
     return owner ~= nil and ParadiseEconomy.canManageAccount(pl, owner)
 end
 
-function ParadiseEconomy.getShopState(pl, kind, shopId)
+function ParadiseEconomy.getShopState(pl, kind, shopId, asPlayer)
     local isAdm = ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) or false
+    if asPlayer == true then isAdm = false end
     if kind == "store" then
         local merchant = ParadiseEconomy.getAccountById(shopId)
         if not merchant or merchant.type ~= "merchant" then return nil, "Merchant store not found" end
         local canManage = isAdm or ParadiseEconomy.isAccountOwner(pl, merchant)
         local status = ParadiseEconomy.getMerchantStatus(merchant)
         local closed = ParadiseEconomy.isMerchantClosed(merchant)
-        local taxAccount = merchant.taxRoute and ParadiseEconomy.getAccountById(merchant.taxRoute) or nil
-        local trade = merchant.zoneId and ParadiseEconomy.getTradeAccount(merchant.zoneId, false) or nil
-        taxAccount = taxAccount or trade
+        local taxAccount = ParadiseEconomy.getMerchantTaxRoute(ParadiseEconomy.getStore(), merchant)
         local dailyFee, feeCurrency = ParadiseEconomy.getMerchantFeeQuote(merchant, tonumber(merchant.leaseDays))
         return {
             kind = "store",
@@ -1829,9 +1861,9 @@ function ParadiseEconomy.getShopState(pl, kind, shopId)
             archived = merchant.archived == true,
             expired = ParadiseEconomy.isMerchantExpired(merchant),
             suspended = merchant.suspended == true,
-            suspendedAt = tonumber(merchant.suspendedAt) or 0,
-            suspendedBy = merchant.suspendedBy,
-            suspendReason = merchant.suspendReason,
+            suspendedAt = canManage and (tonumber(merchant.suspendedAt) or 0) or nil,
+            suspendedBy = canManage and merchant.suspendedBy or nil,
+            suspendReason = canManage and merchant.suspendReason or nil,
             status = status,
             statusLabel = ParadiseEconomy.getMerchantStatusLabel(merchant),
             closed = closed,
@@ -1839,7 +1871,7 @@ function ParadiseEconomy.getShopState(pl, kind, shopId)
             leaseLabel = ParadiseEconomy.getMerchantLeaseLabel(merchant),
             leaseDays = tonumber(merchant.leaseDays) or 0,
             expiresAt = tonumber(merchant.expiresAt) or 0,
-            earnings = ensureBucket(merchant.earnings),
+            earnings = canManage and ensureBucket(merchant.earnings) or nil,
             taxPercent = taxAccount and ParadiseEconomy.getTradeTaxPercent(taxAccount) or 0,
             taxAccountId = taxAccount and taxAccount.id or nil,
             taxAccountTitle = taxAccount and (taxAccount.title or taxAccount.name) or nil,
@@ -1856,7 +1888,8 @@ function ParadiseEconomy.getShopState(pl, kind, shopId)
         ownerAccount = ownerAccount or trade
         view.kind = "mart"
         view.zoneTitle = trade and trade.title or mart.zoneId
-        view.canManage = ParadiseEconomy.canManageMart(pl, mart)
+        local martOwner = ParadiseEconomy.getMartOwnerAccount(mart)
+        view.canManage = isAdm or (martOwner ~= nil and ParadiseEconomy.isAccountOwner(pl, martOwner))
         view.ownerAccountId = ownerAccount and ownerAccount.id or nil
         view.ownerAccountTitle = ownerAccount and (ownerAccount.title or ownerAccount.name) or nil
         view.taxPercent = trade and ParadiseEconomy.getTradeTaxPercent(trade) or 0
@@ -1869,8 +1902,8 @@ function ParadiseEconomy.getShopState(pl, kind, shopId)
     return nil, "Shop not found"
 end
 
-function ParadiseEconomy.sendShopState(pl, kind, shopId)
-    local shop, message = ParadiseEconomy.getShopState(pl, tostring(kind or ""), shopId)
+function ParadiseEconomy.sendShopState(pl, kind, shopId, asPlayer)
+    local shop, message = ParadiseEconomy.getShopState(pl, tostring(kind or ""), shopId, asPlayer)
     sendServerCommand(pl, ParadiseEconomy.module, "shopState", {
         kind = tostring(kind or ""), id = shopId, shop = shop, message = message,
     })
@@ -2256,14 +2289,31 @@ function ParadiseEconomy.buyPlayerListing(pl, listingId, opts)
         return false, ParadiseEconomy.getFrozenMessage(taxAccount, "recipient")
     end
     local destination, destinationLabel = ParadiseEconomy.resolvePurchaseDestination(pl, opts.destination)
-    local item = ParadiseEconomy.spawnItemData(pl, listing.itemData, destination)
-    if not item then return false, "Could not create the purchased item" end
-    ParadiseEconomy.takeBalance(bucket, listing.currency, listing.price)
-    if payout > 0 then
-        ParadiseEconomy.addBalance(merchant.earnings, listing.currency, payout)
+    if tax > 0 and not taxAccount then return false, "No tax account is attached to this zone" end
+    if not ParadiseEconomy.takeBalance(bucket, listing.currency, listing.price) then
+        return false, "Not enough " .. tostring(listing.currency)
     end
-    if tax > 0 then
-        ParadiseEconomy.addAccountBalance(taxAccount, listing.currency, tax)
+    if payout > 0 and not ParadiseEconomy.addAccountBalance(merchant, listing.currency, payout, "earnings") then
+        ParadiseEconomy.addBalance(bucket, listing.currency, listing.price)
+        return false, "The merchant store could not receive the funds"
+    end
+    if tax > 0 and not ParadiseEconomy.addAccountBalance(taxAccount, listing.currency, tax) then
+        if payout > 0 then
+            ParadiseEconomy.takeAccountBalance(merchant, listing.currency, payout, "earnings")
+        end
+        ParadiseEconomy.addBalance(bucket, listing.currency, listing.price)
+        return false, "The tax account could not receive the funds"
+    end
+    local item = ParadiseEconomy.spawnItemData(pl, listing.itemData, destination)
+    if not item then
+        if tax > 0 then
+            ParadiseEconomy.takeAccountBalance(taxAccount, listing.currency, tax)
+        end
+        if payout > 0 then
+            ParadiseEconomy.takeAccountBalance(merchant, listing.currency, payout, "earnings")
+        end
+        ParadiseEconomy.addBalance(bucket, listing.currency, listing.price)
+        return false, "Could not create the purchased item"
     end
     table.remove(merchant.listings, index)
     local info = {
@@ -2440,9 +2490,32 @@ function ParadiseEconomy.getPlayerLedgerRows(user, accountId, limit, isAdm)
 end
 
 ParadiseEconomy.addressBookLimit = 20
+ParadiseEconomy.bookmarkLimit = 50
 
-function ParadiseEconomy.isContactAccount(account)
-    return account ~= nil and account.type == "personal"
+function ParadiseEconomy.bookmarkUserKey(user)
+    user = ParadiseEconomy.normalizeUsername(user)
+    return user and ("u:" .. string.lower(user)) or nil
+end
+
+function ParadiseEconomy.canPayAccount(account)
+    if type(account) ~= "table" then return false, "No account is tied to that name" end
+    if account.archived == true then return false, "That account can't receive transfers" end
+    if account.type == "personal" or account.type == "merchant" then return true end
+    return false, "That account can't receive transfers"
+end
+
+function ParadiseEconomy.migrateAddressBooks(store)
+    store.addressBooks = store.addressBooks or {}
+    for _, book in pairs(store.addressBooks) do
+        book.entries = book.entries or {}
+        for key, entry in pairs(book.entries) do
+            local k = tostring(key)
+            entry.via = entry.via or ((k:find("^u:") and "user") or (k:find("^mart%-") and "mart") or "id")
+            if entry.via == "id" and entry.pinned ~= true and not store.accounts[key] then
+                book.entries[key] = nil
+            end
+        end
+    end
 end
 
 function ParadiseEconomy.getOwnedAccountIds(store, user)
@@ -2459,7 +2532,7 @@ function ParadiseEconomy.rememberContact(store, user, accountId, timestamp)
     local key = ParadiseEconomy.usernameKey(user)
     accountId = tostring(accountId or "")
     if not key or accountId == "" then return end
-    if not ParadiseEconomy.isContactAccount(store.accounts[accountId]) then return end
+    if not ParadiseEconomy.canPayAccount(store.accounts[accountId]) then return end
     store.addressBooks = store.addressBooks or {}
     local book = store.addressBooks[key]
     if not book then
@@ -2467,7 +2540,16 @@ function ParadiseEconomy.rememberContact(store, user, accountId, timestamp)
         store.addressBooks[key] = book
     end
     book.entries = book.entries or {}
-    book.entries[accountId] = { last = tonumber(timestamp) or os.time() }
+    local existing = book.entries[accountId]
+    if existing and existing.pinned then
+        existing.last = tonumber(timestamp) or os.time()
+        return
+    end
+    book.entries[accountId] = {
+        via = "id",
+        last = tonumber(timestamp) or os.time(),
+        name = existing and existing.name or nil,
+    }
 end
 
 function ParadiseEconomy.rememberLedgerContacts(store, rec)
@@ -2476,10 +2558,10 @@ function ParadiseEconomy.rememberLedgerContacts(store, rec)
     local b = store.accounts[rec.b]
     local aKey = a and ParadiseEconomy.usernameKey(a.owner) or nil
     local bKey = b and ParadiseEconomy.usernameKey(b.owner) or nil
-    if aKey and b and ParadiseEconomy.isContactAccount(b) and aKey ~= bKey then
+    if aKey and b and ParadiseEconomy.canPayAccount(b) and aKey ~= bKey then
         ParadiseEconomy.rememberContact(store, a.owner, b.id)
     end
-    if bKey and a and ParadiseEconomy.isContactAccount(a) and bKey ~= aKey then
+    if bKey and a and ParadiseEconomy.canPayAccount(a) and bKey ~= aKey then
         ParadiseEconomy.rememberContact(store, b.owner, a.id)
     end
 end
@@ -2496,8 +2578,8 @@ function ParadiseEconomy.seedAddressBook(store, user, book)
             other = row.a
         end
         if other and other ~= "" and not own[other]
-            and ParadiseEconomy.isContactAccount(store.accounts[other]) then
-            book.entries[other] = book.entries[other] or { last = now - index }
+            and ParadiseEconomy.canPayAccount(store.accounts[other]) then
+            book.entries[other] = book.entries[other] or { via = "id", last = now - index }
         end
     end
 end
@@ -2519,46 +2601,112 @@ function ParadiseEconomy.getAddressBook(store, user)
     return book
 end
 
+function ParadiseEconomy.isBookmarkAlive(store, key, entry)
+    local via = entry.via or "id"
+    if via == "user" then return true end
+    if via == "mart" then return ParadiseEconomy.getMart(key) ~= nil end
+    return store.accounts[key] ~= nil
+end
+
 function ParadiseEconomy.pruneAddressBook(store, book)
-    local entries = {}
-    for accountId, entry in pairs(book.entries) do
-        if store.accounts[accountId] then
-            entries[#entries + 1] = { id = accountId, last = tonumber(entry.last) or 0 }
+    local auto, pinned = {}, {}
+    for key, entry in pairs(book.entries) do
+        if entry.pinned then
+            pinned[#pinned + 1] = { key = key, last = tonumber(entry.last) or 0 }
+        elseif not ParadiseEconomy.isBookmarkAlive(store, key, entry) then
+            book.entries[key] = nil
         else
-            book.entries[accountId] = nil
+            auto[#auto + 1] = { key = key, last = tonumber(entry.last) or 0 }
         end
     end
-    table.sort(entries, function(a, b)
-        if a.last == b.last then return a.id < b.id end
+    local byRecency = function(a, b)
+        if a.last == b.last then return a.key < b.key end
         return a.last > b.last
-    end)
-    for index = ParadiseEconomy.addressBookLimit + 1, #entries do
-        book.entries[entries[index].id] = nil
     end
+    table.sort(auto, byRecency)
+    for index = ParadiseEconomy.addressBookLimit + 1, #auto do
+        book.entries[auto[index].key] = nil
+    end
+    table.sort(pinned, byRecency)
+    for index = ParadiseEconomy.bookmarkLimit + 1, #pinned do
+        book.entries[pinned[index].key] = nil
+    end
+end
+
+function ParadiseEconomy.resolveBookmarkRow(store, entry, key)
+    local via = entry.via or "id"
+    local row = {
+        key = key,
+        via = via,
+        name = entry.name,
+        last = tonumber(entry.last) or 0,
+        pinned = entry.pinned == true,
+        resolvable = false,
+    }
+    if via == "mart" then
+        local mart = ParadiseEconomy.getMart(key)
+        if mart then
+            row.martId = tostring(mart.id)
+            row.shopKind = "mart"
+            row.kind = "mart"
+            row.resolvable = true
+            row.label = tostring(mart.title or mart.id)
+        end
+    else
+        local account
+        if via == "user" then
+            account = ParadiseEconomy.getPersonalAccount(tostring(key):sub(3), false)
+        else
+            account = store.accounts[key]
+        end
+        if account then
+            row.accountId = account.id
+            row.kind = account.type
+            row.user = account.owner
+            row.resolvable = true
+            if account.type == "merchant" then row.shopKind = "store" end
+            row.label = tostring(account.owner or account.title or account.name or account.id)
+        elseif via == "user" then
+            row.user = tostring(key):sub(3)
+            row.kind = "personal"
+            row.label = row.user
+        end
+    end
+    row.label = ParadiseEconomy.normalizeBookmarkName(entry.name) or row.label or tostring(key)
+    return row
 end
 
 function ParadiseEconomy.getAddressBookView(user)
     local store = ParadiseEconomy.getStore()
     local book = ParadiseEconomy.getAddressBook(store, user)
     ParadiseEconomy.pruneAddressBook(store, book)
-    local contacts = {}
-    for accountId, entry in pairs(book.entries) do
-        local account = store.accounts[accountId]
-        if account then
-            contacts[#contacts + 1] = {
-                accountId = accountId,
-                kind = account.type,
-                user = account.owner,
-                label = tostring(account.owner or accountId) .. " (" .. tostring(accountId) .. ")",
-                last = tonumber(entry.last) or 0,
-            }
-        end
+    local saved, recent = {}, {}
+    for key, entry in pairs(book.entries) do
+        local row = ParadiseEconomy.resolveBookmarkRow(store, entry, key)
+        if row.pinned then saved[#saved + 1] = row else recent[#recent + 1] = row end
     end
-    table.sort(contacts, function(a, b)
-        if a.last == b.last then return a.label < b.label end
+    table.sort(saved, function(a, b)
+        if a.label == b.label then return a.key < b.key end
+        return tostring(a.label) < tostring(b.label)
+    end)
+    table.sort(recent, function(a, b)
+        if a.last == b.last then return a.key < b.key end
         return a.last > b.last
     end)
+    local contacts = {}
+    for _, row in ipairs(saved) do contacts[#contacts + 1] = row end
+    for _, row in ipairs(recent) do contacts[#contacts + 1] = row end
     return { contacts = contacts }
+end
+
+function ParadiseEconomy.debugBook(user)
+    local rows = ParadiseEconomy.getAddressBookView(user).contacts or {}
+    print("[ParadiseEconomy] bookmarks for " .. tostring(user) .. " (" .. tostring(#rows) .. ")")
+    for index, row in ipairs(rows) do
+        print(index, row.key, row.via, row.pinned and "PIN" or "auto",
+            row.resolvable and "OK" or "no account found", row.label)
+    end
+    return rows
 end
 
 function ParadiseEconomy.writeLog(tx)
@@ -2631,6 +2779,88 @@ function ParadiseEconomy.record(pl, action, currency, amount, fromUser, toUser, 
     return tx
 end
 
+function ParadiseEconomy.resolvePayTarget(store, text)
+    text = tostring(text or ""):match("^%s*(.-)%s*$")
+    if text == "" or #text > 64 then return nil, "No account is tied to that name" end
+    local account = store.accounts[text]
+    if account then return account end
+    account = ParadiseEconomy.getPersonalAccount(text, false)
+    if account then return account end
+    if ParadiseEconomy.getMart(text) then return nil, "Marts can't receive transfers" end
+    return nil, "No account is tied to that name"
+end
+
+function ParadiseEconomy.isKnownPayTarget(store, user, fromAccount, target)
+    if ParadiseEconomy.usernameKey(target.owner) == ParadiseEconomy.usernameKey(user) then return true end
+    local book = store.addressBooks and store.addressBooks[ParadiseEconomy.usernameKey(user)] or nil
+    if not book or not book.entries then return false end
+    if book.entries[target.id] then return true end
+    if target.type == "personal" then
+        local key = ParadiseEconomy.bookmarkUserKey(target.owner)
+        if key and book.entries[key] then return true end
+    end
+    return false
+end
+
+function ParadiseEconomy.canBookmark(pl, account, mart)
+    if type(mart) == "table" then return mart.id ~= nil end
+    if type(account) ~= "table" then return false end
+    local kind = account.type
+    if kind == "personal" or kind == "merchant" then return account.archived ~= true end
+    if kind == "trade" or kind == "finance" then return ParadiseEconomy.canManageTradeAccount(pl, account) end
+    return false
+end
+
+function ParadiseEconomy.bookmarkLabel(store, entry)
+    if type(entry) ~= "table" then return "" end
+    local saved = ParadiseEconomy.normalizeBookmarkName(entry.name)
+    if saved then return saved end
+    local via = entry.via or "id"
+    if via == "mart" then
+        local mart = ParadiseEconomy.getMart(entry.key)
+        return mart and tostring(mart.title or mart.id) or tostring(entry.key)
+    end
+    if via == "user" then
+        local account = ParadiseEconomy.getPersonalAccount(tostring(entry.key):sub(3), false)
+        if account then return tostring(account.owner or account.id) end
+        return tostring(entry.key):sub(3)
+    end
+    local account = store.accounts[tostring(entry.key)]
+    if account then return tostring(account.owner or account.title or account.name or account.id) end
+    return tostring(entry.key)
+end
+
+function ParadiseEconomy.resolveBookmarkTarget(store, pl, text)
+    text = tostring(text or ""):match("^%s*(.-)%s*$")
+    if text == "" or #text > 64 then return nil, "Nothing to save" end
+    local account = store.accounts[text]
+    local via = "id"
+    if not account then
+        account = ParadiseEconomy.getPersonalAccount(text, false)
+        if account then via = "user" end
+    end
+    if account then
+        if not ParadiseEconomy.canBookmark(pl, account, nil) then
+            return nil, "That account can't be saved"
+        end
+        local key
+        if via == "user" then key = ParadiseEconomy.bookmarkUserKey(account.owner) else key = account.id end
+        if not key then return nil, "Nothing to save" end
+        return { key = key, via = via, label = tostring(account.owner or account.title or account.id) }
+    end
+    local mart = ParadiseEconomy.getMart(text)
+    if mart then
+        if not ParadiseEconomy.canBookmark(pl, nil, mart) then return nil, "That mart can't be saved" end
+        return { key = tostring(mart.id), via = "mart", label = tostring(mart.title or mart.id) }
+    end
+    local user = ParadiseEconomy.normalizeUsername(text)
+    local key = user and ParadiseEconomy.bookmarkUserKey(user) or nil
+    if key then
+        return { key = key, via = "user", label = user }
+    end
+    return nil, "Nothing to save"
+end
+
 function ParadiseEconomy.getFrozenMessage(account, role)
     if not ParadiseEconomy.isAccountFrozen(account) then return nil end
     if role == "sender" then return "Your account is frozen; transaction cancelled." end
@@ -2644,25 +2874,6 @@ function ParadiseEconomy.canMoveFunds(fromAccount, toAccount, allowFrozen)
     if message then return false, message end
     message = ParadiseEconomy.getFrozenMessage(toAccount, "recipient")
     if message then return false, message end
-    return true
-end
-
-function ParadiseEconomy.transferAccounts(fromUser, toUser, currency, amount, allowFrozen)
-    local from = ParadiseEconomy.getPersonalAccount(fromUser, false)
-    local to = ParadiseEconomy.getPersonalAccount(toUser, true)
-    if not from or not to or from == to then return false end
-    currency = ParadiseEconomy.normalizeCurrency(currency)
-    amount = ParadiseEconomy.normalizeAmount(amount)
-    if not currency or not amount then return false end
-    local allowed, frozenMessage = ParadiseEconomy.canMoveFunds(from, to, allowFrozen)
-    if not allowed then return false, frozenMessage end
-    if not ParadiseEconomy.takeBalance(from.digital, currency, amount) then
-        return false, "Insufficient digital funds"
-    end
-    if not ParadiseEconomy.addBalance(to.digital, currency, amount) then
-        ParadiseEconomy.addBalance(from.digital, currency, amount)
-        return false, "Transaction failed"
-    end
     return true
 end
 
@@ -2718,19 +2929,29 @@ function ParadiseEconomy.migrateLegacyPlayerData(pl)
     local jimoleon = ParadiseEconomy.getBalance(legacy, "jimoleon")
     local paradisium = ParadiseEconomy.getBalance(legacy, "paradisium")
     if account and (jimoleon > 0 or paradisium > 0) then
-        if jimoleon > 0 then ParadiseEconomy.addBalance(account.onhand, "jimoleon", jimoleon) end
-        if paradisium > 0 then ParadiseEconomy.addBalance(account.onhand, "paradisium", paradisium) end
-        ParadiseEconomy.record(pl, "migrated carried funds", "mixed", jimoleon + paradisium,
-            pl:getUsername(), pl:getUsername(), "legacy carried balance", { accountId = account.id, bucket = "onhand" })
+        local moved = true
+        if jimoleon > 0 then moved = ParadiseEconomy.addAccountBalance(account, "jimoleon", jimoleon, "onhand") end
+        if moved and paradisium > 0 then
+            moved = ParadiseEconomy.addAccountBalance(account, "paradisium", paradisium, "onhand")
+        end
+        if moved then
+            ParadiseEconomy.record(pl, "migrated carried funds", "mixed", jimoleon + paradisium,
+                pl:getUsername(), pl:getUsername(), "legacy carried balance", { accountId = account.id, bucket = "onhand" })
+            md[ParadiseEconomy.playerKey] = nil
+        end
+    else
+        if jimoleon <= 0 and paradisium <= 0 then
+            md[ParadiseEconomy.playerKey] = nil
+        end
     end
-    md[ParadiseEconomy.playerKey] = nil
     ParadiseEconomy.syncPlayerData(pl)
 end
 
-function ParadiseEconomy.sendState(pl, message, extra)
+function ParadiseEconomy.sendState(pl, message, extra, asPlayer)
     ParadiseEconomy.migrateLegacyPlayerData(pl)
     local user = pl:getUsername()
     local isAdm = ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) or false
+    if asPlayer == true then isAdm = false end
     local store = ParadiseEconomy.getStore()
     local personal = ParadiseEconomy.getPersonalAccount(user, true)
     if personal and getSteamModeActive and getSteamModeActive() then
@@ -2780,7 +3001,7 @@ function ParadiseEconomy.sendState(pl, message, extra)
         market.merchantDailyFee = ParadiseEconomy.getMerchantDailyFee(trade or zoneRecord)
         market.merchantFeeCurrency = ParadiseEconomy.getMerchantFeeCurrency(trade or zoneRecord)
         market.marts = ParadiseEconomy.getZoneMartViews(zoneRecord.id)
-        market.canManage = trade and ParadiseEconomy.canManageTradeAccount(pl, trade) or false
+        market.canManage = trade and ParadiseEconomy.managesTradeAccount(pl, trade, isAdm) or false
         market.leaseDays = trade and ParadiseEconomy.getMerchantLeaseDays(trade) or nil
         market.playerListings = ParadiseEconomy.getPlayerListingsForZone(zoneRecord.id)
         if market.canManage then
@@ -2790,7 +3011,7 @@ function ParadiseEconomy.sendState(pl, message, extra)
     end
     local managedZones = {}
     for _, account in pairs(store.accounts) do
-        if account.type == "trade" and account.archived ~= true and ParadiseEconomy.canManageTradeAccount(pl, account) then
+        if account.type == "trade" and account.archived ~= true and ParadiseEconomy.managesTradeAccount(pl, account, isAdm) then
             local view = ParadiseEconomy.getTradePublicView(account, true)
             if view then
                 view.managedMerchants = ParadiseEconomy.getZoneMerchantViews(account.zoneId)
@@ -2822,11 +3043,12 @@ function ParadiseEconomy.sendState(pl, message, extra)
     sendServerCommand(pl, ParadiseEconomy.module, "state", payload)
 end
 
-function ParadiseEconomy.sendStateToAll(sourcePl, message, extra)
+function ParadiseEconomy.sendStateToAll(sourcePl, message, extra, asPlayer)
     local players = getOnlinePlayers()
     for int = 0, players:size() - 1 do
         local pl = players:get(int)
-        ParadiseEconomy.sendState(pl, pl == sourcePl and message or nil, pl == sourcePl and extra or nil)
+        if pl == sourcePl then ParadiseEconomy.sendState(pl, message, extra, asPlayer)
+        else ParadiseEconomy.sendState(pl, nil, nil, nil) end
     end
 end
 
@@ -2842,12 +3064,15 @@ function ParadiseEconomy.movePlayerAccount(pl, currency, amount, toDigital)
     if ParadiseEconomy.isAccountFrozen(account) then
         return false, "Your account is frozen; transaction cancelled."
     end
-    local from = toDigital and account.onhand or account.digital
-    local to = toDigital and account.digital or account.onhand
-    if not ParadiseEconomy.takeBalance(from, currency, amount) then
+    local fromBucket = toDigital and "onhand" or "digital"
+    local toBucket = toDigital and "digital" or "onhand"
+    if not ParadiseEconomy.takeAccountBalance(account, currency, amount, fromBucket) then
         return false, "Insufficient funds"
     end
-    ParadiseEconomy.addBalance(to, currency, amount)
+    if not ParadiseEconomy.addAccountBalance(account, currency, amount, toBucket) then
+        ParadiseEconomy.addAccountBalance(account, currency, amount, fromBucket)
+        return false, "Transaction failed"
+    end
     return true
 end
 
@@ -2970,6 +3195,7 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
         currency = ParadiseEconomy.normalizeCurrency(args.currency),
         amount = ParadiseEconomy.normalizeAmount(args.amount),
         isAdm = ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) or false,
+        asPlayer = args.asPlayer == true,
     }
     if (command == "marketBuy" or command == "marketSell" or command == "playerShopPost" or
         command == "playerShopBuy") and not ParadiseEconomy.canUsePlayerEconomy(pl) then
@@ -2978,27 +3204,33 @@ function ParadiseEconomy.onClientCommand(module, command, pl, args)
                 message = "ParadiseMart is only available in a Trade Zone" }
         end
         ParadiseEconomy.sendState(pl, "ParadiseMart is only available in a Trade Zone",
-            { purchase = ctx.purchaseResult })
+            { purchase = ctx.purchaseResult }, args.asPlayer == true)
         return
     end
     if ParadiseEconomy.handleLedgerCommand(ctx) then return end
     if command == "requestState" then
-        ParadiseEconomy.sendState(pl)
+        ParadiseEconomy.sendState(pl, nil, nil, args.asPlayer == true)
         return
     elseif command == "requestShop" then
-        ParadiseEconomy.sendShopState(pl, args.kind, args.id)
+        ParadiseEconomy.sendShopState(pl, args.kind, args.id, args.asPlayer == true)
         return
     end
+    local handled = false
     for _, handler in ipairs(ParadiseEconomy.commandGroups) do
-        if handler(ctx) then break end
+        if handler(ctx) then
+            handled = true
+            break
+        end
     end
     if ctx.stop then return end
+    if not handled then return end
     ParadiseEconomy.transmit()
     local extra = nil
     if ctx.purchaseResult then extra = extra or {}; extra.purchase = ctx.purchaseResult end
     if ctx.shopResult then extra = extra or {}; extra.shopRequest = ctx.shopResult end
-    if ctx.syncAll then ParadiseEconomy.sendStateToAll(pl, ctx.message, extra)
-    else ParadiseEconomy.sendState(pl, ctx.message or "Transaction rejected", extra) end
+    if ctx.payConfirm then extra = extra or {}; extra.payConfirm = ctx.payConfirm end
+    if ctx.syncAll then ParadiseEconomy.sendStateToAll(pl, ctx.message, extra, ctx.asPlayer)
+    else ParadiseEconomy.sendState(pl, ctx.message or "Transaction rejected", extra, ctx.asPlayer) end
 end
 Events.OnClientCommand.Remove(ParadiseEconomy.onClientCommand)
 Events.OnClientCommand.Add(ParadiseEconomy.onClientCommand)
@@ -3049,6 +3281,7 @@ function ParadiseEconomy.handleStoreCommand(ctx)
                 if not merchant then
                     message = "Could not register the merchant store"
                 else
+                    local reopened = (existing and existing.archived == true) or false
                     merchant.archived = nil
                     merchant.zoneId = zoneRecord.id
                     merchant.zoneName = zoneRecord.name
@@ -3062,7 +3295,7 @@ function ParadiseEconomy.handleStoreCommand(ctx)
                     local feeDue = ParadiseEconomy.getMerchantFeeQuote(merchant, leaseDays)
                     local registered = true
                     local registrationMessage = "Merchant store registered"
-                    if not existing and leaseDays > 0 then
+                    if (not existing or reopened) and leaseDays > 0 then
                         local chargePaid, chargeMessage, due, feeCurrency, feeTarget = true, nil, 0
                         if feeDue > 0 then
                             chargePaid, chargeMessage, due, feeCurrency, feeTarget =
@@ -3080,11 +3313,15 @@ function ParadiseEconomy.handleStoreCommand(ctx)
                                     })
                             end
                         else
-                            ParadiseEconomy.deleteAccount(merchant.id)
+                            if existing then
+                                merchant.archived = true
+                            else
+                                ParadiseEconomy.deleteAccount(merchant.id)
+                            end
                             registered = false
                             registrationMessage = chargeMessage
                         end
-                    elseif not existing then
+                    elseif not existing or reopened then
                         ParadiseEconomy.grantMerchantLease(merchant, 0)
                     elseif ParadiseEconomy.isMerchantExpired(merchant) and leaseDays > 0 then
                         local renewed, leaseMessage, paidAmount, paidCurrency, paidTo =
@@ -3215,23 +3452,40 @@ function ParadiseEconomy.handleFundsCommand(ctx)
             message = moveMessage
         end
     elseif command == "transfer" then
-        local targetUser = ParadiseEconomy.normalizeUsername(args.username)
-        if not targetUser then
-            message = "Invalid recipient"
+        local store = ParadiseEconomy.getStore()
+        local target, payError = ParadiseEconomy.resolvePayTarget(store, args.username)
+        local personal = ParadiseEconomy.getPersonalAccount(user, true)
+        local payText = tostring(args.username or ""):match("^%s*(.-)%s*$")
+        if not personal or not target then
+            message = payError or "No account is tied to that name"
+        elseif not ParadiseEconomy.canPayAccount(target) then
+            message = "That account can't receive transfers"
+        elseif personal == target then
+            message = "Cannot transfer to your own account"
+        elseif not ParadiseEconomy.isKnownPayTarget(store, user, personal, target)
+            and args.confirm ~= true then
+            ctx.payConfirm = {
+                text = payText,
+                label = ParadiseEconomy.bookmarkLabel(store, {
+                    via = "id", key = target.id,
+                }),
+            }
+            message = "Sending to " .. ctx.payConfirm.label .. ". Press SEND again to confirm."
         else
-            local sent, sendMessage = ParadiseEconomy.transferAccounts(user, targetUser, currency, amount)
-            if sent then
-                local personal = ParadiseEconomy.getPersonalAccount(user, true)
-                local target = ParadiseEconomy.getPersonalAccount(targetUser, false)
-                ParadiseEconomy.record(pl, "transferred", currency, amount, user, targetUser, "account transfer", {
-                    accountId = personal.id,
-                    counterpartyId = target and target.id or nil,
-                    bucket = "digital",
-                })
-                message = "Sent " .. amount .. " " .. currency .. " to " .. targetUser
+            local moved, _, _, frozen = ParadiseEconomy.transferBetweenAccounts(
+                personal, target, currency, amount, "digital", nil)
+            if moved then
+                ParadiseEconomy.record(pl, "transferred", currency, amount, user, target.owner,
+                    "account transfer", {
+                        accountId = personal.id,
+                        counterpartyId = target.id,
+                        bucket = "digital",
+                    })
+                message = "Sent " .. amount .. " " .. currency .. " to "
+                    .. ParadiseEconomy.bookmarkLabel(store, { via = "id", key = target.id })
                 syncAll = true
             else
-                message = sendMessage or "Transaction rejected"
+                message = frozen or "Transaction rejected"
             end
         end
     elseif command == "withdrawWallet" then
@@ -3241,12 +3495,16 @@ function ParadiseEconomy.handleFundsCommand(ctx)
         elseif currency and amount and ParadiseEconomy.getBalance(account.digital, currency) >= amount then
             local item, wallet = ParadiseEconomy.makeWallet(pl)
             if item and wallet and ParadiseEconomy.takeBalance(account.digital, currency, amount) then
-                ParadiseEconomy.addBalance(wallet, currency, amount)
-                syncItemModData(pl, item)
-                ParadiseEconomy.record(pl, "withdrew to wallet", currency, amount, user, user, tostring(item:getID()), {
-                    accountId = account.id, bucket = "onhand",
-                })
-                message = "Placed " .. amount .. " " .. currency .. " in a wallet"
+                if not ParadiseEconomy.addBalance(wallet, currency, amount) then
+                    ParadiseEconomy.addBalance(account.digital, currency, amount)
+                    message = "Could not create a wallet"
+                else
+                    syncItemModData(pl, item)
+                    ParadiseEconomy.record(pl, "withdrew to wallet", currency, amount, user, user, tostring(item:getID()), {
+                        accountId = account.id, bucket = "onhand",
+                    })
+                    message = "Placed " .. amount .. " " .. currency .. " in a wallet"
+                end
             else
                 message = "Could not create a wallet"
             end
@@ -3259,16 +3517,26 @@ function ParadiseEconomy.handleFundsCommand(ctx)
         elseif item and wallet then
             local jimoleon = ParadiseEconomy.getBalance(wallet, "jimoleon")
             local paradisium = ParadiseEconomy.getBalance(wallet, "paradisium")
-            if jimoleon > 0 then ParadiseEconomy.addBalance(personal.onhand, "jimoleon", jimoleon) end
-            if paradisium > 0 then ParadiseEconomy.addBalance(personal.onhand, "paradisium", paradisium) end
-            ParadiseEconomy.setBalances(wallet, 0, 0)
-            syncItemModData(pl, item)
-            ParadiseEconomy.record(pl, "pillaged wallet", "mixed", jimoleon + paradisium, "wallet", user,
-                tostring(jimoleon) .. " Jimoleons, " .. tostring(paradisium) .. " Paradisium", {
-                    accountId = personal.id, bucket = "onhand",
-                })
-            sendServerCommand(pl, ParadiseEconomy.module, "say", { message = "I pillaged " .. jimoleon .. " Jimoleons and " .. paradisium .. " Paradisium." })
-            message = "Wallet pillaged"
+            local movedJim = jimoleon <= 0 or ParadiseEconomy.addAccountBalance(personal, "jimoleon", jimoleon, "onhand")
+            local movedPar = paradisium <= 0 or ParadiseEconomy.addAccountBalance(personal, "paradisium", paradisium, "onhand")
+            if movedJim and movedPar then
+                ParadiseEconomy.setBalances(wallet, 0, 0)
+                syncItemModData(pl, item)
+                ParadiseEconomy.record(pl, "pillaged wallet", "mixed", jimoleon + paradisium, "wallet", user,
+                    tostring(jimoleon) .. " Jimoleons, " .. tostring(paradisium) .. " Paradisium", {
+                        accountId = personal.id, bucket = "onhand",
+                    })
+                sendServerCommand(pl, ParadiseEconomy.module, "say", { message = "I pillaged " .. jimoleon .. " Jimoleons and " .. paradisium .. " Paradisium." })
+                message = "Wallet pillaged"
+            else
+                if movedJim and jimoleon > 0 then
+                    ParadiseEconomy.takeAccountBalance(personal, "jimoleon", jimoleon, "onhand")
+                end
+                if movedPar and paradisium > 0 then
+                    ParadiseEconomy.takeAccountBalance(personal, "paradisium", paradisium, "onhand")
+                end
+                message = "Your account could not receive the funds"
+            end
         end
     elseif command == "merchantCollect" then
         local collected, collectMessage = ParadiseEconomy.collectMerchantEarnings(pl)
@@ -3733,10 +4001,19 @@ function ParadiseEconomy.handleAdminCommand(ctx)
         elseif not owner then
             message = "Invalid owner"
         else
-            trade.owner = owner
-            message = "Trade account owner set to " .. owner
+            local store = ParadiseEconomy.getStore()
+            local zone = store.zones and store.zones[tostring(trade.zoneId or "")] or nil
+            local ownerName, ownerType
+            if zone then
+                ownerName, ownerType = ParadiseEconomy.syncZoneOwnership(store, zone, owner)
+            else
+                ownerName, ownerType = ParadiseEconomy.normalizeZoneOwner(owner)
+                trade.owner, trade.ownerType = ownerName, ownerType
+            end
+            message = ownerType == "server" and "Trade account owner reset to the server account"
+                or ("Trade account owner set to " .. tostring(ownerName))
             syncAll = true
-            ParadiseEconomy.record(pl, "admin set trade owner", "mixed", 0, user, trade.id, owner, {
+            ParadiseEconomy.record(pl, "admin set trade owner", "mixed", 0, user, trade.id, tostring(ownerName), {
                 accountId = trade.id, zoneId = trade.zoneId,
             })
         end
@@ -3882,26 +4159,46 @@ function ParadiseEconomy.handleMarketCommand(ctx)
             message = ParadiseEconomy.getFrozenMessage(personal, "sender")
                 or ParadiseEconomy.getFrozenMessage(ownerAccount, "recipient")
         else
-            local total = listing.price * quantity
-            if ParadiseEconomy.takeBalance(personal.digital, listing.currency, total) then
-                ParadiseEconomy.addBalance(ownerAccount.digital, listing.currency, total)
+            local price = ParadiseEconomy.normalizeMoveAmount(listing.price)
+            local total = price and price * quantity or nil
+            if not ParadiseEconomy.normalizeMoveAmount(total) then
+                message = "Invalid listing price"
+            elseif not ParadiseEconomy.takeBalance(personal.digital, listing.currency, total) then
+                message = "Insufficient digital funds"
+            elseif not ParadiseEconomy.addAccountBalance(ownerAccount, listing.currency, total) then
+                ParadiseEconomy.addBalance(personal.digital, listing.currency, total)
+                message = "The market account could not receive the funds"
+            else
                 local inv = pl:getInventory()
+                local added = 0
                 for _ = 1, quantity do
                     local item = inv:AddItem(listing.fullType)
                     if item then
+                        added = added + 1
                         if item.SynchSpawn then item:SynchSpawn() end
                         sendAddItemToContainer(inv, item)
                     end
                 end
-                ParadiseEconomy.record(pl, "market purchase", listing.currency, total, user,
-                    tostring(ownerAccount.title or ownerAccount.name), quantity .. "x " .. listing.fullType, {
-                        accountId = personal.id, counterpartyId = ownerAccount.id, zoneId = mart.zoneId, bucket = "digital",
-                        itemType = listing.fullType, quantity = quantity,
-                    })
-                message = "Purchase complete"
+                local refund = price * (quantity - added)
+                if refund > 0 then
+                    ParadiseEconomy.takeAccountBalance(ownerAccount, listing.currency, refund)
+                    ParadiseEconomy.addBalance(personal.digital, listing.currency, refund)
+                end
+                if added > 0 then
+                    ParadiseEconomy.record(pl, "market purchase", listing.currency, price * added, user,
+                        tostring(ownerAccount.title or ownerAccount.name), added .. "x " .. listing.fullType, {
+                            accountId = personal.id, counterpartyId = ownerAccount.id, zoneId = mart.zoneId,
+                            bucket = "digital", itemType = listing.fullType, quantity = added,
+                        })
+                end
+                if added == quantity then
+                    message = "Purchase complete"
+                elseif added > 0 then
+                    message = "Only " .. added .. " of " .. quantity .. " fit; " .. refund .. " refunded"
+                else
+                    message = "Your inventory could not hold the items"
+                end
                 syncAll = true
-            else
-                message = "Insufficient digital funds"
             end
         end
     elseif command == "marketSell" then
@@ -3924,14 +4221,22 @@ function ParadiseEconomy.handleMarketCommand(ctx)
             message = ParadiseEconomy.getFrozenMessage(ownerAccount, "sender")
                 or ParadiseEconomy.getFrozenMessage(personal, "recipient")
         else
-            local total = listing.price * quantity
-            if ParadiseEconomy.getBalance(ownerAccount.digital, listing.currency) < total then
+            local price = ParadiseEconomy.normalizeMoveAmount(listing.price)
+            local total = price and price * quantity or nil
+            if not ParadiseEconomy.normalizeMoveAmount(total) then
+                message = "Invalid listing price"
+            elseif ParadiseEconomy.getAccountBalance(ownerAccount, listing.currency) < total then
                 message = "The market account cannot pay for this sale"
+            elseif not ParadiseEconomy.takeAccountBalance(ownerAccount, listing.currency, total) then
+                message = "The market account cannot pay for this sale"
+            elseif not ParadiseEconomy.addBalance(personal.digital, listing.currency, total) then
+                ParadiseEconomy.addAccountBalance(ownerAccount, listing.currency, total)
+                message = "Your account could not receive the funds"
             elseif not ParadiseEconomy.removeItems(pl:getInventory(), listing.fullType, quantity) then
+                ParadiseEconomy.takeBalance(personal.digital, listing.currency, total)
+                ParadiseEconomy.addAccountBalance(ownerAccount, listing.currency, total)
                 message = "You do not have enough items"
             else
-                ParadiseEconomy.takeBalance(ownerAccount.digital, listing.currency, total)
-                ParadiseEconomy.addBalance(personal.digital, listing.currency, total)
                 ParadiseEconomy.record(pl, "market sale", listing.currency, total,
                     tostring(ownerAccount.title or ownerAccount.name), user, quantity .. "x " .. listing.fullType, {
                         accountId = personal.id, counterpartyId = ownerAccount.id, zoneId = mart.zoneId, bucket = "digital",
@@ -4043,6 +4348,108 @@ function ParadiseEconomy.handlePlayerShopCommand(ctx)
     return true
 end
 
+function ParadiseEconomy.addBookmark(store, user, key, via, name)
+    if not ParadiseEconomy.usernameKey(user) then return nil, "Nothing to save" end
+    local book = ParadiseEconomy.getAddressBook(store, user)
+    local entry = book.entries[key]
+    if entry then
+        entry.via = entry.via or via
+        entry.last = os.time()
+        if name ~= nil then entry.name = name end
+        entry.pinned = true
+        return entry, "Already saved"
+    end
+    local pinned = 0
+    for _, check in pairs(book.entries) do
+        if check.pinned then pinned = pinned + 1 end
+    end
+    if pinned >= ParadiseEconomy.bookmarkLimit then
+        return nil, "Bookmark list is full (" .. ParadiseEconomy.bookmarkLimit .. ")"
+    end
+    entry = { via = via, last = os.time(), name = name, pinned = true }
+    book.entries[key] = entry
+    return entry
+end
+
+function ParadiseEconomy.handleBookmarkAdd(ctx)
+    local store = ParadiseEconomy.getStore()
+    local target, err = ParadiseEconomy.resolveBookmarkTarget(store, ctx.pl, ctx.args.text)
+    if not target then return err end
+    local book = ParadiseEconomy.getAddressBook(store, ctx.user)
+    local entry = book.entries[target.key]
+    if ctx.args.action == "toggle" and entry and entry.pinned then
+        book.entries[target.key] = nil
+        return "Removed"
+    end
+    local wasPinned = entry ~= nil and entry.pinned == true
+    local saved, note = ParadiseEconomy.addBookmark(store, ctx.user, target.key, target.via,
+        entry and entry.name)
+    if not saved then return note end
+    if wasPinned and note then return note end
+    return "Saved " .. (ParadiseEconomy.normalizeBookmarkName(saved.name) or target.label)
+end
+
+function ParadiseEconomy.handleBookmarkEdit(ctx)
+    local store = ParadiseEconomy.getStore()
+    local book = ParadiseEconomy.getAddressBook(store, ctx.user)
+    local key = tostring(ctx.args.key or "")
+    local entry = book.entries[key]
+    if not entry then return "Bookmark not found" end
+    if ctx.args.action == "remove" then
+        book.entries[key] = nil
+        return "Removed"
+    end
+    entry.name = ParadiseEconomy.normalizeBookmarkName(ctx.args.name)
+    return "Renamed"
+end
+
+function ParadiseEconomy.handleBookmarkCommand(ctx)
+    if ctx.command ~= "bookmark" then return false end
+    local action = tostring(ctx.args.action or "")
+    if action ~= "add" and action ~= "toggle" then
+        if action ~= "rename" and action ~= "remove" then return false end
+        ctx.message = ParadiseEconomy.handleBookmarkEdit(ctx)
+        return true
+    end
+    ctx.args.text = tostring(ctx.args.text or ""):match("^%s*(.-)%s*$")
+    if ctx.args.text == "" or #ctx.args.text > 64 then
+        ctx.message = "Nothing to save"
+        return true
+    end
+    ctx.message = ParadiseEconomy.handleBookmarkAdd(ctx)
+    return true
+end
+
+function ParadiseEconomy.firstPlayerFor(user)
+    local players = getOnlinePlayers()
+    local fallback = nil
+    for int = 0, players:size() - 1 do
+        local pl = players:get(int)
+        if pl then
+            if not fallback then fallback = pl end
+            if ParadiseEconomy.usernameKey(pl:getUsername()) == ParadiseEconomy.usernameKey(user) then
+                return pl
+            end
+        end
+    end
+    return fallback
+end
+
+function ParadiseEconomy.debugBookmark(user, text)
+    local pl = ParadiseEconomy.firstPlayerFor(user)
+    local store = ParadiseEconomy.getStore()
+    local target, err = ParadiseEconomy.resolveBookmarkTarget(store, pl, text)
+    if not target then
+        print("[ParadiseEconomy] cannot save " .. tostring(text) .. ": " .. tostring(err))
+        return nil
+    end
+    local entry, note = ParadiseEconomy.addBookmark(store, user, target.key, target.via)
+    print("[ParadiseEconomy] " .. tostring(note or ("Saved " .. target.label))
+        .. " " .. target.key .. " (" .. target.via .. ") for " .. tostring(user))
+    ParadiseEconomy.transmit()
+    return entry
+end
+
 ParadiseEconomy.commandGroups = {
     ParadiseEconomy.handleStoreCommand,
     ParadiseEconomy.handleFundsCommand,
@@ -4052,6 +4459,7 @@ ParadiseEconomy.commandGroups = {
     ParadiseEconomy.handleAdminCommand,
     ParadiseEconomy.handleMarketCommand,
     ParadiseEconomy.handlePlayerShopCommand,
+    ParadiseEconomy.handleBookmarkCommand,
 }
 
 function ParadiseEconomy.onCharacterDeath(pl)

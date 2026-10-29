@@ -363,22 +363,6 @@ end
 
 ParadiseDev.DataCheck.Panel = ISCollapsableWindow:derive("ParadiseDev.DataCheck.Panel")
 
-function ParadiseDev.DataCheck.layoutWindowChrome(window)
-    local buttonHeight = window:titleBarHeight() - 2
-    local rightX = window.width - 1 - buttonHeight
-    if window.pinButton then window.pinButton:setX(rightX) end
-    if window.collapseButton then window.collapseButton:setX(rightX) end
-    local resizeHeight = window:resizeWidgetHeight()
-    if window.resizeWidget then
-        window.resizeWidget:setX(window.width - resizeHeight)
-        window.resizeWidget:setY(window.height - resizeHeight)
-    end
-    if window.resizeWidget2 then
-        window.resizeWidget2:setY(window.height - resizeHeight)
-        window.resizeWidget2:setWidth(window.width - resizeHeight)
-    end
-end
-
 function ParadiseDev.DataCheck.updateScrollWidth(list)
     if not list then return end
     local width = list:getWidth()
@@ -397,7 +381,6 @@ function ParadiseDev.DataCheck.resizeWindow(panel, newWidth, newHeight)
     local minHeight = math.min(panel.minimumHeight or 120, maxHeight)
     panel:setWidth(math.max(minWidth, math.min(newWidth, maxWidth)))
     panel:setHeight(math.max(minHeight, math.min(newHeight, maxHeight)))
-    ParadiseDev.DataCheck.layoutWindowChrome(panel)
     if panel.layoutChildren then panel:layoutChildren() end
 end
 
@@ -405,7 +388,6 @@ function ParadiseDev.DataCheck.enableWindowResize(panel)
     panel:setResizable(true)
     if panel.resizeWidget then panel.resizeWidget.resizeFunction = ParadiseDev.DataCheck.resizeWindow end
     if panel.resizeWidget2 then panel.resizeWidget2.resizeFunction = ParadiseDev.DataCheck.resizeWindow end
-    ParadiseDev.DataCheck.layoutWindowChrome(panel)
 end
 
 function ParadiseDev.DataCheck.Panel:createChildren()

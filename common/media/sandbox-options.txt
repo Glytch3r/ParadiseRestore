@@ -884,12 +884,6 @@ option ParadiseZ.MerchantLeaseDays
     page = ParadiseEconomy, translation = ParadiseZ_MerchantLeaseDays,
 }
 
-option ParadiseZ.AdminsCanManageEconomy
-{
-    type = boolean, default = true,
-    page = ParadiseEconomy, translation = ParadiseZ_AdminsCanManageEconomy,
-}
-
 option ParadiseZ.ProductionDiagnostics
 {
     type = boolean, default = false,

@@ -95,6 +95,17 @@ ParadiseEconomy.Theme = {
     rowAlt = { r = 0.085, g = 0.108, b = 0.132, a = 0.65 },
 }
 
+ParadiseEconomy.martLayout = {
+    contentY = 96,
+    dividerY = 86,
+    stripY = 90,
+    stripH = 24,
+    stripPad = 14,
+    captionW = 190,
+    tabMinW = 92,
+    tabMaxW = 260,
+}
+
 function ParadiseEconomy.styleWindow(window)
     local theme = ParadiseEconomy.Theme
     window.backgroundColor = theme.windowBg
@@ -164,6 +175,13 @@ function ParadiseEconomy.fitText(text, maxWidth, font)
         text = string.sub(text, 1, #text - 1)
     end
     return string.sub(text, 1, #text - 1) .. "..."
+end
+
+function ParadiseEconomy.confirm(text, target, callback, param1, param2)
+    local modal = ISModalDialog:new(0, 0, 480, 160, tostring(text), true, target, callback, nil, param1, param2)
+    modal:initialise()
+    modal:addToUIManager()
+    return modal
 end
 
 function ParadiseEconomy.drawCard(panel, x, y, w, h, accent)
@@ -315,10 +333,18 @@ function ParadiseEconomy.hasManagedZones()
     return #ParadiseEconomy.getManagedZones() > 0
 end
 
+function ParadiseEconomy.isLocalAdmin()
+    if not ParadiseRestore or not ParadiseRestore.isAdm then return false end
+    return ParadiseRestore.isAdm(getPlayer()) and true or false
+end
+
+function ParadiseEconomy.isEconomyAdmin()
+    return ParadiseEconomy.canManageEconomy() and ParadiseEconomy.isLocalAdmin()
+end
+
 function ParadiseEconomy.canManageTradeZones()
     if not ParadiseEconomy.isEnabled() then return false end
-    local pl = getPlayer()
-    if ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) then return true end
+    if ParadiseEconomy.isLocalAdmin() then return true end
     return ParadiseEconomy.canManageActiveTrade() or ParadiseEconomy.hasManagedZones()
 end
 
@@ -566,6 +592,8 @@ function ParadiseEconomy.AccountPanel:new(x, y, w, h, account)
     local obj = ISCollapsableWindow.new(self, x, y, w, h)
     obj.title = "Paradise Economy Account"
     obj.resizable = true
+    obj.minimumWidth = 640
+    obj.minimumHeight = 520
     obj.account = account or ParadiseEconomy.getStatePersonalAccount()
     obj.accountId = account and account.id or nil
     if obj.account then obj.title = "Paradise Economy - " .. ParadiseEconomy.getAccountLabel(obj.account) end
@@ -672,6 +700,8 @@ function ParadiseEconomy.AccountBrowser:new(x, y, w, h)
     local obj = ISCollapsableWindow.new(self, x, y, w, h)
     obj.title = "Account Browser"
     obj.resizable = true
+    obj.minimumWidth = 560
+    obj.minimumHeight = 380
     obj.lastWidth = 0
     obj.lastHeight = 0
     return obj
@@ -722,17 +752,19 @@ end
 function ParadiseEconomy.AccountBrowser:layout()
     if not self.accounts then return end
     local w, h = self.width, self.height
+    local filterW = math.max(140, math.min(260, w - 430))
+    local searchX = 15 + filterW + 8
     self.typeFilter:setX(15)
     self.typeFilter:setY(66)
-    self.typeFilter:setWidth(260)
+    self.typeFilter:setWidth(filterW)
     self.typeFilter:setHeight(26)
     self.refreshButton:setX(w - 15 - 120)
     self.refreshButton:setY(66)
     self.refreshButton:setWidth(120)
     self.refreshButton:setHeight(26)
-    self.search:setX(283)
+    self.search:setX(searchX)
     self.search:setY(66)
-    self.search:setWidth(math.max(160, w - 15 - 120 - 12 - 283))
+    self.search:setWidth(math.max(120, w - 15 - 120 - 12 - searchX))
     self.search:setHeight(26)
     self.accounts:setX(15)
     self.accounts:setY(104)
@@ -748,7 +780,7 @@ end
 
 function ParadiseEconomy.AccountBrowser:update()
     ISCollapsableWindow.update(self)
-    if not ParadiseEconomy.canManageEconomy() or not (ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(getPlayer())) then
+    if not ParadiseEconomy.isEconomyAdmin() then
         if ParadiseEconomy.AccountBrowser.ClosePanel then
             ParadiseEconomy.AccountBrowser.ClosePanel()
         else
@@ -1361,7 +1393,7 @@ function ParadiseEconomy.MartPanel:new(x, y, w, h, scope)
     obj.browseCategory = nil
     obj.browseChips = {}
     obj.martChips = {}
-    obj.isAdm = ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(getPlayer()) or false
+    obj.isAdm = ParadiseEconomy.isLocalAdmin()
     obj.selectedBrowseId = nil
     obj.selectedStoreListingId = nil
     obj.selectedInventoryId = nil
@@ -1374,6 +1406,9 @@ function ParadiseEconomy.MartPanel:new(x, y, w, h, scope)
     obj.listingQueue = {}
     obj.dropHint = nil
     obj.dropHintUntil = 0
+    obj.siblingTabs = {}
+    obj.contentTop = ParadiseEconomy.martLayout.contentY
+    obj.dividerY = ParadiseEconomy.martLayout.dividerY
     obj.lastWidth = 0
     obj.lastHeight = 0
     return obj
@@ -1557,6 +1592,120 @@ function ParadiseEconomy.MartPanel:getShopTitle()
     return "Tradeshop"
 end
 
+function ParadiseEconomy.MartPanel:getTaxRouteId()
+    if self.shopKind ~= "store" then return nil end
+    local routeId = self.shop and self.shop.taxAccountId or nil
+    if routeId then return routeId end
+    local shop = ParadiseEconomy.getShop("store", self.shopId)
+    return shop and shop.taxAccountId or nil
+end
+
+function ParadiseEconomy.MartPanel:getSiblingShops(routeId)
+    if not routeId then return {} end
+    local list = {}
+    for _, shop in ipairs(ParadiseEconomy.clientState.shops or {}) do
+        if shop.kind == "store" and shop.taxAccountId == routeId then
+            list[#list + 1] = shop
+        end
+    end
+    local currentId = tostring(self.shopId or "")
+    table.sort(list, function(a, b)
+        local activeA = tostring(a.id) == currentId
+        local activeB = tostring(b.id) == currentId
+        if activeA ~= activeB then return activeA end
+        if a.closed ~= b.closed then return b.closed == true end
+        return tostring(a.title or a.id) < tostring(b.title or b.id)
+    end)
+    if #list < 2 then return {} end
+    return list
+end
+
+function ParadiseEconomy.MartPanel:siblingSignature()
+    local routeId = self:getTaxRouteId()
+    if not routeId then return "" end
+    local parts = { tostring(self.shopId or ""), self.isAdm and "1" or "0", tostring(routeId) }
+    for _, shop in ipairs(ParadiseEconomy.clientState.shops or {}) do
+        if shop.kind == "store" and shop.taxAccountId == routeId then
+            parts[#parts + 1] = table.concat({ tostring(shop.id), tostring(shop.title or ""),
+                tostring(shop.owner or ""), shop.closed and "x" or "o" }, ":")
+        end
+    end
+    return table.concat(parts, ",")
+end
+
+function ParadiseEconomy.MartPanel:rebuildSiblingTabs()
+    for _, btn in ipairs(self.siblingTabs or {}) do
+        self:removeChild(btn)
+    end
+    self.siblingTabs = {}
+    local routeId = self:getTaxRouteId()
+    local shops = self:getSiblingShops(routeId)
+    local caption = "SAME TAX ROUTE"
+    if shops[1] and shops[1].taxAccountTitle then
+        caption = "TAX ROUTE  ·  " .. string.upper(tostring(shops[1].taxAccountTitle))
+    end
+    self.siblingCaption = #shops > 0 and caption or nil
+    if #shops == 0 then return end
+    for _, shop in ipairs(shops) do
+        local btn = ISButton:new(15, ParadiseEconomy.martLayout.stripY, 100, 24,
+            tostring(shop.title or shop.id), self, ParadiseEconomy.MartPanel.onSiblingTab)
+        btn.shop = shop
+        btn:initialise()
+        btn:setTooltip(string.format("%s  ·  %s  ·  %s%s", tostring(shop.title or shop.id),
+            tostring(shop.owner or "-"), tostring(shop.id),
+            shop.closed and ("  ·  " .. tostring(shop.statusLabel or "Closed")) or ""))
+        self:addChild(btn)
+        self.siblingTabs[#self.siblingTabs + 1] = btn
+    end
+end
+
+function ParadiseEconomy.MartPanel:layoutSiblingTabs()
+    local tabs = self.siblingTabs or {}
+    local layout = ParadiseEconomy.martLayout
+    if #tabs == 0 then
+        self.contentTop = layout.contentY
+        self.dividerY = layout.dividerY
+        return
+    end
+    self.contentTop = layout.stripY + layout.stripH + layout.stripPad
+    self.dividerY = layout.stripY + layout.stripH + 4
+    local avail = math.max(140, self.width - 30 - layout.captionW)
+    local gap = 6
+    local maxFit = math.max(2, math.floor((avail + gap) / (layout.tabMinW + gap)))
+    local tabW = math.min(layout.tabMaxW, math.floor((avail - gap * (#tabs - 1)) / #tabs))
+    tabW = math.max(layout.tabMinW, tabW)
+    local x = 15
+    for index, btn in ipairs(tabs) do
+        local shop = btn.shop
+        btn:setVisible(index <= maxFit)
+        if index > maxFit then
+            btn:setWidth(0)
+        else
+            btn:setX(x)
+            btn:setY(layout.stripY)
+            btn:setWidth(tabW)
+            btn:setHeight(24)
+            btn:setTitle(ParadiseEconomy.fitText(self:getSiblingLabel(shop), tabW - 10, UIFont.Small))
+            x = x + tabW + gap
+        end
+        ParadiseEconomy.styleTabButton(btn, tostring(shop.id) == tostring(self.shopId))
+        btn:setEnable(shop.closed ~= true)
+    end
+    self.siblingHidden = math.max(0, #tabs - maxFit)
+end
+
+function ParadiseEconomy.MartPanel:getSiblingLabel(shop)
+    if self.isAdm then
+        return tostring(shop.title or shop.id) .. "  ·  " .. tostring(shop.owner or "-") .. "  ·  " .. tostring(shop.id)
+    end
+    return tostring(shop.title or shop.id)
+end
+
+function ParadiseEconomy.MartPanel:onSiblingTab(button)
+    if tostring(button.shop.id) == tostring(self.shopId) then return end
+    self:setScope({ kind = "store", id = button.shop.id })
+end
+
 function ParadiseEconomy.MartPanel:requestShop()
     if self.shopKind and self.shopId then
         ParadiseEconomy.send("requestShop", { kind = self.shopKind, id = self.shopId })
@@ -1670,7 +1819,8 @@ end
 function ParadiseEconomy.MartPanel:layout()
     if not self.tabBrowse then return end
     local w, h = self.width, self.height
-    local contentY = 96
+    self:layoutSiblingTabs()
+    local contentY = self.contentTop or ParadiseEconomy.martLayout.contentY
     local footerY = h - 34
     self.tabBrowse:setX(15)
     self.tabBrowse:setY(58)
@@ -1697,17 +1847,17 @@ function ParadiseEconomy.MartPanel:layout()
     self:positionBrowse()
 
     self.storeTitle:setX(28)
-    self.storeTitle:setY(122)
+    self.storeTitle:setY(contentY + 26)
     self.storeTitle:setWidth(math.max(110, math.min(230, w * 0.24)))
     self.renameStoreButton:setX(36 + self.storeTitle:getWidth())
-    self.renameStoreButton:setY(122)
+    self.renameStoreButton:setY(contentY + 26)
     self.renewLeaseButton:setX(w - 155)
-    self.renewLeaseButton:setY(122)
+    self.renewLeaseButton:setY(contentY + 26)
     self.collectButton:setX(w - 303)
-    self.collectButton:setY(122)
+    self.collectButton:setY(contentY + 26)
     local leftW = math.min(360, math.max(300, w * 0.34))
     local rightX = 15 + leftW + 15
-    local listTop = 204
+    local listTop = contentY + 108
     self.invSearch:setX(15)
     self.invSearch:setY(listTop)
     self.invSearch:setWidth(leftW)
@@ -1746,10 +1896,14 @@ function ParadiseEconomy.MartPanel:layout()
     self.lastHeight = h
 end
 
+function ParadiseEconomy.MartPanel:getChipTop()
+    return (self.contentTop or ParadiseEconomy.martLayout.contentY) + 34
+end
+
 function ParadiseEconomy.MartPanel:computeMartChips()
     local chips = {}
     local maxX = self.width - 15
-    local x, y = 15, 130
+    local x, y = 15, self:getChipTop()
     local rowH = 24
     local entries = { { key = "__all", label = "All" } }
     for _, name in ipairs(self:getCategoryOptions()) do
@@ -1765,14 +1919,14 @@ function ParadiseEconomy.MartPanel:computeMartChips()
         x = x + chipW + 6
     end
     self.martChips = chips
-    self.martChipsBottom = #chips > 0 and (y + rowH) or 130
+    self.martChipsBottom = #chips > 0 and (y + rowH) or self:getChipTop()
 end
 
 function ParadiseEconomy.MartPanel:positionMart()
     if not self.martList then return end
     local footerY = self.height - 34
     self:computeMartChips()
-    local listY = (self.martChipsBottom or 130) + 24
+    local listY = (self.martChipsBottom or self:getChipTop()) + 24
     self.martList:setX(15)
     self.martList:setY(listY)
     self.martList:setWidth(self.width - 30)
@@ -1782,7 +1936,7 @@ end
 function ParadiseEconomy.MartPanel:computeBrowseChips()
     local chips = {}
     local maxX = self.width - 15
-    local x, y = 15, 130
+    local x, y = 15, self:getChipTop()
     local rowH = 24
     for _, entry in ipairs(self.browseCategoryOptions or {}) do
         local label = tostring(entry.label) .. "  " .. tostring(entry.count or 0)
@@ -1795,7 +1949,7 @@ function ParadiseEconomy.MartPanel:computeBrowseChips()
         x = x + chipW + 6
     end
     self.browseChips = chips
-    self.browseChipsBottom = #chips > 0 and (y + rowH) or 130
+    self.browseChipsBottom = #chips > 0 and (y + rowH) or self:getChipTop()
 end
 
 function ParadiseEconomy.MartPanel:positionBrowse()
@@ -1803,7 +1957,7 @@ function ParadiseEconomy.MartPanel:positionBrowse()
     local w, h = self.width, self.height
     local footerY = h - 34
     self:computeBrowseChips()
-    local listY = (self.browseChipsBottom or 130) + 10
+    local listY = (self.browseChipsBottom or self:getChipTop()) + 10
     local listW = w - 30
     self.browseList:setX(15)
     self.browseList:setY(listY)
@@ -1814,6 +1968,12 @@ function ParadiseEconomy.MartPanel:positionBrowse()
 end
 
 function ParadiseEconomy.MartPanel:refreshAll()
+    local signature = self:siblingSignature()
+    if signature ~= self.lastSiblingSignature then
+        self.lastSiblingSignature = signature
+        self:rebuildSiblingTabs()
+        self:layout()
+    end
     self:refreshBrowse()
     self:refreshStore()
     self:refreshInventory()
@@ -2464,7 +2624,7 @@ end
 function ParadiseEconomy.MartPanel:update()
     ISCollapsableWindow.update(self)
     if self.width ~= self.lastWidth or self.height ~= self.lastHeight then self:layout() end
-    self.isAdm = ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(getPlayer()) or false
+    self.isAdm = ParadiseEconomy.isLocalAdmin()
     local canManage = ParadiseEconomy.canManageTradeZones()
     self.manageButton:setVisible(canManage)
     self.manageButton:setEnable(canManage)
@@ -2671,11 +2831,12 @@ end
 function ParadiseEconomy.MartPanel:drawBrowseTab()
     local theme = ParadiseEconomy.Theme
     local w = self.width
+    local contentY = self.contentTop or ParadiseEconomy.martLayout.contentY
     local countText = self.browseCountText or (tostring(self.browseItemCount or 0) .. " ITEMS")
     local countW = self.browseCountW or math.max(64, getTextManager():MeasureStringX(UIFont.Small, countText) + 18)
-    self:drawRect(w - 15 - countW, 96, countW, 24, theme.cardBg.a, theme.cardBg.r, theme.cardBg.g, theme.cardBg.b)
-    self:drawRectBorder(w - 15 - countW, 96, countW, 24, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
-    self:drawTextCentre(countText, w - 15 - countW / 2, 101,
+    self:drawRect(w - 15 - countW, contentY, countW, 24, theme.cardBg.a, theme.cardBg.r, theme.cardBg.g, theme.cardBg.b)
+    self:drawRectBorder(w - 15 - countW, contentY, countW, 24, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+    self:drawTextCentre(countText, w - 15 - countW / 2, contentY + 5,
         theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
     self:drawBrowseChips()
     if #(self.browseCache or {}) == 0 then
@@ -2689,34 +2850,35 @@ end
 function ParadiseEconomy.MartPanel:drawStoreTab()
     local theme = ParadiseEconomy.Theme
     local w = self.width
-    ParadiseEconomy.drawCard(self, 15, 96, w - 30, 88, theme.accentDim)
-    self:drawText("MERCHANT STALL", 29, 106, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
+    local contentY = self.contentTop or ParadiseEconomy.martLayout.contentY
+    ParadiseEconomy.drawCard(self, 15, contentY, w - 30, 88, theme.accentDim)
+    self:drawText("MERCHANT STALL", 29, contentY + 10, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
     local merchant = self:getMerchant()
     if merchant then
         local lease = ParadiseEconomy.getLeaseInfo(merchant.expiresAt)
         local color = ParadiseEconomy.getLeaseColor(lease.status)
-        self:drawTextRight("LEASE  " .. string.upper(lease.label), w - 29, 106, color.r, color.g, color.b, 1, UIFont.Small)
+        self:drawTextRight("LEASE  " .. string.upper(lease.label), w - 29, contentY + 10, color.r, color.g, color.b, 1, UIFont.Small)
         if merchant.closed then
             local status = tostring(merchant.statusLabel or "Suspended")
             self:drawText("STORE " .. string.upper(status) .. "  ·  BUYING AND POSTING DISABLED",
-                29, 128, theme.danger.r, theme.danger.g, theme.danger.b, 1, UIFont.Small)
+                29, contentY + 32, theme.danger.r, theme.danger.g, theme.danger.b, 1, UIFont.Small)
         end
         local merchantText = "MERCHANT  " .. tostring(merchant.id) .. "  ·  OWNER  " .. tostring(merchant.owner or "-")
-        self:drawText(ParadiseEconomy.fitText(merchantText, w - 380, UIFont.Small), 29, 152,
+        self:drawText(ParadiseEconomy.fitText(merchantText, w - 380, UIFont.Small), 29, contentY + 56,
             theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-        self:drawTextRight("EARNINGS  " .. ParadiseEconomy.formatBalances(merchant.earnings), w - 29, 152,
+        self:drawTextRight("EARNINGS  " .. ParadiseEconomy.formatBalances(merchant.earnings), w - 29, contentY + 56,
             theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
     else
-        self:drawText("NO MERCHANT STORE OF YOURS AT THIS SQUARE.", 29, 110,
+        self:drawText("NO MERCHANT STORE OF YOURS AT THIS SQUARE.", 29, contentY + 14,
             theme.warn.r, theme.warn.g, theme.warn.b, 1, UIFont.Small)
-        self:drawText("Right-click the square you want and choose Register Merchant Store Here.", 29, 132,
+        self:drawText("Right-click the square you want and choose Register Merchant Store Here.", 29, contentY + 36,
             theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     end
-    self:drawText("CARRIED ITEMS", 15, 188, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
-    self:drawTextRight(tostring(#(self.inventoryCache or {})) .. " ITEMS", 15 + self.invSearch:getWidth(), 188,
+    self:drawText("CARRIED ITEMS", 15, contentY + 92, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
+    self:drawTextRight(tostring(#(self.inventoryCache or {})) .. " ITEMS", 15 + self.invSearch:getWidth(), contentY + 92,
         theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    self:drawText("YOUR STORE LISTINGS", self.myListings:getX(), 188, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
-    self:drawTextRight(tostring(#(self.storeCache or {})) .. " POSTS", self.myListings:getX() + self.myListings:getWidth(), 188,
+    self:drawText("YOUR STORE LISTINGS", self.myListings:getX(), contentY + 92, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
+    self:drawTextRight(tostring(#(self.storeCache or {})) .. " POSTS", self.myListings:getX() + self.myListings:getWidth(), contentY + 92,
         theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     self:drawText("PRICE", self.storePrice:getX(), self.storePrice:getY() - 15,
         theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
@@ -2766,7 +2928,21 @@ function ParadiseEconomy.MartPanel:prerender()
         .. "  ·  TAX " .. string.format("%g", self:getTaxPercent() or 0) .. "%"
     self:drawTextRight(ParadiseEconomy.fitText(zoneText, w - 530, UIFont.Small), w - 20, 64,
         theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
-    self:drawRect(15, 86, w - 30, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+    self:drawRect(15, self.dividerY or ParadiseEconomy.martLayout.dividerY, w - 30, 1,
+        theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+    if self.siblingCaption then
+        for _, btn in ipairs(self.siblingTabs or {}) do
+            if btn:getIsVisible() then
+                ParadiseEconomy.drawTabUnderline(self, btn, tostring(btn.shop.id) == tostring(self.shopId))
+            end
+        end
+        local caption = self.siblingCaption
+        if (self.siblingHidden or 0) > 0 then
+            caption = caption .. "  ·  " .. tostring(self.siblingHidden) .. " MORE IN BROWSE"
+        end
+        self:drawTextRight(ParadiseEconomy.fitText(caption, ParadiseEconomy.martLayout.captionW - 20, UIFont.Small),
+            w - 20, ParadiseEconomy.martLayout.stripY + 5, theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
+    end
 
     if self.tab == "browse" then
         self:drawBrowseTab()
@@ -2808,7 +2984,7 @@ function ParadiseEconomy.TradeManagementPanel:new(x, y, w, h)
     obj.minimumWidth = 1000
     obj.minimumHeight = 700
     obj.tab = "merchants"
-    obj.isAdm = ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(getPlayer()) or false
+    obj.isAdm = ParadiseEconomy.isLocalAdmin()
     obj.selectedZoneId = nil
     obj.selectedMerchantId = nil
     obj.selectedPostId = nil
@@ -3148,7 +3324,7 @@ end
 
 function ParadiseEconomy.TradeManagementPanel:refreshState()
     if not self.zone then return end
-    self.isAdm = ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(getPlayer()) or false
+    self.isAdm = ParadiseEconomy.isLocalAdmin()
     self:refreshZones()
     self:refreshMerchants()
     self:refreshPostFilter()
@@ -3245,10 +3421,18 @@ end
 function ParadiseEconomy.TradeManagementPanel:toggleMerchantSuspension()
     local merchant = self:getSelectedMerchant()
     if not merchant then return end
-    ParadiseEconomy.send("merchantSuspend", {
-        accountId = merchant.id,
-        suspended = not merchant.suspended,
-    })
+    local suspended = merchant.suspended ~= true
+    local label = tostring(merchant.title or merchant.owner or merchant.id)
+    ParadiseEconomy.confirm(suspended
+        and ("Suspend the store '" .. label .. "'? Players can no longer browse or buy from it.")
+        or ("Resume the store '" .. label .. "'? It becomes available to players again."),
+        self, ParadiseEconomy.TradeManagementPanel.onSuspendConfirmed, merchant.id, suspended)
+end
+
+function ParadiseEconomy.TradeManagementPanel.onSuspendConfirmed(target, button, accountId, suspended)
+    if button.internal == "YES" then
+        ParadiseEconomy.send("merchantSuspend", { accountId = accountId, suspended = suspended })
+    end
 end
 
 function ParadiseEconomy.TradeManagementPanel:refreshMerchants()
@@ -3378,19 +3562,15 @@ end
 function ParadiseEconomy.TradeManagementPanel:expireMerchantLease()
     local merchant = self:getSelectedMerchant()
     if not merchant then return end
-    local modal = ISModalDialog:new(0, 0, 440, 170, "Expire the merchant lease for '" .. tostring(merchant.title or merchant.owner)
-        .. "'?", true, self, ParadiseEconomy.TradeManagementPanel.onLeaseActionConfirmed, nil, merchant.id, "expire")
-    modal:initialise()
-    modal:addToUIManager()
+    ParadiseEconomy.confirm("Expire the merchant lease for '" .. tostring(merchant.title or merchant.owner) .. "'?",
+        self, ParadiseEconomy.TradeManagementPanel.onLeaseActionConfirmed, merchant.id, "expire")
 end
 
 function ParadiseEconomy.TradeManagementPanel:clearMerchantLease()
     local merchant = self:getSelectedMerchant()
     if not merchant then return end
-    local modal = ISModalDialog:new(0, 0, 440, 170, "Remove the lease limit for '" .. tostring(merchant.title or merchant.owner)
-        .. "'?", true, self, ParadiseEconomy.TradeManagementPanel.onLeaseActionConfirmed, nil, merchant.id, "clear")
-    modal:initialise()
-    modal:addToUIManager()
+    ParadiseEconomy.confirm("Remove the lease limit for '" .. tostring(merchant.title or merchant.owner) .. "'?",
+        self, ParadiseEconomy.TradeManagementPanel.onLeaseActionConfirmed, merchant.id, "clear")
 end
 
 function ParadiseEconomy.TradeManagementPanel.onLeaseActionConfirmed(target, button, accountId, action)
@@ -3428,7 +3608,7 @@ end
 function ParadiseEconomy.TradeManagementPanel:update()
     ISCollapsableWindow.update(self)
     if self.width ~= self.lastWidth or self.height ~= self.lastHeight then self:layout() end
-    self.isAdm = ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(getPlayer()) or false
+    self.isAdm = ParadiseEconomy.isLocalAdmin()
     if self.tab == "mart" and self.adminView then
         self.adminView.isAdm = self.isAdm
         self.adminView:update()
@@ -4144,7 +4324,7 @@ function ParadiseEconomy.AdminPanel:new(x, y, w, h, targetUser)
     obj.title = "Economy Administration"
     obj.resizable = true
     obj.minimumWidth = 900
-    obj.minimumHeight = 640
+    obj.minimumHeight = 700
     obj.targetUsername = ParadiseEconomy.normalizeUsername(targetUser)
     obj.selectedAccountId = nil
     obj.destAccountId = nil
@@ -4293,6 +4473,17 @@ function ParadiseEconomy.AdminPanel:createChildren()
     self.taxRouteButton:initialise()
     self:addChild(self.taxRouteButton)
 
+    self.accountTitle = ISTextEntryBox:new("", 0, 0, 200, 24)
+    self.accountTitle.tooltip = "Rename the selected trade zone treasury account"
+    self.accountTitle:initialise()
+    self.accountTitle:instantiate()
+    self.accountTitle:setPlaceholderText("Trade zone title...")
+    self:addChild(self.accountTitle)
+    self.accountTitleButton = ISButton:new(0, 0, 70, 24, "SET", self, ParadiseEconomy.AdminPanel.applyAccountTitle)
+    self.accountTitleButton.tooltip = "Admin only: rename this trade zone treasury account"
+    self.accountTitleButton:initialise()
+    self:addChild(self.accountTitleButton)
+
     self.syncButton = ISButton:new(0, 0, 118, 28, "SYNC ZONES", self, ParadiseEconomy.AdminPanel.syncZones)
     self.syncButton:initialise()
     self:addChild(self.syncButton)
@@ -4314,6 +4505,7 @@ function ParadiseEconomy.AdminPanel:createChildren()
     self.createButton.borderColor = theme.gold
     self.rerouteButton.borderColor = theme.gold
     self.taxRouteButton.borderColor = theme.gold
+    self.accountTitleButton.borderColor = theme.gold
     self.applyButton.backgroundColor = theme.gold
     self.applyButton.backgroundColorMouseOver = { r = 0.99, g = 0.86, b = 0.45, a = 1 }
     self.applyButton.textColor = { r = 0.06, g = 0.07, b = 0.08, a = 1 }
@@ -4439,6 +4631,8 @@ function ParadiseEconomy.AdminPanel:layout()
     self.rerouteY = cardY + 392
     self.taxLabelY = cardY + 424
     self.taxRowY = cardY + 436
+    self.titleLabelY = cardY + 454
+    self.titleRowY = cardY + 466
 
     local routeColW = math.floor((detailInnerW - 16) / 3)
     self.routeColW = routeColW
@@ -4490,6 +4684,14 @@ function ParadiseEconomy.AdminPanel:layout()
     self.taxRouteButton:setY(self.taxRowY)
     self.taxRouteButton:setWidth(70)
     self.taxRouteButton:setHeight(24)
+    self.accountTitle:setX(detailInnerX)
+    self.accountTitle:setY(self.titleRowY)
+    self.accountTitle:setWidth(math.max(100, detailInnerW - 78))
+    self.accountTitle:setHeight(24)
+    self.accountTitleButton:setX(detailInnerX + detailInnerW - 70)
+    self.accountTitleButton:setY(self.titleRowY)
+    self.accountTitleButton:setWidth(70)
+    self.accountTitleButton:setHeight(24)
 
     self.tablesButton:setX(cardX + rightW - 14 - 64)
     self.tablesButton:setY(cardY + 8)
@@ -4561,7 +4763,7 @@ end
 
 function ParadiseEconomy.AdminPanel:update()
     ISCollapsableWindow.update(self)
-    if not ParadiseEconomy.canManageEconomy() or not (ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(getPlayer())) then
+    if not ParadiseEconomy.isEconomyAdmin() then
         if ParadiseEconomy.AdminPanel.ClosePanel then ParadiseEconomy.AdminPanel.ClosePanel() end
         return
     end
@@ -4697,6 +4899,12 @@ function ParadiseEconomy.AdminPanel:refreshSelection(force)
     if isMerchant and (force or not self.taxRoute:isFocused()) then
         self.taxRoute:setText(tostring(account.taxRoute or ""))
     end
+    local isTrade = account ~= nil and account.type == "trade"
+    self.accountTitle:setVisible(isTrade)
+    self.accountTitleButton:setVisible(isTrade)
+    if isTrade and (force or not self.accountTitle:isFocused()) then
+        self.accountTitle:setText(tostring(account.title or ""))
+    end
     local isPersonal = account ~= nil and account.type == "personal"
     self.freezeButton:setVisible(isPersonal)
     self.freezeButton:setEnable(isPersonal)
@@ -4719,6 +4927,9 @@ function ParadiseEconomy.AdminPanel:refreshButtons()
     self.deleteButton:setEnable(hasAccount and account.id ~= ParadiseEconomy.serverAccountId)
     local taxRoute = self.taxRoute and self.taxRoute:getInternalText() or ""
     self.taxRouteButton:setEnable(hasAccount and account.type == "merchant" and taxRoute ~= "")
+    local accountTitle = self.accountTitle and self.accountTitle:getInternalText() or ""
+    self.accountTitleButton:setEnable(hasAccount and account.type == "trade"
+        and accountTitle ~= "" and accountTitle ~= tostring(account.title or ""))
 end
 
 function ParadiseEconomy.AdminPanel:refresh()
@@ -4776,29 +4987,53 @@ function ParadiseEconomy.AdminPanel:requestState()
 end
 
 function ParadiseEconomy.AdminPanel:syncZones()
-    ParadiseEconomy.send("adminSyncZones")
+    ParadiseEconomy.confirm("Sync every trade zone on the map? Missing treasury, trade and finance accounts are created.",
+        self, ParadiseEconomy.AdminPanel.onSyncZonesConfirmed)
+end
+
+function ParadiseEconomy.AdminPanel.onSyncZonesConfirmed(target, button)
+    if button.internal == "YES" then ParadiseEconomy.send("adminSyncZones") end
 end
 
 function ParadiseEconomy.AdminPanel:toggleFreeze()
     local account = self:getSelectedAccount()
     if not account or account.type ~= "personal" then return end
-    ParadiseEconomy.send("adminSetAccountFrozen", {
-        accountId = account.id,
-        frozen = not (account.frozen == true),
-    })
+    local frozen = account.frozen ~= true
+    local label = tostring(account.owner or account.id)
+    ParadiseEconomy.confirm(frozen
+        and ("Freeze " .. label .. "? Every economy action on this account is blocked until it is unfrozen.")
+        or ("Unfreeze " .. label .. "? The account can trade again."),
+        self, ParadiseEconomy.AdminPanel.onFreezeConfirmed, account.id, frozen)
+end
+
+function ParadiseEconomy.AdminPanel.onFreezeConfirmed(target, button, accountId, frozen)
+    if button.internal == "YES" then
+        ParadiseEconomy.send("adminSetAccountFrozen", { accountId = accountId, frozen = frozen })
+    end
 end
 
 function ParadiseEconomy.AdminPanel:rebuildIndex()
-    ParadiseEconomy.send("adminRebuildIndex")
+    ParadiseEconomy.confirm("Rebuild account indexes? Personal accounts are re-linked to their current username and Steam ID.",
+        self, ParadiseEconomy.AdminPanel.onRebuildIndexConfirmed)
+end
+
+function ParadiseEconomy.AdminPanel.onRebuildIndexConfirmed(target, button)
+    if button.internal == "YES" then ParadiseEconomy.send("adminRebuildIndex") end
 end
 
 function ParadiseEconomy.AdminPanel:setTaxRoute()
     local account = self:getSelectedAccount()
     if not account or account.type ~= "merchant" then return end
-    ParadiseEconomy.send("adminSetTaxRoute", {
-        accountId = account.id,
-        taxRoute = self.taxRoute:getInternalText(),
-    })
+    local route = self.taxRoute:getInternalText()
+    if route == "" then return end
+    ParadiseEconomy.confirm("Reroute the tax earnings of " .. tostring(account.id) .. " to " .. tostring(route) .. "?",
+        self, ParadiseEconomy.AdminPanel.onTaxRouteConfirmed, account.id, route)
+end
+
+function ParadiseEconomy.AdminPanel.onTaxRouteConfirmed(target, button, accountId, taxRoute)
+    if button.internal == "YES" then
+        ParadiseEconomy.send("adminSetTaxRoute", { accountId = accountId, taxRoute = taxRoute })
+    end
 end
 
 function ParadiseEconomy.AdminPanel:applyOperation()
@@ -4819,6 +5054,14 @@ function ParadiseEconomy.AdminPanel:applyOperation()
     })
 end
 
+function ParadiseEconomy.AdminPanel:applyAccountTitle()
+    local account = self:getSelectedAccount()
+    if not account or account.type ~= "trade" then return end
+    local title = self.accountTitle:getInternalText()
+    if title == "" or title == tostring(account.title or "") then return end
+    ParadiseEconomy.send("tradeSetTitle", { zoneId = account.zoneId, title = title })
+end
+
 function ParadiseEconomy.AdminPanel:reroute()
     local account = self:getSelectedAccount()
     local dest = self:getDestAccount()
@@ -4833,10 +5076,7 @@ function ParadiseEconomy.AdminPanel:reroute()
     }
     local text = "Reroute " .. tostring(payload.amount) .. " " .. tostring(payload.currency)
         .. " from " .. tostring(account.id) .. " to " .. tostring(dest.id) .. "?"
-    local modal = ISModalDialog:new(0, 0, 520, 160, text, true, self,
-        ParadiseEconomy.AdminPanel.onRerouteConfirmed, nil, payload)
-    modal:initialise()
-    modal:addToUIManager()
+    ParadiseEconomy.confirm(text, self, ParadiseEconomy.AdminPanel.onRerouteConfirmed, payload)
 end
 
 function ParadiseEconomy.AdminPanel.onRerouteConfirmed(target, button, payload)
@@ -4846,27 +5086,29 @@ end
 function ParadiseEconomy.AdminPanel:deleteAccount()
     local account = self:getSelectedAccount()
     if not account then return end
-    local modal = ISModalDialog:new(0, 0, 480, 160,
-        "Delete account " .. tostring(account.id) .. "? Merchant listings will be archived.", true, self,
-        ParadiseEconomy.AdminPanel.onDeleteConfirmed, nil, account.id)
-    modal:initialise()
-    modal:addToUIManager()
+    ParadiseEconomy.confirm("Delete account " .. tostring(account.id) .. "? Merchant listings will be archived.",
+        self, ParadiseEconomy.AdminPanel.onDeleteConfirmed, account.id)
 end
 
 function ParadiseEconomy.AdminPanel.onDeleteConfirmed(target, button, accountId)
     if button.internal == "YES" and accountId then ParadiseEconomy.send("adminDelete", { accountId = accountId }) end
 end
 
-function ParadiseEconomy.AdminPanel:purgeLedger()
-    local modal = ISModalDialog:new(0, 0, 480, 160,
-        "Purge the transaction ledger? This clears all transaction history.", true, self,
-        ParadiseEconomy.AdminPanel.onPurgeConfirmed)
-    modal:initialise()
-    modal:addToUIManager()
+function ParadiseEconomy.confirmLedgerPurge(target, day)
+    local text = day
+        and ("Purge ledger entries for " .. tostring(day) .. "? This deletes that day of transaction history.")
+        or "Purge the transaction ledger? This clears all transaction history."
+    ParadiseEconomy.confirm(text, target, ParadiseEconomy.onLedgerPurgeConfirmed, day)
 end
 
-function ParadiseEconomy.AdminPanel.onPurgeConfirmed(target, button)
-    if button.internal == "YES" then ParadiseEconomy.send("adminPurgeLedger") end
+function ParadiseEconomy.onLedgerPurgeConfirmed(target, button, day)
+    if button.internal ~= "YES" then return end
+    ParadiseEconomy.send("adminPurgeLedger", day and { day = day } or nil)
+    if target.requestDays then target:requestDays() end
+end
+
+function ParadiseEconomy.AdminPanel:purgeLedger()
+    ParadiseEconomy.confirmLedgerPurge(self)
 end
 
 function ParadiseEconomy.AdminPanel:openAccountFor(account)
@@ -5071,6 +5313,13 @@ function ParadiseEconomy.AdminPanel:prerender()
             self.detailInnerX + getTextManager():MeasureStringX(UIFont.Small, "TAX ROUTE ACCOUNT ID") + 8,
             self.taxLabelY - 1)
     end
+    if account and account.type == "trade" then
+        self:drawText("TREASURY TITLE", self.detailInnerX, self.titleLabelY,
+            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+        ParadiseEconomy.drawAdminChip(self,
+            self.detailInnerX + getTextManager():MeasureStringX(UIFont.Small, "TREASURY TITLE") + 8,
+            self.titleLabelY - 1)
+    end
 
     self:drawRect(15, self.maintenanceY, w - 30, self.maintenanceH, 0.55, 0.20, 0.07, 0.05)
     self:drawRectBorder(15, self.maintenanceY, w - 30, self.maintenanceH, 0.55,
@@ -5159,7 +5408,7 @@ end
 
 function ParadiseEconomy.TablesPanel:update()
     ISCollapsableWindow.update(self)
-    if not ParadiseEconomy.canManageEconomy() or not (ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(getPlayer())) then
+    if not ParadiseEconomy.isEconomyAdmin() then
         if ParadiseEconomy.TablesPanel.ClosePanel then ParadiseEconomy.TablesPanel.ClosePanel() end
         return
     end
@@ -5395,16 +5644,6 @@ function ParadiseEconomy.TablesPanel:drawRecord(y, item, alt)
     return y + self.itemheight
 end
 
-function ParadiseEconomy.TablesPanel:fitText(text, maxWidth)
-    text = tostring(text)
-    local textManager = getTextManager()
-    if textManager:MeasureStringX(UIFont.Small, text) <= maxWidth then return text end
-    while #text > 3 and textManager:MeasureStringX(UIFont.Small, string.sub(text, 1, #text - 1) .. "...") > maxWidth do
-        text = string.sub(text, 1, #text - 1)
-    end
-    return string.sub(text, 1, #text - 1) .. "..."
-end
-
 function ParadiseEconomy.TablesPanel:prerender()
     ISCollapsableWindow.prerender(self)
     local contentX = 13
@@ -5420,7 +5659,7 @@ function ParadiseEconomy.TablesPanel:prerender()
     for int = 1, math.min(#self.detailLines, perCol * 2) do
         local col = math.floor((int - 1) / perCol)
         local row = (int - 1) % perCol
-        self:drawText(self:fitText(self.detailLines[int], colW), contentX + col * (colW + 12), detailY + row * 15,
+        self:drawText(ParadiseEconomy.fitText(self.detailLines[int], colW), contentX + col * (colW + 12), detailY + row * 15,
             0.82, 0.82, 0.82, 1, UIFont.Small)
     end
     if #self.detailLines == 0 then
@@ -5706,7 +5945,7 @@ end
 function ParadiseEconomy.MartAdminView:isAdminView()
     if self.isAdm == true then return true end
     if self.mart and self.mart.isAdm == true then return true end
-    return ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(getPlayer()) or false
+    return ParadiseEconomy.isLocalAdmin()
 end
 
 function ParadiseEconomy.MartAdminView:drawListing(y, item, alt)
@@ -5972,9 +6211,8 @@ function ParadiseEconomy.MartAdminView:deleteListing()
     local listing = self:getSelectedListing()
     local mart = self:getSelectedMart()
     if not listing or not mart then return end
-    local modal = ISModalDialog:new(0, 0, 380, 160, "Delete listing '" .. tostring(listing.fullType) .. "'?", true, self, ParadiseEconomy.MartAdminView.onDeleteListingConfirmed, nil, mart.id, listing.id)
-    modal:initialise()
-    modal:addToUIManager()
+    ParadiseEconomy.confirm("Delete listing '" .. tostring(listing.fullType) .. "'?",
+        self, ParadiseEconomy.MartAdminView.onDeleteListingConfirmed, mart.id, listing.id)
 end
 
 function ParadiseEconomy.MartAdminView.onDeleteListingConfirmed(target, button, martId, listingId)
@@ -5998,17 +6236,33 @@ function ParadiseEconomy.MartAdminView:clearEditor()
     self.currency.selected = 1
 end
 
+function ParadiseEconomy.MartAdminView:getItemScripts()
+    if ParadiseEconomy.martItemCache then return ParadiseEconomy.martItemCache end
+    local cache = {}
+    local all = ScriptManager.instance:getAllItems()
+    for int = 0, all:size() - 1 do
+        local scrItem = all:get(int)
+        local fullType = tostring(scrItem:getFullName())
+        local displayName = tostring(scrItem:getDisplayName() or "")
+        cache[#cache + 1] = { id = fullType, search = string.lower(fullType .. " " .. displayName) }
+    end
+    ParadiseEconomy.martItemCache = cache
+    return cache
+end
+
+function ParadiseEconomy.resetMartItemCache()
+    ParadiseEconomy.martItemCache = nil
+end
+Events.OnCreatePlayer.Remove(ParadiseEconomy.resetMartItemCache)
+Events.OnCreatePlayer.Add(ParadiseEconomy.resetMartItemCache)
+
 function ParadiseEconomy.MartAdminView:refreshItems()
     if not self.items then return end
     self.items:clear()
     local search = string.lower(self.itemSearch and self.itemSearch:getInternalText() or "")
-    local all = ScriptManager.instance:getAllItems()
-    for int = 0, all:size() - 1 do
-        local scrItem = all:get(int)
-        local fullType = scrItem:getFullName()
-        local displayName = scrItem:getDisplayName()
-        if search == "" or string.lower(fullType):find(search, 1, true) or string.lower(displayName):find(search, 1, true) then
-            self.items:addItem(fullType, fullType)
+    for _, entry in ipairs(self:getItemScripts()) do
+        if search == "" or entry.search:find(search, 1, true) then
+            self.items:addItem(entry.id, entry.id)
         end
     end
 end
@@ -6416,6 +6670,10 @@ function ParadiseEconomy.LedgerPanel:createChildren()
     self.refreshButton = ISButton:new(0, 0, 110, 25, "REFRESH", self, ParadiseEconomy.LedgerPanel.requestDays)
     self.refreshButton:initialise()
     self:addChild(self.refreshButton)
+    self.purgeButton = ISButton:new(0, 0, 130, 25, "PURGE DAY", self, ParadiseEconomy.LedgerPanel.purgeDay)
+    self.purgeButton.tooltip = "Delete every ledger entry for the selected day"
+    self.purgeButton:initialise()
+    self:addChild(self.purgeButton)
     self.dayList = ISScrollingListBox:new(15, 70, 250, 300)
     self.dayList:initialise()
     self.dayList.itemheight = 24
@@ -6439,6 +6697,8 @@ function ParadiseEconomy.LedgerPanel:createChildren()
     self.nextButton:initialise()
     self:addChild(self.nextButton)
     ParadiseEconomy.styleTree(self)
+    self.purgeButton.borderColor = ParadiseEconomy.Theme.danger
+    self.purgeButton.textColor = ParadiseEconomy.Theme.danger
     self:layout()
 end
 
@@ -6450,6 +6710,9 @@ function ParadiseEconomy.LedgerPanel:layout()
     self.refreshButton:setX(contentX + contentW - 110)
     self.refreshButton:setY(top)
     self.refreshButton:setWidth(110)
+    self.purgeButton:setX(contentX + contentW - 110 - 8 - 130)
+    self.purgeButton:setY(top)
+    self.purgeButton:setWidth(130)
     local listY = top + 34
     local dayW = 250
     self.dayList:setX(contentX)
@@ -6479,6 +6742,12 @@ function ParadiseEconomy.LedgerPanel:update()
     if self.width ~= self.lastWidth or self.height ~= self.lastHeight then self:layout() end
     self.prevButton:setEnable(self.page > 1)
     self.nextButton:setEnable(self.page < self.pages)
+    self.purgeButton:setEnable(self.selectedDay ~= nil)
+end
+
+function ParadiseEconomy.LedgerPanel:purgeDay()
+    if not self.selectedDay then return end
+    ParadiseEconomy.confirmLedgerPurge(self, self.selectedDay)
 end
 
 function ParadiseEconomy.LedgerPanel:close()

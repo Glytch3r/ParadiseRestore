@@ -370,8 +370,6 @@
   "Sandbox_ParadiseZ_PlayerShopTaxPercent_tooltip": "Percentage deducted from each player shop sale before the seller is paid. Buyers still pay the full listed price.",
   "Sandbox_ParadiseZ_MerchantLeaseDays": "Merchant Lease Days",
   "Sandbox_ParadiseZ_MerchantLeaseDays_tooltip": "Real-time days a player merchant store remains active in a trade zone. Set to 0 to disable merchant leases. Trade zone managers can override this per zone.",
-  "Sandbox_ParadiseZ_AdminsCanManageEconomy": "Admins Can Manage Economy",
-  "Sandbox_ParadiseZ_AdminsCanManageEconomy_tooltip": "Allows admins to browse and manage economy accounts. Disable this to test the normal player account view while logged in as an admin.",
   "Sandbox_ParadiseZ_canChatRebound": "Paradise Z can Chat Rebound",
   "Sandbox_ParadiseZ_reboundMsg": "Paradise Z rebound Msg",
   "Sandbox_ParadiseZ_showTrailingMarkers": "Paradise Z show Trailing Markers",

@@ -320,44 +320,24 @@ function ParadiseDev.Context.toggleWorldZoneVisuals(pl)
     visualization.setPlayerEnabled(pl, not visualization.isEnabledForPlayer(pl))
 end
 
-function ParadiseDev.Context.clearHighlight()
-    for _, floor in pairs(ParadiseDev.Context.highlightedFloors or {}) do
-        if floor then
-            floor:setHighlighted(false, false)
-        end
-    end
-    ParadiseDev.Context.highlightedFloors = {}
-end
+ParadiseDev.Context.clearFill = { r = 1, g = 1, b = 0, a = 0.16 }
+ParadiseDev.Context.clearBorder = { r = 1, g = 1, b = 0, a = 0.85 }
 
-function ParadiseDev.Context.updateClearHighlight()
+function ParadiseDev.Context.renderClearArea()
     local panel = ParadiseDev.Context.clearPanel
-    if not panel or not panel.highlightEnabled then
-        ParadiseDev.Context.clearHighlight()
-        return
-    end
-    local pl, cell = panel.player or getPlayer(), panel.player and panel.player:getCell()
+    if not panel or not panel.highlightEnabled then return end
+    local overlay = ParadiseDev.Zones and ParadiseDev.Zones.Visualization
+    if not overlay or not overlay.drawWorldArea then return end
+    local pl = panel.player or getPlayer()
     local center = pl and pl:getCurrentSquare()
-    if not cell or not center then
-        return
-    end
-    ParadiseDev.Context.clearHighlight()
-    local x, y, z, rad = center:getX(), center:getY(), center:getZ(), panel.radius or 15
-    for dx = -rad, rad do
-        for dy = -rad, rad do
-            local sq = cell:getGridSquare(x + dx, y + dy, z)
-            local floor = sq and sq:getFloor()
-            if floor then
-                floor:setHighlightColor(1, 1, 0, 0.75)
-                floor:setHighlighted(true, false)
-                ParadiseDev.Context.highlightedFloors[tostring(x + dx) .. ":" .. tostring(y + dy) .. ":" .. tostring(z)] = floor
-            end
-        end
-    end
+    if not center then return end
+    local rad = math.floor(panel.radius or ParadiseDev.Context.getClearRadius())
+    local x, y, z = math.floor(center:getX()), math.floor(center:getY()), math.floor(center:getZ())
+    overlay.drawWorldArea(pl:getPlayerNum(), x - rad, y - rad, x + rad + 1, y + rad + 1, z,
+        ParadiseDev.Context.clearFill, ParadiseDev.Context.clearBorder)
 end
-
-function ParadiseDev.Context.onClearHighlightUpdate()
-    ParadiseDev.Context.updateClearHighlight()
-end
+Events.OnPreUIDraw.Remove(ParadiseDev.Context.renderClearArea)
+Events.OnPreUIDraw.Add(ParadiseDev.Context.renderClearArea)
 
 function ParadiseDev.Context.clearAndSave()
     ParadiseDev.ClearAndSave.openDelayPrompt()
@@ -484,14 +464,6 @@ end
 function ParadiseDev.Context.ClearPanel:onHighlightToggle()
     self.highlightEnabled = self.highlightBox.selected[1] == true
     ParadiseDev.Context.clearPanelState.highlightEnabled = self.highlightEnabled
-    if self.highlightEnabled then
-        Events.OnPlayerUpdate.Remove(ParadiseDev.Context.onClearHighlightUpdate)
-        Events.OnPlayerUpdate.Add(ParadiseDev.Context.onClearHighlightUpdate)
-        ParadiseDev.Context.updateClearHighlight()
-    else
-        Events.OnPlayerUpdate.Remove(ParadiseDev.Context.onClearHighlightUpdate)
-        ParadiseDev.Context.clearHighlight()
-    end
 end
 
 function ParadiseDev.Context.ClearPanel:onClear()
@@ -516,8 +488,6 @@ function ParadiseDev.Context.ClearPanel:close()
 end
 
 function ParadiseDev.Context.ClearPanel:onClose()
-    Events.OnPlayerUpdate.Remove(ParadiseDev.Context.onClearHighlightUpdate)
-    ParadiseDev.Context.clearHighlight()
     self:removeFromUIManager()
     if ParadiseDev.Context.clearPanel == self then
         ParadiseDev.Context.clearPanel = nil
@@ -532,11 +502,6 @@ function ParadiseDev.Context.openClearPanel(pl)
     panel:initialise()
     panel:addToUIManager()
     ParadiseDev.Context.clearPanel = panel
-    if panel.highlightEnabled then
-        Events.OnPlayerUpdate.Remove(ParadiseDev.Context.onClearHighlightUpdate)
-        Events.OnPlayerUpdate.Add(ParadiseDev.Context.onClearHighlightUpdate)
-        ParadiseDev.Context.updateClearHighlight()
-    end
 end
 
 ParadiseDev.Context.clearOptions = {
@@ -553,23 +518,6 @@ ParadiseDev.Context.clearOptions = {
     {label = "Puddle", name = "puddle"},
     {label = "Container Items", name = "containerItems"}
 }
-
-function ParadiseDev.Context.confirmClear(entry, context)
-    if entry and ParadiseZ[entry.name] then
-        ParadiseZ.popup("ParadiseZ Clear", entry.label, ParadiseZ[entry.name], "Clear")
-    end
-    ParadiseDev.Context.close(context)
-end
-
-function ParadiseDev.Context.addClearOption(menu, entry, context)
-    if not entry or not ParadiseZ[entry.name] then
-        return
-    end
-    local option = menu:addOption(entry.label, entry, ParadiseDev.Context.confirmClear, context)
-    if option then
-        option.iconTexture = getTexture(entry.icon)
-    end
-end
 
 function ParadiseDev.Context.context(plNum, context, worldobjects)
     local pl = getSpecificPlayer(plNum)

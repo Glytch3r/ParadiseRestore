@@ -5,6 +5,7 @@ ParadiseEconomy.storeName = "ParadiseEconomy"
 ParadiseEconomy.walletKey = "ParadiseEconomyWallet"
 ParadiseEconomy.playerKey = "ParadiseEconomy"
 ParadiseEconomy.currencies = { jimoleon = true, paradisium = true }
+ParadiseEconomy.maxBalance = 2147483647
 ParadiseEconomy.walletTypes = {
     ["Base.Wallet"] = true,
     ["Base.Wallet_Female"] = true,
@@ -65,7 +66,21 @@ function ParadiseEconomy.normalizeAmount(amount)
     amount = tostring(amount or "")
     if not amount:match("^%d+$") then return nil end
     amount = tonumber(amount)
-    if not amount or amount < 1 or amount > 2147483647 then return nil end
+    if not amount or amount < 1 or amount > ParadiseEconomy.maxBalance then return nil end
+    return math.floor(amount)
+end
+
+function ParadiseEconomy.normalizeMoveAmount(amount)
+    if type(amount) == "number" then
+        if amount ~= amount or amount < 1 or amount > 9007199254740991 then return nil end
+        amount = tostring(math.floor(amount))
+        if not amount:match("^%d+$") then return nil end
+        return math.floor(tonumber(amount))
+    end
+    amount = tostring(amount or "")
+    if not amount:match("^%d+$") then return nil end
+    amount = tonumber(amount)
+    if not amount or amount < 1 then return nil end
     return math.floor(amount)
 end
 
@@ -97,7 +112,7 @@ end
 
 function ParadiseEconomy.addBalance(tab, currency, amount)
     currency = ParadiseEconomy.normalizeCurrency(currency)
-    amount = ParadiseEconomy.normalizeAmount(amount)
+    amount = ParadiseEconomy.normalizeMoveAmount(amount)
     if not currency or not amount or type(tab) ~= "table" then return false end
     tab[currency] = ParadiseEconomy.getBalance(tab, currency) + amount
     return true
@@ -105,7 +120,7 @@ end
 
 function ParadiseEconomy.takeBalance(tab, currency, amount)
     currency = ParadiseEconomy.normalizeCurrency(currency)
-    amount = ParadiseEconomy.normalizeAmount(amount)
+    amount = ParadiseEconomy.normalizeMoveAmount(amount)
     if not currency or not amount or type(tab) ~= "table" then return false end
     local balance = ParadiseEconomy.getBalance(tab, currency)
     if balance < amount then return false end
@@ -438,8 +453,7 @@ end
 
 function ParadiseEconomy.canManageEconomy()
     if not ParadiseEconomy.isEnabled() then return false end
-    local sand = SandboxVars and SandboxVars.ParadiseZ or nil
-    return not sand or sand.AdminsCanManageEconomy ~= false
+    return ParadiseEconomy.adminView ~= false
 end
 
 function ParadiseEconomy.canUsePlayerEconomy(pl)
@@ -451,6 +465,14 @@ function ParadiseEconomy.normalizeTradeZoneTitle(title)
     title = tostring(title or ""):match("^%s*(.-)%s*$")
     if title == "" or #title > 128 then return nil end
     return title
+end
+
+function ParadiseEconomy.normalizeBookmarkName(name)
+    name = tostring(name or ""):gsub("|", "/")
+    name = name:gsub("%c", "")
+    name = name:match("^%s*(.-)%s*$")
+    if name == "" or #name > 24 then return nil end
+    return name
 end
 
 function ParadiseEconomy.tradeZoneKey(title)

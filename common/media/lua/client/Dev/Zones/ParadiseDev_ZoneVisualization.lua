@@ -4,20 +4,15 @@ ParadiseDev.Zones.Visualization = ParadiseDev.Zones.Visualization or {}
 
 ParadiseDev.Zones.Visualization.enabled = ParadiseDev.Zones.Visualization.enabled ~= false
 ParadiseDev.Zones.Visualization.zones = ParadiseDev.Zones.Visualization.zones or {}
-ParadiseDev.Zones.Visualization.highlightedFloors = ParadiseDev.Zones.Visualization.highlightedFloors or {}
-ParadiseDev.Zones.Visualization.lastRefreshX = ParadiseDev.Zones.Visualization.lastRefreshX or nil
-ParadiseDev.Zones.Visualization.lastRefreshY = ParadiseDev.Zones.Visualization.lastRefreshY or nil
-ParadiseDev.Zones.Visualization.lastRefreshZ = ParadiseDev.Zones.Visualization.lastRefreshZ or nil
 ParadiseDev.Zones.Visualization.boundaryStateReceived = ParadiseDev.Zones.Visualization.boundaryStateReceived or false
 ParadiseDev.Zones.Visualization.boundaryStateRequestTick = 0
 ParadiseDev.Zones.Visualization.VISIBLE_RADIUS = 80
-ParadiseDev.Zones.Visualization.BAND_WIDTH = 2
 ParadiseDev.Zones.Visualization.cagedZoneId = ParadiseDev.Zones.Visualization.cagedZoneId or nil
-ParadiseDev.Zones.Visualization.OUTSIDE_COLOR = { r = 1.0, g = 0.9, b = 0.10, a = 0.25 }
-ParadiseDev.Zones.Visualization.INSIDE_COLOR = { r = 1.0, g = 0.9, b = 0.10, a = 0.35 }
-ParadiseDev.Zones.Visualization.BORDER_COLOR = { r = 1.0, g = 0.9, b = 0.10, a = 0.95 }
 
 ParadiseDev.Zones.Visualization.MODDATA_KEY = "ParadiseZShowWorldZoneVisuals"
+ParadiseDev.Zones.Visualization.FILL_ALPHA = 0.12
+ParadiseDev.Zones.Visualization.STANDING_ALPHA = 0.22
+ParadiseDev.Zones.Visualization.BORDER_ALPHA = 0.95
 
 function ParadiseDev.Zones.Visualization.isEnabledForPlayer(pl)
     if not pl or not pl.getModData then return false end
@@ -47,120 +42,17 @@ function ParadiseDev.Zones.Visualization.regionNearPlayer(region, pl, radius)
         y >= region.yMin - radius and y <= region.yMax + radius
 end
 
-function ParadiseDev.Zones.Visualization.clearHighlights()
-    for _, floor in pairs(ParadiseDev.Zones.Visualization.highlightedFloors) do
-        if floor then floor:setHighlighted(false, false) end
-    end
-    ParadiseDev.Zones.Visualization.highlightedFloors = {}
-end
-
-function ParadiseDev.Zones.Visualization.highlightSquare(x, y, z, color)
-    local key = tostring(x) .. ":" .. tostring(y) .. ":" .. tostring(z)
-    if ParadiseDev.Zones.Visualization.highlightedFloors[key] then return end
-    local sq = getCell():getGridSquare(x, y, z)
-    local floor = sq and sq:getFloor() or nil
-    if not floor then return end
-    floor:setHighlightColor(color.r, color.g, color.b, color.a)
-    floor:setHighlighted(true, false)
-    ParadiseDev.Zones.Visualization.highlightedFloors[key] = floor
-end
-
-function ParadiseDev.Zones.Visualization.highlightHorizontal(x1, x2, y1, y2, z, color)
-    -- Clip the bands before iteration, not after each distant-square lookup.
-    local pl = getPlayer()
-    if not pl then return end
-    local radius = ParadiseDev.Zones.Visualization.VISIBLE_RADIUS
-    local px, py = math.floor(pl:getX()), math.floor(pl:getY())
-    x1, x2 = math.max(x1, px - radius), math.min(x2, px + radius)
-    y1, y2 = math.max(y1, py - radius), math.min(y2, py + radius)
-    if x2 < x1 or y2 < y1 then return end
-    for x = x1, x2 do
-        for y = y1, y2 do ParadiseDev.Zones.Visualization.highlightSquare(x, y, z, color) end
-    end
-end
-
-function ParadiseDev.Zones.Visualization.highlightVertical(x1, x2, y1, y2, z, color)
-    -- Clip the bands before iteration, not after each distant-square lookup.
-    local pl = getPlayer()
-    if not pl then return end
-    local radius = ParadiseDev.Zones.Visualization.VISIBLE_RADIUS
-    local px, py = math.floor(pl:getX()), math.floor(pl:getY())
-    x1, x2 = math.max(x1, px - radius), math.min(x2, px + radius)
-    y1, y2 = math.max(y1, py - radius), math.min(y2, py + radius)
-    if x2 < x1 or y2 < y1 then return end
-    for x = x1, x2 do
-        for y = y1, y2 do ParadiseDev.Zones.Visualization.highlightSquare(x, y, z, color) end
-    end
-end
-
 function ParadiseDev.Zones.Visualization.regionContains(region, x, y)
     return x >= region.xMin and x < region.xMax and y >= region.yMin and y < region.yMax
 end
 
 function ParadiseDev.Zones.Visualization.getRegionColors(zone, region, pl)
-    local inside = ParadiseDev.Zones.Visualization.regionContains(region, pl:getX(), pl:getY())
     local mapText = ParadiseDev.Zones.MapText
     local base = mapText and mapText.getZoneColor and mapText.getZoneColor(zone) or { r = 1.0, g = 0.9, b = 0.10 }
-    local insideColor = { r = base.r, g = base.g, b = base.b, a = 0.35 }
-    local outsideColor = { r = base.r, g = base.g, b = base.b, a = 0.25 }
-    local borderColor = { r = base.r, g = base.g, b = base.b, a = 0.95 }
-    return insideColor, outsideColor, borderColor
-end
-
-function ParadiseDev.Zones.Visualization.highlightRegion(region, z, insideColor, outsideColor)
-    local x1, y1 = math.floor(region.xMin), math.floor(region.yMin)
-    local x2, y2 = math.floor(region.xMax) - 1, math.floor(region.yMax) - 1
-    local width = ParadiseDev.Zones.Visualization.BAND_WIDTH
-
-    ParadiseDev.Zones.Visualization.highlightHorizontal(x1 - width, x2 + width, y1 - width, y1 - 1, z, outsideColor)
-    ParadiseDev.Zones.Visualization.highlightHorizontal(x1 - width, x2 + width, y2 + 1, y2 + width, z, outsideColor)
-    ParadiseDev.Zones.Visualization.highlightVertical(x1 - width, x1 - 1, y1, y2, z, outsideColor)
-    ParadiseDev.Zones.Visualization.highlightVertical(x2 + 1, x2 + width, y1, y2, z, outsideColor)
-
-    local insideWidth = math.min(width, math.floor((x2 - x1 + 1) / 2), math.floor((y2 - y1 + 1) / 2))
-    if insideWidth < 1 then insideWidth = 1 end
-    ParadiseDev.Zones.Visualization.highlightHorizontal(x1, x2, y1, math.min(y2, y1 + insideWidth - 1), z, insideColor)
-    ParadiseDev.Zones.Visualization.highlightHorizontal(x1, x2, math.max(y1, y2 - insideWidth + 1), y2, z, insideColor)
-    ParadiseDev.Zones.Visualization.highlightVertical(x1, math.min(x2, x1 + insideWidth - 1), y1 + insideWidth, y2 - insideWidth, z, insideColor)
-    ParadiseDev.Zones.Visualization.highlightVertical(math.max(x1, x2 - insideWidth + 1), x2, y1 + insideWidth, y2 - insideWidth, z, insideColor)
-end
-
-function ParadiseDev.Zones.Visualization.refreshHighlights(force)
-    local pl = getPlayer()
-    if not pl then return end
-    local px, py, pz = math.floor(pl:getX()), math.floor(pl:getY()), math.floor(pl:getZ())
-    if not force and ParadiseDev.Zones.Visualization.lastRefreshZ == pz and ParadiseDev.Zones.Visualization.lastRefreshX and
-        math.abs(px - ParadiseDev.Zones.Visualization.lastRefreshX) < 5 and math.abs(py - ParadiseDev.Zones.Visualization.lastRefreshY) < 5 then
-        return
-    end
-    ParadiseDev.Zones.Visualization.lastRefreshX, ParadiseDev.Zones.Visualization.lastRefreshY, ParadiseDev.Zones.Visualization.lastRefreshZ = px, py, pz
-    ParadiseDev.Zones.Visualization.clearHighlights()
-    if not ParadiseDev.Zones.Visualization.enabled then return end
-    if not ParadiseDev.Zones.Visualization.canRenderWorld(pl) then return end
-
-    for _, zone in ipairs(ParadiseDev.Zones.Visualization.zones) do
-        if ParadiseDev.Zones.Visualization.zoneOnLevel(zone, pz) then
-            for _, region in ipairs(zone.regions or {}) do
-                if ParadiseDev.Zones.Visualization.regionNearPlayer(region, pl, ParadiseDev.Zones.Visualization.VISIBLE_RADIUS) then
-                    local insideColor, outsideColor = ParadiseDev.Zones.Visualization.getRegionColors(zone, region, pl)
-                    ParadiseDev.Zones.Visualization.highlightRegion(region, pz, insideColor, outsideColor)
-                end
-            end
-        end
-    end
-end
-
-function ParadiseDev.Zones.Visualization.setEnabled(enabled)
-    ParadiseDev.Zones.Visualization.enabled = enabled == true
-    ParadiseDev.Zones.Visualization.refreshHighlights(true)
-end
-
-function ParadiseDev.Zones.Visualization.setPlayerEnabled(pl, enabled)
-    if not pl or not ParadiseRestore.isAdm or not ParadiseRestore.isAdm(pl) then return end
-    local modData = pl:getModData()
-    modData[ParadiseDev.Zones.Visualization.MODDATA_KEY] = enabled == true
-    if pl.transmitModData then pl:transmitModData() end
-    ParadiseDev.Zones.Visualization.refreshHighlights(true)
+    local standing = ParadiseDev.Zones.Visualization.regionContains(region, pl:getX(), pl:getY())
+    local alpha = standing and ParadiseDev.Zones.Visualization.STANDING_ALPHA or ParadiseDev.Zones.Visualization.FILL_ALPHA
+    return { r = base.r, g = base.g, b = base.b, a = alpha },
+        { r = base.r, g = base.g, b = base.b, a = ParadiseDev.Zones.Visualization.BORDER_ALPHA }
 end
 
 function ParadiseDev.Zones.Visualization.drawThinLine(x1, y1, x2, y2, color)
@@ -176,51 +68,62 @@ function ParadiseDev.Zones.Visualization.drawThinLine(x1, y1, x2, y2, color)
     )
 end
 
-function ParadiseDev.Zones.Visualization.drawRegionBorder(region, z, color)
-    local plNum = 0
+function ParadiseDev.Zones.Visualization.drawWorldArea(plNum, x1, y1, x2, y2, z, fill, border)
+    if not fill and not border then return end
     local offsetX, offsetY = -getPlayerScreenLeft(plNum), -getPlayerScreenTop(plNum)
-    local function screen(x, y)
-        return isoToScreenX(plNum, x, y, z) + offsetX,
-            isoToScreenY(plNum, x, y, z) + offsetY
+    local sx1, sy1 = isoToScreenX(plNum, x1, y1, z) + offsetX, isoToScreenY(plNum, x1, y1, z) + offsetY
+    local sx2, sy2 = isoToScreenX(plNum, x2, y1, z) + offsetX, isoToScreenY(plNum, x2, y1, z) + offsetY
+    local sx3, sy3 = isoToScreenX(plNum, x2, y2, z) + offsetX, isoToScreenY(plNum, x2, y2, z) + offsetY
+    local sx4, sy4 = isoToScreenX(plNum, x1, y2, z) + offsetX, isoToScreenY(plNum, x1, y2, z) + offsetY
+    local renderer = getRenderer()
+    if fill then
+        renderer:renderPoly(sx1, sy1, sx2, sy2, sx3, sy3, sx4, sy4, fill.r, fill.g, fill.b, fill.a)
     end
-    local x1, y1 = screen(region.xMin, region.yMin)
-    local x2, y2 = screen(region.xMax, region.yMin)
-    local x3, y3 = screen(region.xMax, region.yMax)
-    local x4, y4 = screen(region.xMin, region.yMax)
-    ParadiseDev.Zones.Visualization.drawThinLine(x1, y1, x2, y2, color)
-    ParadiseDev.Zones.Visualization.drawThinLine(x2, y2, x3, y3, color)
-    ParadiseDev.Zones.Visualization.drawThinLine(x3, y3, x4, y4, color)
-    ParadiseDev.Zones.Visualization.drawThinLine(x4, y4, x1, y1, color)
+    if border then
+        ParadiseDev.Zones.Visualization.drawThinLine(sx1, sy1, sx2, sy2, border)
+        ParadiseDev.Zones.Visualization.drawThinLine(sx2, sy2, sx3, sy3, border)
+        ParadiseDev.Zones.Visualization.drawThinLine(sx3, sy3, sx4, sy4, border)
+        ParadiseDev.Zones.Visualization.drawThinLine(sx4, sy4, sx1, sy1, border)
+    end
 end
 
-function ParadiseDev.Zones.Visualization.renderBorders()
+function ParadiseDev.Zones.Visualization.renderAreas()
     if not ParadiseDev.Zones.Visualization.enabled then return end
     local pl = getPlayer()
     if not pl then return end
     if not ParadiseDev.Zones.Visualization.canRenderWorld(pl) then return end
-    local z = math.floor(pl:getZ())
+    local plNum, z = pl:getPlayerNum(), math.floor(pl:getZ())
     for _, zone in ipairs(ParadiseDev.Zones.Visualization.zones) do
         if ParadiseDev.Zones.Visualization.zoneOnLevel(zone, z) then
             for _, region in ipairs(zone.regions or {}) do
                 if ParadiseDev.Zones.Visualization.regionNearPlayer(region, pl, ParadiseDev.Zones.Visualization.VISIBLE_RADIUS) then
-                    local _, _, borderColor = ParadiseDev.Zones.Visualization.getRegionColors(zone, region, pl)
-                    ParadiseDev.Zones.Visualization.drawRegionBorder(region, z, borderColor)
+                    local fill, border = ParadiseDev.Zones.Visualization.getRegionColors(zone, region, pl)
+                    ParadiseDev.Zones.Visualization.drawWorldArea(plNum, region.xMin, region.yMin, region.xMax, region.yMax, z, fill, border)
                 end
             end
         end
     end
 end
 
+function ParadiseDev.Zones.Visualization.setEnabled(enabled)
+    ParadiseDev.Zones.Visualization.enabled = enabled == true
+end
+
+function ParadiseDev.Zones.Visualization.setPlayerEnabled(pl, enabled)
+    if not pl or not ParadiseRestore.isAdm or not ParadiseRestore.isAdm(pl) then return end
+    local modData = pl:getModData()
+    modData[ParadiseDev.Zones.Visualization.MODDATA_KEY] = enabled == true
+    if pl.transmitModData then pl:transmitModData() end
+end
+
 function ParadiseDev.Zones.Visualization.onServerCommand(module, command, args)
     if module ~= "PZZoneEngine" or command ~= "boundaryState" or not args then return end
     ParadiseDev.Zones.Visualization.boundaryStateReceived = true
     ParadiseDev.Zones.Visualization.zones = args.zones or {}
-    ParadiseDev.Zones.Visualization.BAND_WIDTH = tonumber(args.borderWidth) or 2
     ParadiseDev.Zones.Visualization.cagedZoneId = args.cagedZoneId
-    ParadiseDev.Zones.Visualization.refreshHighlights(true)
 end
 
-function ParadiseDev.Zones.Visualization.onPlayerMove(pl)
+function ParadiseDev.Zones.Visualization.onPlayerUpdate(pl)
     if pl ~= getPlayer() then return end
     if isClient() and not ParadiseDev.Zones.Visualization.boundaryStateReceived then
         ParadiseDev.Zones.Visualization.boundaryStateRequestTick = ParadiseDev.Zones.Visualization.boundaryStateRequestTick + 1
@@ -229,7 +132,6 @@ function ParadiseDev.Zones.Visualization.onPlayerMove(pl)
             sendClientCommand("PZZoneEngine", "requestBoundaryState", {})
         end
     end
-    ParadiseDev.Zones.Visualization.refreshHighlights(false)
 end
 
 function ParadiseDev.Zones.Visualization.onGameStart()
@@ -248,9 +150,9 @@ Events.OnServerCommand.Remove(ParadiseDev.Zones.Visualization.onServerCommand)
 Events.OnServerCommand.Add(ParadiseDev.Zones.Visualization.onServerCommand)
 --[[ Events.OnPlayerMove.Remove(ParadiseDev.Zones.Visualization.onPlayerMove)
 Events.OnPlayerMove.Add(ParadiseDev.Zones.Visualization.onPlayerMove) ]]
-Events.OnPlayerUpdate.Remove(ParadiseDev.Zones.Visualization.onPlayerMove)
-Events.OnPlayerUpdate.Add(ParadiseDev.Zones.Visualization.onPlayerMove)
+Events.OnPlayerUpdate.Remove(ParadiseDev.Zones.Visualization.onPlayerUpdate)
+Events.OnPlayerUpdate.Add(ParadiseDev.Zones.Visualization.onPlayerUpdate)
 Events.OnGameStart.Remove(ParadiseDev.Zones.Visualization.onGameStart)
 Events.OnGameStart.Add(ParadiseDev.Zones.Visualization.onGameStart)
-Events.OnPreUIDraw.Remove(ParadiseDev.Zones.Visualization.renderBorders)
-Events.OnPreUIDraw.Add(ParadiseDev.Zones.Visualization.renderBorders)
+Events.OnPreUIDraw.Remove(ParadiseDev.Zones.Visualization.renderAreas)
+Events.OnPreUIDraw.Add(ParadiseDev.Zones.Visualization.renderAreas)
