@@ -19,7 +19,7 @@ function Panel:initialise()
  self.page=1;self.message="Server inventory: loaded observed floors + all globals. NOT the entire world."
 end
 function Panel:prerender()
- ISPanel.prerender(self);self:drawText("Notes administration — dry-run cleanup requires separate owner approval",10,10,1,1,1,1,UIFont.Small)
+ ISPanel.prerender(self);self:drawText("Notes administration - dry-run cleanup requires separate owner approval",10,10,1,1,1,1,UIFont.Small)
  self:drawText(tostring(self.message):sub(1,145),10,32,1,0.9,0.3,1,UIFont.Small)
  self:drawText("Filter: text, type or tile",10,46,0.7,0.8,0.9,1,UIFont.Small)
  self:drawText("Saved cleanup plan ID",320,46,0.7,0.8,0.9,1,UIFont.Small)

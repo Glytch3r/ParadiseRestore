@@ -69,10 +69,10 @@ function ParadiseEconomy.getMarkerLabel(group)
     end
     local storeLabel = kindLabel(group.stores, "STORE", "STORES")
     local martLabel = kindLabel(group.marts, "MART", "MARTS")
-    local label = storeLabel and martLabel and (storeLabel .. " · " .. martLabel)
+    local label = storeLabel and martLabel and (storeLabel .. " | " .. martLabel)
         or storeLabel or martLabel or "SHOP"
     if group.stores + group.marts == 1 and group.title then
-        label = label .. " · " .. group.title
+        label = label .. " | " .. group.title
         if not group.anyOpen then label = label .. " (closed)" end
     end
     if ParadiseEconomy.fitText then return ParadiseEconomy.fitText(label, 190, UIFont.Small) end

@@ -421,7 +421,7 @@ end
 
 function M.penalizedSnapshot(slot)
     if not slot or not slot.death then return nil, "death snapshot missing" end
-    if slot.pveConflict then return nil,"An administrator must resolve this profile’s PvE setting" end
+    if slot.pveConflict then return nil,"An administrator must resolve this profile's PvE setting" end
     local result, err = M.copy(slot.death)
     if not result then return nil, err end
     result.pve=slot.pve~=nil and slot.pve or M.identityPvE(slot.creationIdentity)

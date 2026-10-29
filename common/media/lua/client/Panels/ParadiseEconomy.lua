@@ -855,7 +855,7 @@ end
 
 function ParadiseEconomy.AccountBrowser:prerender()
     ISCollapsableWindow.prerender(self)
-    ParadiseEconomy.drawPanelHeader(self, "ECONOMY ACCOUNTS  ·  PERSONAL, MERCHANT, TRADE AND SERVER",
+    ParadiseEconomy.drawPanelHeader(self, "ECONOMY ACCOUNTS  |  PERSONAL, MERCHANT, TRADE AND SERVER",
         ParadiseEconomy.icons.panelBook, "ADMIN")
     local theme = ParadiseEconomy.Theme
     self:drawText("Double-click an account or use OPEN ACCOUNT.", 15, self.height - 34,
@@ -1206,7 +1206,7 @@ function ParadiseEconomy.openAddressBookMenu(entry, mode)
             end
         end
         local title = tostring(row.label or row.key)
-        if not row.resolvable then title = title .. "  ·  no account found" end
+        if not row.resolvable then title = title .. "  |  no account found" end
         local option = context:addOption(title, nil, function()
             if not row.resolvable then return end
             ParadiseEconomy.applyBookmark(entry, row, item.value)
@@ -1592,7 +1592,7 @@ function ParadiseEconomy.Panel:prerender()
     local personal = ParadiseEconomy.getStatePersonal()
     local player = getPlayer()
 
-    self:drawText("YOUR MONEY  ·  BALANCES, WITHDRAWALS AND TRANSFERS", 18, 29,
+    self:drawText("YOUR MONEY  |  BALANCES, WITHDRAWALS AND TRANSFERS", 18, 29,
         theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     self:drawRect(w - 68, 22, 52, 28, theme.cardBg.a, theme.cardBg.r, theme.cardBg.g, theme.cardBg.b)
     self:drawRectBorder(w - 68, 22, 52, 28, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
@@ -1984,7 +1984,7 @@ function ParadiseEconomy.MartPanel:rebuildSiblingTabs()
     local shops = self:getSiblingShops(routeId)
     local caption = "SAME TAX ROUTE"
     if shops[1] and shops[1].taxAccountTitle then
-        caption = "TAX ROUTE  ·  " .. string.upper(tostring(shops[1].taxAccountTitle))
+        caption = "TAX ROUTE  |  " .. string.upper(tostring(shops[1].taxAccountTitle))
     end
     self.siblingCaption = #shops > 0 and caption or nil
     if #shops == 0 then return end
@@ -1993,9 +1993,9 @@ function ParadiseEconomy.MartPanel:rebuildSiblingTabs()
             tostring(shop.title or shop.id), self, ParadiseEconomy.MartPanel.onSiblingTab)
         btn.shop = shop
         btn:initialise()
-        btn:setTooltip(string.format("%s  ·  %s  ·  %s%s", tostring(shop.title or shop.id),
+        btn:setTooltip(string.format("%s  |  %s  |  %s%s", tostring(shop.title or shop.id),
             tostring(shop.owner or "-"), tostring(shop.id),
-            shop.closed and ("  ·  " .. tostring(shop.statusLabel or "Closed")) or ""))
+            shop.closed and ("  |  " .. tostring(shop.statusLabel or "Closed")) or ""))
         self:addChild(btn)
         self.siblingTabs[#self.siblingTabs + 1] = btn
     end
@@ -2038,7 +2038,7 @@ end
 
 function ParadiseEconomy.MartPanel:getSiblingLabel(shop)
     if self.isAdm then
-        return tostring(shop.title or shop.id) .. "  ·  " .. tostring(shop.owner or "-") .. "  ·  " .. tostring(shop.id)
+        return tostring(shop.title or shop.id) .. "  |  " .. tostring(shop.owner or "-") .. "  |  " .. tostring(shop.id)
     end
     return tostring(shop.title or shop.id)
 end
@@ -3159,7 +3159,7 @@ function ParadiseEconomy.MartPanel:drawBrowseCard(list, x, y, w, h, listing)
         theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
     local seller = tostring(listing.seller or "-")
     local place = tostring(listing.zoneTitle or listing.merchantTitle or "-")
-    list:drawText(ParadiseEconomy.fitText(seller .. "  ·  " .. place, w - 16, UIFont.Small), x + 8, nameY + 22,
+    list:drawText(ParadiseEconomy.fitText(seller .. "  |  " .. place, w - 16, UIFont.Small), x + 8, nameY + 22,
         theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     local priceY = y + h - 50
     local icon = listing.currency == "paradisium" and ParadiseEconomy.icons.paradisium or ParadiseEconomy.icons.jimoleon
@@ -3323,10 +3323,10 @@ function ParadiseEconomy.MartPanel:drawStoreTab()
         self:drawTextRight("LEASE  " .. string.upper(lease.label), w - 29, contentY + 10, color.r, color.g, color.b, 1, UIFont.Small)
         if merchant.closed then
             local status = tostring(merchant.statusLabel or "Suspended")
-            self:drawText("STORE " .. string.upper(status) .. "  ·  BUYING AND POSTING DISABLED",
+            self:drawText("STORE " .. string.upper(status) .. "  |  BUYING AND POSTING DISABLED",
                 29, contentY + 32, theme.danger.r, theme.danger.g, theme.danger.b, 1, UIFont.Small)
         end
-        local merchantText = "MERCHANT  " .. tostring(merchant.id) .. "  ·  OWNER  " .. tostring(merchant.owner or "-")
+        local merchantText = "MERCHANT  " .. tostring(merchant.id) .. "  |  OWNER  " .. tostring(merchant.owner or "-")
         self:drawText(ParadiseEconomy.fitText(merchantText, w - 380, UIFont.Small), 29, contentY + 56,
             theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
         self:drawTextRight("EARNINGS  " .. ParadiseEconomy.formatBalances(merchant.earnings), w - 29, contentY + 56,
@@ -3376,11 +3376,11 @@ function ParadiseEconomy.MartPanel:prerender()
     ISCollapsableWindow.prerender(self)
     local theme = ParadiseEconomy.Theme
     local w = self.width
-    local headerText = "TRADESHOP  ·  PLAYER LISTINGS AND ITEM MART"
+    local headerText = "TRADESHOP  |  PLAYER LISTINGS AND ITEM MART"
     if self.shopKind == "store" then
-        headerText = "MERCHANT STORE  ·  " .. string.upper(tostring(self:getShopTitle()))
+        headerText = "MERCHANT STORE  |  " .. string.upper(tostring(self:getShopTitle()))
     elseif self.shopKind == "mart" then
-        headerText = "MARKET  ·  " .. string.upper(tostring(self:getShopTitle()))
+        headerText = "MARKET  |  " .. string.upper(tostring(self:getShopTitle()))
     end
     ParadiseEconomy.drawPanelHeader(self, headerText, ParadiseEconomy.icons.panelStore)
     ParadiseEconomy.drawTabUnderline(self, self.tabBrowse, self.tab == "browse")
@@ -3390,10 +3390,10 @@ function ParadiseEconomy.MartPanel:prerender()
     local market = self:getMarket()
     local trade = self:getTrade()
     local zoneText = "ZONE  " .. string.upper(tostring((self.shop and self.shop.zoneTitle) or market.tradeZoneTitle or "NO TRADE ZONE"))
-    if trade then zoneText = zoneText .. "  ·  TRADE  " .. string.upper(tostring(trade.title or trade.tradeId or trade.id)) end
+    if trade then zoneText = zoneText .. "  |  TRADE  " .. string.upper(tostring(trade.title or trade.tradeId or trade.id)) end
     local leaseDays = tonumber(trade and trade.merchantLeaseDays or market.leaseDays) or 0
-    zoneText = zoneText .. "  ·  " .. (leaseDays > 0 and (tostring(math.floor(leaseDays)) .. " DAY LEASES") or "NO LEASE LIMIT")
-        .. "  ·  TAX " .. string.format("%g", self:getTaxPercent() or 0) .. "%"
+    zoneText = zoneText .. "  |  " .. (leaseDays > 0 and (tostring(math.floor(leaseDays)) .. " DAY LEASES") or "NO LEASE LIMIT")
+        .. "  |  TAX " .. string.format("%g", self:getTaxPercent() or 0) .. "%"
     self:drawTextRight(ParadiseEconomy.fitText(zoneText, w - 530, UIFont.Small), w - 20, 64,
         theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
     self:drawRect(15, self.dividerY or ParadiseEconomy.martLayout.dividerY, w - 30, 1,
@@ -3406,7 +3406,7 @@ function ParadiseEconomy.MartPanel:prerender()
         end
         local caption = self.siblingCaption
         if (self.siblingHidden or 0) > 0 then
-            caption = caption .. "  ·  " .. tostring(self.siblingHidden) .. " MORE IN BROWSE"
+            caption = caption .. "  |  " .. tostring(self.siblingHidden) .. " MORE IN BROWSE"
         end
         self:drawTextRight(ParadiseEconomy.fitText(caption, ParadiseEconomy.martLayout.captionW - 20, UIFont.Small),
             w - 20, ParadiseEconomy.martLayout.stripY + 5, theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
@@ -3551,7 +3551,7 @@ function ParadiseEconomy.TradeManagementPanel:createChildren()
     self.merchantPostsButton.tooltip = "Show every trade post from this merchant, including expired posts"
     self.merchantPostsButton:initialise()
     self:addChild(self.merchantPostsButton)
-    self.merchantOwnerButton = ISButton:new(0, 0, 170, 26, "ADMIN · OPEN OWNER", self, ParadiseEconomy.TradeManagementPanel.openMerchantOwner)
+    self.merchantOwnerButton = ISButton:new(0, 0, 170, 26, "ADMIN | OPEN OWNER", self, ParadiseEconomy.TradeManagementPanel.openMerchantOwner)
     self.merchantOwnerButton.tooltip = "Admin only: open the merchant owner's account in Economy Administration"
     self.merchantOwnerButton:initialise()
     self:addChild(self.merchantOwnerButton)
@@ -3579,7 +3579,7 @@ function ParadiseEconomy.TradeManagementPanel:createChildren()
     self.postList.doDrawItem = ParadiseEconomy.TradeManagementPanel.drawPost
     self.postList:setOnMouseDownFunction(self, ParadiseEconomy.TradeManagementPanel.onPostSelect)
     self:addChild(self.postList)
-    self.postOwnerButton = ISButton:new(0, 0, 190, 26, "ADMIN · OPEN SELLER", self, ParadiseEconomy.TradeManagementPanel.openPostSeller)
+    self.postOwnerButton = ISButton:new(0, 0, 190, 26, "ADMIN | OPEN SELLER", self, ParadiseEconomy.TradeManagementPanel.openPostSeller)
     self.postOwnerButton.tooltip = "Admin only: open the seller's account in Economy Administration"
     self.postOwnerButton:initialise()
     self:addChild(self.postOwnerButton)
@@ -4318,16 +4318,16 @@ function ParadiseEconomy.TradeManagementPanel:prerender()
     ISCollapsableWindow.prerender(self)
     local theme = ParadiseEconomy.Theme
     local w = self.width
-    ParadiseEconomy.drawPanelHeader(self, "TRADE ZONE ADMINISTRATION  ·  MERCHANTS, POSTS AND ITEM MART",
+    ParadiseEconomy.drawPanelHeader(self, "TRADE ZONE ADMINISTRATION  |  MERCHANTS, POSTS AND ITEM MART",
         ParadiseEconomy.icons.panelZone)
     self:drawRect(w - 110, 64, 95, 22, 0.12, theme.green.r, theme.green.g, theme.green.b)
     self:drawRectBorder(w - 110, 64, 95, 22, theme.green.a, theme.green.r, theme.green.g, theme.green.b)
     self:drawTextCentre("MANAGED", w - 62, 68, theme.green.r, theme.green.g, theme.green.b, 1, UIFont.Small)
     local zone = self:getSelectedZone()
     if zone then
-        local info = "TAX " .. string.format("%g", tonumber(zone.tradeTax) or 0) .. "%  ·  FEE "
+        local info = "TAX " .. string.format("%g", tonumber(zone.tradeTax) or 0) .. "%  |  FEE "
             .. tostring(zone.merchantDailyFee or 0) .. " " .. tostring(zone.merchantFeeCurrency or "jimoleon")
-            .. "/DAY  ·  OWNER  " .. tostring(zone.owner or "-")
+            .. "/DAY  |  OWNER  " .. tostring(zone.owner or "-")
         self:drawTextRight(ParadiseEconomy.fitText(info, w - 520, UIFont.Small), w - 120, 68,
             theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
     end
@@ -4547,7 +4547,7 @@ function ParadiseEconomy.ListingPanel:prerender()
     ISCollapsableWindow.prerender(self)
     local theme = ParadiseEconomy.Theme
     local w = self.width
-    ParadiseEconomy.drawPanelHeader(self, "POST LISTING  ·  PRICE A CARRIED ITEM FOR YOUR MERCHANT STALL",
+    ParadiseEconomy.drawPanelHeader(self, "POST LISTING  |  PRICE A CARRIED ITEM FOR YOUR MERCHANT STALL",
         ParadiseEconomy.icons.panelTag)
 
     local data = self.itemData or {}
@@ -4561,7 +4561,7 @@ function ParadiseEconomy.ListingPanel:prerender()
         theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
     local summary = ParadiseEconomy.ItemData.getSummary(data)
     local detail = tostring(data.fullType or "Item")
-    if summary and summary ~= "" then detail = detail .. "  ·  " .. summary end
+    if summary and summary ~= "" then detail = detail .. "  |  " .. summary end
     self:drawText(ParadiseEconomy.fitText(detail, w - 220, UIFont.Small), 85, 100,
         theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
     self:drawTextRight("YOUR ITEM", w - 29, 78, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
@@ -5686,7 +5686,7 @@ function ParadiseEconomy.AdminPanel:prerender()
     ISCollapsableWindow.prerender(self)
     local theme = ParadiseEconomy.Theme
     local w = self.width
-    ParadiseEconomy.drawPanelHeader(self, "ACCOUNT DIRECTORY  ·  BALANCES, LEDGER AND SYSTEM TOOLS",
+    ParadiseEconomy.drawPanelHeader(self, "ACCOUNT DIRECTORY  |  BALANCES, LEDGER AND SYSTEM TOOLS",
         ParadiseEconomy.icons.panelGear, "ADMIN")
 
     if self.createOpen then
@@ -5695,7 +5695,7 @@ function ParadiseEconomy.AdminPanel:prerender()
             theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
         ParadiseEconomy.drawAdminChip(self,
             27 + getTextManager():MeasureStringX(UIFont.Small, "NEW ACCOUNT") + 8, self.createRowY + 7)
-        self:drawTextRight("Type · owner · zone · name", 15 + self.leftW - 14, self.createRowY + 8,
+        self:drawTextRight("Type | owner | zone | name", 15 + self.leftW - 14, self.createRowY + 8,
             theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     end
 
@@ -5729,10 +5729,10 @@ function ParadiseEconomy.AdminPanel:prerender()
             theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
         local meta = "Owner: " .. tostring(account.owner or account.name or "-")
         if account.zoneName or account.zoneId then
-            meta = meta .. "  ·  Zone: " .. tostring(account.zoneName or account.zoneId)
+            meta = meta .. "  |  Zone: " .. tostring(account.zoneName or account.zoneId)
         end
-        if account.taxRoute then meta = meta .. "  ·  Tax: " .. tostring(account.taxRoute) end
-        if account.frozen == true then meta = meta .. "  ·  FROZEN" end
+        if account.taxRoute then meta = meta .. "  |  Tax: " .. tostring(account.taxRoute) end
+        if account.frozen == true then meta = meta .. "  |  FROZEN" end
         local metaColor = account.frozen == true and theme.danger or theme.textMuted
         self:drawText(ParadiseEconomy.fitText(meta, self.detailInnerW, UIFont.Small), self.detailInnerX, self.detailMetaY,
             metaColor.r, metaColor.g, metaColor.b, 1, UIFont.Small)
@@ -7059,8 +7059,8 @@ function ParadiseEconomy.MartAdminView:prerender()
     self:drawRectBorder(15, 8, 34, 20, 0.7, theme.gold.r, theme.gold.g, theme.gold.b)
     self:drawTextureScaled(ParadiseEconomy.icons.panelClipboard, 24, 10, 16, 16, 1)
     self:drawText("MART ADMIN VIEW", 57, 10, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Medium)
-    local headerText = trade and ("TREASURY  ·  " .. tostring(trade.tradeId or trade.zoneId or "")
-        .. "  ·  " .. tostring(martCount) .. " MARKETS") or "NO TRADE ACCOUNT"
+    local headerText = trade and ("TREASURY  |  " .. tostring(trade.tradeId or trade.zoneId or "")
+        .. "  |  " .. tostring(martCount) .. " MARKETS") or "NO TRADE ACCOUNT"
     self:drawTextRight(ParadiseEconomy.fitText(headerText, math.max(200, w - 420), UIFont.Small), w - 15, 12,
         theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     self:drawRect(15, 36, w - 30, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
@@ -7089,7 +7089,7 @@ function ParadiseEconomy.MartAdminView:prerender()
             .. ParadiseEconomy.formatNumber(ParadiseEconomy.getBalance(bucket, "paradisium")) .. "p"
     end
     local balanceLine = fundsText("TREASURY", tradeFunds)
-    if finance then balanceLine = balanceLine .. "   ·   " .. fundsText("FINANCE", financeFunds) end
+    if finance then balanceLine = balanceLine .. "   |   " .. fundsText("FINANCE", financeFunds) end
     self:drawTextRight(ParadiseEconomy.fitText(balanceLine, math.max(180, w - 400), UIFont.Small), w - 29,
         self.fundsLabelY, theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
 
@@ -7098,8 +7098,8 @@ function ParadiseEconomy.MartAdminView:prerender()
     local listings = mart and mart.listings or {}
     self:drawText(headings, 29, self.inventoryHeaderY, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
     local martName = mart and tostring(mart.title or mart.id) or "No market selected"
-    self:drawText("  ·  " .. ParadiseEconomy.fitText(martName, math.max(100, w - 480), UIFont.Small)
-        .. "  ·  " .. tostring(#listings) .. " ENTRIES",
+    self:drawText("  |  " .. ParadiseEconomy.fitText(martName, math.max(100, w - 480), UIFont.Small)
+        .. "  |  " .. tostring(#listings) .. " ENTRIES",
         29 + getTextManager():MeasureStringX(UIFont.Small, headings), self.inventoryHeaderY,
         theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
     self:drawRect(29, self.inventoryCardY + 24, w - 58, 1,

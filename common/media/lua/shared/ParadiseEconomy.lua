@@ -205,14 +205,14 @@ function ParadiseEconomy.getAccountLabel(account)
     if type(account) ~= "table" then return "Unknown" end
     local owner = account.owner or account.name or account.id or "?"
     local title = account.title or owner
-    if account.type == "personal" then return "Personal · " .. tostring(title) end
+    if account.type == "personal" then return "Personal | " .. tostring(title) end
     if account.type == "merchant" then
-        return "Merchant · " .. tostring(title) .. " · " .. tostring(account.zoneName or account.zoneId or "?")
+        return "Merchant | " .. tostring(title) .. " | " .. tostring(account.zoneName or account.zoneId or "?")
     end
-    if account.type == "trade" then return "Treasury · " .. tostring(title) end
-    if account.type == "finance" then return "Finance · " .. tostring(title) end
-    if account.type == "server" then return "Server · " .. tostring(account.name or "Server") end
-    return "Custom · " .. tostring(title)
+    if account.type == "trade" then return "Treasury | " .. tostring(title) end
+    if account.type == "finance" then return "Finance | " .. tostring(title) end
+    if account.type == "server" then return "Server | " .. tostring(account.name or "Server") end
+    return "Custom | " .. tostring(title)
 end
 
 function ParadiseEconomy.formatAccountBalances(account)
@@ -454,7 +454,7 @@ end
 function ParadiseEconomy.getMerchantStatusLabel(account, now)
     local status = ParadiseEconomy.getMerchantStatus(account, now)
     if status == "suspended" then return "Suspended" end
-    if status == "expired" then return "Suspended · lease expired" end
+    if status == "expired" then return "Suspended | lease expired" end
     if status == "archived" then return "Closed" end
     return "Active"
 end
@@ -888,11 +888,11 @@ function Ledger.playerText(rec, ctx)
         local at = rec.zone ~= "" and (" at " .. zoneName(rec.zone)) or ""
         if owns(rec.a) then
             return "You purchased " .. label .. " from " .. name(rec.b) .. " for " .. amount .. taxText .. at .. ", " .. time,
-                "Buyer account " .. tostring(rec.a) .. " · seller " .. tostring(rec.b), "out", "-" .. amount
+                "Buyer account " .. tostring(rec.a) .. " | seller " .. tostring(rec.b), "out", "-" .. amount
         end
         if owns(rec.b) then
             return name(rec.a) .. " purchased " .. label .. " from you for " .. amount .. taxText .. at .. ", " .. time,
-                "Seller account " .. tostring(rec.b) .. " · buyer " .. tostring(rec.a), "in", "+" .. amount
+                "Seller account " .. tostring(rec.b) .. " | buyer " .. tostring(rec.a), "in", "+" .. amount
         end
         return name(rec.a) .. " purchased " .. label .. " from " .. name(rec.b) .. " for " .. amount .. at .. ", " .. time,
             "", "flat", amount
@@ -978,7 +978,7 @@ function Ledger.playerText(rec, ctx)
         return subject .. " updated, " .. time, note, "flat", ""
     end
     if kind == "G" then
-        return tostring(rec.action or "Transaction") .. " · " .. amount .. ", " .. time, tostring(rec.note or ""), "flat", amount
+        return tostring(rec.action or "Transaction") .. " | " .. amount .. ", " .. time, tostring(rec.note or ""), "flat", amount
     end
     return "Transaction, " .. time, "", "flat", ""
 end
