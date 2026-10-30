@@ -18,6 +18,7 @@ local function getLastButtonBottom(sidebar, buttonWidth)
 
     for _, child in pairs(sidebar:getChildren()) do
         if child ~= rulesButton
+            and not child.sidebarAnchored
             and child.Type == "ISButton"
             and child:isVisible()
             and child:getHeight() > 0

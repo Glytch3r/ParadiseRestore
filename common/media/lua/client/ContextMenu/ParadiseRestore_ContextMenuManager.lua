@@ -480,7 +480,7 @@ function ParadiseRestore.ContextMenuManager.Panel:prerender()
     ISCollapsableWindow.prerender(self)
     self:drawText("Admin Profile: Local Cache", self.width - 280, 42, 0.78, 0.84, 0.72, 1, UIFont.Small)
     self:drawText(ParadiseRestore.ContextMenuManager.getProfileFilename(), self.width - 280, 60, 0.65, 0.65, 0.62, 1, UIFont.Small)
-    self:drawText("Hold Shift while right-clicking to reveal hidden items.", 12, self.height - 38, 0.72, 0.76, 0.68, 1, UIFont.Small)
+    self:drawText("TIP: Hold SHIFT while right-clicking to force-show hidden options.", 12, self.height - 38, 0.95, 0.80, 0.35, 1, UIFont.Small)
 end
 
 function ParadiseRestore.ContextMenuManager.Panel:refresh()

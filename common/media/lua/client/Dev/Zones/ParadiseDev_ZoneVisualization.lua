@@ -10,8 +10,7 @@ ParadiseDev.Zones.Visualization.VISIBLE_RADIUS = 80
 ParadiseDev.Zones.Visualization.cagedZoneId = ParadiseDev.Zones.Visualization.cagedZoneId or nil
 
 ParadiseDev.Zones.Visualization.MODDATA_KEY = "ParadiseZShowWorldZoneVisuals"
-ParadiseDev.Zones.Visualization.FILL_ALPHA = 0.12
-ParadiseDev.Zones.Visualization.STANDING_ALPHA = 0.22
+ParadiseDev.Zones.Visualization.STANDING_ALPHA = 0.05
 ParadiseDev.Zones.Visualization.BORDER_ALPHA = 0.95
 
 function ParadiseDev.Zones.Visualization.isEnabledForPlayer(pl)
@@ -49,10 +48,11 @@ end
 function ParadiseDev.Zones.Visualization.getRegionColors(zone, region, pl)
     local mapText = ParadiseDev.Zones.MapText
     local base = mapText and mapText.getZoneColor and mapText.getZoneColor(zone) or { r = 1.0, g = 0.9, b = 0.10 }
-    local standing = ParadiseDev.Zones.Visualization.regionContains(region, pl:getX(), pl:getY())
-    local alpha = standing and ParadiseDev.Zones.Visualization.STANDING_ALPHA or ParadiseDev.Zones.Visualization.FILL_ALPHA
-    return { r = base.r, g = base.g, b = base.b, a = alpha },
-        { r = base.r, g = base.g, b = base.b, a = ParadiseDev.Zones.Visualization.BORDER_ALPHA }
+    local border = { r = base.r, g = base.g, b = base.b, a = ParadiseDev.Zones.Visualization.BORDER_ALPHA }
+    if not ParadiseDev.Zones.Visualization.regionContains(region, pl:getX(), pl:getY()) then
+        return nil, border
+    end
+    return { r = base.r, g = base.g, b = base.b, a = ParadiseDev.Zones.Visualization.STANDING_ALPHA }, border
 end
 
 function ParadiseDev.Zones.Visualization.drawThinLine(x1, y1, x2, y2, color)

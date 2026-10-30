@@ -2201,17 +2201,19 @@ function ParadiseEconomy.postPlayerListing(pl, merchantId, itemId, currency, pri
     currency = ParadiseEconomy.normalizeCurrency(currency)
     price = ParadiseEconomy.normalizeListingPrice(price)
     local item = ParadiseEconomy.findCarriedItem(pl, itemId)
-    if not item or not currency or not price or ParadiseEconomy.isEquipped(pl, item) then return false end
+    if not item then return false, "Select a carried item to post" end
+    if not currency or not price then return false, "Invalid listing currency or price" end
+    if ParadiseEconomy.isEquipped(pl, item) then return false, "Equipped items cannot be listed" end
     local itemData = ParadiseEconomy.ItemData.toData(item)
-    if not itemData then return false end
+    if not itemData then return false, "That item cannot be listed" end
     local zoneRecord = merchant.zoneId and ParadiseEconomy.registerZone(merchant.zoneId,
         merchant.zoneName, true) or nil
     local listing = ParadiseEconomy.newPlayerListing(
         ParadiseEconomy.nextPlayerListingId(), pl:getUsername(), itemData, currency, price, os.time(),
         merchant.zoneName or (zoneRecord and zoneRecord.name), merchant.zoneId, merchant.id)
-    if not listing then return false end
+    if not listing then return false, "That item cannot be listed" end
     local cont = item:getContainer()
-    if not cont then return false end
+    if not cont then return false, "That item has no container" end
     cont:Remove(item)
     sendRemoveItemFromContainer(cont, item)
     merchant.listings[#merchant.listings + 1] = listing

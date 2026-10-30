@@ -2487,26 +2487,44 @@ function ParadiseEconomy.MartPanel:refreshStore()
     self.selectedStoreListingId = self.myListings.selected > 0 and self.storeCache[self.myListings.selected].id or nil
 end
 
+function ParadiseEconomy.MartPanel:collectCarriedItems(container, out, depth, visited)
+    if not container or depth > 3 then return end
+    local key = tostring(container)
+    if visited[key] then return end
+    visited[key] = true
+    local items = container:getItems()
+    if not items then return end
+    local pl = getPlayer()
+    for int = 0, items:size() - 1 do
+        local item = items:get(int)
+        if item then
+            if not ParadiseEconomy.isItemEquipped(pl, item) then
+                out[#out + 1] = item
+            end
+            if instanceof(item, "InventoryContainer") then
+                local nested = item:getInventory()
+                if nested then self:collectCarriedItems(nested, out, depth + 1, visited) end
+            end
+        end
+    end
+end
+
 function ParadiseEconomy.MartPanel:refreshInventory()
     if not self.invList then return end
     local previous = self.selectedInventoryId
     local search = string.lower(self.invSearch and self.invSearch:getInternalText() or "")
     local pl = getPlayer()
     local inv = pl and pl:getInventory() or nil
-    local items = inv and inv:getItems() or nil
+    local all = {}
+    if inv then self:collectCarriedItems(inv, all, 0, {}) end
     self.invList:clear()
     self.inventoryCache = {}
-    if items then
-        for int = 0, items:size() - 1 do
-            local item = items:get(int)
-            if item and not ParadiseEconomy.isItemEquipped(pl, item) then
-                local name = tostring(item:getDisplayName() or item:getName() or item:getFullType())
-                local text = string.lower(name .. " " .. tostring(item:getFullType()))
-                if search == "" or text:find(search, 1, true) then
-                    self.invList:addItem(name, item)
-                    self.inventoryCache[#self.inventoryCache + 1] = item
-                end
-            end
+    for _, item in ipairs(all) do
+        local name = tostring(item:getDisplayName() or item:getName() or item:getFullType())
+        local text = string.lower(name .. " " .. tostring(item:getFullType()))
+        if search == "" or text:find(search, 1, true) then
+            self.invList:addItem(name, item)
+            self.inventoryCache[#self.inventoryCache + 1] = item
         end
     end
     table.sort(self.inventoryCache, function(a, b)
@@ -2641,7 +2659,7 @@ function ParadiseEconomy.MartPanel:refreshMart()
     self.selectedMartListingId = self.martList.selected > 0 and self.martCache[self.martList.selected].id or nil
 end
 
-function ParadiseEconomy.MartPanel:onMartFilterChanged(target)
+function ParadiseEconomy.MartPanel.onMartFilterChanged(target)
     if target and target.refreshMart then target:refreshMart() end
 end
 
@@ -2671,15 +2689,9 @@ end
 function ParadiseEconomy.MartPanel:getSelectedInventoryItem()
     local row = self.invList and self.invList.items[self.invList.selected or 0] or nil
     if not row or not row.item then return nil end
-    local pl = getPlayer()
-    local inv = pl and pl:getInventory() or nil
-    local items = inv and inv:getItems() or nil
-    if not items then return nil end
-    for int = 0, items:size() - 1 do
-        local item = items:get(int)
-        if item and tostring(item:getID()) == tostring(row.item:getID()) then return item end
-    end
-    return nil
+    local cont = row.item.getContainer and row.item:getContainer() or nil
+    if not cont then return nil end
+    return row.item
 end
 
 function ParadiseEconomy.MartPanel:getSelectedMartListing()
@@ -2778,7 +2790,14 @@ end
 function ParadiseEconomy.MartPanel:onPostSelected()
     local item = self:getSelectedInventoryItem()
     local merchant = self:getMerchant()
-    if not item or not merchant or (self.shop and self.shop.isOwner ~= true) then return end
+    if not merchant or (self.shop and self.shop.isOwner ~= true) then
+        self:setDropHint("This is not your merchant store.")
+        return
+    end
+    if not item then
+        self:setDropHint("Select a carried item on the right first.")
+        return
+    end
     if self.shop and self.shop.closed then
         self:setDropHint("This merchant store is " .. tostring(self.shop.statusLabel or "closed")
             .. ". Renew the lease before posting.")
@@ -2796,7 +2815,11 @@ end
 
 function ParadiseEconomy.MartPanel:onCancelListing()
     local listing = self:getSelectedStoreListing()
-    if listing and self.shop and self.shop.isOwner == true then
+    if not listing then
+        self:setDropHint("Select a store listing on the left first.")
+        return
+    end
+    if self.shop and self.shop.isOwner == true then
         ParadiseEconomy.send("playerShopCancel", { listingId = listing.id })
         self.storePrice:setText("")
     end
@@ -2804,7 +2827,11 @@ end
 
 function ParadiseEconomy.MartPanel:onSavePrice()
     local listing = self:getSelectedStoreListing()
-    if not listing or not self.shop or self.shop.isOwner ~= true then return end
+    if not listing then
+        self:setDropHint("Select a store listing on the left first.")
+        return
+    end
+    if not self.shop or self.shop.isOwner ~= true then return end
     local price = self.storePrice:getInternalText()
     if not tonumber(price) or tonumber(price) <= 0 then
         self:setDropHint("Set a price greater than 0 for this store item.")
@@ -3103,10 +3130,9 @@ function ParadiseEconomy.MartPanel:update()
         self.renameStoreButton:setEnable(merchant ~= nil and self.storeTitle:getInternalText() ~= "")
         self.renewLeaseButton:setEnable(merchant ~= nil and leaseDays > 0)
         self.collectButton:setEnable(isOwner and merchant ~= nil and ParadiseEconomy.hasMoney(merchant.earnings))
-        self.postButton:setEnable(isOwner and merchant ~= nil and self.shop.closed ~= true
-            and self:getSelectedInventoryItem() ~= nil)
-        self.cancelButton:setEnable(isOwner and self:getSelectedStoreListing() ~= nil)
-        self.savePriceButton:setEnable(isOwner and self:getSelectedStoreListing() ~= nil)
+        self.postButton:setEnable(isOwner and merchant ~= nil and self.shop.closed ~= true)
+        self.cancelButton:setEnable(isOwner and merchant ~= nil)
+        self.savePriceButton:setEnable(isOwner and merchant ~= nil)
     elseif self.tab == "mart" then
         local listing = self:getSelectedMartListing()
         local quantity = tonumber(self.quantity:getInternalText())
@@ -3321,7 +3347,10 @@ function ParadiseEconomy.MartPanel:drawStoreTab()
         local lease = ParadiseEconomy.getLeaseInfo(merchant.expiresAt)
         local color = ParadiseEconomy.getLeaseColor(lease.status)
         self:drawTextRight("LEASE  " .. string.upper(lease.label), w - 29, contentY + 10, color.r, color.g, color.b, 1, UIFont.Small)
-        if merchant.closed then
+        if self.shop and self.shop.isOwner ~= true then
+            self:drawText("ADMIN VIEW  |  YOU DO NOT OWN THIS STORE", 29, contentY + 32,
+                theme.warn.r, theme.warn.g, theme.warn.b, 1, UIFont.Small)
+        elseif merchant.closed then
             local status = tostring(merchant.statusLabel or "Suspended")
             self:drawText("STORE " .. string.upper(status) .. "  |  BUYING AND POSTING DISABLED",
                 29, contentY + 32, theme.danger.r, theme.danger.g, theme.danger.b, 1, UIFont.Small)
@@ -3986,8 +4015,8 @@ function ParadiseEconomy.TradeManagementPanel:refreshPosts()
     self:updateTabTitles()
 end
 
-function ParadiseEconomy.TradeManagementPanel:onZoneChanged(target, combo)
-    target.selectedZoneId = combo.zoneIds and combo.zoneIds[combo.selected] or nil
+function ParadiseEconomy.TradeManagementPanel.onZoneChanged(target, combo)
+    target.selectedZoneId = combo and combo.zoneIds and combo.zoneIds[combo.selected] or nil
     target.selectedMerchantId = nil
     target.selectedPostId = nil
     target.merchantFilterKey = ""
@@ -6776,7 +6805,7 @@ function ParadiseEconomy.MartAdminView:ensureItemFilters()
     self.itemModule.selected = 1
 end
 
-function ParadiseEconomy.MartAdminView:onItemFilterChanged(target, combo)
+function ParadiseEconomy.MartAdminView.onItemFilterChanged(target, combo)
     if target and target.refreshItems then target:refreshItems() end
 end
 

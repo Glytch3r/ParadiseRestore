@@ -6,6 +6,12 @@ option ParadiseZ.mp5SkinChanger
 	page = ParadiseZ, translation = ParadiseZ_mp5SkinChanger,
 }
 
+option ParadiseZ.Themes
+{
+	type = string, default = pegasus:Pegasus:heaven:@pegasus;cerberus:Cerberus:hell:@cerberus;kraken:Kraken:between:@kraken;minotaur:Minotaur:between:@minotaur;mananangal:Mananangal:hell:@mananangal;styx:Styx:between:@styx,
+	page = ParadiseZ, translation = ParadiseZ_Themes,
+}
+
 option ParadiseZ.DrunkMaxSeconds
 {
 	type = double, min = 1.0, max = 86400.0, default = 23809.5238,

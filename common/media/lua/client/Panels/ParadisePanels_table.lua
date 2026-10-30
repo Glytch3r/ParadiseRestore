@@ -6,6 +6,7 @@ ParadiseZTrailingLights = ParadiseZTrailingLights or {}
 JimsRulesAdmin = JimsRulesAdmin or {}
 RecordsPanel = RecordsPanel or {}
 ParadiseEconomy = ParadiseEconomy or {}
+ParadiseAdminHub = ParadiseAdminHub or {}
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.SafehouseAdmin = ParadiseDev.SafehouseAdmin or {}
 
@@ -17,6 +18,25 @@ local function initialise(panel, instantiate)
 end
 
 ParadisePanels.table = {
+    {
+        key = "adminHub",
+        isAdmOnly = true,
+        getModule = function() return ParadiseAdminHub end,
+        getInstance = function() return ParadiseAdminHub.instance end,
+        setInstance = function(instance) ParadiseAdminHub.instance = instance end,
+        create = function()
+            if not ParadiseAdminHub.canOpen() then return nil end
+            local width, height = ParadiseAdminHub.getSize()
+            width = math.min(width, getCore():getScreenWidth() - 40)
+            height = math.min(height, getCore():getScreenHeight() - 40)
+            return initialise(ParadiseAdminHub.Panel:new(
+                math.max(20, (getCore():getScreenWidth() - width) / 2),
+                math.max(20, (getCore():getScreenHeight() - height) / 2),
+                width,
+                height
+            ))
+        end,
+    },
     {
         key = "economy",
         isAdmOnly = false,
@@ -596,6 +616,40 @@ ParadisePanels.table = {
             local x = (getCore():getScreenWidth() - width) / 2
             local y = (getCore():getScreenHeight() - height) / 2
             return initialise(ParadisePromo_Player_Panel:new(x, y, width, height))
+        end,
+    },
+    {
+        key = "themes",
+        isAdmOnly = false,
+        getModule = function() return ParadiseThemes end,
+        getInstance = function() return ParadiseThemes and ParadiseThemes.instance or nil end,
+        setInstance = function(instance) ParadiseThemes.instance = instance end,
+        create = function()
+            if not (ParadiseThemes and ParadiseThemes.Panel) then return nil end
+            local width, height = 540, 560
+            local x = (getCore():getScreenWidth() - width) / 2
+            local y = (getCore():getScreenHeight() - height) / 2
+            return initialise(ParadiseThemes.Panel:new(x, y, width, height))
+        end,
+        onOpen = function(panel)
+            if panel and panel.refresh then panel:refresh() end
+        end,
+    },
+    {
+        key = "themeEditor",
+        isAdmOnly = true,
+        getModule = function() return ParadiseThemes and ParadiseThemes.Admin end,
+        getInstance = function() return ParadiseThemes and ParadiseThemes.Admin and ParadiseThemes.Admin.instance or nil end,
+        setInstance = function(instance) ParadiseThemes.Admin.instance = instance end,
+        create = function()
+            if not (ParadiseThemes and ParadiseThemes.Admin and ParadiseThemes.Admin.Panel) then return nil end
+            local width, height = 800, 470
+            local x = (getCore():getScreenWidth() - width) / 2
+            local y = (getCore():getScreenHeight() - height) / 2
+            return initialise(ParadiseThemes.Admin.Panel:new(x, y, width, height))
+        end,
+        onOpen = function(panel)
+            if panel and panel.refresh then panel:refresh() end
         end,
     },
 }

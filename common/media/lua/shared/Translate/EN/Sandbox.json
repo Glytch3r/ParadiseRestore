@@ -1,4 +1,6 @@
 {
+  "Sandbox_ParadiseZ_Themes": "Interface Themes",
+  "Sandbox_ParadiseZ_Themes_tooltip": "Theme list players can choose from. One entry per theme: key:Label:align:@preset or key:Label:align:accent:bg:text. align is heaven, hell or between. The first entry is the default.",
   "Sandbox_WaveCaster": "Admin Radiation Zone",
   "Sandbox_WaveCaster_VisibleIndicator": "Visible Indicator",
   "Sandbox_WaveCaster_VisibleIndicator_tooltip": "Toggle the upper-right screen indicator. Allows regular players to see if the zone is shrinking.",

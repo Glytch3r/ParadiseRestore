@@ -320,7 +320,7 @@ function ParadiseDev.Context.toggleWorldZoneVisuals(pl)
     visualization.setPlayerEnabled(pl, not visualization.isEnabledForPlayer(pl))
 end
 
-ParadiseDev.Context.clearFill = { r = 1, g = 1, b = 0, a = 0.16 }
+ParadiseDev.Context.clearFill = { r = 1, g = 1, b = 0, a = 0.06 }
 ParadiseDev.Context.clearBorder = { r = 1, g = 1, b = 0, a = 0.85 }
 
 function ParadiseDev.Context.renderClearArea()

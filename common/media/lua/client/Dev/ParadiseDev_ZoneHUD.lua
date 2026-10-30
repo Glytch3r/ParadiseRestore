@@ -431,6 +431,11 @@ function ParadiseDev.ZoneHUD.onUserPanelOption(self, button, x, y)
     end
     if button.internal == "PARADISE_PROMO_REDEEM" then
         ParadisePromo.PlayerPanel.OpenPanel()
+        return
+    end
+    if button.internal == "PARADISE_THEMES" then
+        if ParadisePanels and ParadisePanels.Install and not (ParadiseThemes and ParadiseThemes.OpenPanel) then ParadisePanels.Install() end
+        if ParadiseThemes and ParadiseThemes.OpenPanel then ParadiseThemes.OpenPanel() end
     end
 end
 
@@ -497,8 +502,16 @@ function ParadiseDev.ZoneHUD.layoutUserPanel()
         self.promoRedeem.backgroundColor.a = 0.7;
         self.promoRedeem.backgroundColor.b = 0.5;
     self:addChild(self.promoRedeem)
+    self.themesButton = ISButton:new(close.x, self.promoRedeem:getBottom() + 10, buttonWidth, close.height, "Themes", self, ParadiseDev.ZoneHUD.onUserPanelOption)
+        self.themesButton.internal = "PARADISE_THEMES"
+        self.themesButton:initialise()
+        self.themesButton:instantiate()
+        self.themesButton.borderColor = self.buttonBorderColor
+        self.themesButton.backgroundColor.a = 0.7;
+        self.themesButton.backgroundColor.b = 0.5;
+    self:addChild(self.themesButton)
     close:setWidth(buttonWidth)
-    close:setY(self.promoRedeem:getBottom() + 10)
+    close:setY(self.themesButton:getBottom() + 10)
     self:setHeight(math.max(close.y + close.height + 11, hasBetterSafehouse and 460 or 0))
 end
 
