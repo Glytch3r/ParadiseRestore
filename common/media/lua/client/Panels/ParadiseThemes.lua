@@ -18,10 +18,76 @@ function Themes.styleWindow(win)
 	Brand.skinWindow(win)
 end
 
+local liveColors = {}
+
+local function liveColor(tok)
+	local color = liveColors[tok]
+	if not color then
+		local r, g, b, a = Brand.col(tok)
+		color = { r = r, g = g, b = b, a = a }
+		liveColors[tok] = color
+	end
+	return color
+end
+
+local function refreshLiveColors()
+	for tok, color in pairs(liveColors) do
+		local r, g, b, a = Brand.col(tok)
+		color.r, color.g, color.b, color.a = r, g, b, a
+	end
+end
+if Brand.addWatcher then Brand.addWatcher(refreshLiveColors) end
+
 function Themes.styleList(list)
-	list.backgroundColor = Brand.tbl("surface.sunken")
-	list.borderColor = Brand.tbl("window.borderInner")
+	list.backgroundColor = liveColor("surface.sunken")
+	list.borderColor = liveColor("window.borderInner")
+	list.textColor = liveColor("text.primary")
 	list.font = UIFont.Small
+end
+
+function Themes.styleButton(btn)
+	Brand.skinButton(btn)
+end
+
+local function styleEntry(entry)
+	entry.backgroundColor = liveColor("surface.sunken")
+	entry.borderColor = liveColor("window.borderInner")
+	entry.textColor = liveColor("text.primary")
+end
+
+local function styleCombo(combo)
+	combo.backgroundColor = liveColor("surface.sunken")
+	combo.backgroundColorMouseOver = liveColor("button.bgHover")
+	combo.borderColor = liveColor("window.borderInner")
+	combo.textColor = liveColor("text.primary")
+end
+
+local function styleWidget(widget)
+	if widget.isButton then
+		Brand.skinButton(widget)
+	elseif widget.addItem and widget.itemheight then
+		Themes.styleList(widget)
+	elseif widget.addOption and widget.options then
+		styleCombo(widget)
+	elseif widget.getInternalText and widget.javaObject then
+		styleEntry(widget)
+	end
+end
+
+function Themes.applyPanel(panel, seen)
+	if not panel or not Brand.skinWindow then return end
+	seen = seen or {}
+	if seen[panel] then return end
+	seen[panel] = true
+	if panel.titleBarHeight then
+		Brand.skinWindow(panel)
+	end
+	local children = panel.getChildren and panel:getChildren() or {}
+	for i = 1, #children do
+		local child = children[i]
+		styleWidget(child)
+		Themes.applyPanel(child, seen)
+	end
 end
 
 function Themes.drawSwatch(panel, x, y, w, h, hex)

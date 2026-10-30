@@ -35,6 +35,7 @@ function ParadisePanels.Open(entry, ...)
     if instance.setVisible then instance:setVisible(true) end
     if instance.bringToTop then instance:bringToTop() end
     if entry.onOpen then entry.onOpen(instance, ...) end
+    if ParadiseThemes and ParadiseThemes.applyPanel then ParadiseThemes.applyPanel(instance) end
     return instance
 end
 

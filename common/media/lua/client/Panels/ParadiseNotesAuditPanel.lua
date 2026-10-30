@@ -35,7 +35,7 @@ function Panel:click(b)
 end
 local function open()
  if active then active:removeFromUIManager() end
- active=Panel:new(80,80,760,480);active:initialise();active:addToUIManager();send("list",{page=1})
+ active=Panel:new(80,80,760,480);active:initialise();if ParadiseThemes and ParadiseThemes.applyPanel then ParadiseThemes.applyPanel(active) end;active:addToUIManager();send("list",{page=1})
 end
 Events.OnFillWorldObjectContextMenu.Add(function(player,context,objects,test)
  if not test and ParadiseRestore.isAdm(getSpecificPlayer(player)) then context:addOption("Notes administration",nil,open) end

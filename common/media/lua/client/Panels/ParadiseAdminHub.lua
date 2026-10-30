@@ -75,6 +75,9 @@ function ParadiseAdminHub.getEntries()
     if ParadiseDev and ParadiseDev.Panels and ParadiseDev.Panels.PlaytimeCheck and ParadiseDev.Panels.PlaytimeCheck.OpenPanel then
         add("Playtime", function() ParadiseDev.Panels.PlaytimeCheck.OpenPanel() end)
     end
+    if ParadiseDev and ParadiseDev.Sniffer and ParadiseDev.Sniffer.startPick then
+        add("Sniffer", function() ParadiseDev.Sniffer.startPick() end)
+    end
     if ParadiseProductionDiagnostics and ParadiseProductionDiagnostics.isEnabled and ParadiseProductionDiagnostics.isEnabled() then
         if ParadiseDev and ParadiseDev.Panels and ParadiseDev.Panels.ModActiveCheck and ParadiseDev.Panels.ModActiveCheck.OpenPanel then
             add("Mod Check", function() ParadiseDev.Panels.ModActiveCheck.OpenPanel() end)

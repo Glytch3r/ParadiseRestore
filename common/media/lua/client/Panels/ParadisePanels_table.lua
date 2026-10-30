@@ -313,6 +313,35 @@ ParadisePanels.table = {
         end,
     },
     {
+        key = "dataSniffer",
+        isAdmOnly = true,
+        getModule = function() return ParadiseDev and ParadiseDev.Sniffer end,
+        getInstance = function() return ParadiseDev and ParadiseDev.Sniffer and ParadiseDev.Sniffer.window end,
+        setInstance = function(instance) ParadiseDev.Sniffer.window = instance end,
+        create = function()
+            local width = math.min(1360, getCore():getScreenWidth() - 40)
+            local height = math.min(720, getCore():getScreenHeight() - 40)
+            return initialise(ParadiseDev.Sniffer.Panel:new(
+                math.max(20, math.floor((getCore():getScreenWidth() - width) / 2)),
+                math.max(20, math.floor((getCore():getScreenHeight() - height) / 2)),
+                width,
+                height
+            ))
+        end,
+        onOpen = function(panel, square)
+            if square then
+                panel:scanSquare(square)
+            elseif not panel.square then
+                panel:refresh()
+            end
+        end,
+        onClose = function()
+            if ParadiseDev and ParadiseDev.Sniffer and ParadiseDev.Sniffer.cancelPick then
+                ParadiseDev.Sniffer.cancelPick()
+            end
+        end,
+    },
+    {
         key = "globalModData",
         isAdmOnly = true,
         getModule = function() return ParadiseDev and ParadiseDev.Panels and ParadiseDev.Panels.GlobalModData end,

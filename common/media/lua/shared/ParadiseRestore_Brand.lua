@@ -471,6 +471,7 @@ function ParadiseRestore.Brand.invalidate()
 	ParadiseRestore.Brand.listRaw = nil
 	ParadiseRestore.Brand.listCache = nil
 	ParadiseRestore.Brand.lastRawCheck = -1000
+	if ParadiseRestore.Brand.repaint then ParadiseRestore.Brand.repaint() end
 end
 
 function ParadiseRestore.Brand.getThemeList()
@@ -666,6 +667,26 @@ function ParadiseRestore.Brand.validate(def, list, ignoreKey)
 		end
 	end
 	return true, nil
+end
+
+ParadiseRestore.Brand.watchers = ParadiseRestore.Brand.watchers or {}
+
+function ParadiseRestore.Brand.addWatcher(fn)
+	if type(fn) ~= "function" then return end
+	local list = ParadiseRestore.Brand.watchers
+	for i = 1, #list do
+		if list[i] == fn then return end
+	end
+	list[#list + 1] = fn
+	fn()
+end
+
+function ParadiseRestore.Brand.notifyWatchers()
+	local list = ParadiseRestore.Brand.watchers
+	for i = 1, #list do
+		local ok, err = pcall(list[i])
+		if not ok then print("[ParadiseBrand] watcher failed: " .. tostring(err)) end
+	end
 end
 
 function ParadiseRestore.Brand.writeSandbox(raw)

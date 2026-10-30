@@ -500,6 +500,7 @@ function ParadiseDev.Context.openClearPanel(pl)
     end
     local panel = ParadiseDev.Context.ClearPanel:new(pl or getPlayer())
     panel:initialise()
+    if ParadiseThemes and ParadiseThemes.applyPanel then ParadiseThemes.applyPanel(panel) end
     panel:addToUIManager()
     ParadiseDev.Context.clearPanel = panel
 end

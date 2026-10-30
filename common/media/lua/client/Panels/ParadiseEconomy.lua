@@ -120,15 +120,69 @@ ParadiseEconomy.martLayout = {
     tabMaxW = 260,
 }
 
+ParadiseEconomy.ThemeTokens = {
+    windowBg = "window.titleBg",
+    panelBg = "surface.raised",
+    cardBg = "surface.raised",
+    cardBgAlt = "surface.base",
+    entryBg = "surface.sunken",
+    listBg = "surface.sunken",
+    buttonBg = "button.bg",
+    buttonHover = "button.bgHover",
+    headerBg = "tab.bg",
+    border = "window.border",
+    borderSoft = "window.borderInner",
+    accent = "accent.primary",
+    accentDim = "accent.secondary",
+    gold = "accent.glow",
+    green = "text.success",
+    warn = "accent.glow",
+    danger = "text.alert",
+    text = "text.primary",
+    textDim = "text.secondary",
+    textMuted = "text.muted",
+    rowSelected = "accent.secondary",
+    rowAlt = "surface.base",
+}
+
+ParadiseEconomy.ThemeAlpha = {
+    rowSelected = 0.85,
+    rowAlt = 0.65,
+}
+
+function ParadiseEconomy.applyTheme()
+    local Brand = ParadiseRestore and ParadiseRestore.Brand
+    if not Brand or not Brand.get then return end
+    local src = Brand.get()
+    if not src or not src.c then return end
+    local theme = ParadiseEconomy.Theme
+    for key, token in pairs(ParadiseEconomy.ThemeTokens) do
+        local color = src.c[token]
+        local slot = theme[key]
+        if color and slot then
+            slot.r, slot.g, slot.b = color.r, color.g, color.b
+            slot.a = ParadiseEconomy.ThemeAlpha[key] or color.a or 1
+        end
+    end
+end
+
+if ParadiseRestore and ParadiseRestore.Brand and ParadiseRestore.Brand.addWatcher then
+    ParadiseRestore.Brand.addWatcher(ParadiseEconomy.applyTheme)
+end
+
 function ParadiseEconomy.styleWindow(window)
     local theme = ParadiseEconomy.Theme
     window.backgroundColor = theme.windowBg
     window.borderColor = theme.border
     window.titleBarFont = UIFont.Medium
+    if ParadiseRestore and ParadiseRestore.Brand and ParadiseRestore.Brand.skinWindow then
+        ParadiseRestore.Brand.skinWindow(window)
+    end
 end
 
 function ParadiseEconomy.styleButton(button)
     local theme = ParadiseEconomy.Theme
+    button.paradiseSkinSkip = true
     button.backgroundColor = theme.buttonBg
     button.backgroundColorMouseOver = theme.buttonHover
     button.borderColor = theme.border
@@ -4900,6 +4954,7 @@ function ParadiseEconomy.AdminPanel:createChildren()
     self.accounts.doDrawItem = ParadiseEconomy.AdminPanel.drawAccount
     self.accounts:setOnMouseDownFunction(self, ParadiseEconomy.AdminPanel.selectAccount)
     self.accounts:setOnMouseDoubleClick(self, ParadiseEconomy.AdminPanel.onAccountDoubleClick)
+    self.accounts.panel = self
     self:addChild(self.accounts)
 
     self.tablesButton = ISButton:new(0, 74, 64, 20, "TABLES", self, ParadiseEconomy.AdminPanel.openTables)
@@ -5678,6 +5733,7 @@ end
 function ParadiseEconomy.AdminPanel:drawAccount(y, item, alt)
     local account = item.item
     local theme = ParadiseEconomy.Theme
+    local panel = self.panel or self.parent
     local selected = self.selected == item.index
     local rowH = self.itemheight
     if selected then
@@ -5689,24 +5745,24 @@ function ParadiseEconomy.AdminPanel:drawAccount(y, item, alt)
     end
     self:drawRect(0, y + rowH - 1, self.width, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
 
-    self:drawText(tostring(account.id or "?"), self.rowIdX, y + 17,
+    self:drawText(tostring(account.id or "?"), panel.rowIdX, y + 17,
         theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
     local title = tostring(account.title or account.owner or account.name or account.id or "?")
     if account.frozen == true then title = "[FROZEN] " .. title end
     local titleColor = account.frozen == true and theme.danger or theme.text
-    self:drawText(ParadiseEconomy.fitText(title, math.max(60, self.rowTypeX - 14 - self.rowOwnerX), UIFont.Medium),
-        self.rowOwnerX, y + 14, titleColor.r, titleColor.g, titleColor.b, 1, UIFont.Medium)
+    self:drawText(ParadiseEconomy.fitText(title, math.max(60, panel.rowTypeX - 14 - panel.rowOwnerX), UIFont.Medium),
+        panel.rowOwnerX, y + 14, titleColor.r, titleColor.g, titleColor.b, 1, UIFont.Medium)
     local typeLabel, typeColor = ParadiseEconomy.getAccountTypeStyle(account.type)
     local chipW = getTextManager():MeasureStringX(UIFont.Small, typeLabel) + 16
-    self:drawRect(self.rowTypeX, y + 15, chipW, 18, 0.16, typeColor.r, typeColor.g, typeColor.b)
-    self:drawRectBorder(self.rowTypeX, y + 15, chipW, 18, 0.6, typeColor.r, typeColor.g, typeColor.b)
-    self:drawText(typeLabel, self.rowTypeX + 8, y + 17, typeColor.r, typeColor.g, typeColor.b, 1, UIFont.Small)
+    self:drawRect(panel.rowTypeX, y + 15, chipW, 18, 0.16, typeColor.r, typeColor.g, typeColor.b)
+    self:drawRectBorder(panel.rowTypeX, y + 15, chipW, 18, 0.6, typeColor.r, typeColor.g, typeColor.b)
+    self:drawText(typeLabel, panel.rowTypeX + 8, y + 17, typeColor.r, typeColor.g, typeColor.b, 1, UIFont.Small)
 
     local buckets = ParadiseEconomy.getAccountBuckets(account)
     local bucket = buckets[1] and account[buckets[1].key] or nil
-    ParadiseEconomy.AdminPanel.drawCoinValue(self, self.rowJRight, y + 17,
+    ParadiseEconomy.AdminPanel.drawCoinValue(self, panel.rowJRight, y + 17,
         ParadiseEconomy.getBalance(bucket, "jimoleon"), theme.gold, ParadiseEconomy.icons.jimoleon)
-    ParadiseEconomy.AdminPanel.drawCoinValue(self, self.rowPRight, y + 17,
+    ParadiseEconomy.AdminPanel.drawCoinValue(self, panel.rowPRight, y + 17,
         ParadiseEconomy.getBalance(bucket, "paradisium"), theme.accent, ParadiseEconomy.icons.paradisium)
     return y + rowH
 end

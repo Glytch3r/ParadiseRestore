@@ -149,6 +149,7 @@ function Brand.skinTabs(panel)
 end
 
 function Brand.skinButton(btn)
+	if btn.paradiseSkinSkip then return end
 	if btn.paradiseSkin then
 		applyButtonColors(btn)
 		return
@@ -292,6 +293,7 @@ function Brand.repaint()
 			end
 		end
 	end
+	if Brand.notifyWatchers then Brand.notifyWatchers() end
 end
 
 function Brand.hookWindow()

@@ -72,7 +72,7 @@ function ParadiseCloner.openPanel(target)
     panel.owner = owner
     panel.targetUsername = target.getUsername and target:getUsername() or tostring(target)
     panel.title = "Paradise Loadout Record - " .. tostring(target.getUsername and target:getUsername() or target)
-    panel:initialise(); panel:addToUIManager(); ParadiseCloner.panels[owner] = panel
+    panel:initialise(); if ParadiseThemes and ParadiseThemes.applyPanel then ParadiseThemes.applyPanel(panel) end; panel:addToUIManager(); ParadiseCloner.panels[owner] = panel
     if owner ~= ParadiseCloner.ownerKey(getPlayer()) then sendClientCommand(getPlayer(), ParadiseCloner.module, "fetch", { owner = owner }) end
 end
 
