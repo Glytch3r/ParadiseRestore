@@ -35,10 +35,14 @@ function ParadiseAdminHub.getEntries()
             add("Trade Management", function() ParadiseEconomy.TradeManagementPanel.OpenPanel() end)
         end
     end
-
     if RecordsPanel and RecordsPanel.OpenPanel then
         add("Records", function() RecordsPanel.OpenPanel() end)
     end
+    if ParadiseDev and ParadiseDev.Builder and ParadiseDev.Builder.OpenPanel then
+        add("UI Builder", function() ParadiseDev.Builder.OpenPanel() end)
+    end
+
+
     if ParadiseDev and ParadiseDev.SafehouseAdmin and ParadiseDev.SafehouseAdmin.OpenPanel then
         add("Safehouse Records", function() ParadiseDev.SafehouseAdmin.OpenPanel(getPlayer()) end)
     end
