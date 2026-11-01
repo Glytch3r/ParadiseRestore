@@ -32,6 +32,8 @@ Events.OnZombieUpdate.Add(ParadiseZ.ZedReactToScareCrow)
 
 function ParadiseZ.isScareCrow(pl)
     if not pl then return false end
+    if pl.getOutfitName and pl:getOutfitName() == "ScareCrow" then return true end
+    if not pl.getWornItems then return false end
     local worn = pl:getWornItems()
     if not worn then return false end
     for i = 0, worn:size() - 1 do
@@ -44,14 +46,18 @@ function ParadiseZ.isScareCrow(pl)
 end
 
 function ParadiseZ.updateScareCrow(plNum, pl)
-    pl = pl or getPlayer()
-    if not pl then return end
+    local localPl = getPlayer()
+    if not localPl then return end
+    if pl and pl ~= localPl then return end
+    pl = localPl
     local isScareCrow = ParadiseZ.isScareCrow(pl)
     if pl:getVariableBoolean("isScareCrow") ~= isScareCrow then
         pl:setVariable("isScareCrow", isScareCrow)
-        if isClient() then
-            sendClientCommand("ParadiseZ", "isScareCrow", { isScareCrow = isScareCrow })
-        end
+    end
+    local md = pl:getModData()
+    if md and md.isScareCrow ~= isScareCrow then
+        md.isScareCrow = isScareCrow
+        if isClient() and pl.transmitModData then pl:transmitModData() end
     end
 end
 Events.OnCreatePlayer.Remove(ParadiseZ.updateScareCrow)
@@ -59,15 +65,79 @@ Events.OnCreatePlayer.Add(ParadiseZ.updateScareCrow)
 Events.OnClothingUpdated.Remove(ParadiseZ.updateScareCrow)
 Events.OnClothingUpdated.Add(ParadiseZ.updateScareCrow)
 
-function ParadiseZ.onScareCrowCommand(module, command, args)
-    if module ~= "ParadiseZ" or command ~= "isScareCrow" or not args or not args.id then return end
-    local pl = getPlayerByOnlineID(args.id)
-    if pl and pl ~= getPlayer() then
-        pl:setVariable("isScareCrow", args.isScareCrow == true)
+function ParadiseZ.syncScareCrowRemote()
+    local pl = getPlayer()
+    local players = getOnlinePlayers and getOnlinePlayers() or nil
+    if not pl or not players then return end
+    for i = 0, players:size() - 1 do
+        local targPl = players:get(i)
+        if targPl and targPl ~= pl then
+            local md = targPl:getModData()
+            local isScareCrow = md and md.isScareCrow == true or false
+            if targPl:getVariableBoolean("isScareCrow") ~= isScareCrow then
+                targPl:setVariable("isScareCrow", isScareCrow)
+            end
+        end
     end
 end
-Events.OnServerCommand.Remove(ParadiseZ.onScareCrowCommand)
-Events.OnServerCommand.Add(ParadiseZ.onScareCrowCommand)
+Events.OnTick.Remove(ParadiseZ.syncScareCrowRemote)
+Events.OnTick.Add(ParadiseZ.syncScareCrowRemote)
+
+function ParadiseZ.isScareCrowZed(zed)
+    return ParadiseZ.isScareCrow(zed)
+end
+
+function ParadiseZ.updateScareCrowZed(zed)
+    if not zed then return end
+    local isScareCrow = ParadiseZ.isScareCrowZed(zed)
+    if zed:getVariableBoolean("isScareCrow") ~= isScareCrow then
+        zed:setVariable("isScareCrow", isScareCrow)
+    end
+end
+Events.OnZombieUpdate.Remove(ParadiseZ.updateScareCrowZed)
+Events.OnZombieUpdate.Add(ParadiseZ.updateScareCrowZed)
+
+function ParadiseZ.clear()
+    local pl = getPlayer()
+    if not pl then return end
+    pl:clearWornItems()
+    pl:getInventory():clear()
+    pl:resetModel()
+    triggerEvent("OnClothingUpdated", pl)
+end
+
+function ParadiseZ.wearFit(pl, fType)
+    pl = pl or getPlayer()
+    if not pl or not fType then return end
+    local item = InventoryItemFactory.CreateItem(fType)
+    if not item then return end
+    local equip = pl:getInventory():addItem(item)
+    if not equip then return end
+    pl:setWornItem(equip:getBodyLocation(), equip)
+    pl:resetModelNextFrame()
+    triggerEvent("OnClothingUpdated", pl)
+end
+
+function ParadiseZ.crow(bool)
+    local pl = getPlayer()
+    if not pl then return end
+    ParadiseZ.clear()
+    if bool ~= false then
+        ParadiseZ.wearFit(pl, "Skin.ScareCrow")
+    end
+    triggerEvent("OnClothingUpdated", pl)
+end
+
+function ParadiseZ.dead(plZed)
+    local pl = getPlayer()
+    if not pl or plZed ~= pl then return end
+    if pl:getVariableBoolean("isScareCrow") ~= true and pl:getModData()["isScareCrow"] ~= true then return end
+    pl:clearWornItems()
+    pl:getInventory():clear()
+    if pl.setSkeleton then pl:setSkeleton(true) end
+end
+Events.OnPlayerDeath.Remove(ParadiseZ.dead)
+Events.OnPlayerDeath.Add(ParadiseZ.dead)
 
 function ParadiseZ.getWalkType(zed)
 	return tostring(zed:getVariableString("zombieWalkType"))

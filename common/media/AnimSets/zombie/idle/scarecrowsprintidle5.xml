@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animNode>
+	<m_Name>ScareCrowSprintIdle5</m_Name>
+	<m_AnimName>ZedScareCrowIdle</m_AnimName>
+	<m_Priority>4</m_Priority>
+	<m_BlendTime>0.35</m_BlendTime>
+	<m_SpeedScale>0.23</m_SpeedScale>
+	<m_randomAdvanceFraction>0.50</m_randomAdvanceFraction>
+	<m_Transitions>
+		<m_Target>lunge1</m_Target>
+		<m_blendInTime>0.5</m_blendInTime>
+		<m_blendOutTime>0.5</m_blendOutTime>
+	</m_Transitions>
+	<m_Transitions>
+		<m_Target>lunge2</m_Target>
+		<m_blendInTime>0.5</m_blendInTime>
+		<m_blendOutTime>0.5</m_blendOutTime>
+	</m_Transitions>
+	<m_Transitions>
+		<m_Target>GrappledDefault</m_Target>
+		<m_blendInTime>0.5</m_blendInTime>
+		<m_blendOutTime>0.5</m_blendOutTime>
+	</m_Transitions>
+	<m_Conditions>
+		<m_Name>isScareCrow</m_Name>
+		<m_Type>BOOL</m_Type>
+		<m_BoolValue>true</m_BoolValue>
+	</m_Conditions>
+	<m_Conditions>
+		<m_Name>isSprintZone</m_Name>
+		<m_Type>BOOL</m_Type>
+		<m_BoolValue>true</m_BoolValue>
+	</m_Conditions>
+	<m_Conditions>
+		<m_Name>zombieWalkType</m_Name>
+		<m_Type>STRING</m_Type>
+		<m_StringValue>sprint5</m_StringValue>
+	</m_Conditions>
+</animNode>

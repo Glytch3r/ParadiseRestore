@@ -107,18 +107,6 @@ local function isCaged(target)
     return traits and traits.contains and traits:contains("ParadiseDev:Caged") == true or false
 end
 
-local function hasScareCrow(target)
-    if ParadiseZ.isScareCrow then return ParadiseZ.isScareCrow(target) == true end
-    if target.getVariableBoolean and target:getVariableBoolean("isScareCrow") then return true end
-    local worn = target.getWornItems and target:getWornItems() or nil
-    if not worn then return false end
-    for index = 0, worn:size() - 1 do
-        local item = worn:get(index):getItem()
-        if item and item:getFullType() == "Skin.ScareCrow" then return true end
-    end
-    return false
-end
-
 local function hasRole(target, wanted)
     local role = target and target.getRole and target:getRole() or nil
     return role and string.lower(tostring(role:getName())) == wanted or false
@@ -310,7 +298,6 @@ function ParadiseZ.setTag(target)
         runtime.players[target] = record
     end
     updateRecord(record)
-    if target:getUsername() == "Glytch3r" and target.setVariable then target:setVariable("isScareCrow", hasScareCrow(target)) end
 end
 function ParadiseZ.setSuspectTag(target) ParadiseZ.setTag(target) end
 function ParadiseZ.doTagCheck(target) ParadiseZ.setTag(target) end

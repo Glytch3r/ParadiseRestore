@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animNode>
+	<m_Name>ScareCrowPathfind2</m_Name>
+	<m_AnimName>ZedScareCrowWalk</m_AnimName>
+	<m_Priority>4</m_Priority>
+	<m_BlendTime>0.35</m_BlendTime>
+	<m_SpeedScale>1.04</m_SpeedScale>
+	<m_randomAdvanceFraction>0.25</m_randomAdvanceFraction>
+	<m_Conditions>
+		<m_Name>isScareCrow</m_Name>
+		<m_Type>BOOL</m_Type>
+		<m_BoolValue>true</m_BoolValue>
+	</m_Conditions>
+	<m_Conditions>
+		<m_Name>bMoving</m_Name>
+		<m_Type>BOOL</m_Type>
+		<m_BoolValue>true</m_BoolValue>
+	</m_Conditions>
+	<m_Conditions>
+		<m_Name>intrees</m_Name>
+		<m_Type>BOOL</m_Type>
+		<m_BoolValue>false</m_BoolValue>
+	</m_Conditions>
+	<m_Conditions>
+		<m_Name>useRagdollVehicleCollison</m_Name>
+		<m_Type>BOOL</m_Type>
+		<m_BoolValue>false</m_BoolValue>
+	</m_Conditions>
+	<m_Conditions>
+		<m_Name>zombieWalkType</m_Name>
+		<m_Type>STRING</m_Type>
+		<m_StringValue>2</m_StringValue>
+	</m_Conditions>
+	<m_Events>
+		<m_EventName>Footstep</m_EventName>
+		<m_TimePc>0.15</m_TimePc>
+		<m_ParameterValue>walk</m_ParameterValue>
+	</m_Events>
+	<m_Events>
+		<m_EventName>Footstep</m_EventName>
+		<m_TimePc>0.6</m_TimePc>
+		<m_ParameterValue>walk</m_ParameterValue>
+	</m_Events>
+</animNode>
