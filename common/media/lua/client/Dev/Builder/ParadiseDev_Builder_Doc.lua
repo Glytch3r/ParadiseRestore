@@ -9,6 +9,8 @@ if not Builder.isB41 then
 end
 if Builder.isB41() then return end
 
+require "Dev/Builder/ParadiseDev_Builder_Schema"
+
 Builder.Doc = Builder.Doc or {}
 local Doc = Builder.Doc
 local Schema = Builder.Schema
@@ -16,6 +18,7 @@ local Schema = Builder.Schema
 Doc.FOLDER = "Builder/"
 Doc.EXT = ".txt"
 Doc.VERSION = 1
+Doc.saved = {}
 
 local ESCAPES = {
     { raw = "\\", code = "\\" },
@@ -68,20 +71,31 @@ function Doc.sanitize(value)
     return str
 end
 
-function Doc.newDoc(className)
+function Doc.moduleName(className)
+    local stripped = string.match(className, "^(.-)Panel$")
+    if not stripped or stripped == "" then return className .. "UI" end
+    return stripped
+end
+
+function Doc.newSettings(className)
     local name = Doc.sanitize(className or "MyFeaturePanel")
-    local doc = {
-        name = name,
-        nextId = 1,
-        elements = {},
-        settings = {
-            className = name,
-            namespace = "ParadiseDev.Panels",
-            panelKey = string.gsub(name, "^.", function(first) return string.lower(first) end),
-            adminOnly = true,
-            sectionLabel = "ParadiseDev",
-        },
+    return {
+        className = name,
+        module = Doc.moduleName(name),
+        namespace = "ParadiseDev.Panels",
+        panelKey = string.gsub(name, "^.", function(first) return string.lower(first) end),
+        adminOnly = true,
+        sectionLabel = "ParadiseDev",
+        openers = { "debug" },
+        bindName = "ToggleParadiseUIBuilder",
+        bindKey = "Keyboard.KEY_F9",
+        menuText = name,
     }
+end
+
+function Doc.newDoc(className)
+    local settings = Doc.newSettings(className or "MyFeaturePanel")
+    local doc = { name = settings.className, nextId = 1, elements = {}, settings = settings }
     local root = Doc.addElement(doc, "ISCollapsableWindow", nil)
     root.name = "panel"
     root.props.title = "My Panel"
@@ -133,8 +147,25 @@ function Doc.uniqueName(doc, parentId, base)
     return name .. suffix
 end
 
+function Doc.coerce(text)
+    if text == "true" then return true end
+    if text == "false" then return false end
+    local number = tonumber(text)
+    if number then return number end
+    return text
+end
+
+function Doc.baseName(type)
+    local stripped = string.sub(type, 3)
+    if string.sub(stripped, 1, 1) == string.upper(string.sub(stripped, 1, 1)) then
+        stripped = string.lower(string.sub(stripped, 1, 1)) .. string.sub(stripped, 2)
+    end
+    return stripped
+end
+
 function Doc.addElement(doc, type, parentId)
-    if not Schema.isKnown(type) then
+    local spec = Schema.get(type)
+    if not spec then
         return nil, "unknown element type: " .. tostring(type)
     end
     local parent = nil
@@ -142,27 +173,29 @@ function Doc.addElement(doc, type, parentId)
         parent = doc.elements[parentId]
         if not parent then return nil, "unknown parent id" end
         if not Schema.acceptsChildren(parent.type) then
-            parent = nil
+            parent = Doc.root(doc)
         end
+    else
+        parent = Doc.root(doc)
     end
-    if not parent then parent = Doc.root(doc) end
-    if not parent then return nil, "document has no root element" end
+    if not parent and not spec.acceptsChildren then
+        return nil, "a layout root must be able to contain children"
+    end
 
     local id = doc.nextId
     doc.nextId = doc.nextId + 1
-    local base = string.gsub(type, "^IS", string.lower(string.sub(type, 3, 3)))
     local element = {
         id = id,
         type = type,
-        name = Doc.uniqueName(doc, parent.id, base),
-        parentId = parent.id,
+        parentId = parent and parent.id or nil,
         childIds = {},
         props = Schema.newProps(type),
     }
+    element.name = Doc.uniqueName(doc, element.parentId, Doc.baseName(type))
+    doc.elements[id] = element
+    if parent then parent.childIds[#parent.childIds + 1] = id end
     element.props.x = 10
     element.props.y = 10
-    doc.elements[id] = element
-    parent.childIds[#parent.childIds + 1] = id
     return element
 end
 
@@ -236,27 +269,67 @@ function Doc.splitList(value)
     return list
 end
 
-function Doc.ctorProps(type)
-    local spec = Schema.elements[type]
-    local list = {}
-    if not spec then return list end
-    for _, entry in ipairs(spec.ctor) do
-        if not string.match(entry, "^@") and not spec.readOnly[entry] then
-            list[#list + 1] = entry
+function Doc.tag(value)
+    if type(value) == "number" then return "n" end
+    if type(value) == "boolean" then return "b" end
+    if Doc.isColor(value) then return "c" end
+    return "s"
+end
+
+function Doc.isColor(value)
+    return type(value) == "table"
+        and type(rawget(value, "r")) == "number"
+        and type(rawget(value, "g")) == "number"
+        and type(rawget(value, "b")) == "number"
+end
+
+Doc.settingKeys = {
+    { key = "class", field = "className" },
+    { key = "module", field = "module" },
+    { key = "namespace", field = "namespace" },
+    { key = "key", field = "panelKey" },
+    { key = "admOnly", field = "adminOnly", bool = true },
+    { key = "section", field = "sectionLabel" },
+    { key = "openers", field = "openers", list = true },
+    { key = "bindName", field = "bindName" },
+    { key = "bindKey", field = "bindKey" },
+    { key = "menuText", field = "menuText" },
+}
+
+function Doc.encodeSettings(settings)
+    local parts = {}
+    for _, entry in ipairs(Doc.settingKeys) do
+        local value = settings[entry.field]
+        if value ~= nil then
+            if entry.list then
+                value = table.concat(value, ",")
+            elseif entry.bool then
+                value = tostring(value and true or false)
+            end
+            parts[#parts + 1] = entry.key .. "=" .. Doc.escape(value)
         end
     end
-    return list
+    return "s=" .. table.concat(parts, ";")
+end
+
+function Doc.applySetting(settings, key, value)
+    for _, entry in ipairs(Doc.settingKeys) do
+        if entry.key == key then
+            if entry.list then
+                settings[entry.field] = Doc.splitList(value)
+            elseif entry.bool then
+                settings[entry.field] = value == "true"
+            else
+                settings[entry.field] = value
+            end
+            return true
+        end
+    end
+    return false
 end
 
 function Doc.encode(doc)
-    local lines = { "v=" .. Doc.VERSION }
-    local settings = doc.settings
-    lines[#lines + 1] = table.concat({
-        "s=class=" .. Doc.escape(settings.className),
-        "namespace=" .. Doc.escape(settings.namespace),
-        "key=" .. Doc.escape(settings.panelKey),
-        "admOnly=" .. tostring(settings.adminOnly and true or false),
-    }, ";")
+    local lines = { "v=" .. Doc.VERSION, Doc.encodeSettings(doc.settings) }
 
     local ids = {}
     for id in pairs(doc.elements) do ids[#ids + 1] = id end
@@ -264,122 +337,96 @@ function Doc.encode(doc)
 
     for _, id in ipairs(ids) do
         local element = doc.elements[id]
-        local parent = element.parentId or 0
-        local pairs_ = {}
-        for _, prop in ipairs(Doc.ctorProps(element.type)) do
-            pairs_[#pairs_ + 1] = prop .. "=" .. Doc.escape(element.props[prop])
-        end
-        lines[#lines + 1] = table.concat({ "e=" .. id, element.type, element.name, parent, table.concat(pairs_, ",") }, "|")
-        local otherKeys = {}
-        for key in pairs(element.props) do
-            if key ~= "x" and key ~= "y" and key ~= "width" and key ~= "height" then
-                otherKeys[#otherKeys + 1] = key
+        lines[#lines + 1] = table.concat({
+            "e=" .. id, element.type, Doc.escape(element.name), tostring(element.parentId or 0),
+        }, "|")
+
+        local keys = {}
+        for key in pairs(element.props) do keys[#keys + 1] = key end
+        table.sort(keys)
+        for _, key in ipairs(keys) do
+            local value = element.props[key]
+            local tag = Doc.tag(value)
+            local text
+            if tag == "c" then
+                text = table.concat({ value.r, value.g, value.b, value.a or 1 }, ":")
+            else
+                text = tostring(value)
             end
-        end
-        table.sort(otherKeys)
-        for _, key in ipairs(otherKeys) do
-            local spec = Schema.elements[element.type]
-            local inCtor = false
-            for _, entry in ipairs(spec and spec.ctor or {}) do
-                if entry == key then inCtor = true break end
-            end
-            if not inCtor then
-                local value = element.props[key]
-                local text = nil
-                if type(value) == "table" then
-                    if value.r then text = table.concat({ value.r, value.g, value.b, value.a }, ":") end
-                else
-                    text = tostring(value)
-                end
-                if text then
-                    lines[#lines + 1] = table.concat({ "p=" .. id, key, Doc.escape(text) }, "|")
-                end
-            end
+            lines[#lines + 1] = table.concat({ "p=" .. id, Doc.escape(key), tag, Doc.escape(text) }, "|")
         end
     end
     return table.concat(lines, "\n")
 end
 
+function Doc.applyValue(element, key, tag, text)
+    local value = Doc.unescape(text)
+    if tag == "n" then
+        element.props[key] = tonumber(value)
+    elseif tag == "b" then
+        element.props[key] = value == "true"
+    elseif tag == "c" then
+        local channels = {}
+        for part in string.gmatch(value, "([^:]+)") do channels[#channels + 1] = tonumber(part) end
+        element.props[key] = {
+            r = channels[1] or 0, g = channels[2] or 0,
+            b = channels[3] or 0, a = channels[4] or 1,
+        }
+    else
+        element.props[key] = value
+    end
+end
+
 function Doc.decode(text)
     if type(text) ~= "string" or text == "" then return nil, "empty layout" end
-    local doc = { name = "MyFeaturePanel", nextId = 1, elements = {}, settings = { className = "MyFeaturePanel", namespace = "ParadiseDev.Panels", panelKey = "myFeaturePanel", adminOnly = true, sectionLabel = "ParadiseDev" } }
-    local pending = {}
+    local doc = {
+        name = "MyFeaturePanel", nextId = 1, elements = {},
+        settings = Doc.newSettings("MyFeaturePanel"),
+    }
     local version = 0
 
     for line in string.gmatch(text, "([^\r\n]+)") do
         local head = string.match(line, "^([^=]+)=")
-        local body = string.sub(line, #head + 2)
-        if head == "v" then
-            version = tonumber(body) or 0
-        elseif head == "s" then
-            for entry in string.gmatch(body, "([^;]+)") do
-                local key = string.match(entry, "^([^=]+)")
-                local value = string.sub(entry, #key + 2)
-                key = Doc.unescape(key)
-                value = Doc.unescape(value)
-                if key == "class" then
-                    doc.settings.className = value
-                    doc.name = value
-                elseif key == "namespace" then
-                    doc.settings.namespace = value
-                elseif key == "key" then
-                    doc.settings.panelKey = value
-                elseif key == "admOnly" then
-                    doc.settings.adminOnly = value == "true"
-                end
-            end
-        elseif head == "e" then
+        if head then
+            local body = string.sub(line, #head + 2)
             local fields = {}
             for part in string.gmatch(body .. "|", "(.-)|") do fields[#fields + 1] = part end
-            local id = tonumber(string.match(fields[1] or "", "^([^=]+)="))
-            local type = fields[2]
-            if not id or not type then return nil, "malformed element line: " .. line end
-            if not Schema.isKnown(type) then
-                pending[#pending + 1] = { skip = id }
-                print("[ParadiseDev.Builder] skipping unknown element type at index " .. tostring(id) .. ": " .. type)
-            else
-                local element = {
-                    id = id,
-                    type = type,
-                    name = Doc.unescape(fields[3] or "element"),
-                    parentId = tonumber(fields[4]) or 0,
-                    childIds = {},
-                    props = Schema.newProps(type),
-                }
-                for pair in string.gmatch(fields[5] or "", "([^,]+)") do
-                    local key = string.match(pair, "^([^=]+)")
-                    local value = string.sub(pair, #key + 2)
-                    if key then
-                        local unescaped = Doc.unescape(value)
-                        element.props[Doc.unescape(key)] = tonumber(unescaped) or unescaped
+            if head == "v" then
+                version = tonumber(fields[1]) or 0
+            elseif head == "s" then
+                for entry in string.gmatch(body, "([^;]+)") do
+                    local key = string.match(entry, "^([^=]+)")
+                    local value = string.sub(entry, #key + 2)
+                    key = Doc.unescape(key)
+                    value = Doc.unescape(value)
+                    if Doc.applySetting(doc.settings, key, value) and key == "class" then
+                        doc.name = value
                     end
                 end
-                doc.elements[id] = element
-                if id >= doc.nextId then doc.nextId = id + 1 end
-            end
-        elseif head == "p" then
-            local fields = {}
-            for part in string.gmatch(body .. "|", "(.-)|") do fields[#fields + 1] = part end
-            local id = tonumber(string.match(fields[1] or "", "^([^=]+)="))
-            local element = id and doc.elements[id] or nil
-            if element and fields[2] then
-                local value = Doc.unescape(fields[3] or "")
-                local number = tonumber(value)
-                if number then
-                    element.props[Doc.unescape(fields[2])] = number
-                elseif string.find(value, ":") then
-                    local col = { r = 0, g = 0, b = 0, a = 1 }
-                    local channels = {}
-                    for part in string.gmatch(value, "([^:]+)") do channels[#channels + 1] = tonumber(part) or 0 end
-                    col.r = channels[1] or 0
-                    col.g = channels[2] or 0
-                    col.b = channels[3] or 0
-                    col.a = channels[4] or 1
-                    element.props[Doc.unescape(fields[2])] = col
-                elseif value == "true" or value == "false" then
-                    element.props[Doc.unescape(fields[2])] = value == "true"
+            elseif head == "e" then
+                local id = tonumber(fields[1])
+                local type = fields[2]
+                if not id or not type then return nil, "malformed element line: " .. line end
+                if not Schema.isKnown(type) then
+                    print("[ParadiseDev.Builder] skipping unknown element type at index " .. tostring(id) .. ": " .. type)
+                    doc.skipped = doc.skipped or {}
+                    doc.skipped[id] = type
                 else
-                    element.props[Doc.unescape(fields[2])] = value
+                    doc.elements[id] = {
+                        id = id,
+                        type = type,
+                        name = Doc.unescape(fields[3] or "element"),
+                        parentId = tonumber(fields[4]) or 0,
+                        childIds = {},
+                        props = Schema.newProps(type),
+                    }
+                    if id >= doc.nextId then doc.nextId = id + 1 end
+                end
+            elseif head == "p" then
+                local id = tonumber(fields[1])
+                local element = id and doc.elements[id] or nil
+                if element and fields[2] then
+                    Doc.applyValue(element, Doc.unescape(fields[2]), fields[3] or "s", fields[4] or "")
                 end
             end
         end
@@ -387,25 +434,35 @@ function Doc.decode(text)
 
     if version < 1 then return nil, "layout is missing a version header" end
 
+    if doc.skipped then
+        for _, element in pairs(doc.elements) do
+            if doc.skipped[element.parentId] then element.parentId = 0 end
+        end
+        doc.skipped = nil
+    end
+
     for _, element in pairs(doc.elements) do
-        local parent = element.parentId and doc.elements[element.parentId] or nil
+        local parent = element.parentId ~= 0 and doc.elements[element.parentId] or nil
         if parent and Schema.acceptsChildren(parent.type) then
             parent.childIds[#parent.childIds + 1] = element.id
-        elseif not parent then
+        else
             element.parentId = nil
         end
     end
-    for _, element in pairs(doc.elements) do
-        if not element.parentId then
-            if Doc.root(doc) then return nil, "layout declares more than one root element" end
-        end
-    end
     if not Doc.root(doc) then return nil, "layout has no root element" end
+    for _, element in pairs(doc.elements) do
+        if element.parentId == 0 then element.parentId = nil end
+    end
+    local roots = 0
+    for _, element in pairs(doc.elements) do
+        if not element.parentId then roots = roots + 1 end
+    end
+    if roots > 1 then return nil, "layout declares more than one root element" end
     return doc
 end
 
 function Doc.fileName(name)
-    return Doc.FOLDER .. tostring(name or Doc.defaultName()) .. Doc.EXT
+    return Doc.FOLDER .. Doc.sanitize(name or Doc.defaultName()) .. Doc.EXT
 end
 
 function Doc.defaultName()
@@ -415,23 +472,25 @@ end
 function Doc.save(name, doc)
     doc = doc or Builder.doc
     if not doc then return false, "no document" end
-    local ok, writer = pcall(getFileWriter, Doc.fileName(name), true, false)
-    if not ok or not writer then return false, "unable to open " .. Doc.fileName(name) end
+    local target = name or doc.settings.className
+    local ok, writer = pcall(getFileWriter, Doc.fileName(target), true, false)
+    if not ok or not writer then return false, "unable to open " .. Doc.fileName(target) end
     writer:write(Doc.encode(doc))
     writer:close()
-    return true, Doc.fileName(name)
+    Doc.saved[target] = true
+    return true, Doc.fileName(target)
 end
 
 function Doc.read(name)
-    local ok, reader = pcall(getFileReader, Doc.fileName(name), true)
+    local ok, reader = pcall(getFileReader, Doc.fileName(name), false)
     if not ok or not reader then return nil, "no such layout: " .. Doc.fileName(name) end
     local lines = {}
-    local line = reader:readLine()
-    while line do
+    local readOk, line = pcall(reader.readLine, reader)
+    while readOk and line do
         lines[#lines + 1] = line
-        line = reader:readLine()
+        readOk, line = pcall(reader.readLine, reader)
     end
-    reader:close()
+    pcall(reader.close, reader)
     return table.concat(lines, "\n")
 end
 
@@ -441,23 +500,13 @@ function Doc.load(name)
     local doc, decodeErr = Doc.decode(text)
     if not doc then return nil, decodeErr end
     Builder.doc = doc
+    Doc.saved[name] = true
     return doc
 end
 
 function Doc.listSaved()
     local names = {}
-    local ok, dir = pcall(getFolderFileList, "media/")
-    if not ok or not dir then return names end
-    for index = 0, dir:size() - 1 do
-        local item = dir:get(index)
-        local path = tostring(item:getPath())
-        local folder = string.gsub(Doc.FOLDER, "/", "\\")
-        if string.find(string.upper(path), "\\LUA\\" .. string.upper(folder)) then
-            local leaf = string.match(path, "[^\\]+$")
-            local base = string.match(leaf, "^(.-)" .. Doc.EXT)
-            if base then names[#names + 1] = base end
-        end
-    end
+    for name in pairs(Doc.saved) do names[#names + 1] = name end
     table.sort(names)
     return names
 end

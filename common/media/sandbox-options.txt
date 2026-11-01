@@ -884,6 +884,18 @@ option ParadiseZ.PlayerShopTaxPercent
     page = ParadiseEconomy, translation = ParadiseZ_PlayerShopTaxPercent,
 }
 
+option ParadiseZ.ServerStartJimoleon
+{
+    type = integer, min = 0, max = 2147483647, default = 1000000,
+    page = ParadiseEconomy, translation = ParadiseZ_ServerStartJimoleon,
+}
+
+option ParadiseZ.ServerStartParadisium
+{
+    type = integer, min = 0, max = 2147483647, default = 0,
+    page = ParadiseEconomy, translation = ParadiseZ_ServerStartParadisium,
+}
+
 option ParadiseZ.MerchantLeaseDays
 {
     type = integer, min = 0, max = 365, default = 7,

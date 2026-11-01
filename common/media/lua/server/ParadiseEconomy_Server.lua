@@ -13,6 +13,10 @@ local function ensureBucket(tab)
     return tab
 end
 
+local function seedCurrency(bucket, currency)
+    bucket[currency] = math.min(ParadiseEconomy.maxBalance, bucket[currency] + ParadiseEconomy.getServerStartBalance(currency))
+end
+
 function ParadiseEconomy.ensureServerAccount(store)
     store.accounts = store.accounts or {}
     local account = store.accounts[ParadiseEconomy.serverAccountId]
@@ -29,6 +33,11 @@ function ParadiseEconomy.ensureServerAccount(store)
     account.type = "server"
     account.name = account.name or "Server"
     account.balances = ensureBucket(account.balances)
+    if account.startSeeded ~= true then
+        seedCurrency(account.balances, "jimoleon")
+        seedCurrency(account.balances, "paradisium")
+        account.startSeeded = true
+    end
     return account
 end
 

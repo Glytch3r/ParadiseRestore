@@ -322,6 +322,16 @@ function ParadiseEconomy.getPlayerShopTaxPercent()
     return math.max(0, math.min(100, percent))
 end
 
+function ParadiseEconomy.getServerStartBalance(currency)
+    currency = ParadiseEconomy.normalizeCurrency(currency)
+    if not currency then return 0 end
+    local sand = SandboxVars and SandboxVars.ParadiseZ or nil
+    local key = currency == "paradisium" and "ServerStartParadisium" or "ServerStartJimoleon"
+    local amount = tonumber(sand and sand[key])
+    if not amount then amount = currency == "paradisium" and 0 or 1000000 end
+    return math.max(0, math.min(ParadiseEconomy.maxBalance, math.floor(amount)))
+end
+
 function ParadiseEconomy.normalizeTradeTaxPercent(percent)
     percent = tonumber(percent)
     if not percent then return nil end

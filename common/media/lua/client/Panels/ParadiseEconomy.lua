@@ -49,9 +49,11 @@ ParadiseEconomy.accountFilterTypes = ParadiseEconomy.accountFilterTypes or {
     { key = "personal", label = "Personal" },
     { key = "merchant", label = "Merchant" },
     { key = "trade", label = "Trade" },
+    { key = "finance", label = "Finance" },
     { key = "server", label = "Server" },
     { key = "custom", label = "Custom / Future" },
 }
+ParadiseEconomy.adminTypeFilter = ParadiseEconomy.adminTypeFilter or {}
 ParadiseEconomy.accountCreateTypes = ParadiseEconomy.accountCreateTypes or {
     { key = "personal", label = "Personal" },
     { key = "merchant", label = "Merchant" },
@@ -369,8 +371,50 @@ function ParadiseEconomy.getAccountTypeStyle(accountType)
     if accountType == "personal" then return "PERSONAL", theme.accent end
     if accountType == "merchant" then return "MERCHANT", theme.gold end
     if accountType == "trade" then return "TRADE", theme.green end
+    if accountType == "finance" then return "FINANCE", theme.accentDim end
     if accountType == "server" then return "SERVER", theme.warn end
     return "CUSTOM", theme.textDim
+end
+
+function ParadiseEconomy.isAccountFilterType(accountType)
+    for _, entry in ipairs(ParadiseEconomy.accountFilterTypes) do
+        if entry.key == accountType then return true end
+    end
+    return false
+end
+
+function ParadiseEconomy.getAccountFilterType(accountType)
+    return ParadiseEconomy.isAccountFilterType(accountType) and accountType or "custom"
+end
+
+function ParadiseEconomy.defaultAccountTypeFilter()
+    local tab = {}
+    for _, entry in ipairs(ParadiseEconomy.accountFilterTypes) do
+        if entry.key ~= "all" then tab[entry.key] = true end
+    end
+    return tab
+end
+
+function ParadiseEconomy.loadAdminTypeFilter()
+    local tab = ParadiseEconomy.defaultAccountTypeFilter()
+    local saved = ParadiseEconomy.adminTypeFilter
+    if type(saved) == "table" then
+        for key in pairs(tab) do
+            if saved[key] ~= nil then tab[key] = saved[key] == true end
+        end
+    end
+    return tab
+end
+
+function ParadiseEconomy.saveAdminTypeFilter(tab)
+    local copy = {}
+    for key, on in pairs(tab or {}) do copy[key] = on == true end
+    ParadiseEconomy.adminTypeFilter = copy
+end
+
+function ParadiseEconomy.typeChipWidth(label)
+    local text = tostring(label or "") .. " 999"
+    return getTextManager():MeasureStringX(UIFont.Small, text) + 32
 end
 
 function ParadiseEconomy.getAccountTotalBalance(account, currency)
@@ -4955,6 +4999,10 @@ function ParadiseEconomy.AdminPanel:new(x, y, w, h, targetUser)
     obj.accountMap = {}
     obj.pendingMessage = nil
     obj.createOpen = false
+    obj.typeChips = {}
+    obj.chipByKey = {}
+    obj.typeVisible = ParadiseEconomy.loadAdminTypeFilter()
+    obj.filterRowH = 26
     obj.lastWidth = 0
     obj.lastHeight = 0
     return obj
@@ -4963,15 +5011,42 @@ end
 function ParadiseEconomy.AdminPanel:createChildren()
     ISCollapsableWindow.createChildren(self)
 
-    self.typeFilter = ISComboBox:new(15, 66, 190, 26, self, ParadiseEconomy.AdminPanel.refresh)
-    self.typeFilter:initialise()
+    self.typeChips = {}
+    self.chipByKey = {}
     for _, entry in ipairs(ParadiseEconomy.accountFilterTypes) do
-        local label = entry.label .. " accounts"
-        if entry.key == "all" then label = "All account types" end
-        if entry.key == "custom" then label = "Custom accounts" end
-        self.typeFilter:addOption(label)
+        if entry.key ~= "all" then
+            local chip = ISButton:new(15, 66, 100, 24, "", self, ParadiseEconomy.AdminPanel.onTypeChip)
+            chip.internal = entry.key
+            chip.tooltip = entry.label .. " accounts"
+            chip:initialise()
+            chip.displayBackground = false
+            chip.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
+            chip.backgroundColorMouseOver = { r = 0, g = 0, b = 0, a = 0 }
+            chip.borderColor = { r = 0, g = 0, b = 0, a = 0 }
+            chip.textColor = { r = 0, g = 0, b = 0, a = 0 }
+            self:addChild(chip)
+            local row = {
+                button = chip,
+                key = entry.key,
+                label = string.upper(entry.key == "custom" and "Custom" or entry.label),
+                count = 0,
+            }
+            self.typeChips[#self.typeChips + 1] = row
+            self.chipByKey[row.key] = row
+        end
     end
-    self:addChild(self.typeFilter)
+
+    self.filterAllButton = ISButton:new(15, 66, 44, 24, "ALL", self, ParadiseEconomy.AdminPanel.onFilterPreset)
+    self.filterAllButton.internal = "all"
+    self.filterAllButton.tooltip = "Show every account type"
+    self.filterAllButton:initialise()
+    self:addChild(self.filterAllButton)
+
+    self.filterNoneButton = ISButton:new(15, 66, 54, 24, "NONE", self, ParadiseEconomy.AdminPanel.onFilterPreset)
+    self.filterNoneButton.internal = "none"
+    self.filterNoneButton.tooltip = "Hide every account type"
+    self.filterNoneButton:initialise()
+    self:addChild(self.filterNoneButton)
 
     self.search = ISTextEntryBox:new("", 213, 66, 300, 26)
     self.search.target = self
@@ -5142,6 +5217,16 @@ function ParadiseEconomy.AdminPanel:createChildren()
     self.purgeButton.textColor = theme.danger
     self.deleteButton.borderColor = theme.danger
     self.deleteButton.textColor = theme.danger
+    self.filterAllButton.displayBackground = false
+    self.filterAllButton.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
+    self.filterAllButton.backgroundColorMouseOver = { r = 0, g = 0, b = 0, a = 0 }
+    self.filterAllButton.borderColor = { r = 0, g = 0, b = 0, a = 0 }
+    self.filterAllButton.textColor = { r = 0, g = 0, b = 0, a = 0 }
+    self.filterNoneButton.displayBackground = false
+    self.filterNoneButton.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
+    self.filterNoneButton.backgroundColorMouseOver = { r = 0, g = 0, b = 0, a = 0 }
+    self.filterNoneButton.borderColor = { r = 0, g = 0, b = 0, a = 0 }
+    self.filterNoneButton.textColor = { r = 0, g = 0, b = 0, a = 0 }
     self:setCreateOpen(false)
     self:refresh()
 end
@@ -5156,23 +5241,42 @@ function ParadiseEconomy.AdminPanel:layout()
 
     local toolbarY = 66
     self.toolbarY = toolbarY
-    local filterW = 190
     local createW = 150
     self.createX = 15 + leftW - createW
-    self.typeFilter:setX(15)
-    self.typeFilter:setY(toolbarY)
-    self.typeFilter:setWidth(filterW)
-    self.typeFilter:setHeight(26)
     self.createButton:setX(self.createX)
     self.createButton:setY(toolbarY)
     self.createButton:setWidth(createW)
     self.createButton:setHeight(26)
-    self.search:setX(15 + filterW + 8)
+    self.search:setX(15)
     self.search:setY(toolbarY)
-    self.search:setWidth(math.max(120, self.createX - 8 - (15 + filterW + 8)))
+    self.search:setWidth(math.max(120, self.createX - 8 - 15))
     self.search:setHeight(26)
 
-    local createY = 100
+    local filterRowY = toolbarY + 30
+    self.filterRowY = filterRowY
+    local presetW = self.filterAllButton:getWidth() + 6 + self.filterNoneButton:getWidth()
+    local chipX = 15
+    local chipY = filterRowY
+    local chipRight = 15 + leftW - presetW - 12
+    for _, chip in ipairs(self.typeChips) do
+        local width = ParadiseEconomy.typeChipWidth(chip.label)
+        if chipX > 15 and chipX + width > chipRight then
+            chipX = 15
+            chipY = chipY + 28
+        end
+        chip.button:setX(chipX)
+        chip.button:setY(chipY)
+        chip.button:setWidth(width)
+        chip.button:setHeight(24)
+        chipX = chipX + width + 6
+    end
+    self.filterRowH = chipY - filterRowY + 26
+    self.filterAllButton:setX(15 + leftW - presetW)
+    self.filterAllButton:setY(filterRowY)
+    self.filterNoneButton:setX(self.filterAllButton:getX() + self.filterAllButton:getWidth() + 6)
+    self.filterNoneButton:setY(filterRowY)
+
+    local createY = filterRowY + self.filterRowH + 8
     self.createRowY = createY
     self.createRowH = 88
     local innerX = 27
@@ -5207,7 +5311,7 @@ function ParadiseEconomy.AdminPanel:layout()
     self.createConfirmButton:setWidth(confirmW)
     self.createConfirmButton:setHeight(24)
 
-    local listHeaderY = self.createOpen and (createY + self.createRowH + 12) or 104
+    local listHeaderY = self.createOpen and (createY + self.createRowH + 12) or createY
     self.listHeaderY = listHeaderY
     self.listY = listHeaderY + 24
     local maintenanceH = 86
@@ -5408,9 +5512,19 @@ function ParadiseEconomy.AdminPanel:close()
     end
 end
 
-function ParadiseEconomy.AdminPanel:getFilterKey()
-    local entry = ParadiseEconomy.accountFilterTypes[self.typeFilter.selected]
-    return entry and entry.key or "all"
+function ParadiseEconomy.AdminPanel.onTypeChip(target, button)
+    local key = button.internal
+    if not key or target.typeVisible[key] == nil then return end
+    target.typeVisible[key] = target.typeVisible[key] == false
+    ParadiseEconomy.saveAdminTypeFilter(target.typeVisible)
+    target:refresh()
+end
+
+function ParadiseEconomy.AdminPanel.onFilterPreset(target, button)
+    local on = button.internal ~= "none"
+    for key in pairs(target.typeVisible) do target.typeVisible[key] = on end
+    ParadiseEconomy.saveAdminTypeFilter(target.typeVisible)
+    target:refresh()
 end
 
 function ParadiseEconomy.AdminPanel:findAccount(accountId)
@@ -5566,20 +5680,25 @@ function ParadiseEconomy.AdminPanel:refresh()
     if not desiredId and self.targetUsername then desiredId = ParadiseEconomy.findAccountIdByOwner(self.targetUsername) end
     self.accounts:clear()
     self.accountMap = {}
-    local filter = self:getFilterKey()
     local search = string.lower(self.search:getInternalText() or "")
     local allAccounts = ParadiseEconomy.getAccountsList()
-    self.search:setPlaceholderText("Search " .. ParadiseEconomy.formatNumber(#allAccounts) .. " accounts...")
+    for _, chip in ipairs(self.typeChips) do chip.count = 0 end
+    local visible = 0
     local found = false
     for _, account in ipairs(allAccounts) do
         self.accountMap[account.id] = account
-        local typeMatch = filter == "all" or account.type == filter
+        local filterType = ParadiseEconomy.getAccountFilterType(account.type)
         local text = string.lower(tostring(account.id or "") .. " " .. tostring(account.owner or "") .. " "
             .. tostring(account.name or "") .. " " .. tostring(account.title or "") .. " "
             .. tostring(account.tradeId or "") .. " " .. tostring(account.taxRoute or "") .. " "
             .. tostring(account.zoneName or "") .. " " .. tostring(account.zoneId or "") .. " "
             .. tostring(account.type or ""))
-        if typeMatch and (search == "" or text:find(search, 1, true)) then
+        local textMatch = search == "" or text:find(search, 1, true) ~= nil
+        if textMatch and self.chipByKey[filterType] then
+            self.chipByKey[filterType].count = self.chipByKey[filterType].count + 1
+        end
+        if textMatch and self.typeVisible[filterType] ~= false then
+            visible = visible + 1
             self.accounts:addItem(ParadiseEconomy.getAccountLabel(account), account)
             if account.id == desiredId then
                 self.accounts.selected = #self.accounts.items
@@ -5587,6 +5706,8 @@ function ParadiseEconomy.AdminPanel:refresh()
             end
         end
     end
+    self.search:setPlaceholderText("Search " .. ParadiseEconomy.formatNumber(visible) .. " of "
+        .. ParadiseEconomy.formatNumber(#allAccounts) .. " accounts...")
     self.selectedAccountId = found and desiredId or nil
     if not found then self.accounts.selected = 0 end
     if self.accounts.selected > #self.accounts.items then self.accounts.selected = 0 end
@@ -5847,12 +5968,58 @@ function ParadiseEconomy.AdminPanel:drawAccount(y, item, alt)
     return y + rowH
 end
 
+function ParadiseEconomy.AdminPanel.drawFilterPreset(panel, button, col)
+    if not button or not button:getIsVisible() then return end
+    local theme = ParadiseEconomy.Theme
+    local x, y = button:getX(), button:getY()
+    local w, h = button:getWidth(), button:getHeight()
+    local hover = button:isMouseOver()
+    panel:drawRect(x, y, w, h, hover and 0.30 or 0.12, col.r, col.g, col.b)
+    panel:drawRectBorder(x, y, w, h, 0.80, col.r, col.g, col.b)
+    local label = tostring(button:getTitle() or "")
+    local textW = getTextManager():MeasureStringX(UIFont.Small, label)
+    local tc = hover and theme.text or theme.textDim
+    panel:drawText(label, x + math.floor((w - textW) / 2), y + 5, tc.r, tc.g, tc.b, 1, UIFont.Small)
+end
+
+function ParadiseEconomy.AdminPanel:drawTypeChips()
+    local theme = ParadiseEconomy.Theme
+    for _, chip in ipairs(self.typeChips) do
+        local button = chip.button
+        if button:getIsVisible() then
+            local x, y = button:getX(), button:getY()
+            local w, h = button:getWidth(), button:getHeight()
+            local _, col = ParadiseEconomy.getAccountTypeStyle(chip.key)
+            local on = self.typeVisible[chip.key] ~= false
+            local hover = button:isMouseOver()
+            local fill = on and col or (hover and theme.buttonHover or theme.entryBg)
+            self:drawRect(x, y, w, h, on and 0.22 or (hover and 0.60 or 0.40), fill.r, fill.g, fill.b)
+            local edge = on and col or theme.borderSoft
+            self:drawRectBorder(x, y, w, h, on and 1 or 0.70, edge.r, edge.g, edge.b)
+            local boxX = x + 6
+            local boxY = y + math.floor((h - 12) / 2)
+            self:drawRect(boxX, boxY, 12, 12, on and 1 or 0, col.r, col.g, col.b)
+            self:drawRectBorder(boxX, boxY, 12, 12, 1, col.r, col.g, col.b)
+            if on then
+                self:drawRect(boxX + 3, boxY + 3, 6, 6, 1, theme.windowBg.r, theme.windowBg.g, theme.windowBg.b)
+            end
+            local label = chip.label .. " " .. ParadiseEconomy.formatNumber(chip.count or 0)
+            label = ParadiseEconomy.fitText(label, math.max(24, w - 30), UIFont.Small)
+            local tc = on and theme.text or theme.textMuted
+            self:drawText(label, boxX + 18, boxY, tc.r, tc.g, tc.b, 1, UIFont.Small)
+        end
+    end
+    ParadiseEconomy.AdminPanel.drawFilterPreset(self, self.filterAllButton, theme.accent)
+    ParadiseEconomy.AdminPanel.drawFilterPreset(self, self.filterNoneButton, theme.danger)
+end
+
 function ParadiseEconomy.AdminPanel:prerender()
     ISCollapsableWindow.prerender(self)
     local theme = ParadiseEconomy.Theme
     local w = self.width
     ParadiseEconomy.drawPanelHeader(self, "ACCOUNT DIRECTORY  |  BALANCES, LEDGER AND SYSTEM TOOLS",
         ParadiseEconomy.icons.panelGear, "ADMIN")
+    self:drawTypeChips()
 
     if self.createOpen then
         ParadiseEconomy.drawCard(self, 15, self.createRowY, self.leftW, self.createRowH, theme.accentDim)
