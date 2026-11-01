@@ -65,10 +65,23 @@ end
 function ParadiseDev.Zones.addLabel(parent, text, x, y, color, font)
     color = color or { r = 0.85, g = 0.85, b = 0.85 }
     local label = ISLabel:new(x, y, ENTRY_HGT, text, color.r, color.g, color.b, 1, font or UIFont.Small, true)
+    label.fullText = tostring(text or "")
     label:initialise()
     label:instantiate()
     parent:addChild(label)
     return label
+end
+
+function ParadiseDev.Zones.setLabel(label, text)
+    if not label then return end
+    if text ~= nil then label.fullText = tostring(text or "") end
+    local str = label.fullText or ""
+    if label.maxTextW then str = ParadiseZ.fitText(str, label.maxTextW, label.font) end
+    if label.setNameWithoutMoving then
+        label:setNameWithoutMoving(str)
+    else
+        label:setName(str)
+    end
 end
 
 function ParadiseDev.Zones.addEntry(parent, text, x, y, width)
@@ -295,7 +308,7 @@ function ParadiseDev.Zones.Panel:layoutChildren()
     self.point2Button:setX(contentX); self.point2Button:setY(buttonY2)
     self.teleportButton:setX(contentX + 164); self.teleportButton:setY(buttonY2)
     self.syncButton:setX(contentX + 328); self.syncButton:setY(buttonY2)
-    x = contentX + 495
+    x = contentX + 492
     for index = 10, 18 do
         local button = self.featureButtons[FEATURE_DEFS[index].key]
         button:setX(x); button:setY(buttonY2); x = x + iconW + spacing
@@ -319,7 +332,13 @@ function ParadiseDev.Zones.Panel:layoutChildren()
     local newControls = { self.newZoneName, self.newX1, self.newY1, self.newX2, self.newY2, self.addButton }
     local newX = { 0, 226, 337, 448, 559, 670 }
     for index, control in ipairs(newControls) do control:setX(contentX + newX[index]); control:setY(newY) end
-    self.statusLabel:setX(contentX + 810); self.statusLabel:setY(newY + 2)
+    self.totalLabel.maxTextW = 169
+    self.infoLabel.maxTextW = math.max(40, contentW - 193)
+    self.statusLabel:setX(contentX); self.statusLabel:setY(newY + ENTRY_HGT + 4)
+    self.statusLabel.maxTextW = math.max(40, contentW - 8)
+    ParadiseDev.Zones.setLabel(self.totalLabel)
+    ParadiseDev.Zones.setLabel(self.infoLabel)
+    ParadiseDev.Zones.setLabel(self.statusLabel)
     self._lastLayoutW, self._lastLayoutH = self.width, self.height
 end
 function ParadiseDev.Zones.Panel:selectedZone()
@@ -361,7 +380,7 @@ function ParadiseDev.Zones.Panel:populateZones(preferredId)
     end
     self.zoneList.selected = selected
     self._lastSelection = -1
-    self.totalLabel:setName("Total Zones: " .. tostring(#ParadiseDev.Zones.adminZones) ..
+    ParadiseDev.Zones.setLabel(self.totalLabel, "Total Zones: " .. tostring(#ParadiseDev.Zones.adminZones) ..
         (visible ~= #ParadiseDev.Zones.adminZones and " (" .. tostring(visible) .. " shown)" or ""))
 end
 
@@ -381,11 +400,12 @@ function ParadiseDev.Zones.Panel.drawZoneItem(list, y, item, alt)
     local p2 = segment and (segment.x2 .. "," .. segment.y2) or "-"
     local count = #(zone.segments or {})
     if count > 1 then p2 = p2 .. "  [" .. tostring(count) .. "]" end
-    list:drawText(zone.name or zone.id, list.columns[1].size + 10, y + 4, 1, 1, 1, 0.95, list.font)
+    list:drawText(ParadiseZ.fitText(zone.name or zone.id, math.max(24, list.columns[2].size - list.columns[1].size - 18), list.font), list.columns[1].size + 10, y + 4, 1, 1, 1, 0.95, list.font)
     list:drawText(p1, list.columns[2].size + 10, y + 4, 0.82, 0.82, 0.82, 0.95, list.font)
     list:drawText(p2, list.columns[3].size + 10, y + 4, 0.82, 0.82, 0.82, 0.95, list.font)
     list:drawText(tostring(zone.priority or 0), list.columns[4].size + 10, y + 4, 0.95, 0.85, 0.45, 0.95, list.font)
-    list:drawText(ParadiseDev.Zones.activeFlags(zone), list.columns[5].size + 10, y + 4, 0.70, 0.90, 1.0, 0.95, list.font)
+    local flagsRight = (list:isVScrollBarVisible() and list.vscroll.x or list.width) - 6
+    list:drawText(ParadiseZ.fitText(ParadiseDev.Zones.activeFlags(zone), math.max(24, flagsRight - list.columns[5].size - 10), list.font), list.columns[5].size + 10, y + 4, 0.70, 0.90, 1.0, 0.95, list.font)
     return y + list.itemheight
 end
 function ParadiseDev.Zones.Panel:updateSelection()
@@ -531,7 +551,7 @@ function ParadiseDev.Zones.Panel:setServerState(args)
     ParadiseDev.Zones.adminZones = args.zones or {}
     ParadiseDev.Zones.serverVehicleMode = args.vehicleMode or "observe"
     self:populateZones(selectedId)
-    self.statusLabel:setName("Server: " .. tostring(#ParadiseDev.Zones.adminZones) .. " zones; border " ..
+    ParadiseDev.Zones.setLabel(self.statusLabel, "Server: " .. tostring(#ParadiseDev.Zones.adminZones) .. " zones; border " ..
         tostring(args.borderWidth or 2) .. " tiles.")
     if self.syncRequested then
         self.syncRequested = false
@@ -549,7 +569,7 @@ function ParadiseDev.Zones.markZoneDirty()
     if ParadiseDev.Zones.window then ParadiseDev.Zones.window:markDirty() end
 end
 function ParadiseDev.Zones.Panel:setStatus(text)
-    if self.statusLabel then self.statusLabel:setName(tostring(text or "")) end
+    if self.statusLabel then ParadiseDev.Zones.setLabel(self.statusLabel, text) end
 end
 
 function ParadiseDev.Zones.Panel:close()
@@ -679,7 +699,7 @@ function ParadiseDev.Zones.Editor.drawSegmentItem(list, y, item, alt)
         list:drawRect(0, y, list:getWidth(), list.itemheight, 0.13, 0.30, 0.32, 0.32)
     end
     list:drawRectBorder(0, y, list:getWidth(), list.itemheight, 0.45, 0.30, 0.35, 0.45)
-    list:drawText(item.text, 10, y + 1, 1, 1, 1, 0.95, list.font)
+    list:drawText(ParadiseZ.fitText(item.text, math.max(24, (list:isVScrollBarVisible() and list.vscroll.x or list.width) - 20), list.font), 10, y + 1, 1, 1, 1, 0.95, list.font)
     return y + list.itemheight
 end
 
@@ -696,6 +716,8 @@ function ParadiseDev.Zones.Editor:layoutChildren()
     self.activeFeaturesTitle:setY(featureY)
     self.featureLine1:setY(featureY + ENTRY_HGT)
     self.featureLine2:setY(featureY + ENTRY_HGT + FONT_SMALL)
+    self.featureLine1.maxTextW = 322
+    self.featureLine2.maxTextW = 322
 
     local fieldX = GAP + 330 + GAP + 108
     local fieldW = math.max(120, self.width - fieldX - GAP)
@@ -703,6 +725,10 @@ function ParadiseDev.Zones.Editor:layoutChildren()
     self.nameEntry:setWidth(fieldW)
     self.denyEntry:setWidth(fieldW)
     self.statusLabel:setY(self.height - ENTRY_HGT - GAP - self:resizeWidgetHeight())
+    self.statusLabel.maxTextW = math.max(40, self.width - 24)
+    ParadiseDev.Zones.setLabel(self.featureLine1)
+    ParadiseDev.Zones.setLabel(self.featureLine2)
+    ParadiseDev.Zones.setLabel(self.statusLabel)
     self._lastLayoutW, self._lastLayoutH = self.width, self.height
 end
 function ParadiseDev.Zones.Editor:selectedSegment()
@@ -712,7 +738,7 @@ end
 
 function ParadiseDev.Zones.Editor:loadZone(zone)
     if not zone then
-        self.statusLabel:setName("Zone no longer exists.")
+        ParadiseDev.Zones.setLabel(self.statusLabel, "Zone no longer exists.")
         self.saveButton.enable = false
         return
     end
@@ -736,8 +762,8 @@ function ParadiseDev.Zones.Editor:loadZone(zone)
     for index, name in ipairs(names) do
         if index <= 9 then first[#first + 1] = name else second[#second + 1] = name end
     end
-    self.featureLine1:setName(#first > 0 and table.concat(first, ", ") or "None")
-    self.featureLine2:setName(table.concat(second, ", "))
+    ParadiseDev.Zones.setLabel(self.featureLine1, #first > 0 and table.concat(first, ", ") or "None")
+    ParadiseDev.Zones.setLabel(self.featureLine2, table.concat(second, ", "))
 
     local selected = self:selectedSegment()
     local selectedIndex = selected and selected.index or 1
@@ -843,7 +869,7 @@ function ParadiseDev.Zones.Editor:onCloseButton()
 end
 
 function ParadiseDev.Zones.Editor:setStatus(text)
-    if self.statusLabel then self.statusLabel:setName(tostring(text or "")) end
+    if self.statusLabel then ParadiseDev.Zones.setLabel(self.statusLabel, text) end
 end
 
 function ParadiseDev.Zones.Editor:close()
@@ -856,7 +882,7 @@ function ParadiseDev.Zones.Editor:new(x, y, width, height, zoneId, parent)
     self.__index = self
     o.title = "Edit Zone"
     o.resizable = true
-    o.minimumWidth = 800
+    o.minimumWidth = 860
     o.minimumHeight = 480
     o.zoneId = zoneId
     o.parentWindow = parent
@@ -942,6 +968,12 @@ function ParadiseDev.Zones.TestRemote:layoutChildren()
     self.probeButton:setWidth(math.max(150, math.floor(contentW / 2) - 4))
     self.testFeatureButton:setWidth(math.max(180, math.floor(contentW / 2) - 4))
     self.statusLabel:setY(self.height - ENTRY_HGT - GAP - self:resizeWidgetHeight())
+    self.testHelp1.maxTextW = contentW
+    self.testHelp2.maxTextW = contentW
+    self.statusLabel.maxTextW = contentW
+    ParadiseDev.Zones.setLabel(self.testHelp1)
+    ParadiseDev.Zones.setLabel(self.testHelp2)
+    ParadiseDev.Zones.setLabel(self.statusLabel)
     self._lastLayoutW, self._lastLayoutH = self.width, self.height
 end
 
@@ -993,7 +1025,7 @@ function ParadiseDev.Zones.TestRemote:setServerState(args)
 end
 
 function ParadiseDev.Zones.TestRemote:setStatus(text)
-    if self.statusLabel then self.statusLabel:setName(tostring(text or "")) end
+    if self.statusLabel then ParadiseDev.Zones.setLabel(self.statusLabel, text) end
 end
 
 function ParadiseDev.Zones.TestRemote:close()

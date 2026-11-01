@@ -196,7 +196,7 @@ function Syncer.Panel:onClick(button)
 end
 function Syncer.Panel:new(x, y, width, height)
     local panel = ISCollapsableWindow:new(x, y, width, height); setmetatable(panel, self); self.__index = self
-    panel.title = "ParadiseZ Trait Syncer"; panel.resizable = true; return panel
+    panel.title = "ParadiseZ Trait Syncer"; panel.resizable = true; panel.minimumWidth = 600; panel.minimumHeight = 320; return panel
 end
 function Syncer.Panel:close()
     ParadiseDev.TraitSyncer.ClosePanel()

@@ -9,9 +9,16 @@ ParadiseEconomy = ParadiseEconomy or {}
 ParadiseAdminHub = ParadiseAdminHub or {}
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.SafehouseAdmin = ParadiseDev.SafehouseAdmin or {}
+ParadiseManual = ParadiseManual or {}
 
 local function initialise(panel, instantiate)
     if not panel then return nil end
+    if panel.minimumWidth and panel.minimumWidth > 0 and (panel.width or 0) < panel.minimumWidth then
+        panel:setWidth(panel.minimumWidth)
+    end
+    if panel.minimumHeight and panel.minimumHeight > 0 and (panel.height or 0) < panel.minimumHeight then
+        panel:setHeight(panel.minimumHeight)
+    end
     panel:initialise()
     if instantiate and panel.instantiate then panel:instantiate() end
     return panel
@@ -103,7 +110,7 @@ ParadisePanels.table = {
         setInstance = function(instance) ParadiseEconomy.tradeManagementInstance = instance end,
         create = function()
             if not ParadiseEconomy.isEnabled() or not ParadiseEconomy.canManageTradeZones() then return nil end
-            local width, height = math.min(1120, getCore():getScreenWidth() - 40), math.min(740, getCore():getScreenHeight() - 40)
+            local width, height = math.min(1360, getCore():getScreenWidth() - 40), math.min(740, getCore():getScreenHeight() - 40)
             return initialise(ParadiseEconomy.TradeManagementPanel:new(
                 (getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height))
         end,
@@ -434,7 +441,9 @@ ParadisePanels.table = {
         getInstance = function() return ParadiseDev and ParadiseDev.Zones and ParadiseDev.Zones.window end,
         setInstance = function(instance) ParadiseDev.Zones.window = instance end,
         create = function()
-            local width, height = 1200, 568
+            local core = getCore()
+            local width = math.min(1200, math.max(900, core:getScreenWidth() - 20))
+            local height = math.min(568, math.max(480, core:getScreenHeight() - 60))
             local x = math.max(0, (getCore():getScreenWidth() - width) / 2 - 180)
             local y = math.max(0, (getCore():getScreenHeight() - height) / 2)
             return initialise(ParadiseDev.Zones.Panel:new(x, y, width, height))
@@ -454,8 +463,10 @@ ParadisePanels.table = {
         setInstance = function(instance) ParadiseDev.Zones.editorWindow = instance end,
         create = function(zoneId, parent)
             if not zoneId then return nil end
-            local width, height = 950, 520
-            local x = math.max(0, (getCore():getScreenWidth() - width) / 2 + 220)
+            local core = getCore()
+            local width = math.min(950, math.max(860, core:getScreenWidth() - 20))
+            local height = math.min(520, math.max(480, core:getScreenHeight() - 60))
+            local x = math.max(0, math.min(core:getScreenWidth() - width, (getCore():getScreenWidth() - width) / 2 + 220))
             local y = math.max(0, (getCore():getScreenHeight() - height) / 2)
             return initialise(ParadiseDev.Zones.Editor:new(x, y, width, height, zoneId, parent))
         end,
@@ -482,8 +493,10 @@ ParadisePanels.table = {
         getInstance = function() return ParadiseDev and ParadiseDev.Zones and ParadiseDev.Zones.testWindow end,
         setInstance = function(instance) ParadiseDev.Zones.testWindow = instance end,
         create = function()
-            local width, height = 560, 410
-            local x = math.max(0, (getCore():getScreenWidth() - width) / 2 + 260)
+            local core = getCore()
+            local width = math.min(560, math.max(520, core:getScreenWidth() - 20))
+            local height = math.min(410, math.max(390, core:getScreenHeight() - 60))
+            local x = math.max(0, math.min(core:getScreenWidth() - width, (getCore():getScreenWidth() - width) / 2 + 260))
             local y = math.max(0, (getCore():getScreenHeight() - height) / 2)
             return initialise(ParadiseDev.Zones.TestRemote:new(x, y, width, height))
         end,
@@ -679,6 +692,23 @@ ParadisePanels.table = {
         end,
         onOpen = function(panel)
             if panel and panel.refresh then panel:refresh() end
+        end,
+    },
+    {
+        key = "paradiseManual",
+        isAdmOnly = false,
+        getModule = function() return ParadiseManual end,
+        getInstance = function() return ParadiseManual.instance end,
+        setInstance = function(instance) ParadiseManual.instance = instance end,
+        create = function()
+            if not ParadiseManual.Panel then return nil end
+            local width, height = ParadiseManual.getSize()
+            local x = math.max(20, (getCore():getScreenWidth() - width) / 2)
+            local y = math.max(20, (getCore():getScreenHeight() - height) / 2)
+            return initialise(ParadiseManual.Panel:new(x, y, width, height))
+        end,
+        onOpen = function(panel, section)
+            if panel and panel.showSection then panel:showSection(section) end
         end,
     },
 }

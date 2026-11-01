@@ -165,7 +165,7 @@ function Themes.Panel:createChildren()
 	self:addChild(self.themeCombo)
 
 	local btnY = self.height - btnHgt - 12
-	self.list = ISScrollingListBox:new(10, th + 92, self.width - 20, btnY - th - 112)
+	self.list = ISScrollingListBox:new(10, th + 92, self.width - 20, btnY - th - 122)
 	self.list:initialise()
 	self.list:instantiate()
 	self.list.itemheight = fontHgt + 10

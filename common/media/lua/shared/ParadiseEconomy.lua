@@ -252,11 +252,17 @@ function ParadiseEconomy.formatBalances(tab)
         .. tostring(ParadiseEconomy.getBalance(tab, "paradisium")) .. " Paradisium"
 end
 
-function ParadiseEconomy.getHUDPosition(screenWidth, width, height, clockX, clockY)
+function ParadiseEconomy.getHUDPosition(screenWidth, width, height, clockX, clockY, screenHeight)
     screenWidth = tonumber(screenWidth) or 0
     width = tonumber(width) or 270
+    height = tonumber(height) or 46
+    screenHeight = tonumber(screenHeight) or 0
+    local maxX = math.max(10, math.floor(screenWidth - width - 10))
+    local maxY = screenHeight > 0 and math.max(10, math.floor(screenHeight - height - 10)) or nil
     if clockX ~= nil and clockY ~= nil then
-        return math.max(10, math.floor(tonumber(clockX) - width - 10)), math.max(10, math.floor(tonumber(clockY)))
+        local hudY = math.max(10, math.floor(tonumber(clockY)))
+        if maxY then hudY = math.min(hudY, maxY) end
+        return math.min(math.max(10, math.floor(tonumber(clockX) - width - 10)), maxX), hudY
     end
     return math.max(10, math.floor(screenWidth - width - 20)), 80
 end

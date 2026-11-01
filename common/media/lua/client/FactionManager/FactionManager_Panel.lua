@@ -13,6 +13,7 @@ require "ISUI/ISColorPicker"
 FactionManager.fontSmall = getTextManager():getFontHeight(UIFont.Small)
 FactionManager.entryHeight = FactionManager.fontSmall + 8
 FactionManager.gap = 8
+FactionManager.rightColumnX = 434
 FactionManager.Panel = ISCollapsableWindow:derive("FactionManager.Panel")
 
 function FactionManager.formatTime(int)
@@ -22,10 +23,23 @@ end
 
 function FactionManager.addLabel(parent, str, x, y, font)
     local label = ISLabel:new(x, y, FactionManager.entryHeight, str, 0.85, 0.85, 0.85, 1, font or UIFont.Small, true)
+    label.fullText = tostring(str or "")
     label:initialise()
     label:instantiate()
     parent:addChild(label)
     return label
+end
+
+function FactionManager.setLabel(label, text)
+    if not label then return end
+    if text ~= nil then label.fullText = tostring(text or "") end
+    local str = label.fullText or ""
+    if label.maxTextW then str = ParadiseZ.fitText(str, label.maxTextW, label.font) end
+    if label.setNameWithoutMoving then
+        label:setNameWithoutMoving(str)
+    else
+        label:setName(str)
+    end
 end
 
 function FactionManager.addButton(parent, str, x, y, width, internal)
@@ -58,7 +72,7 @@ function FactionManager.Panel:createChildren()
     self.factionList.drawBorder = true
     self:addChild(self.factionList)
 
-    local rightX = 434
+    local rightX = FactionManager.rightColumnX
     self.nameLabel = FactionManager.addLabel(self, "Select a faction", rightX, listTop, UIFont.Medium)
     self.ownerLabel = FactionManager.addLabel(self, "Leader: -", rightX, listTop + 30)
     self.createdLabel = FactionManager.addLabel(self, "Created: Unknown", rightX, listTop + 54)
@@ -138,6 +152,7 @@ end
 
 function FactionManager.Panel:refresh()
     if not self.factionList then return end
+    self:layoutLabels()
     local selectedRecord = self:getSelectedRecord()
     local selectedName = selectedRecord and selectedRecord.name or nil
     self:refreshFilters()
@@ -149,7 +164,7 @@ function FactionManager.Panel:refresh()
             if selectedName == record.name then self.factionList.selected = #self.factionList.items end
         end
     end
-    self.totalLabel:setName("Factions: " .. tostring(#self.factionList.items))
+    FactionManager.setLabel(self.totalLabel, "Factions: " .. tostring(#self.factionList.items))
     self:updateDetails()
 end
 
@@ -171,27 +186,36 @@ function FactionManager.Panel:drawFaction(y, item, alt)
     return y + self.itemheight
 end
 
+function FactionManager.Panel:layoutLabels()
+    self.totalLabel.maxTextW = math.max(40, self.width - 378 - 14)
+    local rightW = math.max(40, self.width - FactionManager.rightColumnX - 14)
+    for _, label in ipairs({ self.nameLabel, self.ownerLabel, self.createdLabel, self.activityLabel, self.stateLabel, self.tagLabel, self.labelsLabel }) do
+        label.maxTextW = rightW
+    end
+end
+
 function FactionManager.Panel:updateDetails()
+    self:layoutLabels()
     local record = self:getSelectedRecord()
     self.memberList:clear()
     if not record then
-        self.nameLabel:setName("Select a faction")
-        self.ownerLabel:setName("Leader: -")
-        self.createdLabel:setName("Created: Unknown")
-        self.activityLabel:setName("Last Activity: Unknown")
-        self.stateLabel:setName("State: -")
-        self.tagLabel:setName("Vanilla Tag: -")
-        self.labelsLabel:setName("Labels: -")
+        FactionManager.setLabel(self.nameLabel, "Select a faction")
+        FactionManager.setLabel(self.ownerLabel, "Leader: -")
+        FactionManager.setLabel(self.createdLabel, "Created: Unknown")
+        FactionManager.setLabel(self.activityLabel, "Last Activity: Unknown")
+        FactionManager.setLabel(self.stateLabel, "State: -")
+        FactionManager.setLabel(self.tagLabel, "Vanilla Tag: -")
+        FactionManager.setLabel(self.labelsLabel, "Labels: -")
         self.note:setText("")
         return
     end
-    self.nameLabel:setName(record.name)
-    self.ownerLabel:setName("Leader: " .. tostring(record.owner or "Unknown"))
-    self.createdLabel:setName("Created: " .. FactionManager.formatTime(record.createdAt))
-    self.activityLabel:setName("Last Activity: " .. FactionManager.formatTime(record.lastActivity))
-    self.stateLabel:setName("State: " .. string.upper(record.state or "active"))
-    self.tagLabel:setName("Vanilla Tag: " .. tostring(record.tag or "None"))
-    self.labelsLabel:setName("Labels: " .. (#(record.labels or {}) > 0 and table.concat(record.labels, ", ") or "None"))
+    FactionManager.setLabel(self.nameLabel, record.name)
+    FactionManager.setLabel(self.ownerLabel, "Leader: " .. tostring(record.owner or "Unknown"))
+    FactionManager.setLabel(self.createdLabel, "Created: " .. FactionManager.formatTime(record.createdAt))
+    FactionManager.setLabel(self.activityLabel, "Last Activity: " .. FactionManager.formatTime(record.lastActivity))
+    FactionManager.setLabel(self.stateLabel, "State: " .. string.upper(record.state or "active"))
+    FactionManager.setLabel(self.tagLabel, "Vanilla Tag: " .. tostring(record.tag or "None"))
+    FactionManager.setLabel(self.labelsLabel, "Labels: " .. (#(record.labels or {}) > 0 and table.concat(record.labels, ", ") or "None"))
     self.note:setText(record.note or "")
     self.memberList:addItem(tostring(record.owner or "Unknown") .. " [Leader]", record.owner)
     for _, user in ipairs(record.members or {}) do self.memberList:addItem(user, user) end

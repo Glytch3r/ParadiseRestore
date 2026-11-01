@@ -436,6 +436,11 @@ function ParadiseDev.ZoneHUD.onUserPanelOption(self, button, x, y)
     if button.internal == "PARADISE_THEMES" then
         if ParadisePanels and ParadisePanels.Install and not (ParadiseThemes and ParadiseThemes.OpenPanel) then ParadisePanels.Install() end
         if ParadiseThemes and ParadiseThemes.OpenPanel then ParadiseThemes.OpenPanel() end
+        return
+    end
+    if button.internal == "PARADISE_MANUAL" then
+        if ParadisePanels and ParadisePanels.Install and not (ParadiseManual and ParadiseManual.OpenPanel) then ParadisePanels.Install() end
+        if ParadiseManual and ParadiseManual.OpenPanel then ParadiseManual.OpenPanel("player") end
     end
 end
 
@@ -510,8 +515,16 @@ function ParadiseDev.ZoneHUD.layoutUserPanel()
         self.themesButton.backgroundColor.a = 0.7;
         self.themesButton.backgroundColor.b = 0.5;
     self:addChild(self.themesButton)
+    self.manualButton = ISButton:new(close.x, self.themesButton:getBottom() + 10, buttonWidth, close.height, "Manual", self, ParadiseDev.ZoneHUD.onUserPanelOption)
+        self.manualButton.internal = "PARADISE_MANUAL"
+        self.manualButton:initialise()
+        self.manualButton:instantiate()
+        self.manualButton.borderColor = self.buttonBorderColor
+        self.manualButton.backgroundColor.a = 0.7;
+        self.manualButton.backgroundColor.b = 0.5;
+    self:addChild(self.manualButton)
     close:setWidth(buttonWidth)
-    close:setY(self.themesButton:getBottom() + 10)
+    close:setY(self.manualButton:getBottom() + 10)
     self:setHeight(math.max(close.y + close.height + 11, hasBetterSafehouse and 460 or 0))
 end
 

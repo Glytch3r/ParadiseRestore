@@ -233,11 +233,12 @@ function Paradise_POI_Manager:doDrawItem(y, item, alt)
     local d = item.item or {}
     local textY = y + 2
     local columnX = { 5, 200, 280, 360, 440 }
-    list:drawText(tostring(item.text or ""), columnX[1], textY, 1, 1, 1, 1, list.font)
+    local visibleW = list.width - (list:isVScrollBarVisible() and 16 or 2)
+    list:drawText(ParadiseZ.fitText(item.text or "", columnX[2] - columnX[1] - 10, list.font), columnX[1], textY, 1, 1, 1, 1, list.font)
     list:drawText(tostring(d.x or 0), columnX[2], textY, 0.8, 0.8, 0.8, 1, list.font)
     list:drawText(tostring(d.y or 0), columnX[3], textY, 0.8, 0.8, 0.8, 1, list.font)
     list:drawText(tostring(d.z or 0), columnX[4], textY, 0.8, 0.8, 0.8, 1, list.font)
-    list:drawText(tostring(d.desc or ""), columnX[5], textY, 0.7, 0.7, 0.7, 1, list.font)
+    list:drawText(ParadiseZ.fitText(d.desc or "", math.max(24, visibleW - columnX[5]), list.font), columnX[5], textY, 0.7, 0.7, 0.7, 1, list.font)
 
     return y + self.itemheight
 end

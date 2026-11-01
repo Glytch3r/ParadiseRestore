@@ -235,14 +235,47 @@ function ParadiseEconomy.styleTree(panel, seen)
 end
 
 function ParadiseEconomy.fitText(text, maxWidth, font)
-    text = tostring(text or "")
-    local textManager = getTextManager()
-    font = font or UIFont.Small
-    if textManager:MeasureStringX(font, text) <= maxWidth then return text end
-    while #text > 3 and textManager:MeasureStringX(font, string.sub(text, 1, #text - 1) .. "...") > maxWidth do
-        text = string.sub(text, 1, #text - 1)
+    return ParadiseZ.fitText(text, maxWidth, font)
+end
+
+-- ISScrollingListBox:prerender sets stencilX2 = vscroll.x + 3 whenever the vertical
+-- scrollbar is visible, so anything a row draws past that edge is replaced by the
+-- scrollbar strip. Returns the widest x that is actually visible in a list.
+function ParadiseEconomy.listContentWidth(list)
+    if not list then return 0 end
+    if list.vscroll and list:isVScrollBarVisible() then
+        return math.max(40, list.vscroll.x + 3)
     end
-    return string.sub(text, 1, #text - 1) .. "..."
+    return list.width
+end
+
+-- Draws a left-aligned and a right-aligned string on one row, splitting the span so
+-- neither can reach the other. Unbounded right-aligned text is the common overlap bug.
+function ParadiseEconomy.drawRowPair(panel, leftStr, rightStr, x, rightX, y, leftCol, rightCol, font)
+    font = font or UIFont.Small
+    local span = math.max(0, rightX - x - 14)
+    local rightW = getTextManager():MeasureStringX(font, tostring(rightStr))
+    if rightW > span * 0.6 then rightW = math.floor(span * 0.6) end
+    panel:drawText(ParadiseEconomy.fitText(leftStr, span - rightW, font), x, y,
+        leftCol.r, leftCol.g, leftCol.b, 1, font)
+    panel:drawTextRight(ParadiseEconomy.fitText(rightStr, rightW, font), rightX, y,
+        rightCol.r, rightCol.g, rightCol.b, 1, font)
+end
+
+-- ISScrollingListBox:prerender fills its whole rect with backgroundColor, which is
+-- opaque in every theme, so empty-state text drawn by the parent panel is buried.
+function ParadiseEconomy.listHint(list, getText)
+    local base = list.prerender
+    list.prerender = function(self)
+        base(self)
+        if not self.items or #self.items > 0 then return end
+        local str = type(getText) == "function" and getText(self) or getText
+        if not str or str == "" then return end
+        local theme = ParadiseEconomy.Theme
+        local contentW = ParadiseEconomy.listContentWidth(self)
+        self:drawTextCentre(ParadiseEconomy.fitText(str, math.max(40, contentW - 24), UIFont.Small), contentW / 2,
+            math.floor(self.height / 2) - 6, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    end
 end
 
 function ParadiseEconomy.confirm(text, target, callback, param1, param2)
@@ -274,10 +307,13 @@ end
 function ParadiseEconomy.drawPanelHeader(panel, subtitle, icon, tag)
     local theme = ParadiseEconomy.Theme
     local w = panel.width
+    local tagW = tag and (getTextManager():MeasureStringX(UIFont.Small, tostring(tag)) + 14) or 0
+    local tagX = w - 68 - 8 - tagW
+    subtitle = ParadiseEconomy.fitText(subtitle, math.max(80, tagX - 26), UIFont.Small)
     panel:drawText(tostring(subtitle), 18, 29, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    panel.headerTextRight = 18 + getTextManager():MeasureStringX(UIFont.Small, tostring(subtitle))
+    panel.headerTagX = tagX
     if tag then
-        local tagW = getTextManager():MeasureStringX(UIFont.Small, tag) + 14
-        local tagX = w - 68 - 8 - tagW
         panel:drawRect(tagX, 26, tagW, 20, 0.14, theme.gold.r, theme.gold.g, theme.gold.b)
         panel:drawRectBorder(tagX, 26, tagW, 20, 0.7, theme.gold.r, theme.gold.g, theme.gold.b)
         panel:drawText(tag, tagX + 7, 30, theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
@@ -301,6 +337,7 @@ function ParadiseEconomy.styleTabButton(button, active)
 end
 
 function ParadiseEconomy.drawTabUnderline(panel, button, active)
+    if not button:getIsVisible() then return end
     local theme = ParadiseEconomy.Theme
     local color = active and theme.gold or theme.borderSoft
     panel:drawRect(button:getX() + 2, button:getY() + button:getHeight() - 2, button:getWidth() - 4, 2,
@@ -747,26 +784,34 @@ function ParadiseEconomy.AccountPanel:prerender()
         self:drawText("No account selected.", 15, 35, 1, 1, 1, 1, UIFont.Small)
         return
     end
-    self:drawText("Type: " .. tostring(ParadiseEconomy.accountTypeLabels[account.type] or account.type or "Unknown"), 15, 35, 1, 1, 1, 1, UIFont.Small)
-    self:drawText("ID: " .. tostring(account.id), 15, 55, 0.75, 0.9, 1, 1, UIFont.Small)
-    self:drawText("Owner: " .. tostring(account.owner or account.name or "-"), 15, 75, 1, 1, 1, 1, UIFont.Small)
+    local headerW = math.max(120, self.width - (self.bookmarkButton and 102 or 30))
+    self:drawText(ParadiseEconomy.fitText("Type: " .. tostring(ParadiseEconomy.accountTypeLabels[account.type] or account.type or "Unknown"),
+        headerW, UIFont.Small), 15, 35, 1, 1, 1, 1, UIFont.Small)
+    self:drawText(ParadiseEconomy.fitText("ID: " .. tostring(account.id), headerW, UIFont.Small), 15, 55, 0.75, 0.9, 1, 1, UIFont.Small)
+    self:drawText(ParadiseEconomy.fitText("Owner: " .. tostring(account.owner or account.name or "-"),
+        math.max(120, self.width - 30), UIFont.Small), 15, 75, 1, 1, 1, 1, UIFont.Small)
     if account.type == "trade" then
-        self:drawText("Trade ID: " .. tostring(account.tradeId or account.zoneName or account.zoneId)
+        local str = "Trade ID: " .. tostring(account.tradeId or account.zoneName or account.zoneId)
             .. " | Tax: " .. string.format("%g", ParadiseEconomy.getTradeTaxPercent(account)) .. "%"
-            .. " | Mart items: " .. tostring(ParadiseEconomy.getZoneMartListingCount(account.zoneId)), 15, 95, 0.75, 0.9, 1, 1, UIFont.Small)
+            .. " | Mart items: " .. tostring(ParadiseEconomy.getZoneMartListingCount(account.zoneId))
+        self:drawText(ParadiseEconomy.fitText(str, math.max(120, self.width - 30), UIFont.Small), 15, 95, 0.75, 0.9, 1, 1, UIFont.Small)
     elseif account.zoneId then
-        self:drawText("Zone: " .. tostring(account.zoneName or account.zoneId) .. " (" .. tostring(account.zoneId) .. ")", 15, 95, 0.75, 0.9, 1, 1, UIFont.Small)
+        local str = "Zone: " .. tostring(account.zoneName or account.zoneId) .. " (" .. tostring(account.zoneId) .. ")"
+        self:drawText(ParadiseEconomy.fitText(str, math.max(120, self.width - 30), UIFont.Small), 15, 95, 0.75, 0.9, 1, 1, UIFont.Small)
     end
     local y = 120
+    local lineW = math.max(120, self.width - 30)
     for _, entry in ipairs(ParadiseEconomy.getAccountBuckets(account)) do
         local tab = type(account[entry.key]) == "table" and account[entry.key] or {}
-        self:drawText(entry.label .. ": " .. tostring(ParadiseEconomy.getBalance(tab, "jimoleon")) .. " Jimoleons / "
-            .. tostring(ParadiseEconomy.getBalance(tab, "paradisium")) .. " Paradisium", 15, y, 1, 0.85, 0.25, 1, UIFont.Small)
+        local str = entry.label .. ": " .. tostring(ParadiseEconomy.getBalance(tab, "jimoleon")) .. " Jimoleons / "
+            .. tostring(ParadiseEconomy.getBalance(tab, "paradisium")) .. " Paradisium"
+        self:drawText(ParadiseEconomy.fitText(str, lineW, UIFont.Small), 15, y, 1, 0.85, 0.25, 1, UIFont.Small)
         y = y + 20
     end
     if account.type == "merchant" then
-        self:drawText("Listings: " .. tostring(#(account.listings or {})) .. " | Tax route: " .. tostring(account.taxRoute or "-")
-            .. (account.archived and " | Archived" or ""), 15, y, 0.8, 0.8, 0.8, 1, UIFont.Small)
+        local str = "Listings: " .. tostring(#(account.listings or {})) .. " | Tax route: " .. tostring(account.taxRoute or "-")
+            .. (account.archived and " | Archived" or "")
+        self:drawText(ParadiseEconomy.fitText(str, lineW, UIFont.Small), 15, y, 0.8, 0.8, 0.8, 1, UIFont.Small)
     elseif account.archived then
         self:drawText("Archived account", 15, y, 0.8, 0.8, 0.8, 1, UIFont.Small)
     end
@@ -919,9 +964,8 @@ end
 function ParadiseEconomy.AccountBrowser:drawAccount(y, item, alt)
     local account = item.item
     local theme = ParadiseEconomy.Theme
-    local w = self.width
     local selected = self.selected == item.index
-    local cardX, cardY, cardW, cardH = 2, y + 4, w - 4, self.itemheight - 8
+    local cardX, cardY, cardW, cardH = 2, y + 4, math.max(80, ParadiseEconomy.listContentWidth(self) - 4), self.itemheight - 8
     self:drawRect(cardX, cardY, cardW, cardH, selected and theme.rowSelected.a or theme.cardBg.a,
         selected and theme.rowSelected.r or theme.cardBg.r,
         selected and theme.rowSelected.g or theme.cardBg.g,
@@ -937,14 +981,6 @@ function ParadiseEconomy.AccountBrowser:drawAccount(y, item, alt)
     self:drawRect(cardX + 12, cardY + 10, chipW, 18, 0.16, typeColor.r, typeColor.g, typeColor.b)
     self:drawRectBorder(cardX + 12, cardY + 10, chipW, 18, 0.65, typeColor.r, typeColor.g, typeColor.b)
     self:drawText(typeLabel, cardX + 20, cardY + 12, typeColor.r, typeColor.g, typeColor.b, 1, UIFont.Small)
-    local title = tostring(account.title or account.name or account.owner or account.id or "Account")
-    if account.frozen == true then title = "[FROZEN] " .. title end
-    local titleColor = account.frozen == true and theme.danger or theme.text
-    self:drawText(ParadiseEconomy.fitText(title, cardW - 260, UIFont.Medium), cardX + 12, cardY + 34,
-        titleColor.r, titleColor.g, titleColor.b, 1, UIFont.Medium)
-    self:drawText(ParadiseEconomy.fitText(tostring(account.id or "?"), cardW - 260, UIFont.Small), cardX + 12, cardY + 58,
-        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-
     local bucket = type(account.digital) == "table" and account.digital
         or type(account.balances) == "table" and account.balances
         or type(account.earnings) == "table" and account.earnings or {}
@@ -955,6 +991,16 @@ function ParadiseEconomy.AccountBrowser:drawAccount(y, item, alt)
     local pIconX = pTextX - 20
     local jIconX = pIconX - 18 - 16
     local jTextX = jIconX - 4 - getTextManager():MeasureStringX(UIFont.Small, jText)
+    local nameW = math.max(60, jTextX - (cardX + 12) - 10)
+
+    local title = tostring(account.title or account.name or account.owner or account.id or "Account")
+    if account.frozen == true then title = "[FROZEN] " .. title end
+    local titleColor = account.frozen == true and theme.danger or theme.text
+    self:drawText(ParadiseEconomy.fitText(title, nameW, UIFont.Medium), cardX + 12, cardY + 34,
+        titleColor.r, titleColor.g, titleColor.b, 1, UIFont.Medium)
+    self:drawText(ParadiseEconomy.fitText(tostring(account.id or "?"), math.max(60, cardW - 24), UIFont.Small), cardX + 12, cardY + 58,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+
     if ParadiseEconomy.icons.paradisium then
         self:drawTextureScaled(ParadiseEconomy.icons.paradisium, pIconX, cardY + 32, 16, 16, 1)
     end
@@ -1605,7 +1651,7 @@ function ParadiseEconomy.Panel:drawTransaction(y, item, alt)
     local theme = ParadiseEconomy.Theme
     local color = ParadiseEconomy.getLedgerColor(row.k)
     self:drawText(ParadiseEconomy.Ledger.timeText(row), 8, y + 4, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    self:drawText(ParadiseEconomy.fitText(row.x or "-", self.width - 80, UIFont.Small), 62, y + 4,
+    self:drawText(ParadiseEconomy.fitText(row.x or "-", math.max(24, ParadiseEconomy.listContentWidth(self) - 80), UIFont.Small), 62, y + 4,
         color.r, color.g, color.b, 1, UIFont.Small)
     return y + self.itemheight
 end
@@ -1614,18 +1660,24 @@ function ParadiseEconomy.Panel:drawLedgerRow(y, item, alt)
     local row = item.item
     local theme = ParadiseEconomy.Theme
     if self.selected == item.index then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
     elseif alt then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
     local color = ParadiseEconomy.getLedgerColor(row.k)
+    local statusRight = ParadiseEconomy.listContentWidth(self) - 10
+    local status = tostring(row.d or "")
+    local statusW = status ~= "" and getTextManager():MeasureStringX(UIFont.Small, status) or 0
     self:drawText(ParadiseEconomy.Ledger.timeText(row), 8, y + 5, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    self:drawText(ParadiseEconomy.fitText(row.x or "-", 165, UIFont.Small), 86, y + 5,
+    self:drawText(ParadiseEconomy.fitText(row.x or "-", 160, UIFont.Small), 86, y + 5,
         theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
-    self:drawText(tostring(row.m or ""), 260, y + 5, color.r, color.g, color.b, 1, UIFont.Small)
-    self:drawText(ParadiseEconomy.fitText(row.e or "", self.width - 500, UIFont.Small), 380, y + 5,
-        theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
-    self:drawTextRight(tostring(row.d or ""), self.width - 10, y + 5,
+    self:drawText(ParadiseEconomy.fitText(tostring(row.m or ""), 104, UIFont.Small), 260, y + 5, color.r, color.g, color.b, 1, UIFont.Small)
+    local detailW = (statusRight - statusW - 14) - 380
+    if detailW >= 44 then
+        self:drawText(ParadiseEconomy.fitText(row.e or "", detailW, UIFont.Small), 380, y + 5,
+            theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
+    end
+    self:drawTextRight(status, statusRight, y + 5,
         theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     return y + self.itemheight
 end
@@ -1709,7 +1761,8 @@ function ParadiseEconomy.Panel:prerender()
     self:drawText("ACTION", 111, headerY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     self:drawText("AMOUNT", 285, headerY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     self:drawText("DETAIL", 405, headerY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    self:drawTextRight("STATUS", w - 35, headerY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawTextRight("STATUS", self.transactions:getX() + ParadiseEconomy.listContentWidth(self.transactions) - 10,
+        headerY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     self:drawRect(25, self.ledgerY + 54, w - 50, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
     local message = ParadiseEconomy.clientState.message
     if message then
@@ -1810,6 +1863,11 @@ function ParadiseEconomy.MartPanel:createChildren()
     self.browseList.doDrawItem = ParadiseEconomy.MartPanel.drawBrowseRow
     self.browseList.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
     self.browseList.borderColor = { r = 0, g = 0, b = 0, a = 0 }
+    local browsePanel = self
+    ParadiseEconomy.listHint(self.browseList, function()
+        return browsePanel.shopKind == "store" and "This merchant store has no listings yet."
+            or "No player listings match this filter."
+    end)
     local browseMouseDown = self.browseList.onMouseDown
     self.browseList.onMouseDown = function(list, x, y)
         if browseMouseDown then browseMouseDown(list, x, y) end
@@ -1937,6 +1995,7 @@ function ParadiseEconomy.MartPanel:createChildren()
     self.martList.itemheight = 28
     self.martList.font = UIFont.Small
     self.martList.doDrawItem = ParadiseEconomy.MartPanel.drawMartListing
+    ParadiseEconomy.listHint(self.martList, "No item mart entries for this filter.")
     self.martList:setOnMouseDownFunction(self, ParadiseEconomy.MartPanel.onMartSelect)
     self:addChild(self.martList)
 
@@ -3175,6 +3234,10 @@ function ParadiseEconomy.MartPanel:update()
     if self.tab == "store" then
         local merchant = self:getMerchant()
         self.merchant = merchant
+        self.storeTitle:setVisible(merchant ~= nil)
+        self.renameStoreButton:setVisible(merchant ~= nil)
+        self.renewLeaseButton:setVisible(merchant ~= nil)
+        self.collectButton:setVisible(merchant ~= nil)
         if merchant and not self.storeTitle:isFocused() and self.storeTitle:getInternalText() ~= tostring(merchant.title or "") then
             self.storeTitle:setText(tostring(merchant.title or ""))
         end
@@ -3245,10 +3308,11 @@ function ParadiseEconomy.MartPanel:drawBrowseCard(list, x, y, w, h, listing)
     local icon = listing.currency == "paradisium" and ParadiseEconomy.icons.paradisium or ParadiseEconomy.icons.jimoleon
     if icon then list:drawTextureScaled(icon, x + 8, priceY + 1, 14, 14, 1) end
     local priceColor = listing.currency == "paradisium" and theme.accent or theme.gold
-    list:drawText(ParadiseEconomy.formatNumber(listing.price), x + 26, priceY,
+    list:drawText(ParadiseEconomy.fitText(ParadiseEconomy.formatNumber(listing.price), math.max(24, w - 118), UIFont.Medium), x + 26, priceY,
         priceColor.r, priceColor.g, priceColor.b, 1, UIFont.Medium)
     local status, statusColor = ParadiseEconomy.getListingStatusView(listing)
-    list:drawTextRight(status, x + w - 8, priceY + 1, statusColor.r, statusColor.g, statusColor.b, 1, UIFont.Small)
+    list:drawTextRight(ParadiseEconomy.fitText(status, math.max(24, w - 40), UIFont.Small), x + w - 8, priceY + 1,
+        statusColor.r, statusColor.g, statusColor.b, 1, UIFont.Small)
     local pl = getPlayer()
     local own = pl and ParadiseEconomy.usernameKey(listing.seller) == ParadiseEconomy.usernameKey(pl:getUsername())
     local barColor, barText, barTextColor
@@ -3283,20 +3347,18 @@ function ParadiseEconomy.MartPanel:drawStoreListing(y, item, alt)
     local listing = item.item
     local theme = ParadiseEconomy.Theme
     if self.selected == item.index then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
     elseif alt then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
     local name = listing.itemData and listing.itemData.name or listing.fullType or "Item"
     local price = tonumber(listing.price) or 0
     local priceText = price > 0 and (ParadiseEconomy.formatNumber(price) .. " " .. tostring(listing.currency)) or "UNPRICED"
     local priceColor = price > 0 and theme.gold or theme.warn
-    self:drawText(ParadiseEconomy.fitText(name, self.width - 160, UIFont.Small), 8, y + 4,
-        theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
-    self:drawTextRight(priceText, self.width - 8, y + 4,
-        priceColor.r, priceColor.g, priceColor.b, 1, UIFont.Small)
+    local contentW = ParadiseEconomy.listContentWidth(self)
+    ParadiseEconomy.drawRowPair(self, name, priceText, 8, contentW - 8, y + 4, theme.text, priceColor)
     local fullType = listing.itemData and listing.itemData.fullType or listing.fullType or "Item"
-    self:drawText(ParadiseEconomy.fitText(fullType, self.width - 16, UIFont.Small), 8, y + 21,
+    self:drawText(ParadiseEconomy.fitText(fullType, math.max(24, contentW - 16), UIFont.Small), 8, y + 21,
         theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
     return y + self.itemheight
 end
@@ -3304,15 +3366,16 @@ end
 function ParadiseEconomy.MartPanel:drawInventoryItem(y, item, alt)
     local theme = ParadiseEconomy.Theme
     if self.selected == item.index then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
     elseif alt then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
-    self:drawText(ParadiseEconomy.fitText(item.text, self.width - 140, UIFont.Small), 8, y + 4,
+    local contentW = ParadiseEconomy.listContentWidth(self)
+    self:drawText(ParadiseEconomy.fitText(item.text, math.max(24, contentW - 148), UIFont.Small), 8, y + 4,
         theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
     local category = item.item and item.item.getCategory and item.item:getCategory() or nil
     if category then
-        self:drawTextRight(ParadiseEconomy.fitText(tostring(category), 120, UIFont.Small), self.width - 8, y + 4,
+        self:drawTextRight(ParadiseEconomy.fitText(tostring(category), 120, UIFont.Small), contentW - 8, y + 4,
             theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     end
     return y + self.itemheight
@@ -3322,9 +3385,9 @@ function ParadiseEconomy.MartPanel:drawMartListing(y, item, alt)
     local listing = item.item
     local theme = ParadiseEconomy.Theme
     if self.selected == item.index then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
     elseif alt then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
     local action = listing.direction == "sell" and "MART BUYS" or "MART SELLS"
     local tint = ParadiseEconomy.getCategoryColor(listing.category)
@@ -3333,14 +3396,16 @@ function ParadiseEconomy.MartPanel:drawMartListing(y, item, alt)
     self:drawRect(8, y + 6, chipW, 16, 0.18, tint.r, tint.g, tint.b)
     self:drawRectBorder(8, y + 6, chipW, 16, 0.55, tint.r, tint.g, tint.b)
     self:drawText(chipText, 15, y + 7, tint.r, tint.g, tint.b, 1, UIFont.Small)
-    self:drawText(ParadiseEconomy.fitText(tostring(listing.fullType), self.width - 430, UIFont.Small), 150, y + 7,
+    local contentW = ParadiseEconomy.listContentWidth(self)
+    self:drawText(ParadiseEconomy.fitText(tostring(listing.fullType),
+        math.max(24, contentW - 430), UIFont.Small), 150, y + 7,
         theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
-    self:drawText(action, self.width - 210, y + 7, theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
+    self:drawText(action, contentW - 210, y + 7, theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
     local priceText = ParadiseEconomy.formatNumber(listing.price)
     local priceW = getTextManager():MeasureStringX(UIFont.Small, priceText)
     local icon = listing.currency == "paradisium" and ParadiseEconomy.icons.paradisium or ParadiseEconomy.icons.jimoleon
-    if icon then self:drawTextureScaled(icon, self.width - 12 - priceW - 18, y + 6, 14, 14, 1) end
-    self:drawTextRight(priceText, self.width - 10, y + 7,
+    if icon then self:drawTextureScaled(icon, contentW - 12 - priceW - 18, y + 6, 14, 14, 1) end
+    self:drawTextRight(ParadiseEconomy.fitText(priceText, 150, UIFont.Small), contentW - 10, y + 7,
         theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
     return y + self.itemheight
 end
@@ -3382,12 +3447,6 @@ function ParadiseEconomy.MartPanel:drawBrowseTab()
     self:drawTextCentre(countText, w - 15 - countW / 2, contentY + 5,
         theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
     self:drawBrowseChips()
-    if #(self.browseCache or {}) == 0 then
-        local emptyText = self.shopKind == "store" and "This merchant store has no listings yet."
-            or "No player listings match this filter."
-        self:drawTextCentre(emptyText, w / 2, self.browseList:getY() + 40,
-            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    end
 end
 
 function ParadiseEconomy.MartPanel:drawStoreTab()
@@ -3400,29 +3459,33 @@ function ParadiseEconomy.MartPanel:drawStoreTab()
     if merchant then
         local lease = ParadiseEconomy.getLeaseInfo(merchant.expiresAt)
         local color = ParadiseEconomy.getLeaseColor(lease.status)
-        self:drawTextRight("LEASE  " .. string.upper(lease.label), w - 29, contentY + 10, color.r, color.g, color.b, 1, UIFont.Small)
+        local statusX = 29 + getTextManager():MeasureStringX(UIFont.Small, "MERCHANT STALL") + 18
+        local leaseStr = "LEASE  " .. string.upper(lease.label)
+        local statusStr, statusColor = nil, nil
         if self.shop and self.shop.isOwner ~= true then
-            self:drawText("ADMIN VIEW  |  YOU DO NOT OWN THIS STORE", 29, contentY + 32,
-                theme.warn.r, theme.warn.g, theme.warn.b, 1, UIFont.Small)
+            statusStr, statusColor = "ADMIN VIEW  |  YOU DO NOT OWN THIS STORE", theme.warn
         elseif merchant.closed then
-            local status = tostring(merchant.statusLabel or "Suspended")
-            self:drawText("STORE " .. string.upper(status) .. "  |  BUYING AND POSTING DISABLED",
-                29, contentY + 32, theme.danger.r, theme.danger.g, theme.danger.b, 1, UIFont.Small)
+            statusStr = "STORE " .. string.upper(tostring(merchant.statusLabel or "Suspended")) .. "  |  BUYING AND POSTING DISABLED"
+            statusColor = theme.danger
         end
-        local merchantText = "MERCHANT  " .. tostring(merchant.id) .. "  |  OWNER  " .. tostring(merchant.owner or "-")
-        self:drawText(ParadiseEconomy.fitText(merchantText, w - 380, UIFont.Small), 29, contentY + 56,
-            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-        self:drawTextRight("EARNINGS  " .. ParadiseEconomy.formatBalances(merchant.earnings), w - 29, contentY + 56,
-            theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
+        if statusStr then
+            ParadiseEconomy.drawRowPair(self, statusStr, leaseStr, statusX, w - 29, contentY + 10, statusColor, color)
+        else
+            self:drawTextRight(ParadiseEconomy.fitText(leaseStr, math.max(60, (w - 29) - statusX - 14), UIFont.Small),
+                w - 29, contentY + 10, color.r, color.g, color.b, 1, UIFont.Small)
+        end
+        ParadiseEconomy.drawRowPair(self, "MERCHANT  " .. tostring(merchant.id) .. "  |  OWNER  " .. tostring(merchant.owner or "-"),
+            "EARNINGS  " .. ParadiseEconomy.formatBalances(merchant.earnings), 29, w - 29, contentY + 56,
+            theme.textMuted, theme.gold)
         local defaultTitle = tostring(merchant.owner or "") .. " @ " .. tostring(merchant.zoneName or "")
         if tostring(merchant.title or "") == defaultTitle then
             self:drawText("NAME YOUR STORE", self.renameStoreButton:getX() + self.renameStoreButton:getWidth() + 14,
                 contentY + 32, theme.warn.r, theme.warn.g, theme.warn.b, 1, UIFont.Small)
         end
     else
-        self:drawText("NO MERCHANT STORE OF YOURS AT THIS SQUARE.", 29, contentY + 14,
+        self:drawText("NO MERCHANT STORE OF YOURS AT THIS SQUARE.", 29, contentY + 32,
             theme.warn.r, theme.warn.g, theme.warn.b, 1, UIFont.Small)
-        self:drawText("Right-click the square you want and choose Register Merchant Store Here.", 29, contentY + 36,
+        self:drawText("Right-click the square you want and choose Register Merchant Store Here.", 29, contentY + 54,
             theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     end
     self:drawText("YOUR STORE LISTINGS", self.myListings:getX(), contentY + 92, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
@@ -3449,10 +3512,6 @@ function ParadiseEconomy.MartPanel:drawMartTab()
     self:drawRect(15, headerY + 12, w - 30, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
     self:drawText("QTY", self.quantity:getX() - 32, self.quantity:getY() + 5,
         theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    if #(self.martCache or {}) == 0 then
-        self:drawTextCentre("No item mart entries for this filter.", w / 2, self.martList:getY() + 40,
-            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    end
 end
 
 function ParadiseEconomy.MartPanel:prerender()
@@ -3507,15 +3566,16 @@ function ParadiseEconomy.MartPanel:prerender()
     if draggingIn and ParadiseEconomy.canOpenMart(getPlayer()) then
         self:drawRect(0, 0, self.width, self.height, 0.10, theme.gold.r, theme.gold.g, theme.gold.b)
         self:drawRectBorder(1, 1, self.width - 2, self.height - 2, 0.85, theme.gold.r, theme.gold.g, theme.gold.b)
-        self:drawTextCentre("Release to price and post these items in your store", self.width / 2, self.height - 56,
-            theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
     end
 
     self:drawRect(0, self.height - 34, self.width, 34, theme.headerBg.a, theme.headerBg.r, theme.headerBg.g, theme.headerBg.b)
     local drag = self.listingDrag and self.listingDrag.active and self.listingDrag or nil
     local hint = self.dropHint and self.dropHintUntil >= os.time() and self.dropHint or nil
     local message = self.shopMessage or ParadiseEconomy.clientState.message
-    if drag then
+    if draggingIn and ParadiseEconomy.canOpenMart(getPlayer()) then
+        self:drawText(ParadiseEconomy.fitText("Release to price and post these items in your store",
+            self.width - 30, UIFont.Small), 15, self.height - 25, theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
+    elseif drag then
         local name = drag.listing.itemData and drag.listing.itemData.name or drag.listing.fullType or "listing"
         self:drawText(ParadiseEconomy.fitText("Drag " .. tostring(name) .. " to your inventory or an open container to purchase.",
             self.width - 30, UIFont.Small), 15, self.height - 25, theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
@@ -3619,6 +3679,7 @@ function ParadiseEconomy.TradeManagementPanel:createChildren()
     self.merchantList.itemheight = 44
     self.merchantList.font = UIFont.Small
     self.merchantList.doDrawItem = ParadiseEconomy.TradeManagementPanel.drawMerchant
+    ParadiseEconomy.listHint(self.merchantList, "No merchant stalls in this trade zone yet.")
     self.merchantList:setOnMouseDownFunction(self, ParadiseEconomy.TradeManagementPanel.onMerchantSelect)
     self:addChild(self.merchantList)
     self.merchantRenewButton = ISButton:new(0, 0, 130, 26, "Renew Lease", self, ParadiseEconomy.TradeManagementPanel.renewMerchantLease)
@@ -3660,6 +3721,7 @@ function ParadiseEconomy.TradeManagementPanel:createChildren()
     self.postList.itemheight = 44
     self.postList.font = UIFont.Small
     self.postList.doDrawItem = ParadiseEconomy.TradeManagementPanel.drawPost
+    ParadiseEconomy.listHint(self.postList, "No player trade posts match this filter.")
     self.postList:setOnMouseDownFunction(self, ParadiseEconomy.TradeManagementPanel.onPostSelect)
     self:addChild(self.postList)
     self.postOwnerButton = ISButton:new(0, 0, 190, 26, "ADMIN | OPEN SELLER", self, ParadiseEconomy.TradeManagementPanel.openPostSeller)
@@ -4228,9 +4290,9 @@ function ParadiseEconomy.TradeManagementPanel:drawMerchant(y, item, alt)
     local merchant = item.item
     local theme = ParadiseEconomy.Theme
     if self.selected == item.index then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
     elseif alt then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
     local columns = ParadiseEconomy.getTradeTableColumns(self.width)
     local lease = ParadiseEconomy.getLeaseInfo(merchant.expiresAt)
@@ -4247,11 +4309,14 @@ function ParadiseEconomy.TradeManagementPanel:drawMerchant(y, item, alt)
         theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
     self:drawText(ParadiseEconomy.fitText(tostring(merchant.id or "-"), columns.col3 - columns.col2 - 12, UIFont.Small),
         columns.col2, y + 17, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
-    self:drawText(tostring(merchant.listingCount or 0), columns.col3, y + 17,
+    self:drawText(ParadiseEconomy.fitText(tostring(merchant.listingCount or 0),
+        math.max(24, columns.col4 - columns.col3 - 12), UIFont.Small), columns.col3, y + 17,
         theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
-    self:drawText(tostring(ParadiseEconomy.formatLeaseExpiry(merchant.expiresAt)), columns.col4, y + 17,
+    self:drawText(ParadiseEconomy.fitText(ParadiseEconomy.formatLeaseExpiry(merchant.expiresAt),
+        math.max(24, columns.col5 - columns.col4 - 12), UIFont.Small), columns.col4, y + 17,
         color.r, color.g, color.b, 1, UIFont.Small)
-    self:drawText(ParadiseEconomy.formatBalances(merchant.earnings), columns.col5, y + 17,
+    self:drawText(ParadiseEconomy.fitText(ParadiseEconomy.formatBalances(merchant.earnings),
+        math.max(24, ParadiseEconomy.listContentWidth(self) - columns.col5 - 8), UIFont.Small), columns.col5, y + 17,
         theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
     return y + self.itemheight
 end
@@ -4260,9 +4325,9 @@ function ParadiseEconomy.TradeManagementPanel:drawPost(y, item, alt)
     local post = item.item
     local theme = ParadiseEconomy.Theme
     if self.selected == item.index then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
     elseif alt then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
     local columns = ParadiseEconomy.getTradeTableColumns(self.width)
     local lease = ParadiseEconomy.getLeaseInfo(post.merchantExpiresAt)
@@ -4279,11 +4344,14 @@ function ParadiseEconomy.TradeManagementPanel:drawPost(y, item, alt)
     self:drawText(ParadiseEconomy.fitText(tostring(post.merchantTitle or post.merchantAccountId or "-"),
         columns.col3 - columns.col2 - 12, UIFont.Small), columns.col2, y + 17,
         theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
-    self:drawText(tostring(post.price) .. " " .. tostring(post.currency), columns.col3, y + 17,
+    self:drawText(ParadiseEconomy.fitText(tostring(post.price) .. " " .. tostring(post.currency),
+        math.max(24, columns.col4 - columns.col3 - 12), UIFont.Small), columns.col3, y + 17,
         theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
-    self:drawText(tostring(ParadiseEconomy.formatTimestamp(post.createdAt)), columns.col4, y + 17,
+    self:drawText(ParadiseEconomy.fitText(ParadiseEconomy.formatTimestamp(post.createdAt),
+        math.max(24, columns.col5 - columns.col4 - 12), UIFont.Small), columns.col4, y + 17,
         theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    self:drawText(tostring(ParadiseEconomy.formatLeaseExpiry(post.merchantExpiresAt)), columns.col5, y + 17,
+    self:drawText(ParadiseEconomy.fitText(ParadiseEconomy.formatLeaseExpiry(post.merchantExpiresAt),
+        math.max(24, ParadiseEconomy.listContentWidth(self) - columns.col5 - 8), UIFont.Small), columns.col5, y + 17,
         color.r, color.g, color.b, 1, UIFont.Small)
     return y + self.itemheight
 end
@@ -4389,10 +4457,16 @@ function ParadiseEconomy.TradeManagementPanel:drawTableHeader(label1, label2, la
     local columns = ParadiseEconomy.getTradeTableColumns(tableW)
     local y = headerY + 4
     self:drawText(label1, x + 8, y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    self:drawText(label2, x + columns.col2, y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    self:drawText(label3, x + columns.col3, y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    self:drawText(label4, x + columns.col4, y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    if label5 then self:drawText(label5, x + columns.col5, y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small) end
+    self:drawText(ParadiseEconomy.fitText(label2, columns.col3 - columns.col2 - 12, UIFont.Small), x + columns.col2, y,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText(ParadiseEconomy.fitText(label3, columns.col4 - columns.col3 - 12, UIFont.Small), x + columns.col3, y,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText(ParadiseEconomy.fitText(label4, columns.col5 - columns.col4 - 12, UIFont.Small), x + columns.col4, y,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    if label5 then
+        self:drawText(ParadiseEconomy.fitText(label5, math.max(24, tableW - columns.col5 - 70), UIFont.Small), x + columns.col5, y,
+            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    end
     self:drawTextRight("STATUS", x + tableW - 24, y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     self:drawRect(x, headerY + 18, tableW, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
 end
@@ -4411,8 +4485,12 @@ function ParadiseEconomy.TradeManagementPanel:prerender()
         local info = "TAX " .. string.format("%g", tonumber(zone.tradeTax) or 0) .. "%  |  FEE "
             .. tostring(zone.merchantDailyFee or 0) .. " " .. tostring(zone.merchantFeeCurrency or "jimoleon")
             .. "/DAY  |  OWNER  " .. tostring(zone.owner or "-")
-        self:drawTextRight(ParadiseEconomy.fitText(info, w - 520, UIFont.Small), w - 120, 68,
-            theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
+        local infoRight = w - 120
+        local infoLeft = self.applyFeeButton:getX() + self.applyFeeButton:getWidth() + 12
+        if infoRight - infoLeft >= 60 then
+            self:drawTextRight(ParadiseEconomy.fitText(info, infoRight - infoLeft, UIFont.Small), infoRight, 68,
+                theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
+        end
     end
     ParadiseEconomy.drawTabUnderline(self, self.tabMerchants, self.tab == "merchants")
     ParadiseEconomy.drawTabUnderline(self, self.tabPosts, self.tab == "posts")
@@ -4422,17 +4500,9 @@ function ParadiseEconomy.TradeManagementPanel:prerender()
     if self.tab == "merchants" then
         self:drawTableHeader("MERCHANT / OWNER", "MERCHANT ID", "LISTINGS", "LEASE END", "REVENUE")
         self:drawMerchantDetail()
-        if #(self.merchantCache or {}) == 0 then
-            self:drawTextCentre("No merchant stalls in this trade zone yet.", w / 2, self.merchantList:getY() + 30,
-                theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-        end
     elseif self.tab == "posts" then
         self:drawTableHeader("ITEM / SELLER", "MERCHANT", "PRICE", "POSTED", "LEASE END", self.postHeaderY)
         self:drawPostDetail()
-        if #(self.postCache or {}) == 0 then
-            self:drawTextCentre("No player trade posts match this filter.", w / 2, self.postList:getY() + 30,
-                theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-        end
     end
     self:drawRect(0, self.height - 34, self.width, 34, theme.headerBg.a, theme.headerBg.r, theme.headerBg.g, theme.headerBg.b)
     local message = ParadiseEconomy.clientState.message
@@ -4831,9 +4901,7 @@ function ParadiseEconomy.PurchasePanel:prerender()
     ParadiseEconomy.drawCard(self, 15, 76, self.width - 30, 174, theme.accentDim)
     local function row(label, value, yy, color)
         color = color or theme.textDim
-        self:drawText(label, 28, yy, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-        self:drawTextRight(ParadiseEconomy.fitText(tostring(value), self.width - 150, UIFont.Small), self.width - 28, yy,
-            color.r, color.g, color.b, 1, UIFont.Small)
+        ParadiseEconomy.drawRowPair(self, tostring(label), tostring(value), 28, self.width - 28, yy, theme.textMuted, color)
     end
     row("Price", tostring(self.price) .. " " .. tostring(self.currency), 88, theme.gold)
     row(string.format("Sales tax (%g%%)", self.taxPercent or 0), tostring(self.tax) .. " " .. tostring(self.currency), 108, theme.warn)
@@ -4843,9 +4911,11 @@ function ParadiseEconomy.PurchasePanel:prerender()
     row("On hand", tostring(onhand) .. " " .. tostring(self.currency), 148, onhand >= self.total and theme.green or theme.danger)
     row("Destination", self.destination and self.destination.label or "your inventory", 168, theme.accent)
     row("Seller", tostring(self.seller) .. "  |  " .. tostring(self.store), 188, theme.textDim)
-    self:drawText("Tax is deducted from the seller payout.", x, 214,
+    self:drawText(ParadiseEconomy.fitText("Tax is deducted from the seller payout.",
+        math.max(24, self.width - 2 * x), UIFont.Small), x, 214,
         theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    self:drawText("Pay from your on-hand balance. The item is delivered to the drop destination.", x, 232,
+    self:drawText(ParadiseEconomy.fitText("Pay from your on-hand balance. The item is delivered to the drop destination.",
+        math.max(24, self.width - 2 * x), UIFont.Small), x, 232,
         theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     if self.status then
         self:drawText(ParadiseEconomy.fitText(tostring(self.status), self.width - 30, UIFont.Small), x, self.height - 68,
@@ -4952,6 +5022,7 @@ function ParadiseEconomy.AdminPanel:createChildren()
     self.accounts.itemheight = 48
     self.accounts.font = UIFont.Small
     self.accounts.doDrawItem = ParadiseEconomy.AdminPanel.drawAccount
+    ParadiseEconomy.listHint(self.accounts, "No accounts match this filter.")
     self.accounts:setOnMouseDownFunction(self, ParadiseEconomy.AdminPanel.selectAccount)
     self.accounts:setOnMouseDoubleClick(self, ParadiseEconomy.AdminPanel.onAccountDoubleClick)
     self.accounts.panel = self
@@ -5715,16 +5786,22 @@ function ParadiseEconomy.AdminPanel:setTargetUsername(targetUser)
     self:refresh()
 end
 
-function ParadiseEconomy.AdminPanel.drawCoinValue(panel, rightX, y, amount, color, icon)
+function ParadiseEconomy.AdminPanel.drawCoinValue(panel, rightX, y, amount, color, icon, maxW)
+    local theme = ParadiseEconomy.Theme
     local text = ParadiseEconomy.formatNumber(amount)
+    if maxW then text = ParadiseEconomy.fitText(text, math.max(24, maxW - 20), UIFont.Small) end
     local textW = getTextManager():MeasureStringX(UIFont.Small, text)
     if icon then panel:drawTextureScaled(icon, rightX - textW - 19, y - 1, 14, 14, 1) end
     panel:drawText(text, rightX - textW, y, color.r, color.g, color.b, 1, UIFont.Small)
 end
 
-function ParadiseEconomy.AdminPanel.drawCoinHeader(panel, rightX, y, icon)
+function ParadiseEconomy.AdminPanel.drawCoinHeader(panel, rightX, y, icon, maxW)
     local label = "BALANCE"
     local textW = getTextManager():MeasureStringX(UIFont.Small, label)
+    if maxW and textW + 20 > maxW then
+        label = ParadiseEconomy.fitText(label, math.max(24, maxW - 20), UIFont.Small)
+        textW = getTextManager():MeasureStringX(UIFont.Small, label)
+    end
     local theme = ParadiseEconomy.Theme
     if icon then panel:drawTextureScaled(icon, rightX - textW - 18, y - 1, 12, 12, 1) end
     panel:drawText(label, rightX - textW, y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
@@ -5737,15 +5814,16 @@ function ParadiseEconomy.AdminPanel:drawAccount(y, item, alt)
     local selected = self.selected == item.index
     local rowH = self.itemheight
     if selected then
-        self:drawRect(0, y, self.width, rowH - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
-        self:drawRectBorder(0, y, self.width, rowH - 1, 0.9, theme.gold.r, theme.gold.g, theme.gold.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), rowH - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
+        self:drawRectBorder(0, y, ParadiseEconomy.listContentWidth(self), rowH - 1, 0.9, theme.gold.r, theme.gold.g, theme.gold.b)
         self:drawRect(0, y, 3, rowH - 1, 1, theme.gold.r, theme.gold.g, theme.gold.b)
     elseif alt then
-        self:drawRect(0, y, self.width, rowH - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), rowH - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
-    self:drawRect(0, y + rowH - 1, self.width, 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
+    self:drawRect(0, y + rowH - 1, ParadiseEconomy.listContentWidth(self), 1, theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
 
-    self:drawText(tostring(account.id or "?"), panel.rowIdX, y + 17,
+    self:drawText(ParadiseEconomy.fitText(tostring(account.id or "?"),
+        math.max(24, panel.rowOwnerX - panel.rowIdX - 32), UIFont.Small), panel.rowIdX, y + 17,
         theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
     local title = tostring(account.title or account.owner or account.name or account.id or "?")
     if account.frozen == true then title = "[FROZEN] " .. title end
@@ -5760,10 +5838,12 @@ function ParadiseEconomy.AdminPanel:drawAccount(y, item, alt)
 
     local buckets = ParadiseEconomy.getAccountBuckets(account)
     local bucket = buckets[1] and account[buckets[1].key] or nil
+    local jSpan = math.max(24, panel.rowJRight - (panel.rowTypeX + chipW) - 12)
+    local pSpan = math.max(24, panel.rowPRight - panel.rowJRight - 12)
     ParadiseEconomy.AdminPanel.drawCoinValue(self, panel.rowJRight, y + 17,
-        ParadiseEconomy.getBalance(bucket, "jimoleon"), theme.gold, ParadiseEconomy.icons.jimoleon)
+        ParadiseEconomy.getBalance(bucket, "jimoleon"), theme.gold, ParadiseEconomy.icons.jimoleon, jSpan)
     ParadiseEconomy.AdminPanel.drawCoinValue(self, panel.rowPRight, y + 17,
-        ParadiseEconomy.getBalance(bucket, "paradisium"), theme.accent, ParadiseEconomy.icons.paradisium)
+        ParadiseEconomy.getBalance(bucket, "paradisium"), theme.accent, ParadiseEconomy.icons.paradisium, pSpan)
     return y + rowH
 end
 
@@ -5780,7 +5860,8 @@ function ParadiseEconomy.AdminPanel:prerender()
             theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
         ParadiseEconomy.drawAdminChip(self,
             27 + getTextManager():MeasureStringX(UIFont.Small, "NEW ACCOUNT") + 8, self.createRowY + 7)
-        self:drawTextRight("Type | owner | zone | name", 15 + self.leftW - 14, self.createRowY + 8,
+        self:drawTextRight(ParadiseEconomy.fitText("Type | owner | zone | name", math.max(24, self.leftW - 260), UIFont.Small),
+            15 + self.leftW - 14, self.createRowY + 8,
             theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     end
 
@@ -5795,16 +5876,14 @@ function ParadiseEconomy.AdminPanel:prerender()
     self:drawText("TYPE", listX + self.rowTypeX, headerY + 7,
         theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     ParadiseEconomy.AdminPanel.drawCoinHeader(self, listX + self.rowJRight, headerY + 7,
-        ParadiseEconomy.icons.jimoleon)
+        ParadiseEconomy.icons.jimoleon, math.max(24, self.rowJRight - (self.rowTypeX + 90) - 12))
     ParadiseEconomy.AdminPanel.drawCoinHeader(self, listX + self.rowPRight, headerY + 7,
-        ParadiseEconomy.icons.paradisium)
-    if #self.accounts.items == 0 then
-        self:drawTextCentre("No accounts match this filter.", listX + self.leftW / 2, self.listY + 40,
-            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    end
+        ParadiseEconomy.icons.paradisium, math.max(24, self.rowPRight - self.rowJRight - 12))
 
     ParadiseEconomy.drawCard(self, self.detailX, self.detailY, self.detailW, self.detailH, theme.accentDim)
-    self:drawText("SELECTED ACCOUNT", self.detailInnerX, self.detailLabelY,
+    self:drawText(ParadiseEconomy.fitText("SELECTED ACCOUNT",
+        math.max(24, self.ledgerButton and (self.ledgerButton:getX() - self.detailInnerX - 12) or self.detailInnerW),
+        UIFont.Small), self.detailInnerX, self.detailLabelY,
         theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     local account = self:getSelectedAccount()
     if account then
@@ -5828,26 +5907,30 @@ function ParadiseEconomy.AdminPanel:prerender()
             local tab = account[entry.key]
             local rowY = self.balanceLabelY + (index - 1) * self.balancePitch
             local label = string.upper(tostring(entry.label))
-            self:drawText("JIMOLEON " .. label, self.detailInnerX, rowY,
+            self:drawText(ParadiseEconomy.fitText("JIMOLEON " .. label,
+                math.max(24, self.fieldCol2X - self.detailInnerX - 10), UIFont.Small), self.detailInnerX, rowY,
                 theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-            self:drawText("PARADISIUM " .. label, self.fieldCol2X, rowY,
-                theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+            self:drawText(ParadiseEconomy.fitText("PARADISIUM " .. label, math.max(24, self.fieldW - 10), UIFont.Small),
+                self.fieldCol2X, rowY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
             local boxY = rowY + 13
             self:drawRect(self.detailInnerX, boxY, self.fieldW, self.balanceBoxH,
                 theme.entryBg.a, theme.entryBg.r, theme.entryBg.g, theme.entryBg.b)
             self:drawRectBorder(self.detailInnerX, boxY, self.fieldW, self.balanceBoxH,
                 theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
-            self:drawText(ParadiseEconomy.formatNumber(ParadiseEconomy.getBalance(tab, "jimoleon")),
+            self:drawText(ParadiseEconomy.fitText(ParadiseEconomy.formatNumber(ParadiseEconomy.getBalance(tab, "jimoleon")),
+                math.max(24, self.fieldW - 16), UIFont.Small),
                 self.detailInnerX + 8, boxY + 7, theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
             self:drawRect(self.fieldCol2X, boxY, self.fieldW, self.balanceBoxH,
                 theme.entryBg.a, theme.entryBg.r, theme.entryBg.g, theme.entryBg.b)
             self:drawRectBorder(self.fieldCol2X, boxY, self.fieldW, self.balanceBoxH,
                 theme.borderSoft.a, theme.borderSoft.r, theme.borderSoft.g, theme.borderSoft.b)
-            self:drawText(ParadiseEconomy.formatNumber(ParadiseEconomy.getBalance(tab, "paradisium")),
+            self:drawText(ParadiseEconomy.fitText(ParadiseEconomy.formatNumber(ParadiseEconomy.getBalance(tab, "paradisium")),
+                math.max(24, self.fieldW - 16), UIFont.Small),
                 self.fieldCol2X + 8, boxY + 7, theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
         end
     else
-        self:drawText("Select an account from the directory.", self.detailInnerX, self.detailTitleY,
+        self:drawText(ParadiseEconomy.fitText("Select an account from the directory.",
+            math.max(24, self.detailInnerW), UIFont.Small), self.detailInnerX, self.detailTitleY,
             theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     end
 
@@ -5893,8 +5976,12 @@ function ParadiseEconomy.AdminPanel:prerender()
 
     local message = self.pendingMessage or ParadiseEconomy.clientState.message
     if message then
-        self:drawTextRight(ParadiseEconomy.fitText(tostring(message), math.max(160, w - 450), UIFont.Small),
-            w - 80, 29, theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
+        local msgRight = math.min(w - 80, (self.headerTagX or (w - 68)) - 8)
+        local msgLeft = (self.headerTextRight or 200) + 12
+        if msgRight - msgLeft >= 80 then
+            self:drawTextRight(ParadiseEconomy.fitText(tostring(message), msgRight - msgLeft, UIFont.Small),
+                msgRight, 29, theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
+        end
     end
 end
 
@@ -6191,13 +6278,14 @@ function ParadiseEconomy.TablesPanel:selectRecord(record)
 end
 
 function ParadiseEconomy.TablesPanel:drawRecord(y, item, alt)
+    local contentW = ParadiseEconomy.listContentWidth(self)
     if self.selected == item.index then
-        self:drawRect(0, y, self.width, self.itemheight, 0.32, 0.70, 0.35, 0.16)
+        self:drawRect(0, y, contentW, self.itemheight, 0.32, 0.70, 0.35, 0.16)
     elseif alt then
-        self:drawRect(0, y, self.width, self.itemheight, 0.13, 0.30, 0.32, 0.32)
+        self:drawRect(0, y, contentW, self.itemheight, 0.13, 0.30, 0.32, 0.32)
     end
-    self:drawRectBorder(0, y, self.width, self.itemheight, 0.45, 0.30, 0.35, 0.45)
-    self:drawText(item.item.row, 8, y + 4, 1, 1, 1, 0.95, self.font)
+    self:drawRectBorder(0, y, contentW, self.itemheight, 0.45, 0.30, 0.35, 0.45)
+    self:drawText(ParadiseEconomy.fitText(item.item.row, math.max(24, contentW - 16), self.font), 8, y + 4, 1, 1, 1, 0.95, self.font)
     return y + self.itemheight
 end
 
@@ -6400,6 +6488,7 @@ function ParadiseEconomy.MartAdminView:createChildren()
     self.listings.itemheight = 30
     self.listings.font = UIFont.Small
     self.listings.doDrawItem = ParadiseEconomy.MartAdminView.drawListing
+    ParadiseEconomy.listHint(self.listings, "No item mart entries match this view.")
     self.listings:setOnMouseDownFunction(self, ParadiseEconomy.MartAdminView.selectListing)
     self:addChild(self.listings)
 
@@ -6516,7 +6605,7 @@ end
 function ParadiseEconomy.MartAdminView:drawListing(y, item, alt)
     local listing = item.item
     local theme = ParadiseEconomy.Theme
-    local w = self.width
+    local w = ParadiseEconomy.listContentWidth(self)
     if self.selected == item.index then
         self:drawRect(0, y, w, self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
     elseif alt then
@@ -6535,24 +6624,29 @@ function ParadiseEconomy.MartAdminView:drawListing(y, item, alt)
     self:drawText(chipText, chipX + 7, y + 7, tint.r, tint.g, tint.b, 1, UIFont.Small)
     local action = listing.direction == "sell" and "MART BUYS" or "MART SELLS"
     local actionColor = listing.direction == "sell" and theme.gold or theme.accent
-    self:drawText(action, chipX + chipW + 14, y + 9, actionColor.r, actionColor.g, actionColor.b, 1, UIFont.Small)
-    self:drawTextRight("EDIT", w - 10, y + 9, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     local priceText = ParadiseEconomy.formatNumber(listing.price)
     local priceW = getTextManager():MeasureStringX(UIFont.Small, priceText)
+    local iconX = w - 64 - priceW
+    local actionLeft = chipX + chipW + 14
+    if iconX - 12 - actionLeft >= 30 then
+        self:drawText(ParadiseEconomy.fitText(action, iconX - 12 - actionLeft, UIFont.Small), actionLeft, y + 9,
+            actionColor.r, actionColor.g, actionColor.b, 1, UIFont.Small)
+    end
+    self:drawTextRight("EDIT", w - 10, y + 9, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     self:drawTextRight(priceText, w - 46, y + 9, theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
     local icon = listing.currency == "paradisium" and ParadiseEconomy.icons.paradisium or ParadiseEconomy.icons.jimoleon
-    if icon then self:drawTextureScaled(icon, w - 64 - priceW, y + 8, 14, 14, 1) end
+    if icon then self:drawTextureScaled(icon, iconX, y + 8, 14, 14, 1) end
     return y + self.itemheight
 end
 
 function ParadiseEconomy.MartAdminView:drawItem(y, item, alt)
     local theme = ParadiseEconomy.Theme
     if self.selected == item.index then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
     elseif alt then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
-    self:drawText(ParadiseEconomy.fitText(tostring(item.text), self.width - 16, UIFont.Small), 8, y + 4,
+    self:drawText(ParadiseEconomy.fitText(tostring(item.text), math.max(24, ParadiseEconomy.listContentWidth(self) - 16), UIFont.Small), 8, y + 4,
         theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
     return y + self.itemheight
 end
@@ -7154,7 +7248,7 @@ function ParadiseEconomy.MartAdminView:prerender()
     self:drawText("MARKET", 29, self.accountLabelY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     local titleX = self.titleEntry:getX()
     self:drawText("MARKET TITLE", titleX, self.accountLabelY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    self:drawText("TRADE TAX / %", 29, self.accountLabel2Y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+    self:drawText("TRADE TAX %", 29, self.accountLabel2Y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     self:drawText("DAILY FEE", 101, self.accountLabel2Y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     self:drawText("FEE CURRENCY", 179, self.accountLabel2Y, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     self:drawText("CATEGORY TABS ( ; SEPARATED )", self.categoriesEntry:getX(), self.accountLabel2Y,
@@ -7192,11 +7286,6 @@ function ParadiseEconomy.MartAdminView:prerender()
     self:drawText("ITEM CATALOG", 29, self.inventoryLabelY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     self:drawText("MART LISTINGS", self.listingX, self.inventoryLabelY,
         theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    if self.listings and #self.listings.items == 0 then
-        self:drawTextCentre("No item mart entries match this view.",
-            self.listings:getX() + self.listings:getWidth() / 2, self.listings:getY() + 16,
-            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    end
 
     ParadiseEconomy.drawCard(self, 15, self.editorCardY, w - 30, self.editorCardH, theme.accentDim)
     self:drawText("LISTING EDITOR", 29, self.editorLabelY, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
@@ -7228,7 +7317,8 @@ function ParadiseEconomy.HUD:prerender()
         self.width,
         self.height,
         clock and clock:isVisible() and clock:getX() or nil,
-        clock and clock:isVisible() and clock:getY() or nil
+        clock and clock:isVisible() and clock:getY() or nil,
+        getCore():getScreenHeight()
     )
     if self.x ~= x then self:setX(x) end
     if self.y ~= y then self:setY(y) end
@@ -7252,7 +7342,8 @@ function ParadiseEconomy.createHUD()
         270,
         46,
         clock and clock:isVisible() and clock:getX() or nil,
-        clock and clock:isVisible() and clock:getY() or nil
+        clock and clock:isVisible() and clock:getY() or nil,
+        getCore():getScreenHeight()
     )
     ParadiseEconomy.hud = ParadiseEconomy.HUD:new(x, y)
     ParadiseEconomy.hud:initialise()
@@ -7308,6 +7399,7 @@ function ParadiseEconomy.LedgerPanel:createChildren()
     self.rowList.itemheight = 22
     self.rowList.font = UIFont.Small
     self.rowList.doDrawItem = ParadiseEconomy.LedgerPanel.drawRow
+    ParadiseEconomy.listHint(self.rowList, "No ledger entries yet.")
     self.rowList:setOnMouseDownFunction(self, ParadiseEconomy.LedgerPanel.selectRow)
     self.rowList.panel = self
     self:addChild(self.rowList)
@@ -7478,12 +7570,12 @@ function ParadiseEconomy.LedgerPanel:drawDay(y, item, alt)
     local entry = item.item
     local theme = ParadiseEconomy.Theme
     if self.selected == item.index then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
     elseif alt then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
     self:drawText(tostring(entry.d), 8, y + 5, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
-    self:drawTextRight(tostring(entry.n) .. " ENTRIES", self.width - 8, y + 5,
+    self:drawTextRight(tostring(entry.n) .. " ENTRIES", ParadiseEconomy.listContentWidth(self) - 8, y + 5,
         theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     return y + self.itemheight
 end
@@ -7492,13 +7584,14 @@ function ParadiseEconomy.LedgerPanel:drawRow(y, item, alt)
     local panel = self.panel
     local theme = ParadiseEconomy.Theme
     if self.selected == item.index then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowSelected.a, theme.rowSelected.r, theme.rowSelected.g, theme.rowSelected.b)
     elseif alt then
-        self:drawRect(0, y, self.width, self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
+        self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
     local day = panel and panel.selectedDay or nil
     local rec = ParadiseEconomy.Ledger.decode(item.item.packed, day)
-    self:drawText(ParadiseEconomy.fitText(ParadiseEconomy.Ledger.adminText(rec), self.width - 16, UIFont.Small),
+    self:drawText(ParadiseEconomy.fitText(ParadiseEconomy.Ledger.adminText(rec),
+        math.max(24, ParadiseEconomy.listContentWidth(self) - 16), UIFont.Small),
         8, y + 4, theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
     return y + self.itemheight
 end
@@ -7508,22 +7601,21 @@ function ParadiseEconomy.LedgerPanel:prerender()
     local theme = ParadiseEconomy.Theme
     local w = self.width
     self:drawText("DAYS", 15, self.dayList:getY() - 16, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
-    self:drawText("PAGE " .. tostring(self.page) .. " / " .. tostring(self.pages) .. "  -  "
+    self:drawText(ParadiseEconomy.fitText("PAGE " .. tostring(self.page) .. " / " .. tostring(self.pages) .. "  -  "
         .. tostring(self.count) .. " ENTRIES  -  " .. tostring(self.selectedDay or "-"),
-        190, self.pagerY + 5, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+        math.max(24, (w - 20) - (self.nextButton:getX() + self.nextButton:getWidth() + 12)), UIFont.Small),
+        self.nextButton:getX() + self.nextButton:getWidth() + 12, self.pagerY + 5,
+        theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     ParadiseEconomy.drawCard(self, 15, self.detailY - 6, w - 30, math.max(60, self.height - self.detailY + 2), theme.borderSoft)
     if #(self.detailLines or {}) == 0 then
-        self:drawText("Select a row to inspect the packed record and its player rendering.", 29,
-            self.detailY + 8, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
+        self:drawText(ParadiseEconomy.fitText("Select a row to inspect the packed record and its player rendering.",
+            math.max(24, w - 54), UIFont.Small), 29, self.detailY + 8,
+            theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     else
         for index = 1, math.min(#self.detailLines, 7) do
             self:drawText(ParadiseEconomy.fitText(self.detailLines[index], w - 54, UIFont.Small),
                 29, self.detailY + 6 + (index - 1) * 17,
                 theme.textDim.r, theme.textDim.g, theme.textDim.b, 1, UIFont.Small)
         end
-    end
-    if #(self.days or {}) == 0 then
-        self:drawTextCentre("No ledger entries yet.", self.rowList:getX() + self.rowList:getWidth() / 2,
-            self.rowList:getY() + 30, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
     end
 end

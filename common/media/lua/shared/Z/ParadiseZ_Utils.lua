@@ -120,3 +120,19 @@ function ParadiseZ.doRoll(percent)
     if percent == 0 then return false end
 	return percent >= ZombRand(1, 101)
 end
+
+function ParadiseZ.fitText(text, maxWidth, font)
+    text = tostring(text or "")
+    if type(getTextManager) ~= "function" then return text end
+    font = font or (UIFont and UIFont.Small)
+    if not font then return text end
+    local textManager = getTextManager()
+    if not textManager then return text end
+    maxWidth = tonumber(maxWidth) or 0
+    if maxWidth <= 0 then return "" end
+    if textManager:MeasureStringX(font, text) <= maxWidth then return text end
+    while #text > 3 and textManager:MeasureStringX(font, string.sub(text, 1, #text - 1) .. "...") > maxWidth do
+        text = string.sub(text, 1, #text - 1)
+    end
+    return string.sub(text, 1, #text - 1) .. "..."
+end

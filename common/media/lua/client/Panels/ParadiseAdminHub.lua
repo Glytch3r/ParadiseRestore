@@ -86,6 +86,9 @@ function ParadiseAdminHub.getEntries()
             add("Lua Reset", function() LuaResetTool.OpenPanel() end)
         end
     end
+    if ParadiseManual and ParadiseManual.OpenPanel then
+        add("Manual", function() ParadiseManual.OpenPanel("admin") end)
+    end
     if ParadisePanels and ParadisePanels.CloseAdminPanels then
         add("Close All Panels", function() ParadisePanels.CloseAdminPanels() end)
     end

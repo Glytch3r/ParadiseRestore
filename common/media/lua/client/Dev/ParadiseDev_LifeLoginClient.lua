@@ -211,7 +211,7 @@ function L.refresh()
         local slot=(L.page-1)*3+i
         local profile=L.profiles and L.profiles.slots[slot]
         button.slot=slot;button:setVisible(slot<=max)
-        button:setTitle("Profile "..slot..": "..(profile and profile.name or "Empty"))
+        button:setTitle(ParadiseZ.fitText("Profile "..slot..": "..(profile and profile.name or "Empty"), button.width-16, UIFont.Small))
         button.borderColor=L.selected==slot and {r=.4,g=.8,b=.65,a=1} or {r=.4,g=.4,b=.4,a=.5}
         -- Native setEnable restores its cached color on every frame.
         -- Leave first-time cache initialization to it, including the background.

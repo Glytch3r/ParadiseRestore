@@ -745,12 +745,13 @@ function WaveCasterPanel:drawWaveItem(y, item, alt)
         self.waveList:drawRect(0, y, self.waveList.width, self.waveList.itemheight, 0.1, 1, 1, 1)
     end
     self.waveList:drawText("#"..tostring(data.Number), 5, y + 2, 1,1,1,1, UIFont.Small)
-    self.waveList:drawText(tostring(data.Outfit), 35, y + 2, 1,1,1,1, UIFont.Small)
+    self.waveList:drawText(ParadiseZ.fitText(tostring(data.Outfit), 127, UIFont.Small), 35, y + 2, 1,1,1,1, UIFont.Small)
     self.waveList:drawText(tostring(data.Count), 170, y + 2, 1,1,1,1, UIFont.Small)
     self.waveList:drawText(tostring(data.Radius), 240, y + 2, 1,1,1,1, UIFont.Small)
     self.waveList:drawText(tostring(data.Delay), 310, y + 2, 1,1,1,1, UIFont.Small)
-	self.waveList:drawText(tostring(data.CastPoint), 360, y + 2, 1,1,1,1, UIFont.Small)
-	self.waveList:drawText(tostring(data.Target), 455, y + 2, 1,1,1,1, UIFont.Small)
+	self.waveList:drawText(ParadiseZ.fitText(tostring(data.CastPoint), 87, UIFont.Small), 360, y + 2, 1,1,1,1, UIFont.Small)
+	local listRight = self.waveList.width - (self.waveList:isVScrollBarVisible() and 16 or 2)
+	self.waveList:drawText(ParadiseZ.fitText(tostring(data.Target), math.max(24, listRight - 461), UIFont.Small), 455, y + 2, 1,1,1,1, UIFont.Small)
     return y + self.waveList.itemheight
 end
 function WaveCasterPanel:onWaveListClick(item)

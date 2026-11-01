@@ -8,6 +8,13 @@ Sniffer.window = Sniffer.window or nil
 Sniffer.picker = Sniffer.picker or nil
 Sniffer.maxDepth = 4
 Sniffer.maxRows = 400
+Sniffer.hoverFill = { r = 0.85, g = 0.25, b = 0.95, a = 0.18 }
+Sniffer.hoverBorder = { r = 0.85, g = 0.25, b = 0.95, a = 0.95 }
+Sniffer.lockFill = { r = 0.85, g = 0.25, b = 0.95, a = 0.35 }
+Sniffer.lockBorder = { r = 0.95, g = 0.45, b = 1.00, a = 1.00 }
+Sniffer.lockDraws = 0
+Sniffer.marker = Sniffer.marker or nil
+Sniffer.markerSize = 0.75
 Sniffer.categories = {
     { key = "square", label = "Square" },
     { key = "tiles", label = "Tiles" },
@@ -580,9 +587,6 @@ function Sniffer.startPick()
     picker:setVisible(true)
     Sniffer.picker = picker
     Sniffer.pickerDown = isMouseButtonDown(0) or isMouseButtonDown(1)
-    if ParadiseAdminHub and type(ParadiseAdminHub.ClosePanel) == "function" then
-        ParadiseAdminHub.ClosePanel()
-    end
 end
 
 function Sniffer.cancelPick()
@@ -594,13 +598,6 @@ function Sniffer.cancelPick()
 end
 
 function Sniffer.squareUnderMouse()
-    if IsoObjectPicker and IsoObjectPicker.Instance then
-        local okPick, click = pcall(IsoObjectPicker.Instance.ContextPick, IsoObjectPicker.Instance, getMouseX(), getMouseY())
-        if okPick and click then
-            local okSquare, sq = pcall(function() return click.square end)
-            if okSquare and sq then return sq end
-        end
-    end
     local pl = getPlayer()
     if not pl then return nil end
     local level = math.floor(pl:getZ())
@@ -644,6 +641,111 @@ function Sniffer.onKeyPressed(key)
 end
 Events.OnKeyPressed.Remove(Sniffer.onKeyPressed)
 Events.OnKeyPressed.Add(Sniffer.onKeyPressed)
+
+function Sniffer.clearMarker()
+    local marker = Sniffer.marker
+    if not marker then return nil end
+    Sniffer.marker = nil
+    return Sniffer.call(marker, "remove")
+end
+
+function Sniffer.setMarker(sq)
+    if not sq then
+        return Sniffer.clearMarker()
+    end
+    local x = Sniffer.call(sq, "getX")
+    local y = Sniffer.call(sq, "getY")
+    local z = Sniffer.call(sq, "getZ")
+    if not x or not y or not z then return nil end
+    local markers = getWorldMarkers and getWorldMarkers() or nil
+    if not markers then return nil end
+    if not Sniffer.marker then
+        Sniffer.marker = Sniffer.call(markers, "addGridSquareMarker", "circle_center", "circle_only_highlight", sq,
+            Sniffer.lockFill.r, Sniffer.lockFill.g, Sniffer.lockFill.b, true, Sniffer.markerSize)
+        if Sniffer.marker then
+            Sniffer.call(Sniffer.marker, "setScaleCircleTexture", true)
+        end
+    else
+        Sniffer.call(Sniffer.marker, "setPosAndSize", math.floor(x), math.floor(y), math.floor(z), Sniffer.markerSize)
+    end
+    return Sniffer.marker
+end
+
+function Sniffer.drawSquare(sq, fill, border)
+    if not sq then return end
+    local pl = getPlayer()
+    if not pl then return end
+    local viz = ParadiseDev and ParadiseDev.Zones and ParadiseDev.Zones.Visualization
+    if not viz or type(viz.drawWorldArea) ~= "function" then return end
+    local x = Sniffer.call(sq, "getX")
+    local y = Sniffer.call(sq, "getY")
+    local z = Sniffer.call(sq, "getZ")
+    if not x or not y or not z then return end
+    viz.drawWorldArea(pl:getPlayerNum(), x, y, x + 1, y + 1, z, fill, border)
+end
+
+function Sniffer.drawHighlight()
+    if Sniffer.picker then
+        Sniffer.drawSquare(Sniffer.squareUnderMouse(), Sniffer.hoverFill, Sniffer.hoverBorder)
+        return
+    end
+    local window = Sniffer.window
+    if window and window.square then
+        Sniffer.lockDraws = Sniffer.lockDraws + 1
+        Sniffer.drawSquare(window.square, Sniffer.lockFill, Sniffer.lockBorder)
+    end
+end
+if Sniffer.drawHoverSquare then
+    Events.OnPreUIDraw.Remove(Sniffer.drawHoverSquare)
+    Sniffer.drawHoverSquare = nil
+end
+Events.OnPreUIDraw.Remove(Sniffer.drawHighlight)
+Events.OnPreUIDraw.Add(Sniffer.drawHighlight)
+
+function Sniffer.squareScreenPos(sq)
+    local pl = getPlayer()
+    if not pl or not sq then return nil end
+    if type(isoToScreenX) ~= "function" or type(isoToScreenY) ~= "function" then return nil end
+    local plNum = pl:getPlayerNum()
+    local x = Sniffer.call(sq, "getX")
+    local y = Sniffer.call(sq, "getY")
+    local z = Sniffer.call(sq, "getZ")
+    if not x or not y or not z then return nil end
+    return isoToScreenX(plNum, x, y, z) - getPlayerScreenLeft(plNum),
+        isoToScreenY(plNum, x, y, z) - getPlayerScreenTop(plNum)
+end
+
+function Sniffer.debugHighlight()
+    local window = Sniffer.window
+    local out = { "[Sniffer]", "picker=" .. tostring(Sniffer.picker ~= nil) }
+    out[#out + 1] = "window=" .. tostring(window ~= nil)
+    out[#out + 1] = "square=" .. tostring((window and window.square) ~= nil)
+    out[#out + 1] = "lockDraws=" .. tostring(Sniffer.lockDraws)
+    out[#out + 1] = "marker=" .. tostring(Sniffer.marker ~= nil)
+    if Sniffer.marker then
+        out[#out + 1] = "markerPos=" .. tostring(Sniffer.call(Sniffer.marker, "getX")) .. ","
+            .. tostring(Sniffer.call(Sniffer.marker, "getY")) .. "," .. tostring(Sniffer.call(Sniffer.marker, "getZ"))
+        out[#out + 1] = "markerActive=" .. tostring(Sniffer.call(Sniffer.marker, "isActive"))
+    end
+    if window and window.square then
+        local sx, sy = Sniffer.squareScreenPos(window.square)
+        local rectX = window.x or 0
+        local rectY = window.y or 0
+        local rectW = window.width or 0
+        local rectH = window.height or 0
+        out[#out + 1] = "coords=" .. tostring(Sniffer.call(window.square, "getX")) .. ","
+            .. tostring(Sniffer.call(window.square, "getY")) .. "," .. tostring(Sniffer.call(window.square, "getZ"))
+        out[#out + 1] = "screen=" .. tostring(sx) .. "," .. tostring(sy)
+        out[#out + 1] = "panelRect=" .. tostring(rectX) .. "," .. tostring(rectY) .. " " .. tostring(rectW) .. "x" .. tostring(rectH)
+        out[#out + 1] = "insidePanel=" .. tostring(sx ~= nil and sy ~= nil
+            and sx >= rectX and sx <= rectX + rectW and sy >= rectY and sy <= rectY + rectH)
+        local pl = getPlayer()
+        out[#out + 1] = "plFloor=" .. tostring(pl and math.floor(pl:getZ()) or "nil")
+    end
+    local str = table.concat(out, " ")
+    print(str)
+    return str
+end
 
 Sniffer.Picker = ISPanel:derive("ParadiseDev.Sniffer.Picker")
 
@@ -862,6 +964,7 @@ end
 
 function Sniffer.Panel:scanSquare(sq)
     self.square = sq
+    Sniffer.setMarker(sq)
     self.data = Sniffer.scanSquare(sq)
     self:refresh()
 end

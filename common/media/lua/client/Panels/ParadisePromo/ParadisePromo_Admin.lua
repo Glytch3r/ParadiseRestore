@@ -190,10 +190,11 @@ function ParadisePromo_Admin_Manager:doDrawItem(y, item, alt)
     local modeNames = { [1] = "Once Lifetime", [2] = "Once Per Char", [3] = "Unlimited", [4] = "Daily" }
     local textY = y + 4
     local columnX = { 4, 134, 204, 304 }
-    list:drawText(tostring(item.text or ""), columnX[1], textY, 1, 1, 1, 1, list.font)
+    local contentW = list.width - (list:isVScrollBarVisible() and 16 or 2)
+    list:drawText(ParadiseZ.fitText(item.text or "", columnX[2] - columnX[1] - 10, list.font), columnX[1], textY, 1, 1, 1, 1, list.font)
     list:drawText(d.active and "Yes" or "No", columnX[2], textY, 0.8, 0.8, 0.8, 1, list.font)
-    list:drawText(modeNames[d.mode] or "?", columnX[3], textY, 0.8, 0.8, 0.8, 1, list.font)
-    list:drawText((d.randomized and "[R] " or "") .. tostring(d.items or ""), columnX[4], textY, 0.7, 0.7, 0.7, 1, list.font)
+    list:drawText(ParadiseZ.fitText(modeNames[d.mode] or "?", columnX[4] - columnX[3] - 10, list.font), columnX[3], textY, 0.8, 0.8, 0.8, 1, list.font)
+    list:drawText(ParadiseZ.fitText((d.randomized and "[R] " or "") .. tostring(d.items or ""), math.max(24, contentW - columnX[4] - 4), list.font), columnX[4], textY, 0.7, 0.7, 0.7, 1, list.font)
 
     return y + self.itemheight
 end

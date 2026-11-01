@@ -116,6 +116,11 @@ end
 
 JimsRulesUI.formatRules = formatRules
 
+local function fitText(text, maxWidth, font)
+    if ParadiseZ and ParadiseZ.fitText then return ParadiseZ.fitText(text, maxWidth, font) end
+    return tostring(text or "")
+end
+
 function JimsRulesUI:initialise()
     ISPanelJoypad.initialise(self)
 end
@@ -367,9 +372,16 @@ function JimsRulesUI:prerender()
         )
     end
 
+    local headerX = self.cardX + self.padding + 104
+    local headerRight = self.cardX + self.cardWidth - self.padding
+    local headerSpan = headerRight - headerX
+    local tagText = "SERVER REGULATIONS"
+    local textManager = getTextManager()
+    local tagWidth = textManager and textManager:MeasureStringX(UIFont.Small, tagText) or 120
+
     self:drawText(
-        self.title,
-        self.cardX + self.padding + 104,
+        fitText(self.title, headerSpan - tagWidth - 12, UIFont.Large),
+        headerX,
         self.cardY + 24,
         COLOR.title.r,
         COLOR.title.g,
@@ -378,8 +390,8 @@ function JimsRulesUI:prerender()
         UIFont.Large
     )
     self:drawText(
-        self.subtitle,
-        self.cardX + self.padding + 104,
+        fitText(self.subtitle, headerSpan, UIFont.Small),
+        headerX,
         self.cardY + 78,
         COLOR.muted.r,
         COLOR.muted.g,
@@ -388,8 +400,8 @@ function JimsRulesUI:prerender()
         UIFont.Small
     )
     self:drawTextRight(
-        "SERVER REGULATIONS",
-        self.cardX + self.cardWidth - self.padding,
+        tagText,
+        headerRight,
         self.cardY + 31,
         COLOR.accent.r,
         COLOR.accent.g,
@@ -410,10 +422,13 @@ function JimsRulesUI:prerender()
         COLOR.border.b
     )
 
+    local footerTextX = self.cardX + self.padding
+    local footerTextMax = self.cardWidth - (self.padding * 2)
+
     if self.errorMessage then
         self:drawText(
-            self.errorMessage,
-            self.cardX + self.padding,
+            fitText(self.errorMessage, footerTextMax, UIFont.Small),
+            footerTextX,
             footerY + 24,
             COLOR.error.r,
             COLOR.error.g,
@@ -428,8 +443,8 @@ function JimsRulesUI:prerender()
         end
 
         self:drawText(
-            footerMessage,
-            self.cardX + self.padding,
+            fitText(footerMessage, footerTextMax, UIFont.Small),
+            footerTextX,
             footerY + 24,
             COLOR.muted.r,
             COLOR.muted.g,

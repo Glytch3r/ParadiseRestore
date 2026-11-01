@@ -51,7 +51,7 @@ RecordsPanel.loggers = {
             { key = "amount", label = "Amount", width = 80 },
             { key = "from", label = "From", width = 105 },
             { key = "to", label = "To", width = 105 },
-            { key = "detail", label = "Detail", width = 210 },
+            { key = "detail", label = "Detail", width = 160 },
         },
     },
 }
@@ -96,13 +96,7 @@ function RecordsPanel.formatHours(hours)
 end
 
 function RecordsPanel.trimText(value, width, font)
-    local str = tostring(value or "")
-    local textManager = getTextManager()
-    if textManager:MeasureStringX(font, str) <= width then return str end
-    while #str > 1 and textManager:MeasureStringX(font, str .. "...") > width do
-        str = str:sub(1, #str - 1)
-    end
-    return str .. "..."
+    return ParadiseZ.fitText(value, width, font)
 end
 
 function RecordsPanel.drawDateItem(list, y, item)
@@ -167,7 +161,7 @@ function RecordsPanel.Panel:createChildren()
     self.clearButton = ISButton:new(self.width - 114, top + 48, 100, 24, "CLEAR", self, RecordsPanel.Panel.onClear)
     self.clearButton:initialise()
     self:addChild(self.clearButton)
-    local listY = top + 84
+    local listY = top + 115
     self.dateList = ISScrollingListBox:new(12, listY, 190, self.height - listY - 36)
     self.dateList:initialise()
     self.dateList:instantiate()
@@ -277,7 +271,7 @@ function RecordsPanel.Panel:prerender()
     self:drawText("YEAR", 12, top, 0.8, 0.8, 0.8, 1, UIFont.Small)
     self:drawText("MONTH", 92, top, 0.8, 0.8, 0.8, 1, UIFont.Small)
     self:drawText("DAY", 152, top, 0.8, 0.8, 0.8, 1, UIFont.Small)
-    self:drawText("FIND PLAYER / VALUE", 212, top, 0.8, 0.8, 0.8, 1, UIFont.Small)
+    self:drawText("FIND PLAYER / VALUE", 212, top - 16, 0.8, 0.8, 0.8, 1, UIFont.Small)
     self:drawText("AVAILABLE DATES", 12, top + 55, 0.5, 0.75, 0.95, 1, UIFont.Small)
     self:drawText(tostring(self.recordCount) .. " records - " .. self.loggerTag .. " - newest first", 210, self.height - 28, 0.65, 0.7, 0.75, 1, UIFont.Small)
 end

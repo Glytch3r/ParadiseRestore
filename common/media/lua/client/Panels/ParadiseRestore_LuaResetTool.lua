@@ -45,7 +45,7 @@ function ResetList:doDrawItem(y, item, alt)
     end
 
     self:drawRectBorder(0, y, self:getWidth(), self.itemheight, 0.50, 0.40, 0.40, 0.40)
-    self:drawText(item.text, 8, y + (item.height - self.fontHgt) / 2, 0.90, 0.90, 0.90, 1.00, UIFont.Small)
+    self:drawText(ParadiseZ.fitText(item.text, self:getWidth() - 16, UIFont.Small), 8, y + (item.height - self.fontHgt) / 2, 0.90, 0.90, 0.90, 1.00, UIFont.Small)
 
     return y + self.itemheight
 end
@@ -56,6 +56,8 @@ function LuaResetWindow:new(x, y, width, height)
     local o = ISCollapsableWindow.new(self, x, y, width, height)
     o.title = "Reset Lua Files"
     o.resizable = true
+    o.minimumWidth = 560
+    o.minimumHeight = 360
     o:setAlwaysOnTop(true)
     return o
 end

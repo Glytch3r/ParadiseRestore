@@ -91,6 +91,9 @@ end
 
 local function setLabel(label, text)
     if not label then return end
+    if label.maxTextW and label.font then
+        text = ParadiseZ.fitText(text, label.maxTextW, label.font)
+    end
     if label.setNameWithoutMoving then
         label:setNameWithoutMoving(text)
     elseif label.setName then
@@ -751,14 +754,20 @@ function ZedController.Panel:layoutChildren()
     if compact then actionX = gap end
     local applyW = math.min(52, math.max(36, math.floor(controlW * 0.38)))
     local fieldW = math.max(20, controlW - applyW - 4)
+    local coordsX = gap + math.floor(leftW * 0.43)
     self:layoutWindowChrome()
     self.selectionLabel:setX(gap); self.selectionLabel:setY(top)
+    self.selectionLabel.maxTextW = math.max(40, compact and (width - gap) or (coordsX - gap * 2))
     if compact then
         self.coordsLabel:setX(gap); self.coordsLabel:setY(top + rowH)
+        self.coordsLabel.maxTextW = math.max(40, width - gap)
         self.noticeLabel:setX(gap); self.noticeLabel:setY(top + rowH * 2 + 2); self.noticeLabel:setWidth(width)
+        self.noticeLabel.maxTextW = math.max(40, width - gap)
     else
-        self.coordsLabel:setX(gap + math.floor(leftW * 0.43)); self.coordsLabel:setY(top + 3)
+        self.coordsLabel:setX(coordsX); self.coordsLabel:setY(top + 3)
+        self.coordsLabel.maxTextW = math.max(40, actionX - coordsX - gap)
         self.noticeLabel:setX(actionX); self.noticeLabel:setY(top + 3); self.noticeLabel:setWidth(actionW)
+        self.noticeLabel.maxTextW = math.max(40, actionW - gap)
     end
     local tabsY = top + (compact and rowH * 3 or rowH) + 4
     local tabGap = compact and 4 or gap
@@ -774,8 +783,8 @@ function ZedController.Panel:layoutChildren()
     if not compact then self.actionHeadLabel:setX(actionX); self.actionHeadLabel:setY(contentY) end
     local y = contentY + rowH + 3
     local function row(name, value, control, apply)
-        if name then name:setX(gap); name:setY(y + 3); name:setWidth(labelW - 2) end
-        if value then value:setX(gap + labelW); value:setY(y + 3); value:setWidth(valueW - 2) end
+        if name then name:setX(gap); name:setY(y + 3); name:setWidth(labelW - 2); name.maxTextW = math.max(24, labelW - 2) end
+        if value then value:setX(gap + labelW); value:setY(y + 3); value:setWidth(valueW - 2); value.maxTextW = math.max(24, valueW - 2) end
         if control then control:setX(controlX); control:setY(y); control:setWidth(apply and fieldW or controlW); control:setHeight(rowH) end
         if apply then apply:setX(controlX + controlW - applyW); apply:setY(y); apply:setWidth(applyW); apply:setHeight(rowH) end
         y = y + rowH + 4
@@ -805,11 +814,13 @@ function ZedController.Panel:layoutChildren()
     local appearanceY = toggleY + math.ceil(appearanceIndex / 2) * (rowH + 4) + 2
     self.skinName:setX(gap); self.skinName:setY(appearanceY + 3); self.skinName:setWidth(labelW - 2)
     self.skinValue:setX(gap + labelW); self.skinValue:setY(appearanceY + 3); self.skinValue:setWidth(valueW - 2)
+    self.skinValue.maxTextW = math.max(24, valueW - 2)
     self.skinCombo:setX(controlX); self.skinCombo:setY(appearanceY); self.skinCombo:setWidth(fieldW); self.skinCombo:setHeight(rowH)
     self.skinApply:setX(controlX + controlW - applyW); self.skinApply:setY(appearanceY); self.skinApply:setWidth(applyW); self.skinApply:setHeight(rowH)
     appearanceY = appearanceY + rowH + 4
     self.outfitName:setX(gap); self.outfitName:setY(appearanceY + 3); self.outfitName:setWidth(labelW - 2)
     self.outfitValue:setX(gap + labelW); self.outfitValue:setY(appearanceY + 3); self.outfitValue:setWidth(valueW - 2)
+    self.outfitValue.maxTextW = math.max(24, valueW - 2)
     self.outfitEntry:setX(controlX); self.outfitEntry:setY(appearanceY); self.outfitEntry:setWidth(fieldW); self.outfitEntry:setHeight(rowH)
     self.outfitApply:setX(controlX + controlW - applyW); self.outfitApply:setY(appearanceY); self.outfitApply:setWidth(applyW); self.outfitApply:setHeight(rowH)
     appearanceY = appearanceY + rowH + 4
@@ -823,8 +834,8 @@ function ZedController.Panel:layoutChildren()
         self.actionHeadLabel:setX(actionX); self.actionHeadLabel:setY(actionY); self.actionHeadLabel:setWidth(actionW)
         actionY = actionY + rowH + 3
     end
-    self.targetLabel:setX(actionX); self.targetLabel:setY(actionY); self.targetLabel:setWidth(actionW); actionY = actionY + rowH
-    self.ownerLabel:setX(actionX); self.ownerLabel:setY(actionY); self.ownerLabel:setWidth(actionW); actionY = actionY + rowH + 4
+    self.targetLabel:setX(actionX); self.targetLabel:setY(actionY); self.targetLabel:setWidth(actionW); self.targetLabel.maxTextW = math.max(40, actionW - gap); actionY = actionY + rowH
+    self.ownerLabel:setX(actionX); self.ownerLabel:setY(actionY); self.ownerLabel:setWidth(actionW); self.ownerLabel.maxTextW = math.max(40, actionW - gap); actionY = actionY + rowH + 4
     if compact then
         local compactActionW = math.max(40, math.floor((actionW - gap) / 2))
         local actionColumn = 0
