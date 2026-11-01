@@ -662,9 +662,6 @@ function Sniffer.setMarker(sq)
     if not Sniffer.marker then
         Sniffer.marker = Sniffer.call(markers, "addGridSquareMarker", "circle_center", "circle_only_highlight", sq,
             Sniffer.lockFill.r, Sniffer.lockFill.g, Sniffer.lockFill.b, true, Sniffer.markerSize)
-        if Sniffer.marker then
-            Sniffer.call(Sniffer.marker, "setScaleCircleTexture", true)
-        end
     else
         Sniffer.call(Sniffer.marker, "setPosAndSize", math.floor(x), math.floor(y), math.floor(z), Sniffer.markerSize)
     end
@@ -745,6 +742,15 @@ function Sniffer.debugHighlight()
     local str = table.concat(out, " ")
     print(str)
     return str
+end
+
+function Sniffer.testMarker()
+    local pl = getPlayer()
+    local sq = pl and pl:getSquare() or nil
+    local marker = Sniffer.setMarker(sq)
+    print("[Sniffer] testMarker square=" .. tostring(sq ~= nil) .. " marker=" .. tostring(marker)
+        .. " size=" .. tostring(Sniffer.markerSize))
+    return marker
 end
 
 Sniffer.Picker = ISPanel:derive("ParadiseDev.Sniffer.Picker")

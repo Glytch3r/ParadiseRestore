@@ -343,8 +343,13 @@ ParadisePanels.table = {
             end
         end,
         onClose = function()
-            if ParadiseDev and ParadiseDev.Sniffer and ParadiseDev.Sniffer.cancelPick then
-                ParadiseDev.Sniffer.cancelPick()
+            if ParadiseDev and ParadiseDev.Sniffer then
+                if ParadiseDev.Sniffer.cancelPick then
+                    ParadiseDev.Sniffer.cancelPick()
+                end
+                if ParadiseDev.Sniffer.clearMarker then
+                    ParadiseDev.Sniffer.clearMarker()
+                end
             end
         end,
     },
