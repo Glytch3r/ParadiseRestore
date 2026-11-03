@@ -4064,6 +4064,49 @@ function ParadiseEconomy.handleMerchantCommand(ctx)
     return true
 end
 
+-- Admin edits move real funds. Credits leave the server account and debits
+-- return to it, so the ledger always balances against a real holder.
+-- Returns: accepted, rejectMessage, movedAmount, fromAccountId, toAccountId
+function ParadiseEconomy.adminAdjust(account, currency, bucket, operation, requested, amount)
+    local server = ParadiseEconomy.getServerAccount()
+    local delta
+    if operation == "set" then
+        local target = ParadiseEconomy.normalizeBalance(requested)
+        if not target then return false, "Account adjustment rejected" end
+        delta = target - ParadiseEconomy.getAccountBalance(account, currency, bucket)
+    elseif not amount then
+        return false, "Account adjustment rejected"
+    elseif operation == "remove" then
+        delta = -amount
+    else
+        delta = amount
+    end
+    if delta == 0 then return true, nil, 0, account.id, account.id end
+    if account.id == server.id then
+        local moved = delta > 0 and ParadiseEconomy.addAccountBalance(account, currency, delta, bucket)
+            or ParadiseEconomy.takeAccountBalance(account, currency, -delta, bucket)
+        if not moved then return false, "The server account is short of that amount" end
+        return true, nil, math.abs(delta), server.id, nil
+    end
+    local from, to, moved
+    if delta > 0 then
+        from, to, moved = server, account, delta
+    else
+        from, to, moved = account, server, -delta
+    end
+    local accepted, _, _, reason = ParadiseEconomy.transferBetweenAccounts(from, to, currency, moved,
+        from.id == server.id and nil or bucket, to.id == server.id and nil or bucket, true)
+    if not accepted then
+        if from.id == server.id then
+            local available = ParadiseEconomy.getAccountBalance(server, currency, "balances")
+            return false, "Server account holds only " .. tostring(available) .. " " .. tostring(currency)
+                .. ". Fund the server account or lower the amount."
+        end
+        return false, reason or "Account adjustment rejected"
+    end
+    return true, nil, moved, from.id, to.id
+end
+
 function ParadiseEconomy.handleAdminCommand(ctx)
     local pl, args, user, isAdm = ctx.pl, ctx.args, ctx.user, ctx.isAdm
     local currency, amount = ctx.currency, ctx.amount
@@ -4115,23 +4158,24 @@ function ParadiseEconomy.handleAdminCommand(ctx)
         if account then
             local bucket = ParadiseEconomy.resolveBucket(account, args.bucket)
             local operation = tostring(args.operation or "add")
-            local adjusted
-            if operation == "set" then
-                local setAmount = ParadiseEconomy.normalizeBalance(args.amount)
-                adjusted = setAmount and ParadiseEconomy.setAccountBalance(account, currency, setAmount, bucket)
-            elseif operation == "remove" then
-                adjusted = ParadiseEconomy.takeAccountBalance(account, currency, amount, bucket)
-            else
-                adjusted = ParadiseEconomy.addAccountBalance(account, currency, amount, bucket)
-            end
-            if adjusted then
-                ParadiseEconomy.record(pl, "admin " .. operation, currency, args.amount, user, account.id, "account adjustment", {
-                    accountId = account.id, bucket = bucket, note = tostring(bucket),
+            local adjusted, rejectMessage, moved, fromId, toId =
+                ParadiseEconomy.adminAdjust(account, currency, bucket, operation, args.amount, amount)
+            if adjusted and moved <= 0 then
+                message = "No balance change"
+            elseif adjusted then
+                ParadiseEconomy.record(pl, "admin " .. operation, currency, moved, fromId, toId,
+                    operation == "add" and "funded by the server account"
+                    or operation == "remove" and "returned to the server account"
+                    or "rebalanced against the server account", {
+                    accountId = fromId, counterpartyId = toId ~= fromId and toId or nil,
+                    bucket = bucket, note = tostring(bucket),
                 })
-                message = "Account updated"
+                message = operation == "add" and "Moved " .. tostring(moved) .. " from the server account"
+                    or operation == "remove" and "Returned " .. tostring(moved) .. " to the server account"
+                    or "Account updated"
                 syncAll = true
             else
-                message = "Account adjustment rejected"
+                message = rejectMessage
             end
         else
             message = "Account not found"

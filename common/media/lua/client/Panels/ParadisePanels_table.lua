@@ -10,6 +10,9 @@ ParadiseAdminHub = ParadiseAdminHub or {}
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.SafehouseAdmin = ParadiseDev.SafehouseAdmin or {}
 ParadiseManual = ParadiseManual or {}
+ParadiseMail = ParadiseMail or {}
+ParadiseMail.AdminPanel = ParadiseMail.AdminPanel or {}
+ParadiseMail.PlayerPanel = ParadiseMail.PlayerPanel or {}
 
 local function initialise(panel, instantiate)
     if not panel then return nil end
@@ -715,5 +718,41 @@ ParadisePanels.table = {
         onOpen = function(panel, section)
             if panel and panel.showSection then panel:showSection(section) end
         end,
+    },
+    {
+        key = "mailAdmin",
+        isAdmOnly = true,
+        getModule = function() return ParadiseMail.AdminPanel end,
+        getInstance = function() return ParadiseMail.adminInstance end,
+        setInstance = function(instance) ParadiseMail.adminInstance = instance end,
+        create = function()
+            if not ParadiseMail_Admin_Panel then return nil end
+            local width = math.min(800, getCore():getScreenWidth() - 40)
+            local height = math.min(640, getCore():getScreenHeight() - 40)
+            return initialise(ParadiseMail_Admin_Panel:new(
+                math.max(20, (getCore():getScreenWidth() - width) / 2),
+                math.max(20, (getCore():getScreenHeight() - height) / 2),
+                width, height
+            ))
+        end,
+        onOpen = function() ParadiseMail.send("requestAdminState") end,
+    },
+    {
+        key = "mailPlayer",
+        isAdmOnly = false,
+        getModule = function() return ParadiseMail.PlayerPanel end,
+        getInstance = function() return ParadiseMail.playerInstance end,
+        setInstance = function(instance) ParadiseMail.playerInstance = instance end,
+        create = function()
+            if not ParadiseMail_Player_Panel then return nil end
+            local width = math.min(560, getCore():getScreenWidth() - 40)
+            local height = math.min(420, getCore():getScreenHeight() - 40)
+            return initialise(ParadiseMail_Player_Panel:new(
+                math.max(20, (getCore():getScreenWidth() - width) / 2),
+                math.max(20, (getCore():getScreenHeight() - height) / 2),
+                width, height
+            ))
+        end,
+        onOpen = function() ParadiseMail.send("requestMailbox") end,
     },
 }

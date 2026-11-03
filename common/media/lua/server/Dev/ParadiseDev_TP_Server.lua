@@ -72,10 +72,26 @@ local function complete(point)
     end
 end
 
+local function sendLua(pl, point)
+    sendServerCommand(pl, ParadiseDev.TP.module, "teleport", {
+        x = point.x, y = point.y, z = point.z,
+    })
+    return true
+end
+
+-- The paired Java bridge owns transfers while Steam is active. A no-Steam server
+-- runs without it, so the transfer falls back to this mod's own client-side move.
+function ParadiseDev.TP.nativeBridgeAvailable()
+    return type(ParadiseLifeBridge) == 'function'
+end
+
+function ParadiseDev.TP.useLuaTeleport()
+    return not ParadiseRestore.isSteamMode() and not ParadiseDev.TP.nativeBridgeAvailable()
+end
+
 local function sendNative(pl, point)
-    if type(ParadiseLifeBridge) ~= 'function' then
-        return false
-    end
+    if ParadiseDev.TP.useLuaTeleport() then return sendLua(pl, point) end
+    if not ParadiseDev.TP.nativeBridgeAvailable() then return false end
     local ok, accepted = pcall(ParadiseLifeBridge, 'teleport', pl, point.x, point.y, point.z)
     return ok and accepted == true
 end
@@ -138,6 +154,21 @@ local function verifiedArrival(pl,point)
     return safe.evaluate({x=pl:getX(),y=pl:getY(),z=math.floor(pl:getZ())},context).status=="safe"
 end
 
+-- The mod's own move, used when neither the Java bridge nor a connected client
+-- can carry the transfer. Mirrors ParadiseDev.TP.applyTeleport on the client.
+function ParadiseDev.TP.applyLocalMove(pl, x, y, z)
+    if not pl or not ParadiseDev.TP.validCoordinates(x, y, z) then return false end
+    x, y, z = tonumber(x), tonumber(y), tonumber(z)
+    pl:setX(x)
+    pl:setY(y)
+    pl:setZ(z)
+    pl:setLastX(x)
+    pl:setLastY(y)
+    pl:setLastZ(z)
+    pl:setCurrentSquareFromPosition()
+    return true
+end
+
 function ParadiseDev.TP.teleportPlayer(pl, x, y, z, onArrive, intent)
     if not pl or not pl:isAlive() or not ParadiseDev.TP.validCoordinates(x, y, z) then return false end
     local point = { x = tonumber(x), y = tonumber(y), z = tonumber(z), onArrive = onArrive }
@@ -154,9 +185,14 @@ function ParadiseDev.TP.teleportPlayer(pl, x, y, z, onArrive, intent)
         point.contextId=context.contextId
     end
     if not isServer() then
-        if isClient() or not pl.teleportTo then return false end
         if prepareTransfer(pl,point)~="safe" then return false end
-        pl:teleportTo(point.x, point.y, point.z)
+        if pl.teleportTo then
+            pl:teleportTo(point.x, point.y, point.z)
+        elseif not ParadiseDev.TP.useLuaTeleport() then
+            return false
+        elseif not ParadiseDev.TP.applyLocalMove(pl, point.x, point.y, point.z) then
+            return false
+        end
         complete(point)
         return true, true
     end

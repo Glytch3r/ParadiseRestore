@@ -433,6 +433,11 @@ function ParadiseDev.ZoneHUD.onUserPanelOption(self, button, x, y)
         ParadisePromo.PlayerPanel.OpenPanel()
         return
     end
+    if button.internal == "PARADISE_MAIL" then
+        if ParadisePanels and ParadisePanels.Install and not (ParadiseMail and ParadiseMail.PlayerPanel and ParadiseMail.PlayerPanel.OpenPanel) then ParadisePanels.Install() end
+        if ParadiseMail and ParadiseMail.PlayerPanel and ParadiseMail.PlayerPanel.OpenPanel then ParadiseMail.PlayerPanel.OpenPanel() end
+        return
+    end
     if button.internal == "PARADISE_THEMES" then
         if ParadisePanels and ParadisePanels.Install and not (ParadiseThemes and ParadiseThemes.OpenPanel) then ParadisePanels.Install() end
         if ParadiseThemes and ParadiseThemes.OpenPanel then ParadiseThemes.OpenPanel() end
@@ -507,7 +512,20 @@ function ParadiseDev.ZoneHUD.layoutUserPanel()
         self.promoRedeem.backgroundColor.a = 0.7;
         self.promoRedeem.backgroundColor.b = 0.5;
     self:addChild(self.promoRedeem)
-    self.themesButton = ISButton:new(close.x, self.promoRedeem:getBottom() + 10, buttonWidth, close.height, "Themes", self, ParadiseDev.ZoneHUD.onUserPanelOption)
+    local mailAnchor = self.promoRedeem
+    if ParadiseMail and ParadiseMail.installAlertIcon then
+        self.mailButton = ISButton:new(close.x, self.promoRedeem:getBottom() + 10, buttonWidth, close.height, "Mail", self, ParadiseDev.ZoneHUD.onUserPanelOption)
+            self.mailButton.internal = "PARADISE_MAIL"
+            self.mailButton:initialise()
+            self.mailButton:instantiate()
+            self.mailButton.borderColor = self.buttonBorderColor
+            self.mailButton.backgroundColor.a = 0.7;
+            self.mailButton.backgroundColor.b = 0.5;
+        self:addChild(self.mailButton)
+        ParadiseMail.installAlertIcon(self.mailButton)
+        mailAnchor = self.mailButton
+    end
+    self.themesButton = ISButton:new(close.x, mailAnchor:getBottom() + 10, buttonWidth, close.height, "Themes", self, ParadiseDev.ZoneHUD.onUserPanelOption)
         self.themesButton.internal = "PARADISE_THEMES"
         self.themesButton:initialise()
         self.themesButton:instantiate()

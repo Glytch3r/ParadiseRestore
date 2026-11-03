@@ -38,6 +38,9 @@ function ParadiseAdminHub.getEntries()
     if RecordsPanel and RecordsPanel.OpenPanel then
         add("Records", function() RecordsPanel.OpenPanel() end)
     end
+    if ParadiseMail and ParadiseMail.AdminPanel and ParadiseMail.AdminPanel.OpenPanel then
+        add("Mail", function() ParadiseMail.AdminPanel.OpenPanel() end)
+    end
     if ParadiseDev and ParadiseDev.Builder and ParadiseDev.Builder.OpenPanel then
         add("UI Builder", function() ParadiseDev.Builder.OpenPanel() end)
     end

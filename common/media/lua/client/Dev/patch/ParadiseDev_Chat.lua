@@ -91,6 +91,10 @@ function ParadiseDev.chatCmd(cmd)
 
     elseif command == "/promo" then
         ParadisePromo.PlayerPanel.OpenPanel()
+    elseif command == "/mail" then
+        ParadiseMail.PlayerPanel.OpenPanel()
+    elseif command == "/mailadmin" then
+        if isAdm then ParadiseMail.AdminPanel.OpenPanel() end
     elseif command == "/rebound" then
         if isAdm then
             if isClient() then
@@ -129,6 +133,7 @@ function ParadiseDev.Chat.isHandledCommand(command)
     if not keyword then return false end
     keyword = string.lower(keyword)
     return keyword == "/stuck" or keyword == "/unstuck" or keyword == "/promo"
+        or keyword == "/mail" or keyword == "/mailadmin"
         or keyword == "/rebound" or keyword == "/cage" or keyword == "/die"
         or keyword == "/scare"
 end
