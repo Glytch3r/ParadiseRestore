@@ -388,6 +388,8 @@
   "Sandbox_ParadiseZ_ShowPvETag": "Paradise Z Show Pv ETag",
   "Sandbox_ParadiseZ_TagHandlerRefreshRate": "Tag Handler Refresh Rate",
   "Sandbox_ParadiseZ_TagHandlerRefreshRate_tooltip": "Seconds between local player tag refreshes. Lower values update tags faster but use more client processing.",
+  "Sandbox_ParadiseZ_TagHandlerVisibilityDistance": "Tag Handler Visibility Distance",
+  "Sandbox_ParadiseZ_TagHandlerVisibilityDistance_tooltip": "Distance in tiles at which player tags stay visible. Line of sight rules still apply.",
   "Sandbox_ParadiseZ_ShowModdedAdminTag": "Show Modded Admin Tag",
   "Sandbox_ParadiseZ_HiderList": "Paradise Z Hider List",
   "Sandbox_ParadiseZ_RadSuitList": "Paradise Z Rad Suit List",

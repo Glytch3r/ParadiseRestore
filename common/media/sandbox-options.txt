@@ -194,6 +194,11 @@ option ParadiseZ.TagHandlerRefreshRate
 	type = double, min = 0.10, max = 60.00, default = 0.10,
 	page = ParadiseZ, translation = ParadiseZ_TagHandlerRefreshRate,
 }
+option ParadiseZ.TagHandlerVisibilityDistance
+{
+	type = integer, min = 1, max = 100, default = 40,
+	page = ParadiseZ, translation = ParadiseZ_TagHandlerVisibilityDistance,
+}
 option ParadiseZ.isShouldReincarnate
 {
     type = boolean, default = true,

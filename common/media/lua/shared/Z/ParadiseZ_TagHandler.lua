@@ -49,7 +49,6 @@ ParadiseZ.tagImageSize = 32
 ParadiseZ.tagHeadOffset = 128 / (2 / Core.getTileScale())
 ParadiseZ.tagScreenPos = ParadiseZ.tagScreenPos or Vector2.new()
 local runtime = { players = {}, adminReady = false }
-local RANGE_SQUARED = 15 * 15
 local function empty(t) for key in pairs(t) do t[key] = nil end end
 local function hasEntries(t)
     for _ in pairs(t) do return true end
@@ -76,6 +75,13 @@ function ParadiseZ.getTagHandlerRefreshRate()
     local value = tonumber(settings and settings.TagHandlerRefreshRate) or 0.10
     if value ~= value then value = 0.10 end
     return math.max(0.10, math.min(60.00, value))
+end
+
+function ParadiseZ.getTagVisibilityDistance()
+    local settings = SandboxVars and SandboxVars.ParadiseZ
+    local value = tonumber(settings and settings.TagHandlerVisibilityDistance) or 40
+    if value ~= value then value = 40 end
+    return math.max(1, math.min(100, value))
 end
 
 function ParadiseZ.getTagLineHeight(font)
@@ -186,7 +192,7 @@ local function validTarget(target, viewer, cell, survivor)
         if not ParadiseZ.isAdminViewer() or not isSurvivor(target) then return false end
     elseif not ParadiseZ.isLivePlayer(target) then return false end
     -- Admin survivor labels retain their existing visible-world range.
-    return (survivor or distanceSquared(target, viewer) <= RANGE_SQUARED) and isLoaded(target, cell)
+    return (survivor or distanceSquared(target, viewer) <= ParadiseZ.getTagVisibilityDistance() ^ 2) and isLoaded(target, cell)
 end
 
 local function visibleTarget(target, viewer)
