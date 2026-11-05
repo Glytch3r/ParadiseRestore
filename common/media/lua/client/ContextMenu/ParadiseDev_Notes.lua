@@ -542,5 +542,3 @@ Events.OnGameStart.Remove(ParadiseDev.Notes.onGameStart)
 Events.OnGameStart.Add(ParadiseDev.Notes.onGameStart)
 Events.OnReceiveGlobalModData.Remove(ParadiseDev.Notes.onReceiveGlobalModData)
 Events.OnReceiveGlobalModData.Add(ParadiseDev.Notes.onReceiveGlobalModData)
-
-require "Panels/ParadiseNotesAuditPanel"

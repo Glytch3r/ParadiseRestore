@@ -325,6 +325,7 @@ Brand.listCache = nil
 Brand.lastRawCheck = -1000
 Brand.overrideKey = nil
 Brand.previewDef = nil
+Brand.vanilla = true
 
 function ParadiseRestore.Brand.parseHex(hex)
 	local r = tonumber(string.sub(hex, 1, 2), 16) / 255
@@ -512,25 +513,40 @@ function ParadiseRestore.Brand.ensureSelection()
 		if key and key ~= "" then
 			B.selection = trim(key)
 		end
+		if string.match(line, "^vanilla=0") then
+			B.vanilla = false
+		end
 		line = reader:readLine()
 	end
 	reader:close()
+end
+
+function ParadiseRestore.Brand.writePrefs()
+	local B = ParadiseRestore.Brand
+	if not getFileWriter then return end
+	local writer = getFileWriter(B.prefFile, true, false)
+	if not writer then return end
+	writer:write("theme=" .. tostring(B.selection or "") .. "\n")
+	writer:write("vanilla=" .. (B.vanilla == false and "0" or "1") .. "\n")
+	writer:close()
 end
 
 function ParadiseRestore.Brand.setSelection(key)
 	local B = ParadiseRestore.Brand
 	local def = key and B.findTheme(key) or nil
 	B.selection = def and key or nil
-	if getFileWriter then
-		local writer = getFileWriter(B.prefFile, true, false)
-		if writer then
-			writer:write("theme=" .. tostring(B.selection or "") .. "\n")
-			writer:close()
-		end
-	end
+	B.writePrefs()
 	B.overrideKey = nil
 	B.previewDef = nil
 	if B.repaint then B.repaint() end
+end
+
+function ParadiseRestore.Brand.setVanilla(on)
+	local B = ParadiseRestore.Brand
+	B.vanilla = on and true or false
+	B.writePrefs()
+	if B.repaint then B.repaint() end
+	return B.vanilla
 end
 
 function ParadiseRestore.Brand.get()

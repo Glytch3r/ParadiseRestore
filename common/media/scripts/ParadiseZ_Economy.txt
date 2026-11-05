@@ -1,4 +1,46 @@
 module ParadiseZ
 {
+    model JimoleonCoin
+    {
+        mesh = WorldItems/Coin,
+        texture = WorldItems/JimoleonCoin,
+        scale = 0.125,
+        attachment world
+        {
+            offset = 0.0 0.0 0.0,
+            rotate = 0.0 0.0 0.0,
+        }
+    }
 
+    model ParadisiumCoin
+    {
+        mesh = WorldItems/Coin,
+        texture = WorldItems/ParadisiumCoin,
+        scale = 0.125,
+        attachment world
+        {
+            offset = 0.0 0.0 0.0,
+            rotate = 0.0 0.0 0.0,
+        }
+    }
+
+    item JimoleonCoin
+    {
+        DisplayCategory = Memento,
+        ItemType = base:normal,
+        Weight = 0.05,
+        Icon = JimoleonCoin,
+        WorldStaticModel = JimoleonCoin,
+        Tags = base:hasmetal;base:fitswallet,
+    }
+
+    item ParadisiumCoin
+    {
+        DisplayCategory = Memento,
+        ItemType = base:normal,
+        Weight = 0.05,
+        Icon = ParadisiumCoin,
+        WorldStaticModel = ParadisiumCoin,
+        Tags = base:hasmetal;base:fitswallet,
+    }
 }

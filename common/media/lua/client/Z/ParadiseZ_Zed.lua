@@ -109,9 +109,7 @@ end
 function ParadiseZ.wearFit(pl, fType)
     pl = pl or getPlayer()
     if not pl or not fType then return end
-    local item = InventoryItemFactory.CreateItem(fType)
-    if not item then return end
-    local equip = pl:getInventory():addItem(item)
+    local equip = pl:getInventory():AddItem(fType)
     if not equip then return end
     pl:setWornItem(equip:getBodyLocation(), equip)
     pl:resetModelNextFrame()

@@ -26,7 +26,7 @@ local FEATURE_DEFS = {
     { key = "isKos", label = "KoS", texture = "ParadiseZ_Zone_PvP", tooltip = "KoS zone: PvE profiles cannot enter. Existing characters inside this zone will need a safe location; offline characters must select one at login. Keep the Bunker recovery area accessible." },
     { key = "isPvE", label = "PvE", texture = "ParadiseZ_Zone_NonPvP", tooltip = "PvE / non-PvP zone" },
     { key = "isSafe", label = "Safe", texture = "ParadiseZ_Zone_Protected", tooltip = "Protected / safe zone" },
-    { key = "isNoCamp", label = "NoCamp", texture = "ParadiseZ_Zone_NoCamp", tooltip = "No-camping zone" },
+    { key = "isNoCamp", label = "NoCamp", texture = "ParadiseZ_Zone_NoCamp", tooltip = "No-camping zone: safehouses cannot be claimed inside and existing safehouses overlapping the zone are removed" },
     { key = "isNoFire", label = "NoFire", texture = "ParadiseZ_Zone_NoFire", tooltip = "No-fire zone" },
     { key = "isCage", label = "Cage", texture = "ParadiseZ_Zone_Cage", tooltip = "Cage zone: confinement takes priority over public recovery. Keep valid dry ground inside; KoS and Blocked cannot be combined with Cage. Overlapping restrictions may require administrator correction." },
     { key = "isParty", label = "Party", texture = "ParadiseZ_Zone_Party", tooltip = "Party zone" },

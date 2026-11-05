@@ -6,11 +6,21 @@ ParadiseEconomy.walletKey = "ParadiseEconomyWallet"
 ParadiseEconomy.playerKey = "ParadiseEconomy"
 ParadiseEconomy.currencies = { jimoleon = true, paradisium = true }
 ParadiseEconomy.maxBalance = 2147483647
+ParadiseEconomy.coinTypes = {
+    ["ParadiseZ.JimoleonCoin"] = true,
+    ["ParadiseZ.ParadisiumCoin"] = true,
+}
 ParadiseEconomy.walletTypes = {
     ["Base.Wallet"] = true,
     ["Base.Wallet_Female"] = true,
     ["Base.Wallet_Male"] = true,
     ["Base.Wallet_Hide"] = true,
+    ["ParadiseZ.JimoleonCoin"] = true,
+    ["ParadiseZ.ParadisiumCoin"] = true,
+}
+ParadiseEconomy.coinIcons = {
+    jimoleon = "media/textures/Item_JimoleonCoin.png",
+    paradisium = "media/textures/Item_ParadisiumCoin.png",
 }
 ParadiseEconomy.serverAccountId = "server"
 ParadiseEconomy.accountTypes = { personal = true, merchant = true, trade = true, finance = true, server = true, custom = true }
@@ -229,11 +239,27 @@ function ParadiseEconomy.isWallet(item)
     return item and item.getFullType and ParadiseEconomy.walletTypes[item:getFullType()] == true
 end
 
+function ParadiseEconomy.isCoin(item)
+    return item and item.getFullType and ParadiseEconomy.coinTypes[item:getFullType()] == true
+end
+
 function ParadiseEconomy.getWalletData(item)
     if not ParadiseEconomy.isWallet(item) or not item.getModData then return nil end
     local md = item:getModData()
     md[ParadiseEconomy.walletKey] = md[ParadiseEconomy.walletKey] or { jimoleon = 0, paradisium = 0 }
     return md[ParadiseEconomy.walletKey]
+end
+
+-- vanilla InventoryItem.getTexture() reads this modData key as a full png path
+function ParadiseEconomy.updateWalletIcon(item)
+    if not ParadiseEconomy.isWallet(item) or not item.getModData then return end
+    local wallet = ParadiseEconomy.getWalletData(item)
+    if not wallet then return end
+    local icon = ParadiseEconomy.coinIcons.jimoleon
+    if ParadiseEconomy.getBalance(wallet, "paradisium") >= 1 then
+        icon = ParadiseEconomy.coinIcons.paradisium
+    end
+    item:getModData().customInventoryIcon = icon
 end
 
 function ParadiseEconomy.getPlayerData(pl)
@@ -924,8 +950,8 @@ function Ledger.playerText(rec, ctx)
             return actor .. " withdrew " .. amount .. ", " .. time, "", "flat", amount
         end
         if reason == "v" then
-            if owns(rec.a) then return "You moved " .. amount .. " into a wallet, " .. time, "", "flat", amount end
-            return actor .. " moved " .. amount .. " into a wallet, " .. time, "", "flat", amount
+            if owns(rec.a) then return "You moved " .. amount .. " into a coin, " .. time, "", "flat", amount end
+            return actor .. " moved " .. amount .. " into a coin, " .. time, "", "flat", amount
         end
         if reason == "t" then
             if owns(rec.a) then return "You sent " .. amount .. " to " .. name(rec.b) .. ", " .. time, "", "out", "-" .. amount end
@@ -960,12 +986,12 @@ function Ledger.playerText(rec, ctx)
             return amount .. " tax collected, " .. time, "", "flat", amount
         end
         if reason == "l" then
-            if owns(rec.a) then return "You recovered " .. amount .. " from a wallet, " .. time, "", "in", "+" .. amount end
-            return actor .. " recovered " .. amount .. " from a wallet, " .. time, "", "flat", amount
+            if owns(rec.a) then return "You recovered " .. amount .. " from a coin, " .. time, "", "in", "+" .. amount end
+            return actor .. " recovered " .. amount .. " from a coin, " .. time, "", "flat", amount
         end
         if reason == "k" then
-            if owns(rec.a) then return "You lost " .. amount .. " when your wallet dropped, " .. time, "", "out", "-" .. amount end
-            return actor .. " lost " .. amount .. " from a wallet on death, " .. time, "", "flat", amount
+            if owns(rec.a) then return "You lost " .. amount .. " when your coin dropped, " .. time, "", "out", "-" .. amount end
+            return actor .. " lost " .. amount .. " from a coin on death, " .. time, "", "flat", amount
         end
         if reason == "e" then
             if owns(rec.a) then return "You paid " .. amount .. " for your store lease, " .. time, "", "out", "-" .. amount end

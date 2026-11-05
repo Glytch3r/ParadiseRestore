@@ -9,10 +9,12 @@ ParadiseEconomy = ParadiseEconomy or {}
 ParadiseAdminHub = ParadiseAdminHub or {}
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.SafehouseAdmin = ParadiseDev.SafehouseAdmin or {}
+ParadiseDev.PlayerCleanup = ParadiseDev.PlayerCleanup or {}
 ParadiseManual = ParadiseManual or {}
 ParadiseMail = ParadiseMail or {}
 ParadiseMail.AdminPanel = ParadiseMail.AdminPanel or {}
 ParadiseMail.PlayerPanel = ParadiseMail.PlayerPanel or {}
+ParadiseNotesAuditPanel = ParadiseNotesAuditPanel or {}
 
 local function initialise(panel, instantiate)
     if not panel then return nil end
@@ -754,5 +756,42 @@ ParadisePanels.table = {
             ))
         end,
         onOpen = function() ParadiseMail.send("requestMailbox") end,
+    },
+    {
+        key = "playerCleanup",
+        isAdmOnly = true,
+        getModule = function() return ParadiseDev and ParadiseDev.PlayerCleanup end,
+        getInstance = function() return ParadiseDev and ParadiseDev.PlayerCleanup and ParadiseDev.PlayerCleanup.instance end,
+        setInstance = function(instance) ParadiseDev.PlayerCleanup.instance = instance end,
+        create = function()
+            local cleanup = ParadiseDev.PlayerCleanup
+            if not cleanup.Panel or not cleanup.canOpen then return nil end
+            if not cleanup.canOpen() then return nil end
+            local width, height = cleanup.getSize()
+            return initialise(cleanup.Panel:new(
+                math.max(20, (getCore():getScreenWidth() - width) / 2),
+                math.max(20, (getCore():getScreenHeight() - height) / 2),
+                width, height
+            ))
+        end,
+        onOpen = function(panel) ParadiseDev.PlayerCleanup.open(panel) end,
+    },
+    {
+        key = "notesAdmin",
+        isAdmOnly = true,
+        getModule = function() return ParadiseNotesAuditPanel end,
+        getInstance = function() return ParadiseNotesAuditPanel and ParadiseNotesAuditPanel.instance or nil end,
+        setInstance = function(instance) ParadiseNotesAuditPanel.instance = instance end,
+        create = function()
+            if not (ParadiseNotesAuditPanel and ParadiseNotesAuditPanel.Panel) then return nil end
+            if not ParadiseNotesAuditPanel.canOpen() then return nil end
+            local width, height = ParadiseNotesAuditPanel.getSize()
+            return initialise(ParadiseNotesAuditPanel.Panel:new(
+                math.max(20, (getCore():getScreenWidth() - width) / 2),
+                math.max(20, (getCore():getScreenHeight() - height) / 2),
+                width, height
+            ))
+        end,
+        onOpen = function(panel) ParadiseNotesAuditPanel.onOpen(panel) end,
     },
 }

@@ -92,37 +92,12 @@ end
 
 function Themes.drawSwatch(panel, x, y, w, h, hex)
 	local r, g, b, a = Brand.hexColor(hex, 1)
-	panel:drawRect(x, y, w, h, 1, r, g, b)
-	local br, bgc, bb = Brand.col("divider")
-	panel:drawRectBorder(x, y, w, h, 1, br, bgc, bb)
-end
-
-function Themes.addContextMenu(plNum, context, worldObjs, test)
-	if test then return end
-	local pl = getSpecificPlayer(plNum)
-	if not pl then return end
-	local root = context:addOptionOnTop("Paradise Themes")
-	root.iconTexture = getTexture("media/ui/Paradise/Brand/ContextIcon.png")
-	local menu = ISContextMenu:getNew(context)
-	context:addSubMenu(root, menu)
-	local choose = menu:addOption("Choose Interface Theme", nil, function()
-		if ParadiseThemes and ParadiseThemes.OpenPanel then ParadiseThemes.OpenPanel() end
+	Brand.rawDraw(function()
+		panel:drawRect(x, y, w, h, 1, r, g, b)
+		local br, bgc, bb = Brand.col("divider")
+		panel:drawRectBorder(x, y, w, h, 1, br, bgc, bb)
 	end)
-	choose.iconTexture = getTexture("media/ui/Paradise/Brand/Player.png")
-	if ParadiseRestore and ParadiseRestore.isAdm and ParadiseRestore.isAdm(pl) then
-		local editor = menu:addOption("Theme Editor", nil, function()
-			if ParadiseThemes and ParadiseThemes.Admin and ParadiseThemes.Admin.OpenPanel then
-				ParadiseThemes.Admin.OpenPanel()
-			end
-		end)
-		editor.iconTexture = getTexture("media/ui/Paradise/Brand/ThemeEditor.png")
-	end
-	if ParadiseRestore and ParadiseRestore.ContextMenuManager then
-		ParadiseRestore.ContextMenuManager.registerParent("world", "Paradise Themes", context, root, menu)
-	end
 end
-Events.OnFillWorldObjectContextMenu.Remove(Themes.addContextMenu)
-Events.OnFillWorldObjectContextMenu.Add(Themes.addContextMenu)
 
 Themes.Panel = ISCollapsableWindow:derive("ParadiseThemes.Panel")
 
@@ -180,22 +155,37 @@ function Themes.Panel:createChildren()
 
 	self.saveButton = ISButton:new(10, btnY, 120, btnHgt, "Save", self, Themes.Panel.onSave)
 	self.defaultButton = ISButton:new(136, btnY, 120, btnHgt, "Server Default", self, Themes.Panel.onDefault)
+	self.vanillaButton = ISButton:new(262, btnY, 140, btnHgt, "Vanilla UI", self, Themes.Panel.onVanilla)
 	self.closeButton = ISButton:new(self.width - 130, btnY, 120, btnHgt, "Close", self, Themes.Panel.onClose)
-	for _, btn in ipairs({ self.saveButton, self.defaultButton, self.closeButton }) do
+	for _, btn in ipairs({ self.saveButton, self.defaultButton, self.vanillaButton, self.closeButton }) do
 		btn:initialise()
 		btn:instantiate()
 		Brand.skinButton(btn)
 		self:addChild(btn)
 	end
+	self:labelVanilla()
 
 	self.icon = getTexture("media/ui/Paradise/Brand/Theme.png")
 	Themes.styleWindow(self)
 	self:refresh()
 end
 
+function Themes.Panel:labelVanilla()
+	if self.vanillaButton then
+		self.vanillaButton.title = Brand.vanilla ~= false and "Vanilla UI: On" or "Vanilla UI: Off"
+	end
+end
+
+function Themes.Panel:onVanilla()
+	local on = Brand.setVanilla(Brand.vanilla == false)
+	self:labelVanilla()
+	self.status = on and "Vanilla windows and panels are themed too." or "Paradise panels only - vanilla UI keeps its colors."
+end
+
 function Themes.Panel:refresh()
 	if not self.list then return end
 	Brand.clearPreview()
+	self:labelVanilla()
 	local live = Brand.getThemeList()
 	self.defs = live
 	self.themeCombo:clear()
@@ -260,9 +250,11 @@ function Themes.Panel:drawTokenRow(y, item, alt)
 	local tp = Brand.get().c["text.primary"]
 	local tm = Brand.get().c["text.muted"]
 	if c then
-		self:drawRect(8, y + 3, 26, boxH, 1, c.r, c.g, c.b)
-		local border = Brand.get().c["window.border"]
-		self:drawRectBorder(8, y + 3, 26, boxH, 0.9, border.r, border.g, border.b)
+		Brand.rawDraw(function()
+			self:drawRect(8, y + 3, 26, boxH, 1, c.r, c.g, c.b)
+			local border = Brand.get().c["window.border"]
+			self:drawRectBorder(8, y + 3, 26, boxH, 0.9, border.r, border.g, border.b)
+		end)
 		self:drawText(token.label, 42, y + 4, tp.r, tp.g, tp.b, 1, UIFont.Small)
 		local hex = string.format("%02X%02X%02X", math.floor(c.r * 255 + 0.5), math.floor(c.g * 255 + 0.5), math.floor(c.b * 255 + 0.5))
 		if c.a < 0.999 then hex = hex .. string.format("  %d%%", math.floor(c.a * 100 + 0.5)) end

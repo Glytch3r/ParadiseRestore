@@ -2980,15 +2980,45 @@ function ParadiseEconomy.findWallet(inv, itemId, requireMoney)
     return nil
 end
 
-function ParadiseEconomy.makeWallet(pl)
-    local item, wallet = ParadiseEconomy.findWallet(pl:getInventory(), nil, false)
-    if item and not ParadiseEconomy.hasMoney(wallet) then return item, wallet end
-    item = pl:getInventory():AddItem("Base.Wallet")
-    if item then
-        if item.SynchSpawn then item:SynchSpawn() end
-        sendAddItemToContainer(pl:getInventory(), item)
+function ParadiseEconomy.findCoin(inv, itemId, requireMoney)
+    if not inv or not inv.getItems then return nil end
+    local items = inv:getItems()
+    for int = 0, items:size() - 1 do
+        local item = items:get(int)
+        if ParadiseEconomy.isCoin(item) and (not itemId or tostring(item:getID()) == tostring(itemId)) then
+            local coin = ParadiseEconomy.getWalletData(item)
+            if not requireMoney or ParadiseEconomy.hasMoney(coin) then return item, coin end
+        end
     end
-    return item, item and ParadiseEconomy.getWalletData(item) or nil
+    return nil
+end
+
+-- one coin per carrier: collapse any extras into the first one before returning it
+function ParadiseEconomy.makeCoin(pl)
+    local inv = pl:getInventory()
+    local item, coin = ParadiseEconomy.findCoin(inv, nil, false)
+    if not item then
+        item = inv:AddItem("ParadiseZ.JimoleonCoin")
+        if item then
+            if item.SynchSpawn then item:SynchSpawn() end
+            sendAddItemToContainer(inv, item)
+        end
+        return item, item and ParadiseEconomy.getWalletData(item) or nil
+    end
+    local items = inv:getItems()
+    for int = items:size() - 1, 0, -1 do
+        local other = items:get(int)
+        if ParadiseEconomy.isCoin(other) and tostring(other:getID()) ~= tostring(item:getID()) then
+            local data = ParadiseEconomy.getWalletData(other)
+            for _, currency in ipairs({ "jimoleon", "paradisium" }) do
+                local amount = ParadiseEconomy.getBalance(data, currency)
+                if amount > 0 then ParadiseEconomy.addBalance(coin, currency, amount) end
+            end
+            inv:Remove(other)
+            sendRemoveItemFromContainer(inv, other)
+        end
+    end
+    return item, coin
 end
 
 function ParadiseEconomy.migrateLegacyPlayerData(pl)
@@ -3568,20 +3598,43 @@ function ParadiseEconomy.handleFundsCommand(ctx)
         if ParadiseEconomy.isAccountFrozen(account) then
             message = "Your account is frozen; transaction cancelled."
         elseif currency and amount and ParadiseEconomy.getBalance(account.digital, currency) >= amount then
-            local item, wallet = ParadiseEconomy.makeWallet(pl)
+            local item, wallet = ParadiseEconomy.makeCoin(pl)
             if item and wallet and ParadiseEconomy.takeBalance(account.digital, currency, amount) then
                 if not ParadiseEconomy.addBalance(wallet, currency, amount) then
                     ParadiseEconomy.addBalance(account.digital, currency, amount)
-                    message = "Could not create a wallet"
+                    message = "Could not create a coin"
                 else
+                    ParadiseEconomy.updateWalletIcon(item)
                     syncItemModData(pl, item)
                     ParadiseEconomy.record(pl, "withdrew to wallet", currency, amount, user, user, tostring(item:getID()), {
                         accountId = account.id, bucket = "onhand",
                     })
-                    message = "Placed " .. amount .. " " .. currency .. " in a wallet"
+                    message = "Placed " .. amount .. " " .. currency .. " in a coin"
                 end
             else
-                message = "Could not create a wallet"
+                message = "Could not create a coin"
+            end
+        end
+    elseif command == "drop" then
+        local account = ParadiseEconomy.getPersonalAccount(user, true)
+        if ParadiseEconomy.isAccountFrozen(account) then
+            message = "Your account is frozen; transaction cancelled."
+        elseif currency and amount and ParadiseEconomy.getBalance(account.onhand, currency) >= amount then
+            local item, wallet = ParadiseEconomy.makeCoin(pl)
+            if item and wallet and ParadiseEconomy.takeBalance(account.onhand, currency, amount) then
+                if not ParadiseEconomy.addBalance(wallet, currency, amount) then
+                    ParadiseEconomy.addBalance(account.onhand, currency, amount)
+                    message = "Could not create a coin"
+                else
+                    ParadiseEconomy.updateWalletIcon(item)
+                    syncItemModData(pl, item)
+                    ParadiseEconomy.record(pl, "withdrew to wallet", currency, amount, user, user, tostring(item:getID()), {
+                        accountId = account.id, bucket = "onhand",
+                    })
+                    message = "Dropped " .. amount .. " " .. currency .. " into a coin"
+                end
+            else
+                message = "Could not create a coin"
             end
         end
     elseif command == "pillage" then
@@ -3596,6 +3649,7 @@ function ParadiseEconomy.handleFundsCommand(ctx)
             local movedPar = paradisium <= 0 or ParadiseEconomy.addAccountBalance(personal, "paradisium", paradisium, "onhand")
             if movedJim and movedPar then
                 ParadiseEconomy.setBalances(wallet, 0, 0)
+                ParadiseEconomy.updateWalletIcon(item)
                 syncItemModData(pl, item)
                 ParadiseEconomy.record(pl, "pillaged wallet", "mixed", jimoleon + paradisium, "wallet", user,
                     tostring(jimoleon) .. " Jimoleons, " .. tostring(paradisium) .. " Paradisium", {
@@ -4596,12 +4650,13 @@ function ParadiseEconomy.onCharacterDeath(pl)
     if not pl or not instanceof(pl, "IsoPlayer") then return end
     local personal = ParadiseEconomy.getPersonalAccount(pl:getUsername(), true)
     if not personal or not ParadiseEconomy.hasMoney(personal.onhand) then return end
-    local item, wallet = ParadiseEconomy.makeWallet(pl)
+    local item, wallet = ParadiseEconomy.makeCoin(pl)
     if not item or not wallet then return end
     local jimoleon = ParadiseEconomy.getBalance(personal.onhand, "jimoleon")
     local paradisium = ParadiseEconomy.getBalance(personal.onhand, "paradisium")
     ParadiseEconomy.setBalances(wallet, jimoleon, paradisium)
     ParadiseEconomy.setBalances(personal.onhand, 0, 0)
+    ParadiseEconomy.updateWalletIcon(item)
     syncItemModData(pl, item)
     ParadiseEconomy.record(pl, "death wallet", "mixed", jimoleon + paradisium, pl:getUsername(), "wallet",
         tostring(item:getID()), { accountId = personal.id, bucket = "onhand" })

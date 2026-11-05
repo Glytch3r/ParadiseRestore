@@ -38,6 +38,12 @@ function ParadiseAdminHub.getEntries()
     if RecordsPanel and RecordsPanel.OpenPanel then
         add("Records", function() RecordsPanel.OpenPanel() end)
     end
+    if ParadiseDev and ParadiseDev.PlayerCleanup and ParadiseDev.PlayerCleanup.OpenPanel then
+        add("Player Cleanup", function() ParadiseDev.PlayerCleanup.OpenPanel() end)
+    end
+    if ParadiseNotesAuditPanel and ParadiseNotesAuditPanel.OpenPanel then
+        add("Notes Admin", function() ParadiseNotesAuditPanel.OpenPanel() end)
+    end
     if ParadiseMail and ParadiseMail.AdminPanel and ParadiseMail.AdminPanel.OpenPanel then
         add("Mail", function() ParadiseMail.AdminPanel.OpenPanel() end)
     end

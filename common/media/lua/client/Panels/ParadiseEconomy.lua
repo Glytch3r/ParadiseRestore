@@ -1372,6 +1372,7 @@ end
 ParadiseEconomy.Panel.operations = {
     { key = "deposit", label = "Deposit to digital", button = "DEPOSIT TO DIGITAL", hint = "ON-HAND  ->  DIGITAL" },
     { key = "withdraw", label = "Withdraw to on-hand", button = "WITHDRAW TO ON-HAND", hint = "DIGITAL  ->  ON-HAND" },
+    { key = "drop", label = "Drop to coin", button = "DROP TO COIN", hint = "ON-HAND  ->  COIN" },
 }
 
 function ParadiseEconomy.Panel:new(x, y, w, h)
@@ -1418,8 +1419,8 @@ function ParadiseEconomy.Panel:createChildren()
     self.maxButton.tooltip = "Use the full available balance"
     self.maxButton:initialise()
     self:addChild(self.maxButton)
-    self.walletButton = ISButton:new(0, 0, 130, 26, "TO WALLET", self, ParadiseEconomy.Panel.onWalletAction)
-    self.walletButton.tooltip = "Place digital funds into a carried wallet"
+    self.walletButton = ISButton:new(0, 0, 130, 26, "TO COIN", self, ParadiseEconomy.Panel.onWalletAction)
+    self.walletButton.tooltip = "Place digital funds straight into your carried coin"
     self.walletButton:initialise()
     self:addChild(self.walletButton)
     self.recipient = ISTextEntryBox:new("", 0, 0, 210, 25)
@@ -1582,7 +1583,8 @@ end
 
 function ParadiseEconomy.Panel:getMaxAmount()
     local personal = ParadiseEconomy.getStatePersonal()
-    local bucket = self:getOperation().key == "deposit" and personal.onhand or personal.digital
+    local key = self:getOperation().key
+    local bucket = (key == "deposit" or key == "drop") and personal.onhand or personal.digital
     return ParadiseEconomy.getBalance(bucket, self:getCurrency())
 end
 
