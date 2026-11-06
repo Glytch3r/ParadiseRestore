@@ -569,13 +569,21 @@ function ParadiseZ.init()
     if viewer and not runtime.adminReady and not runtime.lastRequestAt then ParadiseZ.requestAdminTagState() end
 end
 
+Events.OnTick.Remove(ParadiseZ.updateTagHandler)
 Events.OnTick.Add(ParadiseZ.updateTagHandler)
 -- Native RenderBatch precedes OnPostRender/UI. Direct Draw in this UI pass
 -- avoids a queued tag surviving until the next frame after its target leaves.
+Events.OnPreUIDraw.Remove(ParadiseZ.renderTags)
 Events.OnPreUIDraw.Add(ParadiseZ.renderTags)
+Events.OnCharacterDeath.Remove(ParadiseZ.onCharacterDeath)
 Events.OnCharacterDeath.Add(ParadiseZ.onCharacterDeath)
+Events.OnServerCommand.Remove(ParadiseZ.onTagServerCommand)
 Events.OnServerCommand.Add(ParadiseZ.onTagServerCommand)
+Events.OnCreatePlayer.Remove(ParadiseZ.init)
 Events.OnCreatePlayer.Add(ParadiseZ.init)
+Events.OnGameStart.Remove(ParadiseZ.init)
 Events.OnGameStart.Add(ParadiseZ.init)
-if Events.OnDisconnect then Events.OnDisconnect.Add(ParadiseZ.onTagSessionEnd) end
-if Events.OnMainMenuEnter then Events.OnMainMenuEnter.Add(ParadiseZ.onTagSessionEnd) end
+Events.OnDisconnect.Remove(ParadiseZ.onTagSessionEnd)
+Events.OnDisconnect.Add(ParadiseZ.onTagSessionEnd)
+Events.OnMainMenuEnter.Remove(ParadiseZ.onTagSessionEnd)
+Events.OnMainMenuEnter.Add(ParadiseZ.onTagSessionEnd)

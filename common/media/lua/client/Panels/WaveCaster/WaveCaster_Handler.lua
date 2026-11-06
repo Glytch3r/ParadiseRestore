@@ -195,7 +195,7 @@ function WaveCaster.applyZedData(zed, zd, soundX, soundY)
     if zd.immortalTutorialZombie then zed:setImmortalTutorialZombie(true) end
     if zd.randomOutfit then zed:dressInRandomOutfit() end
     if zd.useless then zed:setUseless(true) end
-    if zd.randomBloodDirtHoles then zed:ddRandomBloodDirtHolesEtc() end
+    if zd.randomBloodDirtHoles then zed:addRandomBloodDirtHolesEtc() end
     if zd.knifeDeath then zed:setKnifeDeath(true) end
     if zd.noTeeth then zed:setNoTeeth(true) end
     if zd.jawStabAttach then zed:setJawStabAttach(true) end

@@ -82,4 +82,5 @@ function ParadiseCloner.onServerCommand(module, command, args)
     ParadiseCloner.remoteRecords[args.owner] = args.records or {}
     if ParadiseCloner.panels[args.owner] then ParadiseCloner.panels[args.owner]:populate() end
 end
+Events.OnServerCommand.Remove(ParadiseCloner.onServerCommand)
 Events.OnServerCommand.Add(ParadiseCloner.onServerCommand)

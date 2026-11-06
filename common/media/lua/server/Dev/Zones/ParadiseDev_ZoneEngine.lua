@@ -1044,6 +1044,7 @@ function ParadiseDev.Zones.Engine.configureBoundaryDiagnostics()
         Events.OnTick.Add(ParadiseDev.Zones.Engine.reportBoundaryCommands)
     end
 end
+Events.OnServerStarted.Remove(ParadiseDev.Zones.Engine.configureBoundaryDiagnostics)
 Events.OnServerStarted.Add(ParadiseDev.Zones.Engine.configureBoundaryDiagnostics)
 
 function ParadiseDev.Zones.Engine.onClientCommand(module, command, pl, args)

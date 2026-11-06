@@ -96,6 +96,7 @@ local function timerUpdate()
 	end
 
 end
+Events.OnTickEvenPaused.Remove(timerUpdate)
 Events.OnTickEvenPaused.Add(timerUpdate)
 	
 function timer:Remove(name)

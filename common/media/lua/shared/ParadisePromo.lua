@@ -132,6 +132,7 @@ function ParadisePromo.OnMidnightCheck()
     end
 end
 
+Events.EveryHours.Remove(ParadisePromo.OnMidnightCheck)
 Events.EveryHours.Add(ParadisePromo.OnMidnightCheck)
 
 function ParadisePromo.OnClientCommand(module, command, player, args)
@@ -200,5 +201,7 @@ function ParadisePromo.OnServerCommand(module, command, args)
     end
 end
 
+Events.OnClientCommand.Remove(ParadisePromo.OnClientCommand)
 Events.OnClientCommand.Add(ParadisePromo.OnClientCommand)
+Events.OnServerCommand.Remove(ParadisePromo.OnServerCommand)
 Events.OnServerCommand.Add(ParadisePromo.OnServerCommand)

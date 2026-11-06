@@ -198,8 +198,16 @@ function SquadManager.isMember(squad, user)
     return SquadManager.seatOf(squad, user) > 0
 end
 
+function SquadManager.leaderUser(squad)
+    local user = SquadManager.seatUser(squad, 1)
+    if not user or user == "" then return nil end
+    return user
+end
+
 function SquadManager.isLeader(squad, user)
-    return type(squad) == "table" and squad.leader == user
+    local leader = SquadManager.leaderUser(squad)
+    if not leader then return false end
+    return leader == user
 end
 
 function SquadManager.activeSeats(config)

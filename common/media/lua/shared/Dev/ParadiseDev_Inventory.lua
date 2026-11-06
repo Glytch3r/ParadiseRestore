@@ -10,6 +10,8 @@ ParadiseDev.Inventory.genericProperties = {
     { "getKeyId", "setKeyId" },
     { "getWetness", "setWetness" },
     { "getUsedDelta", "setUsedDelta" },
+    { "getWeight", "setWeight" },
+    { "isCustomWeight", "setCustomWeight" },
 }
 
 ParadiseDev.Inventory.foodProperties = {
@@ -22,21 +24,19 @@ ParadiseDev.Inventory.foodProperties = {
     { "getCarbohydrates", "setCarbohydrates" },
     { "getLipids", "setLipids" },
     { "getProteins", "setProteins" },
-    { "getHungerChange", "setHungerChange" },
+    { "getHungChange", "setHungChange" },
     { "getBaseHunger", "setBaseHunger" },
     { "getThirstChange", "setThirstChange" },
     { "getUnhappyChange", "setUnhappyChange" },
     { "getBoredomChange", "setBoredomChange" },
-    { "getFoodSickness", "setFoodSickness" },
+    { "getFoodSicknessChange", "setFoodSicknessChange" },
     { "getHeat", "setHeat" },
 }
 
 ParadiseDev.Inventory.clothingProperties = {
     { "getBloodLevel", "setBloodLevel" },
-    { "getDirtyness", "setDirtyness" },
+    { "getDirtiness", "setDirtiness" },
 }
-
-ParadiseDev.Inventory.attachmentNames = { "Scope", "Clip", "Sling", "Stock", "Canon", "Recoilpad" }
 
 
 function ParadiseDev.Inventory.copyValue(value, seen)
@@ -76,18 +76,17 @@ function ParadiseDev.Inventory.copyWeapon(source, target)
     ParadiseDev.Inventory.copyProperty(source, target, "getCurrentAmmoCount", "setCurrentAmmoCount")
     ParadiseDev.Inventory.copyProperty(source, target, "isRoundChambered", "setRoundChambered")
     ParadiseDev.Inventory.copyProperty(source, target, "isContainsClip", "setContainsClip")
-    if not target.attachWeaponPart then return end
-    for _, name in ipairs(ParadiseDev.Inventory.attachmentNames) do
-        local getter = source["get" .. name]
-        if getter then
-            local ok, part = pcall(getter, source)
-            if ok and part then
-                local clone = instanceItem(part:getFullType())
-                if clone then
-                    ParadiseDev.Inventory.copyProperties(part, clone, ParadiseDev.Inventory.genericProperties)
-                    ParadiseDev.Inventory.copyModData(part, clone)
-                    pcall(target.attachWeaponPart, target, clone)
-                end
+    if not target.attachWeaponPart or not source.getAllWeaponParts then return end
+    local parts = source:getAllWeaponParts()
+    if not parts then return end
+    for index = 0, parts:size() - 1 do
+        local part = parts:get(index)
+        if part and part.getFullType then
+            local clone = instanceItem(part:getFullType())
+            if clone then
+                ParadiseDev.Inventory.copyProperties(part, clone, ParadiseDev.Inventory.genericProperties)
+                ParadiseDev.Inventory.copyModData(part, clone)
+                pcall(target.attachWeaponPart, target, clone)
             end
         end
     end

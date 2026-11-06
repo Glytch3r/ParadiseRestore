@@ -10,18 +10,18 @@ local genericProperties = {
     { "getCondition", "setCondition" }, { "getHaveBeenRepaired", "setHaveBeenRepaired" },
     { "isBroken", "setBroken" }, { "getTooltip", "setTooltip" }, { "getKeyId", "setKeyId" },
     { "getWetness", "setWetness" }, { "getUsedDelta", "setUsedDelta" },
+    { "getWeight", "setWeight" }, { "isCustomWeight", "setCustomWeight" },
 }
 
 local foodProperties = {
     { "getAge", "setAge" }, { "getOffAge", "setOffAge" }, { "getOffAgeMax", "setOffAgeMax" },
     { "isCooked", "setCooked" }, { "isBurnt", "setBurnt" }, { "getCalories", "setCalories" },
     { "getCarbohydrates", "setCarbohydrates" }, { "getLipids", "setLipids" }, { "getProteins", "setProteins" },
-    { "getHungerChange", "setHungerChange" }, { "getBaseHunger", "setBaseHunger" }, { "getThirstChange", "setThirstChange" },
-    { "getUnhappyChange", "setUnhappyChange" }, { "getBoredomChange", "setBoredomChange" }, { "getFoodSickness", "setFoodSickness" }, { "getHeat", "setHeat" },
+    { "getHungChange", "setHungChange" }, { "getBaseHunger", "setBaseHunger" }, { "getThirstChange", "setThirstChange" },
+    { "getUnhappyChange", "setUnhappyChange" }, { "getBoredomChange", "setBoredomChange" }, { "getFoodSicknessChange", "setFoodSicknessChange" }, { "getHeat", "setHeat" },
 }
 
-local clothingProperties = { { "getBloodLevel", "setBloodLevel" }, { "getDirtyness", "setDirtyness" } }
-local attachmentNames = { "Scope", "Clip", "Sling", "Stock", "Canon", "Recoilpad" }
+local clothingProperties = { { "getBloodLevel", "setBloodLevel" }, { "getDirtiness", "setDirtiness" } }
 
 local function copyValue(value, seen)
     if type(value) ~= "table" then return value end
@@ -49,12 +49,13 @@ end
 
 local function copyWeapon(source, target)
     copyProperties(source, target, { { "getCurrentAmmoCount", "setCurrentAmmoCount" }, { "isRoundChambered", "setRoundChambered" }, { "isContainsClip", "setContainsClip" } })
-    if not target.attachWeaponPart then return end
-    for _, name in ipairs(attachmentNames) do
-        local getter = source["get" .. name]
-        local part = getter and getter(source) or nil
-        if part then
-            local clone = InventoryItemFactory.CreateItem(part:getFullType())
+    if not target.attachWeaponPart or not source.getAllWeaponParts then return end
+    local parts = source:getAllWeaponParts()
+    if not parts then return end
+    for index = 0, parts:size() - 1 do
+        local part = parts:get(index)
+        if part and part.getFullType then
+            local clone = instanceItem(part:getFullType())
             if clone then
                 copyProperties(part, clone, genericProperties)
                 copyModData(part, clone)

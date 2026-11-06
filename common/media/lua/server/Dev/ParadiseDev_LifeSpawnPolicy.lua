@@ -499,4 +499,5 @@ function P.birthLocation(pl,pending,account)
     return nil,result.reason or "Safe starting ground is being checked. Retry this destination shortly."
 end
 
+Events.OnSpawnRegionsLoaded.Remove(P.onSpawnRegionsLoaded)
 Events.OnSpawnRegionsLoaded.Add(P.onSpawnRegionsLoaded)

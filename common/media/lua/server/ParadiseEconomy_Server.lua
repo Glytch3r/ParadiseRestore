@@ -4255,9 +4255,11 @@ function ParadiseEconomy.handleAdminCommand(ctx)
         local account = ParadiseEconomy.resolveAccountArg(args.accountId, args.username)
         if account then
             local removed, deleteMessage = ParadiseEconomy.deleteAccount(account.id)
-            ParadiseEconomy.record(pl, "admin deleted account", "mixed", 0, user, account.id, "account removed", {
-                accountId = account.id,
-            })
+            if removed then
+                ParadiseEconomy.record(pl, "admin deleted account", "mixed", 0, user, account.id, "account removed", {
+                    accountId = account.id,
+                })
+            end
             message = deleteMessage
             syncAll = removed
         else

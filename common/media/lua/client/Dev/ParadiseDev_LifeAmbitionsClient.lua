@@ -97,8 +97,8 @@ function C.onRestored(pl)
 end
 function C.onXPReady(pl) C.pendingXP[pl]=nil end
 local function onCreate() C.install() end
-if Events then
-    if Events.OnGameStart then Events.OnGameStart.Add(C.install) end
-    if Events.OnCreatePlayer then Events.OnCreatePlayer.Add(onCreate) end
-end
+Events.OnGameStart.Remove(C.install)
+Events.OnGameStart.Add(C.install)
+Events.OnCreatePlayer.Remove(onCreate)
+Events.OnCreatePlayer.Add(onCreate)
 return C

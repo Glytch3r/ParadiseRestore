@@ -8,6 +8,7 @@ if isClient() then return end
 function WaveCaster.init()
     WaveCaster.Data = ModData.getOrCreate("WaveCaster_Data")
 end
+Events.OnInitGlobalModData.Remove(WaveCaster.init)
 Events.OnInitGlobalModData.Add(WaveCaster.init)
 
 function WaveCaster.transmit()
@@ -108,7 +109,7 @@ function WaveCaster.applyZedData(zed, zd, pl, soundX, soundY)
     if zd.immortalTutorialZombie then zed:setImmortalTutorialZombie(true) end
     if zd.randomOutfit then zed:dressInRandomOutfit() end
     if zd.useless then zed:setUseless(true) end
-    if zd.randomBloodDirtHoles then zed:ddRandomBloodDirtHolesEtc() end
+    if zd.randomBloodDirtHoles then zed:addRandomBloodDirtHolesEtc() end
     if zd.knifeDeath then zed:setKnifeDeath(true) end
     if zd.noTeeth then zed:setNoTeeth(true) end
     if zd.jawStabAttach then zed:setJawStabAttach(true) end
@@ -265,6 +266,7 @@ function WaveCaster.processEvents()
         sendServerCommand("WaveCaster", "Sync", { data = data })
     end
 end
+Events.EveryOneMinute.Remove(WaveCaster.processEvents)
 Events.EveryOneMinute.Add(WaveCaster.processEvents)
 
 function WaveCaster.updateEvents(module, command, player, args)
@@ -351,4 +353,5 @@ function WaveCaster.updateEvents(module, command, player, args)
         sendServerCommand("WaveCaster", "Sync", { data = WaveCaster.Data })
     end
 end
+Events.OnClientCommand.Remove(WaveCaster.updateEvents)
 Events.OnClientCommand.Add(WaveCaster.updateEvents)

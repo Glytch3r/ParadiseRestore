@@ -203,10 +203,22 @@ function ParadiseRestore.Prism.receive(module, command, args)
     ParadiseRestore.Prism.addLocal(args)
 end
 
+ParadiseRestore.Prism.relayAt = ParadiseRestore.Prism.relayAt or {}
+
 function ParadiseRestore.Prism.relay(module, command, sender, args)
     if module ~= ParadiseRestore.Prism.module or command ~= ParadiseRestore.Prism.command then return end
+    if not sender or not args then return end
+    local user = tostring(sender:getUsername() or sender:getOnlineID() or "")
+    if user == "" then return end
+    local now = getTimestampMs()
+    local last = ParadiseRestore.Prism.relayAt[user] or 0
+    if now - last < 200 then return end
+    ParadiseRestore.Prism.relayAt[user] = now
     args = ParadiseRestore.Prism.normalize(args)
-    if not args or not sender then return end
+    if not args then return end
+    args.x = round(sender:getX())
+    args.y = round(sender:getY())
+    args.z = round(sender:getZ())
     ParadiseRestore.Prism.nextID = ParadiseRestore.Prism.nextID + 1
     local plID = sender:getOnlineID()
     args.id = tostring(plID) .. ":" .. tostring(getTimestampMs()) .. ":" .. tostring(ParadiseRestore.Prism.nextID)

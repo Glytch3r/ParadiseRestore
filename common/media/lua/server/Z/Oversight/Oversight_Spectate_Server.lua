@@ -1,4 +1,6 @@
 -- Server authority and state relay for B42.20 Oversight spectating.
+ParadiseZ = ParadiseZ or {}
+ParadiseZ.Oversight = ParadiseZ.Oversight or {}
 local MODULE = "ParadiseZOversight"
 
 local function canSpectate(player)
@@ -30,7 +32,7 @@ local function sendHideState(player)
     sendServerCommand(player, MODULE, "hideState", { entries = entries })
 end
 
-Events.OnClientCommand.Add(function(module, command, player, args)
+function ParadiseZ.Oversight.onClientCommand(module, command, player, args)
     if module ~= MODULE then return end
 
     if command == "requestHideState" then
@@ -50,4 +52,6 @@ Events.OnClientCommand.Add(function(module, command, player, args)
             ParadiseDev.TP.teleportPlayer(player, target:getX() + (tonumber(args and args.x) or 0), target:getY() + (tonumber(args and args.y) or 0), target:getZ() + (tonumber(args and args.z) or 0))
         end
     end
-end)
+end
+Events.OnClientCommand.Remove(ParadiseZ.Oversight.onClientCommand)
+Events.OnClientCommand.Add(ParadiseZ.Oversight.onClientCommand)

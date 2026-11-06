@@ -149,6 +149,7 @@ function ParadiseDev.Cage.addWorldContext(plNum, context, worldobjects, test)
     if test or not ParadiseRestore.isAdm() then return end
     ParadiseDev.Cage.addTargetOptions(context, ParadiseDev.Cage.getWorldTarget(context))
 end
-Events.OnFillWorldObjectContex tMenu.Add(ParadiseDev.Cage.addWorldContext)
+Events.OnFillWorldObjectContextMenu.Remove(ParadiseDev.Cage.addWorldContext)
+Events.OnFillWorldObjectContextMenu.Add(ParadiseDev.Cage.addWorldContext)
 ]]
 

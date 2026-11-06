@@ -324,6 +324,7 @@ function PZContext.install(trailingLightsCallback)
             print("[ParadiseZ] context hook error: " .. tostring(err))
         end
     end
+    Events.OnFillWorldObjectContextMenu.Remove(PZContext._contextMenuHook)
     Events.OnFillWorldObjectContextMenu.Add(PZContext._contextMenuHook)
 
     if DebugContextMenu and DebugContextMenu.doDebugMenu then
@@ -1633,6 +1634,7 @@ function TL.installRenderer()
             print("[ParadiseZ] tick error: " .. tostring(err))
         end
     end
+    Events.OnTick.Remove(TL._tickHook)
     Events.OnTick.Add(TL._tickHook)
 end
 

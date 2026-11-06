@@ -270,7 +270,8 @@ end
 local function keepLoginLocations()
     if ParadiseLifeBridge then ParadiseLifeBridge("keepLocations") end
 end
-if Events.OnTick then Events.OnTick.Add(keepLoginLocations) end
+Events.OnTick.Remove(keepLoginLocations)
+Events.OnTick.Add(keepLoginLocations)
 
 function S.loginCommand(ctx,command,args)
     args=type(args)=="table" and args or {}

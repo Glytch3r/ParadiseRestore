@@ -1438,8 +1438,13 @@ function C.onTick()
     end
 end
 
+Events.OnGameStart.Remove(C.install)
 Events.OnGameStart.Add(C.install)
+Events.OnCreatePlayer.Remove(C.onCreate)
 Events.OnCreatePlayer.Add(C.onCreate)
+Events.OnPlayerDeath.Remove(C.onDeath)
 Events.OnPlayerDeath.Add(C.onDeath)
+Events.OnServerCommand.Remove(C.onServerCommand)
 Events.OnServerCommand.Add(C.onServerCommand)
+Events.OnTick.Remove(C.onTick)
 Events.OnTick.Add(C.onTick)

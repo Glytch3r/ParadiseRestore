@@ -466,7 +466,10 @@ function Syncer.onConnected()
 end
 Events.OnConnected.Remove(Syncer.onConnected)
 Events.OnConnected.Add(Syncer.onConnected)
+Events.OnServerCommand.Remove(Syncer.onServerCommand)
 Events.OnServerCommand.Add(Syncer.onServerCommand)
+Events.OnPlayerUpdate.Remove(Syncer.onPlayerUpdate)
 Events.OnPlayerUpdate.Add(Syncer.onPlayerUpdate)
 function Syncer.menuTickUpdate() Syncer.updateMenus(false) end
+Events.OnTick.Remove(Syncer.menuTickUpdate)
 Events.OnTick.Add(Syncer.menuTickUpdate)

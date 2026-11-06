@@ -149,6 +149,7 @@ function ParadiseZ.doSpectateTP(player)
 end
 
 ParadiseZ.Oversight.followPlayer = ParadiseZ.doSpectateTP
+Events.OnPlayerUpdate.Remove(ParadiseZ.Oversight.followPlayer)
 Events.OnPlayerUpdate.Add(ParadiseZ.Oversight.followPlayer)
 
 ParadiseZ.Oversight.hiddenUsers = ParadiseZ.Oversight.hiddenUsers or {}
@@ -162,6 +163,7 @@ ParadiseZ.Oversight.syncHiddenModels = function()
         if player then applyHiddenModel(player, hidden) end
     end
 end
+Events.OnTick.Remove(ParadiseZ.Oversight.syncHiddenModels)
 Events.OnTick.Add(ParadiseZ.Oversight.syncHiddenModels)
 
 ParadiseZ.Oversight.requestHideState = function()
@@ -169,9 +171,10 @@ ParadiseZ.Oversight.requestHideState = function()
         sendClientCommand(MODULE, "requestHideState", {})
     end
 end
+Events.OnGameStart.Remove(ParadiseZ.Oversight.requestHideState)
 Events.OnGameStart.Add(ParadiseZ.Oversight.requestHideState)
 
-Events.OnServerCommand.Add(function(module, command, args)
+function ParadiseZ.Oversight.onServerCommand(module, command, args)
     if module ~= MODULE then return end
 
     if command == "teleport" then
@@ -188,7 +191,9 @@ Events.OnServerCommand.Add(function(module, command, args)
             applyHiddenModel(getPlayerFromUsername(entry.username), entry.hidden == true)
         end
     end
-end)
+end
+Events.OnServerCommand.Remove(ParadiseZ.Oversight.onServerCommand)
+Events.OnServerCommand.Add(ParadiseZ.Oversight.onServerCommand)
 
 function ParadiseZ.Oversight.addScoreboardOptions(scoreboard, player, x, y)
     if not scoreboard or not player or not canSpectate(scoreboard.admin) then return end

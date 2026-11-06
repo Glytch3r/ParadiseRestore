@@ -11,7 +11,7 @@ ParadiseEconomy.ItemData.genericProperties = {
     { "usedDelta", "getUsedDelta", "setUsedDelta" },
     { "keyId", "getKeyId", "setKeyId" },
     { "bloodLevel", "getBloodLevel", "setBloodLevel" },
-    { "dirtyness", "getDirtyness", "setDirtyness" },
+    { "dirtyness", "getDirtiness", "setDirtiness" },
 }
 
 ParadiseEconomy.ItemData.foodProperties = {
@@ -30,7 +30,7 @@ ParadiseEconomy.ItemData.foodProperties = {
     { "lipids", "getLipids", "setLipids" },
     { "proteins", "getProteins", "setProteins" },
     { "calories", "getCalories", "setCalories" },
-    { "taintedWater", "isTaintedWater", "setTaintedWater" },
+    { "taintedWater", "isTainted", "setTainted" },
     { "actualWeight", "getActualWeight", "setActualWeight" },
     { "weight", "getWeight", "setWeight" },
     { "customWeight", "isCustomWeight", "setCustomWeight" },
@@ -41,8 +41,6 @@ ParadiseEconomy.ItemData.foodProperties = {
     { "unhappyChange", "getUnhappyChangeUnmodified", "setUnhappyChange" },
     { "foodSickness", "getFoodSicknessChange", "setFoodSicknessChange" },
 }
-
-ParadiseEconomy.ItemData.weaponParts = { "Scope", "Clip", "Sling", "Stock", "Canon", "Recoilpad" }
 
 function ParadiseEconomy.ItemData.call(obj, method)
     if not obj or not obj[method] then return nil end
@@ -80,9 +78,12 @@ function ParadiseEconomy.ItemData.readWeapon(item, data)
     data.containsClip = ParadiseEconomy.ItemData.call(item, "isContainsClip")
     data.fireMode = ParadiseEconomy.ItemData.call(item, "getFireMode")
     data.weaponParts = {}
-    for _, name in ipairs(ParadiseEconomy.ItemData.weaponParts) do
-        local part = ParadiseEconomy.ItemData.call(item, "get" .. name)
-        if part and part.getFullType then data.weaponParts[string.lower(name)] = ParadiseEconomy.ItemData.toData(part, true) end
+    local parts = ParadiseEconomy.ItemData.call(item, "getAllWeaponParts")
+    if not parts or not parts.size then return end
+    for int = 0, parts:size() - 1 do
+        local part = parts:get(int)
+        local partData = ParadiseEconomy.ItemData.toData(part, true)
+        if partData then data.weaponParts[#data.weaponParts + 1] = partData end
     end
 end
 
@@ -129,7 +130,7 @@ function ParadiseEconomy.ItemData.toData(item, nested)
         containedItems = {},
     }
     ParadiseEconomy.ItemData.readProperties(item, data, ParadiseEconomy.ItemData.genericProperties)
-    if item.getCurrentAmmoCount or item.getScope then ParadiseEconomy.ItemData.readWeapon(item, data) end
+    if item.getCurrentAmmoCount or item.getAllWeaponParts then ParadiseEconomy.ItemData.readWeapon(item, data) end
     if item.getFoodType then ParadiseEconomy.ItemData.readProperties(item, data, ParadiseEconomy.ItemData.foodProperties) end
     if item.getClothingItem and ParadiseEconomy.ItemData.call(item, "getClothingItem") then ParadiseEconomy.ItemData.readClothing(item, data) end
     local inv = ParadiseEconomy.ItemData.call(item, "getInventory")
@@ -159,12 +160,9 @@ function ParadiseEconomy.ItemData.applyWeapon(item, data)
     ParadiseEconomy.ItemData.set(item, "setContainsClip", data.containsClip)
     ParadiseEconomy.ItemData.set(item, "setFireMode", data.fireMode)
     if not item.attachWeaponPart then return end
-    for _, name in ipairs(ParadiseEconomy.ItemData.weaponParts) do
-        local partData = data.weaponParts and data.weaponParts[string.lower(name)] or nil
-        if partData then
-            local part = ParadiseEconomy.ItemData.makeItem(partData)
-            if part then pcall(item.attachWeaponPart, item, part) end
-        end
+    for _, partData in ipairs(data.weaponParts or {}) do
+        local part = ParadiseEconomy.ItemData.makeItem(partData)
+        if part then pcall(item.attachWeaponPart, item, part) end
     end
 end
 
@@ -207,8 +205,8 @@ function ParadiseEconomy.ItemData.apply(item, data)
 end
 
 function ParadiseEconomy.ItemData.cloneItem(data)
-    if type(data) ~= "table" or not data.fullType or not InventoryItemFactory or not InventoryItemFactory.CreateItem then return nil end
-    local item = InventoryItemFactory.CreateItem(data.fullType)
+    if type(data) ~= "table" or not data.fullType then return nil end
+    local item = instanceItem(data.fullType)
     if not item then return nil end
     ParadiseEconomy.ItemData.apply(item, data)
     local inv = ParadiseEconomy.ItemData.call(item, "getInventory")

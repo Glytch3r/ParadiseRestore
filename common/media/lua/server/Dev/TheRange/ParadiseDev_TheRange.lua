@@ -309,7 +309,17 @@ function ParadiseDev.TheRange.onPlayerMove(pl)
     ParadiseDev.TheRange.updateAccess(pl, false)
 end
 
+ParadiseDev.TheRange.moveWatch = ParadiseDev.TheRange.moveWatch or {}
+function ParadiseDev.TheRange.onMoveTick()
+    if isClient and isClient() and not (isServer and isServer()) then return end
+    local now = getTimestampMs()
+    if ParadiseDev.TheRange.moveTickAt and now >= ParadiseDev.TheRange.moveTickAt
+        and now - ParadiseDev.TheRange.moveTickAt < 500 then return end
+    ParadiseDev.TheRange.moveTickAt = now
+    ParadiseRestore.forEachMovedPlayer(ParadiseDev.TheRange.moveWatch, ParadiseDev.TheRange.onPlayerMove)
+end
+
 Events.OnClientCommand.Remove(ParadiseDev.TheRange.onClientCommand)
 Events.OnClientCommand.Add(ParadiseDev.TheRange.onClientCommand)
-Events.OnPlayerMove.Remove(ParadiseDev.TheRange.onPlayerMove)
-Events.OnPlayerMove.Add(ParadiseDev.TheRange.onPlayerMove)
+Events.OnTick.Remove(ParadiseDev.TheRange.onMoveTick)
+Events.OnTick.Add(ParadiseDev.TheRange.onMoveTick)

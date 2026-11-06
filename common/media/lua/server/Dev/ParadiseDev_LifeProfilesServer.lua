@@ -1176,10 +1176,15 @@ function S.onInit()
     if S.unsupportedReason then print("[LifeProfiles v1] NOT ACTIVE: "..S.unsupportedReason)
     else print("[LifeProfiles v1] ACTIVE: slots="..slots().." checkpoint_seconds="..(interval()/1000)) end
 end
+Events.OnClientCommand.Remove(S.onClientCommand)
 Events.OnClientCommand.Add(S.onClientCommand)
+Events.OnTick.Remove(S.onTick)
 Events.OnTick.Add(S.onTick)
+Events.OnSave.Remove(S.onSave)
 Events.OnSave.Add(S.onSave)
+Events.OnNewGame.Remove(S.onNewGame)
 Events.OnNewGame.Add(S.onNewGame)
-if Events.OnInitGlobalModData then Events.OnInitGlobalModData.Add(S.onInit) end
+Events.OnInitGlobalModData.Remove(S.onInit)
+Events.OnInitGlobalModData.Add(S.onInit)
 require "Dev/ParadiseDev_LifeLoginServer"
 return S

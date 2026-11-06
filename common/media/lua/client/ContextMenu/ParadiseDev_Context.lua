@@ -279,7 +279,7 @@ function ParadiseDev.Context.clearUniversal(pl, radius, selected)
                             end
                         end
                         if
-                            wanted.worldobjects and not isFloor and not instanceof(obj, "IsoFloor") and
+                            wanted.worldobjects and not isFloor and
                                 not instanceof(obj, "IsoTree") and
                                 not instanceof(obj, "IsoZombie") and
                                 not instanceof(obj, "IsoDeadBody") and
@@ -1008,6 +1008,7 @@ end
 
 
 ParadiseZ.dbgSoundHandler = ParadiseDev.Context.dbgSoundHandler
+Events.OnWorldSound.Remove(ParadiseDev.Context.dbgSoundHandler)
 Events.OnWorldSound.Add(ParadiseDev.Context.dbgSoundHandler)
 
 ParadiseZ.context = ParadiseDev.Context.context

@@ -181,6 +181,7 @@ function A.installHotbarGuard()
     if not ISHotbar or not ISHotbar.onKeyPressed then return end
     A.hotbarHook = ISHotbar.onKeyPressed
     Events.OnKeyPressed.Remove(A.hotbarHook)
+    Events.OnKeyPressed.Remove(A.hotbarFilter)
     Events.OnKeyPressed.Add(A.hotbarFilter)
     A.hotbarGuarded = true
 end
@@ -188,6 +189,7 @@ end
 function A.uninstallHotbarGuard()
     if not A.hotbarGuarded then return end
     Events.OnKeyPressed.Remove(A.hotbarFilter)
+    Events.OnKeyPressed.Remove(A.hotbarHook)
     Events.OnKeyPressed.Add(A.hotbarHook)
     A.hotbarGuarded = false
 end

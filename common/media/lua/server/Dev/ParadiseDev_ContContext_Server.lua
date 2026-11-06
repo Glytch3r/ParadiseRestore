@@ -132,6 +132,7 @@ function loot.onInitGlobalModData()
     loot.getData()
 end
 
+Events.OnInitGlobalModData.Remove(loot.onInitGlobalModData)
 Events.OnInitGlobalModData.Add(loot.onInitGlobalModData)
 Events.OnClientCommand.Remove(loot.onClientCommand)
 Events.OnClientCommand.Add(loot.onClientCommand)

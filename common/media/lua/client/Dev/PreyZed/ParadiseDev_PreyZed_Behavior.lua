@@ -16,7 +16,7 @@ end
 
 function ParadiseDev.PreyZed.isWalkable(sq)
     if not sq or sq:isSolid() or sq:isSolidTrans() then return false end
-    return not (IsoFlagType and sq:Is(IsoFlagType.water))
+    return not (IsoFlagType and sq:has(IsoFlagType.water))
 end
 
 function ParadiseDev.PreyZed.moveAway(zed, pl)
@@ -81,4 +81,5 @@ function ParadiseDev.PreyZed.zombieUpdateHandler(zed)
     if ParadiseDev.PreyZed.skinHandler then ParadiseDev.PreyZed.skinHandler(zed, prey) end
 end
 
+Events.OnZombieUpdate.Remove(ParadiseDev.PreyZed.zombieUpdateHandler)
 Events.OnZombieUpdate.Add(ParadiseDev.PreyZed.zombieUpdateHandler)

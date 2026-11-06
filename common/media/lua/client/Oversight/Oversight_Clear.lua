@@ -21,6 +21,7 @@
 ----------------------------------------------------------------
 
 ParadiseZ = ParadiseZ or {}
+require "Dev/Zones/ParadiseDev_ZoneNoFire"
 
 function ParadiseZ.promptSlider(text, min, max, current, callback, target, player, param1, param2)
     local slider = nil
@@ -205,11 +206,13 @@ end
 function ParadiseZ.StopFire(pl, checkZone)
     pl = pl or getPlayer() 
     if not pl then return end
-    
-    local rad = SandboxVars.ParadiseZ.ClearRadius or 15
+    local NoFire = ParadiseDev and ParadiseDev.Zones and ParadiseDev.Zones.NoFire
+    if not NoFire then return end
     if checkZone then
-        rad = SandboxVars.ParadiseZ.ClearFireRadius
+        return NoFire.sweepAround(pl)
     end
+
+    local rad = SandboxVars.ParadiseZ.ClearRadius or 15
     local cell = pl:getCell()
     local sq = pl:getCurrentSquare()
     if not cell or not sq then return end
@@ -217,18 +220,10 @@ function ParadiseZ.StopFire(pl, checkZone)
 
     for xDelta = -rad, rad do
         for yDelta = -rad, rad do
-            local targetSq = cell:getOrCreateGridSquare(x + xDelta, y + yDelta, z)
+            local targetSq = cell:getGridSquare(x + xDelta, y + yDelta, z)
             if targetSq then
-                if checkZone and not ParadiseZ.isNoFireZone(targetSq) then
-
-                else
-                    if targetSq:Is(IsoFlagType.burning) then
-                        targetSq:transmitStopFire()
-                        targetSq:stopFire()
-                    end
-                end
+                NoFire.stopSquare(targetSq)
             end
-
         end
     end
     --pl:addLineChatElement("Stopped Fire")
@@ -398,7 +393,8 @@ function ParadiseZ.cleanChar()
         table.insert(soapList, soapItem)
     end
     local sink = IsoThumpable.new(getCell(), pl:getSquare(), nil, "fixtures_sinks_01_0", false, {})
-    sink:setWaterAmount(100)
+    sink:emptyFluid()
+    sink:addFluid(FluidType.Water, 100)
     local action = ISWashYourself:new(pl, sink, soapList)
     action:perform()
 

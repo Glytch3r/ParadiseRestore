@@ -111,3 +111,37 @@ function ParadiseRestore.getPlayersFromSq(sq, rad)
     
     return players
 end
+
+function ParadiseRestore.forEachActivePlayer(func)
+    if not func then return end
+    local players = getOnlinePlayers and getOnlinePlayers() or nil
+    local found = 0
+    if players then
+        for index = 0, players:size() - 1 do
+            local pl = players:get(index)
+            if pl then
+                found = found + 1
+                func(pl)
+            end
+        end
+    end
+    if found > 0 then return end
+    if GameServer and GameServer.server then return end
+    local host = getPlayer and getPlayer() or nil
+    if host then func(host) end
+end
+
+function ParadiseRestore.forEachMovedPlayer(watch, func)
+    if type(watch) ~= "table" or not func then return end
+    ParadiseRestore.forEachActivePlayer(function(pl)
+        if not pl or not pl.getUsername then return end
+        local username = pl:getUsername()
+        if not username or tostring(username) == "" then return end
+        username = tostring(username)
+        local x, y, z = pl:getX(), pl:getY(), pl:getZ()
+        local last = watch[username]
+        watch[username] = { x = x, y = y, z = z }
+        if last and last.x == x and last.y == y and last.z == z then return end
+        func(pl, last)
+    end)
+end

@@ -160,58 +160,72 @@ function SquadManager.rateOk(user, bucket, limit, window)
         entry = {}
         SquadManager.rate[user] = entry
     end
-    local last = entry[bucket] or 0
-    if stamp - last < window then return false end
-    entry[bucket] = stamp
+    local state = entry[bucket]
+    if type(state) ~= "table" or stamp - state.start >= window then
+        entry[bucket] = { start = stamp, count = 1 }
+        return true
+    end
+    if state.count >= limit then return false end
+    state.count = state.count + 1
     return true
+end
+
+function SquadManager.nextKey()
+    local max = 0
+    for key in pairs(SquadManager.getData().squads or {}) do
+        local int = tonumber(key)
+        if int and int > max then max = math.floor(int) end
+    end
+    return tostring(max + 1)
 end
 
 function SquadManager.newSquad(user)
     local data = SquadManager.getData()
+    local key = SquadManager.nextKey()
     local squad = {
         leader = user,
         active = false,
         created = SquadManager.serverNow(),
         seats = { [1] = user },
     }
-    data.squads[user] = squad
-    SquadManager.byMember[user] = user
-    return squad
+    data.squads[key] = squad
+    SquadManager.byMember[user] = key
+    return squad, key
 end
 
-function SquadManager.freeSeat(squad, max)
+function SquadManager.freeSeat(squad, max, first)
     local seats = SquadManager.seatList(squad)
-    for seat = 1, max do
+    for seat = (first or 1), max do
         if not seats[seat] or seats[seat] == "" then return seat end
     end
     return nil
 end
 
-function SquadManager.removeSeat(squad, seat)
-    if seat <= 1 then return end
-    SquadManager.clearSeat(squad, seat)
-    SquadManager.compact(squad)
-end
-
-function SquadManager.compact(squad)
+function SquadManager.packSeats(squad)
     if type(squad) ~= "table" then return end
-    local leader = SquadManager.sanitizeUser(squad.leader)
-    if leader == "" then leader = nil end
-    local others = {}
-    for _, item in ipairs(SquadManager.seatsOrdered(squad)) do
-        if item.user ~= leader then others[#others + 1] = item.user end
-    end
+    local list = SquadManager.seatsOrdered(squad)
     local seats = {}
-    local int = 1
-    if leader then
-        seats[1] = leader
-        int = 2
-    end
-    for _, user in ipairs(others) do
-        seats[int] = user
-        int = int + 1
+    if list[1] and list[1].seat == 1 then seats[1] = list[1].user end
+    local int = 2
+    for _, item in ipairs(list) do
+        if item.seat ~= 1 then
+            seats[int] = item.user
+            int = int + 1
+        end
     end
     squad.seats = seats
+end
+
+function SquadManager.normalize(squad)
+    if type(squad) ~= "table" then return end
+    SquadManager.packSeats(squad)
+    local leader = SquadManager.leaderUser(squad)
+    local previous = SquadManager.sanitizeUser(squad.leader)
+    if previous == "" then previous = nil end
+    if leader ~= previous then
+        squad.leader = leader
+        squad.active = false
+    end
 end
 
 function SquadManager.destroy(squadKey, reason)
@@ -226,8 +240,7 @@ function SquadManager.destroy(squadKey, reason)
     SquadManager.dropTags(SquadManager.memberUsers(squad))
     data.squads[squadKey] = nil
     for user, entry in pairs(data.invites or {}) do
-        local leader = type(entry) == "table" and entry.leader or entry
-        if leader == squadKey then data.invites[user] = nil end
+        if type(entry) == "table" and entry.squad == squadKey then data.invites[user] = nil end
     end
     SquadManager.flush()
 end
@@ -235,34 +248,19 @@ end
 function SquadManager.detach(squad, user)
     local seat = SquadManager.seatOf(squad, user)
     if seat > 0 then SquadManager.clearSeat(squad, seat) end
-    if SquadManager.sanitizeUser(squad.leader) == user then squad.leader = nil end
-    SquadManager.compact(squad)
+    SquadManager.normalize(squad)
     SquadManager.byMember[user] = nil
     return SquadManager.seatCount(squad)
 end
 
-function SquadManager.rename(squad, oldKey, newLeader)
-    local data = SquadManager.getData()
-    newLeader = SquadManager.sanitizeUser(newLeader)
-    if newLeader == "" then return oldKey end
-    squad.leader = newLeader
-    SquadManager.compact(squad)
-    squad.active = false
-    data.squads[oldKey] = nil
-    data.squads[newLeader] = squad
-    for _, user in ipairs(SquadManager.memberUsers(squad)) do
-        SquadManager.byMember[user] = newLeader
-    end
-    for user, entry in pairs(data.invites or {}) do
-        if type(entry) == "table" and entry.leader == oldKey then entry.leader = newLeader end
-    end
-    return newLeader
-end
-
-function SquadManager.promoteNext(squad, oldKey)
-    local users = SquadManager.memberUsers(squad)
-    if #users <= 0 then return nil end
-    return SquadManager.rename(squad, oldKey, users[1])
+function SquadManager.promoteNext(squad)
+    if SquadManager.seatUser(squad, 1) then return SquadManager.leaderUser(squad) end
+    local list = SquadManager.seatsOrdered(squad)
+    if #list <= 0 then return nil end
+    SquadManager.clearSeat(squad, list[1].seat)
+    SquadManager.setSeat(squad, 1, list[1].user)
+    SquadManager.normalize(squad)
+    return list[1].user
 end
 
 function SquadManager.onLogin(pl)
@@ -285,7 +283,7 @@ function SquadManager.removeOnlineMember(pl, reason)
         SquadManager.destroy(key, reason)
         return
     end
-    if wasLeader then SquadManager.promoteNext(squad, key) end
+    if wasLeader then SquadManager.promoteNext(squad) end
     SquadManager.flush()
     SquadManager.broadcastState(squad)
     SquadManager.notifyMembers(squad, SquadManager.events.left, user)
@@ -337,18 +335,19 @@ function SquadManager.tickAutoLeave()
     local config = SquadManager.getConfig()
     for key, squad in pairs(SquadManager.getData().squads or {}) do
         if type(squad) == "table" then
-            local leader = SquadManager.plOf(squad.leader)
-            if leader then
+            local leaderUser = SquadManager.leaderUser(squad)
+            local leader = leaderUser and SquadManager.plOf(leaderUser) or nil
+            if SquadManager.seatCount(squad) <= 0 then
+                SquadManager.destroy(key, "empty")
+            elseif leader then
                 for _, user in ipairs(SquadManager.memberUsers(squad)) do
-                    if user ~= squad.leader then
+                    if user ~= leaderUser then
                         local pl = SquadManager.plOf(user)
                         if pl and pl:DistTo(leader:getX(), leader:getY()) > config.AutoLeaveDistance then
                             SquadManager.removeOnlineMember(pl, "distance")
                         end
                     end
                 end
-            elseif SquadManager.seatCount(squad) > 0 then
-                SquadManager.destroy(key, "leaderGone")
             end
         end
     end
@@ -395,9 +394,9 @@ function SquadManager.tickInvites()
     local changed = false
     for user, entry in pairs(data.invites or {}) do
         if type(entry) ~= "table" or stamp >= (entry.expires or 0) then
-            local leader = type(entry) == "table" and entry.leader or ""
+            local fromUser = type(entry) == "table" and entry.from or ""
             data.invites[user] = nil
-            SquadManager.toUser(user, SquadManager.commands.inviteResolved, { fromUser = leader })
+            SquadManager.toUser(user, SquadManager.commands.inviteResolved, { fromUser = fromUser })
             changed = true
         end
     end
@@ -481,7 +480,7 @@ function SquadManager.actInvite(pl, args)
     if SquadManager.getSquad(target) then return end
     if SquadManager.seatCount(squad) >= config.SquadMaxMembers then return end
     local data = SquadManager.getData()
-    data.invites[target] = { leader = key, expires = SquadManager.serverNow() + 30 }
+    data.invites[target] = { squad = key, from = user, expires = SquadManager.serverNow() + 30 }
     SquadManager.flush()
     SquadManager.toUser(target, SquadManager.commands.invitePrompt, { fromUser = user, squad = key })
 end
@@ -492,9 +491,9 @@ function SquadManager.actRespond(pl, args)
     local data = SquadManager.getData()
     local entry = data.invites[user]
     data.invites[user] = nil
-    if type(entry) ~= "table" then return end
-    local squad = data.squads[entry.leader]
-    SquadManager.toUser(user, SquadManager.commands.inviteResolved, { fromUser = entry.leader, accepted = args.accept and true or false })
+    if type(entry) ~= "table" or not entry.squad then return end
+    local squad = data.squads[entry.squad]
+    SquadManager.toUser(user, SquadManager.commands.inviteResolved, { fromUser = entry.from, accepted = args.accept and true or false })
     if not config.SquadSystemEnabled or type(squad) ~= "table" or not args.accept then
         SquadManager.flush()
         return
@@ -507,13 +506,13 @@ function SquadManager.actRespond(pl, args)
         SquadManager.flush()
         return
     end
-    local seat = SquadManager.freeSeat(squad, config.SquadMaxMembers)
+    local seat = SquadManager.freeSeat(squad, config.SquadMaxMembers, 2)
     if not seat then
         SquadManager.flush()
         return
     end
     SquadManager.setSeat(squad, seat, user)
-    SquadManager.byMember[user] = entry.leader
+    SquadManager.byMember[user] = entry.squad
     SquadManager.onlineUser[user] = pl
     SquadManager.flush()
     SquadManager.sendState(pl)
@@ -525,7 +524,7 @@ function SquadManager.actTransfer(pl, args)
     local config = SquadManager.getConfig()
     if not config.SquadSystemEnabled then return end
     local user = pl:getUsername()
-    local squad, key = SquadManager.getSquad(user)
+    local squad = SquadManager.getSquad(user)
     if not squad then return end
     local from = math.floor(tonumber(args.from) or 0)
     local to = math.floor(tonumber(args.to) or 0)
@@ -534,14 +533,10 @@ function SquadManager.actTransfer(pl, args)
     local src = SquadManager.seatUser(squad, from)
     if not src then return end
     local dst = SquadManager.seatUser(squad, to)
-    if not SquadManager.isLeader(squad, user) and src ~= user then return end
-    if to == 1 and not SquadManager.isLeader(squad, user) then return end
+    if not SquadManager.isLeader(squad, user) and (src ~= user or dst) then return end
     SquadManager.setSeat(squad, from, dst)
     SquadManager.setSeat(squad, to, src)
-    local top = SquadManager.seatUser(squad, 1)
-    if top ~= SquadManager.sanitizeUser(squad.leader) then
-        key = SquadManager.rename(squad, key, top)
-    end
+    SquadManager.normalize(squad)
     SquadManager.flush()
     SquadManager.broadcastState(squad)
 end
@@ -753,8 +748,8 @@ function SquadManager.onServerReset()
     SquadManager.byMember = {}
     SquadManager.onGameStart()
 end
-Events.OnReset.Remove(SquadManager.onServerReset)
-Events.OnReset.Add(SquadManager.onServerReset)
+Events.OnServerStarted.Remove(SquadManager.onServerReset)
+Events.OnServerStarted.Add(SquadManager.onServerReset)
 
 function SquadManager.onTickWrapper()
     SquadManager.onTick()

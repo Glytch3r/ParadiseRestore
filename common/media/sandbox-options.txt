@@ -219,6 +219,11 @@ option ParadiseZ.ReincarnateDeathMessages
     type = string, default = THAT WAS PARADISE.;PARADISE ALWAYS COLLECTS.;ANOTHER SOUL LEAVES PARADISE.;THE CHAIR REMEMBERS.;YOU MADE IT TO PARADISE. BRIEFLY.,
     page = ParadiseZ, translation = ParadiseZ_ReincarnateDeathMessages,
 }
+option ParadiseZ.ReincarnateKeepSurvivalTime
+{
+    type = boolean, default = false,
+    page = ParadiseZ, translation = ParadiseZ_ReincarnateKeepSurvivalTime,
+}
 
 option ParadiseZ.ShowModdedAdminTag
 {
@@ -289,13 +294,13 @@ option ParadiseZ.DuckDropChance
 
 option ParadiseZ.BlazeTemp
 {
-	type = double, min = 0.000, max = 6000, default = 40,
+	type = double, min = 0.000, max = 3.000, default = 0.250,
 	page = ParadiseZ, translation = ParadiseZ_BlazeTemp,
 }
 
 option ParadiseZ.FrostTemp
 {
-	type = double, min = -273.15, max = 0, default = -30,
+	type = double, min = 0.000, max = 3.000, default = 0.250,
 	page = ParadiseZ, translation = ParadiseZ_FrostTemp,
 }
 
@@ -319,21 +324,52 @@ option ParadiseZ.TempActive
 
 
 
-option ParadiseZ.BombZoneDelay
+option ParadiseZ.BombInterval
 {
-	type = double, min = 0, max = 99999999, default = 3600,
-	page = ParadiseZ, translation = ParadiseZ_BombZoneDelay,
+	type = integer, min = 1, max = 99999, default = 200,
+	page = ParadiseZ, translation = ParadiseZ_BombInterval,
 }
 
-option ParadiseZ.BombZoneChance
+option ParadiseZ.BombChance
 {
-	type = double, min = 0, max = 100, default = 15,
-	page = ParadiseZ, translation = ParadiseZ_BombZoneChance,
+	type = integer, min = 0, max = 100, default = 30,
+	page = ParadiseZ, translation = ParadiseZ_BombChance,
 }
-option ParadiseZ.BombZoneRad
+
+option ParadiseZ.BombDanger
 {
-	type = double, min = 0, max = 1000, default = 50,
-	page = ParadiseZ, translation = ParadiseZ_BombZoneRad,
+	type = integer, min = 1, max = 100, default = 50,
+	page = ParadiseZ, translation = ParadiseZ_BombDanger,
+}
+
+option ParadiseZ.BombRadius
+{
+	type = integer, min = 1, max = 64, default = 30,
+	page = ParadiseZ, translation = ParadiseZ_BombRadius,
+}
+
+option ParadiseZ.BombFire
+{
+	type = boolean, default = true,
+	page = ParadiseZ, translation = ParadiseZ_BombFire,
+}
+
+option ParadiseZ.BombIndoor
+{
+	type = boolean, default = false,
+	page = ParadiseZ, translation = ParadiseZ_BombIndoor,
+}
+
+option ParadiseZ.BombDamage
+{
+	type = double, min = 0.000, max = 100.000, default = 0.000,
+	page = ParadiseZ, translation = ParadiseZ_BombDamage,
+}
+
+option ParadiseZ.BombFall
+{
+	type = boolean, default = true,
+	page = ParadiseZ, translation = ParadiseZ_BombFall,
 }
 
 option ParadiseZ.ScoreboardSlowerRefresh

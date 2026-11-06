@@ -505,7 +505,7 @@ function ZedController.executeLocal(pl, command, args)
         call(obj, "resetModelNextFrame")
         return true, "Outfit applied."
     elseif command == "randomBlood" then
-        call(obj, "ddRandomBloodDirtHolesEtc")
+        call(obj, "addRandomBloodDirtHolesEtc")
         call(obj, "resetModelNextFrame")
         return true, "Blood and dirt applied."
     end
@@ -1271,8 +1271,6 @@ end
 if previousOnServerCommand then Events.OnServerCommand.Remove(previousOnServerCommand) end
 Events.OnServerCommand.Remove(ZedController.onServerCommand)
 Events.OnServerCommand.Add(ZedController.onServerCommand)
-if Events.OnResolutionChange then
-    if previousOnResolutionChange then Events.OnResolutionChange.Remove(previousOnResolutionChange) end
-    Events.OnResolutionChange.Remove(ZedController.onResolutionChange)
-    Events.OnResolutionChange.Add(ZedController.onResolutionChange)
-end
+if previousOnResolutionChange then Events.OnResolutionChange.Remove(previousOnResolutionChange) end
+Events.OnResolutionChange.Remove(ZedController.onResolutionChange)
+Events.OnResolutionChange.Add(ZedController.onResolutionChange)

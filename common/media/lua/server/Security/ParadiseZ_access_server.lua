@@ -13,7 +13,7 @@ local function isParadiseZAdmin(player)
     return player and player:getAccessLevel() == "admin"
 end
 
-Events.OnClientCommand.Add(function(module, command, player, args)
+function ParadiseRestore.Access.onClientCommand(module, command, player, args)
     if module ~= MODULE or command ~= "requestAccess" then
         return
     end
@@ -21,7 +21,9 @@ Events.OnClientCommand.Add(function(module, command, player, args)
     sendServerCommand(player, MODULE, COMMAND, {
         authorized = isParadiseZAdmin(player),
     })
-end)
+end
+Events.OnClientCommand.Remove(ParadiseRestore.Access.onClientCommand)
+Events.OnClientCommand.Add(ParadiseRestore.Access.onClientCommand)
 
 function ParadiseRestore.Access.watchAdminLoss()
     if not isServer or not isServer() then return end

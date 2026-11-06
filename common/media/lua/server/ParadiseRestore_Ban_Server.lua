@@ -36,6 +36,7 @@ function ParadiseBan.onClientCommand(module, command, sender, args)
     }
 end
 
+Events.OnClientCommand.Remove(ParadiseBan.onClientCommand)
 Events.OnClientCommand.Add(ParadiseBan.onClientCommand)
 
 function ParadiseBan.onTick()
@@ -48,4 +49,5 @@ function ParadiseBan.onTick()
     end
 end
 
+Events.OnTick.Remove(ParadiseBan.onTick)
 Events.OnTick.Add(ParadiseBan.onTick)

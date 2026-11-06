@@ -53,6 +53,17 @@ local function copyData(value, seen)
     return copy
 end
 
+local foodProperties = {
+    { "age", "getAge" }, { "offAge", "getOffAge" }, { "offAgeMax", "getOffAgeMax" },
+    { "cooked", "isCooked" }, { "burnt", "isBurnt" }, { "rotten", "isRotten" },
+    { "calories", "getCalories" }, { "carbohydrates", "getCarbohydrates" },
+    { "lipids", "getLipids" }, { "proteins", "getProteins" },
+    { "hungerChange", "getHungChange" }, { "baseHunger", "getBaseHunger" },
+    { "thirstChange", "getThirstChange" }, { "unhappyChange", "getUnhappyChange" },
+    { "boredomChange", "getBoredomChange" }, { "foodSickness", "getFoodSicknessChange" },
+    { "heat", "getHeat" },
+}
+
 local function itemData(item, location, parent)
     local data = {
         fullType = item:getFullType(), name = item:getName(), location = location, parent = parent,
@@ -61,10 +72,10 @@ local function itemData(item, location, parent)
         modData = item:hasModData() and copyData(item:getModData()) or nil, children = {}
     }
     if item.getFoodType then
-        for _, key in ipairs({"Age", "OffAge", "OffAgeMax", "Cooked", "Burnt", "Calories", "Carbohydrates", "Lipids", "Proteins", "HungerChange", "BaseHunger", "ThirstChange", "UnhappyChange", "BoredomChange", "FoodSickness", "Heat"}) do data[key:sub(1,1):lower() .. key:sub(2)] = call(item, "get" .. key) end
+        for _, prop in ipairs(foodProperties) do data[prop[1]] = call(item, prop[2]) end
     end
     if item.getClothingItem and item:getClothingItem() then
-        data.bloodLevel, data.dirtyness = call(item, "getBloodLevel"), call(item, "getDirtyness")
+        data.bloodLevel, data.dirtyness = call(item, "getBloodLevel"), call(item, "getDirtiness")
     end
     if item.getInventory then
         local inv = item:getInventory()

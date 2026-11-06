@@ -135,6 +135,9 @@ function ParadiseDev.Zones.Visualization.onPlayerUpdate(pl)
 end
 
 function ParadiseDev.Zones.Visualization.onGameStart()
+    ParadiseDev.Zones.Visualization.boundaryStateReceived = false
+    ParadiseDev.Zones.Visualization.zones = {}
+    ParadiseDev.Zones.Visualization.cagedZoneId = nil
     local pl = getPlayer()
     if pl then
         local modData = pl:getModData()

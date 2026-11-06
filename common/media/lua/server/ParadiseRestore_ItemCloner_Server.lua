@@ -19,7 +19,7 @@ local function apply(item, data)
     if data.wetness and item.setWetness then item:setWetness(data.wetness) end
     if data.usedDelta and item.setUsedDelta then item:setUsedDelta(data.usedDelta) end
     if data.modData then for key, value in pairs(data.modData) do item:getModData()[key] = copyValue(value) end end
-    local pairsToCopy = {{"age","setAge"},{"offAge","setOffAge"},{"offAgeMax","setOffAgeMax"},{"cooked","setCooked"},{"burnt","setBurnt"},{"calories","setCalories"},{"carbohydrates","setCarbohydrates"},{"lipids","setLipids"},{"proteins","setProteins"},{"hungerChange","setHungerChange"},{"baseHunger","setBaseHunger"},{"thirstChange","setThirstChange"},{"unhappyChange","setUnhappyChange"},{"boredomChange","setBoredomChange"},{"foodSickness","setFoodSickness"},{"heat","setHeat"},{"bloodLevel","setBloodLevel"},{"dirtyness","setDirtyness"}}
+    local pairsToCopy = {{"age","setAge"},{"offAge","setOffAge"},{"offAgeMax","setOffAgeMax"},{"cooked","setCooked"},{"rotten","setRotten"},{"burnt","setBurnt"},{"calories","setCalories"},{"carbohydrates","setCarbohydrates"},{"lipids","setLipids"},{"proteins","setProteins"},{"hungerChange","setHungChange"},{"baseHunger","setBaseHunger"},{"thirstChange","setThirstChange"},{"unhappyChange","setUnhappyChange"},{"boredomChange","setBoredomChange"},{"foodSickness","setFoodSicknessChange"},{"heat","setHeat"},{"bloodLevel","setBloodLevel"},{"dirtyness","setDirtiness"}}
     for _, pair in ipairs(pairsToCopy) do if data[pair[1]] ~= nil and item[pair[2]] then pcall(item[pair[2]], item, data[pair[1]]) end end
 end
 

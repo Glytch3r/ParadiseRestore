@@ -15,6 +15,7 @@ function WaveCaster.DataInit()
     WaveCaster.Data = ModData.getOrCreate("WaveCaster_Data");
     ModData.request("WaveCaster_Data");
 end
+Events.OnInitGlobalModData.Remove(WaveCaster.DataInit)
 Events.OnInitGlobalModData.Add(WaveCaster.DataInit)
 
 function WaveCaster.RecieveData(key, data)
@@ -26,5 +27,6 @@ function WaveCaster.RecieveData(key, data)
     WaveCaster.Data = data
 end
 
+Events.OnReceiveGlobalModData.Remove(WaveCaster.RecieveData)
 Events.OnReceiveGlobalModData.Add(WaveCaster.RecieveData)
 -----------------------            ---------------------------

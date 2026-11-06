@@ -89,7 +89,7 @@ function M.drawMembers(map, mini)
             if x then
                 local cx, cy = M.toUI(api, x, y)
                 if cx then
-                    local isLeader = squad.leader == entry.user
+                    local isLeader = entry.seat == 1
                     local col = isLeader and SquadManager.colors.leader or SquadManager.colors.squad
                     col = { r = col.r, g = col.g, b = col.b, a = 0.9 }
                     if isLeader then

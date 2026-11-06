@@ -142,11 +142,12 @@ Events.OnPressReloadButton.Add(ParadiseDev.mp5ReloadResikin)
  ]]
 
 function ParadiseDev.parseMp5AllowedSkinChangeNames()
-    local strList = SandboxVars.ParadiseDev.mp5SkinChanger or "Glytch3r;OldmanTurtle"
+    local sand = SandboxVars and SandboxVars.ParadiseZ
+    local strList = (sand and sand.mp5SkinChanger) or "Glytch3r;Oldman Turtle;JimValentine"
     local t = {}
 
     for name in string.gmatch(strList, "[^;]+") do
-        t[string.lower(name)] = true
+        t[string.lower(name:match("^%s*(.-)%s*$"))] = true
     end
 
     return t

@@ -86,15 +86,17 @@ local function unAliveSelfLog(pl, logStr)
     writer:write(text .. "\n")
     writer:close()
 end
-Events.OnClientCommand.Add(function(module, command, pl, args)
+function ParadiseRestore.Sentinel.onClientCommand(module, command, pl, args)
     if module ~= "Sentinel" then return end
-    if command == "doLog" then 
+    if command == "doLog" then
         doLog(pl, args)
-    elseif command == "activity" then 
-        logActivity(pl, args) 
+    elseif command == "activity" then
+        logActivity(pl, args)
     elseif command == "unAliveSelf" and pl and pl:isAlive() then
         local logStr = tostring(pl:getUsername()) .. " requested /die at " .. tostring(pl:getX()) .. "," .. tostring(pl:getY()) .. "," .. tostring(pl:getZ()) .. " [" .. os.date("%Y-%m-%d %H:%M:%S") .. "]"
-        unAliveSelfLog(pl, logStr) 
+        unAliveSelfLog(pl, logStr)
         pl:getBodyDamage():ReduceGeneralHealth(110)
     end
-end)
+end
+Events.OnClientCommand.Remove(ParadiseRestore.Sentinel.onClientCommand)
+Events.OnClientCommand.Add(ParadiseRestore.Sentinel.onClientCommand)

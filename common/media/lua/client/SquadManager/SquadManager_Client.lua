@@ -53,7 +53,8 @@ end
 function SquadManager.isLeader(squad, user)
     squad = type(squad) == "table" and squad or SquadManager.getSquad()
     user = user or SquadManager.username()
-    return type(squad) == "table" and squad.leader == user
+    if not user or user == "" then return false end
+    return SquadManager.leaderUser(squad) == user
 end
 
 function SquadManager.seat()
@@ -245,7 +246,7 @@ function SquadManager.console()
     print("[Squad] enabled=" .. tostring(SquadManager.isEnabled()))
     print("[Squad] config=" .. (squad and "loaded" or "nil") .. " members=" .. tostring(#SquadManager.members))
     if not squad then print("[Squad] you are not in a squad") return "no squad" end
-    print("[Squad] key=" .. tostring(SquadManager.state.key) .. " leader=" .. tostring(squad.leader) .. " active=" .. tostring(squad.active))
+    print("[Squad] key=" .. tostring(SquadManager.state.key) .. " leader=" .. tostring(SquadManager.leaderUser(squad)) .. " active=" .. tostring(squad.active))
     for _, item in ipairs(SquadManager.seatsOrdered(squad)) do
         print("  seat " .. item.seat .. " = " .. tostring(item.user))
     end

@@ -106,13 +106,12 @@ function V.refreshMembers()
         V.clearMembers()
         return
     end
-    local squad = SquadManager.getSquad()
     local seen = {}
     for _, entry in ipairs(SquadManager.members) do
         local user = entry.user
         if user and user ~= "" and user ~= SquadManager.username() then
             seen[user] = true
-            local isLeader = squad.leader == user
+            local isLeader = entry.seat == 1
             local obj = V.plOf(user)
             if obj and obj:getSquare() then
                 V.setOutline(user, obj, isLeader)

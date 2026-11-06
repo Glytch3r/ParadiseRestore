@@ -135,7 +135,11 @@ local function onPlayerUpdate(player)
     requestRules()
 end
 
+Events.OnCreatePlayer.Remove(onCreatePlayer)
 Events.OnCreatePlayer.Add(onCreatePlayer)
+Events.OnServerCommand.Remove(onServerCommand)
 Events.OnServerCommand.Add(onServerCommand)
+Events.OnPlayerUpdate.Remove(onPlayerUpdate)
 Events.OnPlayerUpdate.Add(onPlayerUpdate)
+Events.OnKeyPressed.Remove(onKeyPressed)
 Events.OnKeyPressed.Add(onKeyPressed)

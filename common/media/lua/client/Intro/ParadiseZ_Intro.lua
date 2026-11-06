@@ -38,10 +38,12 @@ function Intro.onPreMapLoad()
     Intro.startedAt = getTimestampMs()
     if not Intro.tickInstalled then
         Intro.tickInstalled = true
+        Events.OnTick.Remove(Intro.onTick)
         Events.OnTick.Add(Intro.onTick)
     end
     print("[ParadiseZ] World loading started; intro sound queued for 15 seconds.")
 end
 
+Events.OnPreMapLoad.Remove(Intro.onPreMapLoad)
 Events.OnPreMapLoad.Add(Intro.onPreMapLoad)
 print("[ParadiseZ] Intro hook registered: delayed OnPreMapLoad")

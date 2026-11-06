@@ -2,8 +2,7 @@ require "ISUI/AdminPanel/ISServerSandboxOptionsUI"
 
 ParadiseRestore = ParadiseRestore or {}
 
-OnSandboxModified = LuaEventManager.AddEvent("OnSandboxModified")
-if not OnSandboxModified then LuaEventManager.AddEvent("OnSandboxModified") end
+if not Events.OnSandboxModified then LuaEventManager.AddEvent("OnSandboxModified") end
 function ParadiseRestore.onSandboxModified()
     local pl = getPlayer()
     if not pl then return end

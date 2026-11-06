@@ -7,4 +7,5 @@ local function installSharedLightRenderer()
     end
 end
 
+Events.OnGameStart.Remove(installSharedLightRenderer)
 Events.OnGameStart.Add(installSharedLightRenderer)

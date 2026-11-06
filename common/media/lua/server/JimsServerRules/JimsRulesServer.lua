@@ -411,5 +411,7 @@ local function onServerStarted()
     log("Ready. Rules and accepted-user files are read dynamically for every player request.")
 end
 
+Events.OnClientCommand.Remove(onClientCommand)
 Events.OnClientCommand.Add(onClientCommand)
+Events.OnServerStarted.Remove(onServerStarted)
 Events.OnServerStarted.Add(onServerStarted)

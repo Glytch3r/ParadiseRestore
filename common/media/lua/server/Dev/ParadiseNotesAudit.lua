@@ -262,4 +262,5 @@ N.onClientCommand=A.command
 N.setNote=function() error("Use authenticated ParadiseDevNotes command") end
 N.setFontSize=function() error("Use authenticated ParadiseDevNotes command") end
 N.setGlobal=function() error("Use authenticated ParadiseDevNotes command") end
+Events.LoadGridsquare.Remove(A.observe)
 Events.LoadGridsquare.Add(A.observe)

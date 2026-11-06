@@ -165,10 +165,13 @@ function P.Window:status()
     if not squad then
         return "You are not in a squad. Create one to invite players."
     end
-    if not SquadManager.isActive() then
-        return "Forming. The leader must press Commence to enable squad features."
+    if SquadManager.isActive() then
+        return "Active. Squad chat, map visuals, action calls and tags are enabled."
     end
-    return "Active. Squad chat, map visuals, action calls and tags are enabled."
+    if not SquadManager.leaderUser(squad) then
+        return "No leader. Seat 1 is empty. Take seat 1 to lead the squad and Commence."
+    end
+    return "Forming. The leader must press Commence to enable squad features."
 end
 
 function P.Window:refresh()
@@ -218,10 +221,10 @@ function P.Window:prerender()
     self:drawText(ParadiseZ and ParadiseZ.fitText and ParadiseZ.fitText(line, self.width - 20, UIFont.Small) or line,
         10, th + 8, 1, 0.92, 0.6, 1, UIFont.Small)
 
-    local leaderUser = squad and squad.leader or nil
+    local leaderUser = squad and SquadManager.leaderUser(squad) or nil
     local seats = squad and SquadManager.seatCount(squad) or 0
     local summary = leaderUser and ("Leader: " .. tostring(leaderUser) .. "    Seats: " .. tostring(seats) .. "/" .. tostring(SquadManager.maxSeats()))
-        or ("Seats: " .. tostring(seats) .. "/" .. tostring(SquadManager.maxSeats()))
+        or ("No leader (seat 1 empty)    Seats: " .. tostring(seats) .. "/" .. tostring(SquadManager.maxSeats()))
     self:drawText(summary, 10, th + 26, 0.8, 0.9, 0.8, 1, UIFont.Small)
 
     local hint = P.canInvite() and "Right-click a nearby player to invite them."

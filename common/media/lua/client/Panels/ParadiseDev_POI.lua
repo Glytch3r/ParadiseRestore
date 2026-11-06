@@ -28,15 +28,18 @@ function ParadisePOI.OnServerCommand(module, command, args)
     end
 end
 
+Events.OnServerCommand.Remove(ParadisePOI.OnServerCommand)
 Events.OnServerCommand.Add(ParadisePOI.OnServerCommand)
-Events.OnTick.Add(function()
+function ParadisePOI.processPendingRefresh()
     if not ParadisePOI.pendingRefresh or not ParadisePOI.instance then return end
     local now = getTimestampMs and getTimestampMs() or (os.time() * 1000)
     if now - ParadisePOI.lastRefresh < ParadisePOI.refreshDelay then return end
     ParadisePOI.pendingRefresh = false
     ParadisePOI.lastRefresh = now
     ParadisePOI.instance:refreshPOIList()
-end)
+end
+Events.OnTick.Remove(ParadisePOI.processPendingRefresh)
+Events.OnTick.Add(ParadisePOI.processPendingRefresh)
 
 function Paradise_POI_Manager:new(x, y, width, height)
     local o = ISCollapsableWindow.new(self, x, y, width, height)

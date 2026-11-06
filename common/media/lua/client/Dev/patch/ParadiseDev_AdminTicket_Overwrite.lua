@@ -291,4 +291,5 @@ function ISAdminTicketsUI:new(x, y, width, height, player)
     return o;
 end
 
+Events.ViewTickets.Remove(ISAdminTicketsUI.gotTickets)
 Events.ViewTickets.Add(ISAdminTicketsUI.gotTickets)

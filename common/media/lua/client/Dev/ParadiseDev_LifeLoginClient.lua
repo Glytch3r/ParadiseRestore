@@ -456,7 +456,11 @@ if not L.nativeOnConnected then
     L.nativeOnConnected=ConnectToServer.OnConnected
     ConnectToServer.OnConnected=L.begin
 end
+Events.OnServerCommand.Remove(L.onServerCommand)
 Events.OnServerCommand.Add(L.onServerCommand)
+Events.OnTick.Remove(L.onTick)
 Events.OnTick.Add(L.onTick)
+Events.OnCreatePlayer.Remove(L.onCreate)
 Events.OnCreatePlayer.Add(L.onCreate)
+Events.OnDisconnect.Remove(L.reset)
 Events.OnDisconnect.Add(L.reset)

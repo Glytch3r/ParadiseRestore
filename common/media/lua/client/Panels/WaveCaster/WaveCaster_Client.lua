@@ -27,6 +27,7 @@ function WaveCaster.ClientSync(module, command, args)
         end
     end
 end
+Events.OnServerCommand.Remove(WaveCaster.ClientSync)
 Events.OnServerCommand.Add(WaveCaster.ClientSync)
 
 

@@ -18,7 +18,8 @@ local function prompt(player,floor,part)
  end,player)
  modal.maxChars=1000;modal:initialise();modal:addToUIManager()
 end
-Events.OnFillWorldObjectContextMenu.Add(function(player,context,objects,test)
+ParadiseNotesLegacy = ParadiseNotesLegacy or {}
+function ParadiseNotesLegacy.onFillWorldObjectContextMenu(player,context,objects,test)
  if test then return end
  local pl=getSpecificPlayer(player);if not pl then return end
  local admin=ParadiseRestore.isAdm(pl);local sand=SandboxVars and SandboxVars.ParadiseZnotes
@@ -36,4 +37,6 @@ Events.OnFillWorldObjectContextMenu.Add(function(player,context,objects,test)
    end
   end
  end
-end)
+end
+Events.OnFillWorldObjectContextMenu.Remove(ParadiseNotesLegacy.onFillWorldObjectContextMenu)
+Events.OnFillWorldObjectContextMenu.Add(ParadiseNotesLegacy.onFillWorldObjectContextMenu)

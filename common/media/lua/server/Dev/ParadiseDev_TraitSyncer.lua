@@ -260,9 +260,7 @@ function Syncer.reconcileOnline()
     local now = getTimestampMs()
     if Syncer.lastSweep and now >= Syncer.lastSweep and now - Syncer.lastSweep < 1000 then return end
     Syncer.lastSweep = now
-    local players = getOnlinePlayers and getOnlinePlayers() or nil
-    if not players then return end
-    for i = 0, players:size() - 1 do Syncer.onPlayerUpdate(players:get(i)) end
+    ParadiseRestore.forEachActivePlayer(Syncer.onPlayerUpdate)
 end
 function Syncer.onInitGlobalModData() Syncer.getStore() end
 Events.OnInitGlobalModData.Remove(Syncer.onInitGlobalModData)

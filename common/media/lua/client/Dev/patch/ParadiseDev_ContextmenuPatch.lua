@@ -124,10 +124,9 @@ Events.OnFillInventoryObjectContextMenu.Add(ParadiseDev.CtxProbe.invFill)
 function ParadiseDev.CtxProbe.invEmpty(plNum, context)
     ParadiseDev.CtxProbe.count("invNoItems")
 end
-if Events and Events.OnFillInventoryContextMenuNoItems then
-    Events.OnFillInventoryContextMenuNoItems.Remove(ParadiseDev.CtxProbe.invEmpty)
-    Events.OnFillInventoryContextMenuNoItems.Add(ParadiseDev.CtxProbe.invEmpty)
-end
+LuaEventManager.AddEvent("OnFillInventoryContextMenuNoItems")
+Events.OnFillInventoryContextMenuNoItems.Remove(ParadiseDev.CtxProbe.invEmpty)
+Events.OnFillInventoryContextMenuNoItems.Add(ParadiseDev.CtxProbe.invEmpty)
 
 function ParadiseDev.CtxProbe.blockers()
     local lines = {}

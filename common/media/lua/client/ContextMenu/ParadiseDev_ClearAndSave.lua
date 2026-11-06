@@ -95,6 +95,7 @@ function ParadiseDev.ClearAndSave.countdown(delay, senderName)
         elseif pl:getUsername() == senderName then
             SendCommandToServer("/save")
             ParadiseDev.ClearAndSave.pendingLogout = true
+            Events.OnTick.Remove(ParadiseDev.ClearAndSave.waitUntilAlone)
             Events.OnTick.Add(ParadiseDev.ClearAndSave.waitUntilAlone)
         else
             ParadiseDev.ClearAndSave.closeIcon()

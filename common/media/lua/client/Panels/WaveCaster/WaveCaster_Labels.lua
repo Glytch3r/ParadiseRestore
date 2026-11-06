@@ -77,7 +77,7 @@ function WaveCaster.renderAllTags()
     local zoom = getCore():getZoom(0)
     for tag, data in pairs(WaveCaster._tags) do
         local screenX = (IsoUtils.XToScreen(data.x + data.xOffset, data.y, data.z, 0) - IsoCamera.getOffX()) / zoom 
-        local screenY = (IsoUtils.YToScreen(data.x + data.yOffset, data.y, data.z, 0) - IsoCamera.getOffY()) / zoom
+        local screenY = (IsoUtils.YToScreen(data.x, data.y + data.yOffset, data.z, 0) - IsoCamera.getOffY()) / zoom
         tag:AddBatchedDraw(screenX, screenY, data.r, data.g, data.b, 1, false)
     end
 end

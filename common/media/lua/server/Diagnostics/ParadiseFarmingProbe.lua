@@ -587,6 +587,7 @@ local function EveryTenMinutes()
 	SFarmingSystem.instance:EveryTenMinutes()
 end
 
+Events.EveryTenMinutes.Remove(EveryTenMinutes)
 Events.EveryTenMinutes.Add(EveryTenMinutes)
 
 function SFarmingSystem:hasWeeds(square)
@@ -686,4 +687,5 @@ function SFarmingSystem:checkPlant()
 end
     print("[ParadiseFarmingPerf r1] ACTIVE: one lookup per plant per pass; temporary probe replaced")
 end
+Events.OnServerStarted.Remove(install)
 Events.OnServerStarted.Add(install)

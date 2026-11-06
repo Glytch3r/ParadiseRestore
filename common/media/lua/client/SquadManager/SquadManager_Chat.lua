@@ -221,10 +221,38 @@ function C.onCommandEntered(self)
     C.armSlowMode(chat, pl)
 end
 
+function C.activateSquadView(self)
+    if self.tabCnt > 1 and self.panel and self.panel.activeView then
+        self.chatText = self.panel.activeView.view
+    end
+    local title = self.chatText and self.chatText.tabTitle
+    if title and self.panel and self.panel.blinkTabs then
+        for int = #self.panel.blinkTabs, 1, -1 do
+            if self.panel.blinkTabs[int] == title then
+                table.remove(self.panel.blinkTabs, int)
+            end
+        end
+    end
+    for int, tab in ipairs(self.tabs or {}) do
+        if tab.tabTitle == title then
+            self.currentTabID = int
+            break
+        end
+    end
+end
+
 function C.onActivateView(self)
     if C.inActivate then return end
     local base = C.activateViewHook
     if not base or base == C.onActivateView then return end
+    local target = self.chatText
+    if self.tabCnt > 1 and self.panel and self.panel.activeView and self.panel.activeView.view then
+        target = self.panel.activeView.view
+    end
+    if C.isSquadTab(target) then
+        C.activateSquadView(self)
+        return
+    end
     C.inActivate = true
     local ok, err = pcall(base, self)
     C.inActivate = nil

@@ -67,16 +67,22 @@ function Access.request()
     Access.resolve(false)
 end
 
-Events.OnServerCommand.Add(function(module, command, args)
+function Access.onServerCommand(module, command, args)
     if module == Access.MODULE and command == Access.COMMAND then
         Access.resolve(args and args.authorized == true)
     end
-end)
+end
+Events.OnServerCommand.Remove(Access.onServerCommand)
+Events.OnServerCommand.Add(Access.onServerCommand)
 
-Events.OnCreatePlayer.Add(function()
+function Access.onPlayerCreated()
     Access.request()
-end)
+end
+Events.OnCreatePlayer.Remove(Access.onPlayerCreated)
+Events.OnCreatePlayer.Add(Access.onPlayerCreated)
 
-Events.OnGameStart.Add(function()
+function Access.onGameStart()
     Access.request()
-end)
+end
+Events.OnGameStart.Remove(Access.onGameStart)
+Events.OnGameStart.Add(Access.onGameStart)

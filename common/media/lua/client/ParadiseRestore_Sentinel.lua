@@ -150,7 +150,14 @@ function Sentinel.doReport(pl, cheatStr, newValue)
     sendClientCommand(pl, "Sentinel", "doLog", { cheatStr = cheatStr, newValue = newValue })
 end
 
+Events.OnSentinelDetect.Remove(Sentinel.doReport)
 Events.OnSentinelDetect.Add(Sentinel.doReport)
+Events.OnGameStart.Remove(Sentinel.init)
 Events.OnGameStart.Add(Sentinel.init)
-Events.OnCreatePlayer.Add(function(index, pl) Sentinel.initPlayer(pl) end)
+function Sentinel.onPlayerCreated(plNum, pl)
+    Sentinel.initPlayer(pl)
+end
+Events.OnCreatePlayer.Remove(Sentinel.onPlayerCreated)
+Events.OnCreatePlayer.Add(Sentinel.onPlayerCreated)
+Events.OnPlayerUpdate.Remove(Sentinel.handler)
 Events.OnPlayerUpdate.Add(Sentinel.handler)

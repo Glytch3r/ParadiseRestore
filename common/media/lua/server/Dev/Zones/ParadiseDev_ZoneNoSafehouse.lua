@@ -1,5 +1,4 @@
 require "Dev/Zones/ParadiseDev_ZoneNoSafehouse"
-require "Dev/Zones/ParadiseDev_ZoneNoSafehouseClaim"
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Zones = ParadiseDev.Zones or {}
 
@@ -14,10 +13,11 @@ end
 Events.OnSafehousesChanged.Remove(ParadiseDev.Zones.NoSafe.onSafehousesChanged)
 Events.OnSafehousesChanged.Add(ParadiseDev.Zones.NoSafe.onSafehousesChanged)
 
-if not ParadiseDev.Zones.NoSafe.engineSaveHook then
+if ParadiseDev.Zones.Engine.save ~= ParadiseDev.Zones.NoSafe.wrappedSave then
     ParadiseDev.Zones.NoSafe.engineSaveHook = ParadiseDev.Zones.Engine.save
     function ParadiseDev.Zones.Engine.save()
         ParadiseDev.Zones.NoSafe.engineSaveHook()
         ParadiseDev.Zones.NoSafe.sweepOnZoneEdit()
     end
+    ParadiseDev.Zones.NoSafe.wrappedSave = ParadiseDev.Zones.Engine.save
 end

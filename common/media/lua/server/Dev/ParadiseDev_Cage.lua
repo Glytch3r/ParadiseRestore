@@ -570,9 +570,20 @@ function ParadiseDev.Cage.onPlayerUpdate(pl)
     ParadiseDev.Cage.syncPlayer(pl)
 end
 
+function ParadiseDev.Cage.onTick()
+    local now = getTimestampMs()
+    if ParadiseDev.Cage.tickAt and now >= ParadiseDev.Cage.tickAt and now - ParadiseDev.Cage.tickAt < 250 then return end
+    ParadiseDev.Cage.tickAt = now
+    ParadiseRestore.forEachActivePlayer(ParadiseDev.Cage.onPlayerUpdate)
+end
+
+Events.OnInitGlobalModData.Remove(ParadiseDev.Cage.onInitGlobalModData)
 Events.OnInitGlobalModData.Add(ParadiseDev.Cage.onInitGlobalModData)
+Events.OnClientCommand.Remove(ParadiseDev.Cage.onClientCommand)
 Events.OnClientCommand.Add(ParadiseDev.Cage.onClientCommand)
-Events.OnPlayerUpdate.Add(ParadiseDev.Cage.onPlayerUpdate)
+Events.OnTick.Remove(ParadiseDev.Cage.onTick)
+Events.OnTick.Add(ParadiseDev.Cage.onTick)
+Events.EveryOneMinute.Remove(ParadiseDev.Cage.updateAllPlaytime)
 Events.EveryOneMinute.Add(ParadiseDev.Cage.updateAllPlaytime)
 
 ParadiseDev.GlobalModData = ParadiseDev.GlobalModData or {}

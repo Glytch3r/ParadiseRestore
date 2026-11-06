@@ -19,14 +19,29 @@ function ParadiseDev.Zones.MovementProbe.onPlayerMove(pl)
     }
 end
 
+ParadiseDev.Zones.MovementProbe.moveWatch = ParadiseDev.Zones.MovementProbe.moveWatch or {}
+
+function ParadiseDev.Zones.MovementProbe.onTick()
+    if isClient and isClient() and not (isServer and isServer()) then return end
+    if not ParadiseProductionDiagnostics.isEnabled() then return end
+    local now = getTimestampMs()
+    if ParadiseDev.Zones.MovementProbe.tickAt and now >= ParadiseDev.Zones.MovementProbe.tickAt
+        and now - ParadiseDev.Zones.MovementProbe.tickAt < 250 then return end
+    ParadiseDev.Zones.MovementProbe.tickAt = now
+    ParadiseRestore.forEachMovedPlayer(ParadiseDev.Zones.MovementProbe.moveWatch,
+        ParadiseDev.Zones.MovementProbe.onPlayerMove)
+end
+Events.OnTick.Remove(ParadiseDev.Zones.MovementProbe.onTick)
+Events.OnTick.Add(ParadiseDev.Zones.MovementProbe.onTick)
+
 -- Sandbox settings are available by server start; no movement hook by default.
 if ParadiseDev.Zones.MovementProbe.configure then
     Events.OnServerStarted.Remove(ParadiseDev.Zones.MovementProbe.configure)
 end
 function ParadiseDev.Zones.MovementProbe.configure()
     Events.OnPlayerMove.Remove(ParadiseDev.Zones.MovementProbe.onPlayerMove)
-    if ParadiseProductionDiagnostics.isEnabled() then
-        Events.OnPlayerMove.Add(ParadiseDev.Zones.MovementProbe.onPlayerMove)
-    end
+    ParadiseDev.Zones.MovementProbe.moveWatch = {}
+    ParadiseDev.Zones.MovementProbe.tickAt = nil
 end
+Events.OnServerStarted.Remove(ParadiseDev.Zones.MovementProbe.configure)
 Events.OnServerStarted.Add(ParadiseDev.Zones.MovementProbe.configure)

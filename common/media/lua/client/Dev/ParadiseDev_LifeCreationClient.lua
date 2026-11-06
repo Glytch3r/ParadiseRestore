@@ -217,7 +217,10 @@ function G.install()
         end
     end
 end
+Events.OnTick.Remove(G.tick)
 Events.OnTick.Add(G.tick)
+Events.OnDisconnect.Remove(G.close)
 Events.OnDisconnect.Add(G.close)
-if Events.OnGameStart then Events.OnGameStart.Add(G.install)end
+Events.OnGameStart.Remove(G.install)
+Events.OnGameStart.Add(G.install)
 return G
