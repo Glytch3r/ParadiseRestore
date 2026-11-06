@@ -15,6 +15,8 @@ ParadiseMail = ParadiseMail or {}
 ParadiseMail.AdminPanel = ParadiseMail.AdminPanel or {}
 ParadiseMail.PlayerPanel = ParadiseMail.PlayerPanel or {}
 ParadiseNotesAuditPanel = ParadiseNotesAuditPanel or {}
+SquadManager = SquadManager or {}
+SquadManager.Panel = SquadManager.Panel or {}
 
 local function initialise(panel, instantiate)
     if not panel then return nil end
@@ -793,5 +795,26 @@ ParadisePanels.table = {
             ))
         end,
         onOpen = function(panel) ParadiseNotesAuditPanel.onOpen(panel) end,
+    },
+    {
+        key = "squadManager",
+        isAdmOnly = false,
+        getModule = function() return SquadManager and SquadManager.Panel end,
+        getInstance = function() return SquadManager and SquadManager.Panel and SquadManager.Panel.instance end,
+        setInstance = function(instance) SquadManager.Panel.instance = instance end,
+        create = function()
+            local panel = SquadManager and SquadManager.Panel
+            if not panel or not panel.Window or type(panel.canOpen) ~= "function" then return nil end
+            if not panel.canOpen() then return nil end
+            local width, height = panel.getSize()
+            return initialise(panel.Window:new(
+                math.max(20, (getCore():getScreenWidth() - width) / 2),
+                math.max(20, (getCore():getScreenHeight() - height) / 2),
+                width, height
+            ))
+        end,
+        onOpen = function()
+            SquadManager.send(SquadManager.commands.requestState)
+        end,
     },
 }

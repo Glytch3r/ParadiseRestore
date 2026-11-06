@@ -446,6 +446,11 @@ function ParadiseDev.ZoneHUD.onUserPanelOption(self, button, x, y)
     if button.internal == "PARADISE_MANUAL" then
         if ParadisePanels and ParadisePanels.Install and not (ParadiseManual and ParadiseManual.OpenPanel) then ParadisePanels.Install() end
         if ParadiseManual and ParadiseManual.OpenPanel then ParadiseManual.OpenPanel("player") end
+        return
+    end
+    if button.internal == "PARADISE_SQUAD" then
+        if ParadisePanels and ParadisePanels.Install and not (SquadManager and SquadManager.Panel and SquadManager.Panel.OpenPanel) then ParadisePanels.Install() end
+        if SquadManager and SquadManager.Panel and SquadManager.Panel.OpenPanel then SquadManager.Panel.OpenPanel() end
     end
 end
 
@@ -541,8 +546,20 @@ function ParadiseDev.ZoneHUD.layoutUserPanel()
         self.manualButton.backgroundColor.a = 0.7;
         self.manualButton.backgroundColor.b = 0.5;
     self:addChild(self.manualButton)
+    local layoutAnchor = self.manualButton
+    if SquadManager and SquadManager.Panel and SquadManager.Panel.canOpen and SquadManager.Panel.canOpen() then
+        self.squadButton = ISButton:new(close.x, self.manualButton:getBottom() + 10, buttonWidth, close.height, "Squad", self, ParadiseDev.ZoneHUD.onUserPanelOption)
+            self.squadButton.internal = "PARADISE_SQUAD"
+            self.squadButton:initialise()
+            self.squadButton:instantiate()
+            self.squadButton.borderColor = self.buttonBorderColor
+            self.squadButton.backgroundColor.a = 0.7;
+            self.squadButton.backgroundColor.b = 0.5;
+        self:addChild(self.squadButton)
+        layoutAnchor = self.squadButton
+    end
     close:setWidth(buttonWidth)
-    close:setY(self.manualButton:getBottom() + 10)
+    close:setY(layoutAnchor:getBottom() + 10)
     self:setHeight(math.max(close.y + close.height + 11, hasBetterSafehouse and 460 or 0))
 end
 

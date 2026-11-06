@@ -10,4 +10,55 @@ module Base
             volume = 1.0,
         }
     }
+
+    sound ParadiseRestore_Squad_Ping_1
+    {
+        category = Object,
+        clip
+        {
+            file = media/sound/ParadiseRestore_Squad_Ping_1.ogg,
+            volume = 1.0,
+        }
+    }
+    sound ParadiseRestore_Squad_Ping_2
+    {
+        category = Object,
+        clip
+        {
+            file = media/sound/ParadiseRestore_Squad_Ping_2.ogg,
+            volume = 1.0,
+        }
+    }
+
+    sound ParadiseRestore_Squad_Out
+    {
+        category = Object,
+        clip
+        {
+            file = media/sound/ParadiseRestore_Squad_Out.ogg,
+            volume = 1.0,
+        }
+    }
+
+    sound ParadiseRestore_Squad_Tag
+    {
+        category = Object,
+        clip
+        {
+            file = media/sound/ParadiseRestore_Squad_Tag.ogg,
+            volume = 1.0,
+        }
+    }
+    sound ParadiseRestore_Squad_Death
+    {
+        category = Object,
+        clip
+        {
+            file = media/sound/ParadiseRestore_Squad_Death.ogg,
+            volume = 1.0,
+        }
+    }
+
+
+
 }

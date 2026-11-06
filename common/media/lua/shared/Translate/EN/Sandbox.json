@@ -491,5 +491,22 @@
   "Sandbox_ParadiseZ_LifeProfileCount": "Life Profile Slots",
   "Sandbox_ParadiseZ_LifeProfileCount_tooltip": "Default 3. Choose a saved profile or create in an empty slot only after death. Reducing this limit preserves existing profiles.",
   "Sandbox_ParadiseZ_LifeProfileSaveSeconds": "Profile Checkpoint Interval (seconds)",
-  "Sandbox_ParadiseZ_LifeProfileSaveSeconds_tooltip": "Default 30 real seconds. Death captures the final server state when available. A verified checkpoint is used if final capture fails. Shorter intervals increase disk work."
+  "Sandbox_ParadiseZ_LifeProfileSaveSeconds_tooltip": "Default 30 real seconds. Death captures the final server state when available. A verified checkpoint is used if final capture fails. Shorter intervals increase disk work.",
+  "Sandbox_SquadManager": "Squad System",
+  "Sandbox_SquadManager_SquadSystemEnabled": "Enable Squad System",
+  "Sandbox_SquadManager_SquadSystemEnabled_tooltip": "Default true. When off, players cannot create squads and every live squad is disbanded at the next server tick.",
+  "Sandbox_SquadManager_SquadMaxMembers": "Squad Size",
+  "Sandbox_SquadManager_SquadMaxMembers_tooltip": "Default 5. Highest number of players a squad may hold, leader included.",
+  "Sandbox_SquadManager_DisbandWhenLeaderDies": "Disband When Leader Dies",
+  "Sandbox_SquadManager_DisbandWhenLeaderDies_tooltip": "Default false. With false the next member takes over leadership and the squad deactivates until the new leader commences it. With true the squad disbands when the leader dies.",
+  "Sandbox_SquadManager_AutoLeaveDistance": "Auto Leave Distance",
+  "Sandbox_SquadManager_AutoLeaveDistance_tooltip": "Default 60 tiles. A member farther than this from the squad leader is removed from the squad automatically.",
+  "Sandbox_SquadManager_ActionCallKey": "Action Call Key",
+  "Sandbox_SquadManager_ActionCallKey_tooltip": "Default 41, the tilde or grave key. Keyboard code used for action calls and enemy tagging. One press opens the member calls, two presses open the leader calls.",
+  "Sandbox_SquadManager_ActionCallPanelFadeDelay": "Action Call Panel Fade Delay",
+  "Sandbox_SquadManager_ActionCallPanelFadeDelay_tooltip": "Default 5 seconds. How long the numbered action call panel stays on screen before hiding itself.",
+  "Sandbox_SquadManager_ActionCallVisualFadeDelay": "Action Call Visual Fade Delay",
+  "Sandbox_SquadManager_ActionCallVisualFadeDelay_tooltip": "Default 5 seconds. How long action call markers, arrows and homing points stay visible to squad members.",
+  "Sandbox_SquadManager_TargetTagDuration": "Target Tag Duration",
+  "Sandbox_SquadManager_TargetTagDuration_tooltip": "Default 8 seconds. How long a tagged zombie or player stays highlighted and visible on the map and minimap to players outside the squad."
 }

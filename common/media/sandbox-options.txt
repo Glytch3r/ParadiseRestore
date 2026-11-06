@@ -935,3 +935,50 @@ option ParadiseZpvp.AimZRequireSight
 	type = boolean, default = true,
 	page = ParadiseZpvp, translation = ParadiseZpvp_AimZRequireSight,
 }
+option SquadManager.SquadSystemEnabled
+{
+	type = boolean, default = true,
+	page = SquadManager, translation = SquadManager_SquadSystemEnabled,
+}
+
+option SquadManager.SquadMaxMembers
+{
+	type = integer, min = 2, max = 5, default = 5,
+	page = SquadManager, translation = SquadManager_SquadMaxMembers,
+}
+
+option SquadManager.DisbandWhenLeaderDies
+{
+	type = boolean, default = false,
+	page = SquadManager, translation = SquadManager_DisbandWhenLeaderDies,
+}
+
+option SquadManager.AutoLeaveDistance
+{
+	type = integer, min = 5, max = 1000, default = 60,
+	page = SquadManager, translation = SquadManager_AutoLeaveDistance,
+}
+
+option SquadManager.ActionCallKey
+{
+	type = integer, min = 1, max = 255, default = 41,
+	page = SquadManager, translation = SquadManager_ActionCallKey,
+}
+
+option SquadManager.ActionCallPanelFadeDelay
+{
+	type = integer, min = 1, max = 60, default = 5,
+	page = SquadManager, translation = SquadManager_ActionCallPanelFadeDelay,
+}
+
+option SquadManager.ActionCallVisualFadeDelay
+{
+	type = integer, min = 1, max = 120, default = 5,
+	page = SquadManager, translation = SquadManager_ActionCallVisualFadeDelay,
+}
+
+option SquadManager.TargetTagDuration
+{
+	type = integer, min = 1, max = 120, default = 8,
+	page = SquadManager, translation = SquadManager_TargetTagDuration,
+}

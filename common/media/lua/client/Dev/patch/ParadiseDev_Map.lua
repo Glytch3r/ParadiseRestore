@@ -7,6 +7,30 @@ require "Dev/patch/ParadiseDev_MapPreferences"
 require "ISUI/ISToolTip"
 
 ParadiseDev.Map.vanillaInstantiate = ParadiseDev.Map.vanillaInstantiate or ISWorldMap.instantiate
+ParadiseDev.Map.overlayHooks = ParadiseDev.Map.overlayHooks or {}
+
+function ParadiseDev.Map.addOverlayHook(hook)
+    if not hook then return false end
+    for _, existing in ipairs(ParadiseDev.Map.overlayHooks) do
+        if existing == hook then return false end
+    end
+    ParadiseDev.Map.overlayHooks[#ParadiseDev.Map.overlayHooks + 1] = hook
+    return true
+end
+
+function ParadiseDev.Map.removeOverlayHook(hook)
+    for index, existing in ipairs(ParadiseDev.Map.overlayHooks) do
+        if existing == hook then
+            table.remove(ParadiseDev.Map.overlayHooks, index)
+            return true
+        end
+    end
+    return false
+end
+
+function ParadiseDev.Map.drawOverlayHooks(map, clip, mini)
+    for _, hook in ipairs(ParadiseDev.Map.overlayHooks) do hook(map, clip, mini) end
+end
 
 function ParadiseDev.Map.instantiate(self)
     ParadiseDev.Map.vanillaInstantiate(self)
@@ -251,6 +275,7 @@ local function drawMinimapOverlays(map, cx, cy, cw, ch)
         clip = { left = x - 1, top = y - 1, right = x + cw + 1, bottom = y + ch + 1 }
     end
     drawPlayerMarkers(map, clip)
+    ParadiseDev.Map.drawOverlayHooks(map, clip, true)
 end
 
 local function withMapStencil(map, draw)
@@ -274,6 +299,7 @@ end
 
 function ParadiseDev.Map.drawZoneBorders(self)
     drawZoneOverlay(self, false)
+    ParadiseDev.Map.drawOverlayHooks(self, nil, false)
 end
 
 function ParadiseDev.Map.drawCoordinates(self)
