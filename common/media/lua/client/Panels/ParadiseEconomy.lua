@@ -2957,6 +2957,10 @@ function ParadiseEconomy.MartPanel:onPostSelected()
         self:setDropHint("Select a carried item on the right first.")
         return
     end
+    if ParadiseEconomy.ItemData.isPerishable(item) then
+        self:setDropHint("Perishable items cannot be listed.")
+        return
+    end
     if self.shop and self.shop.closed then
         self:setDropHint("This merchant store is " .. tostring(self.shop.statusLabel or "closed")
             .. ". Renew the lease before posting.")
@@ -3093,9 +3097,17 @@ function ParadiseEconomy.MartPanel:tryAcceptInventoryDrop()
     if self.shop and self.shop.isOwner ~= true then return false end
     local items = ISInventoryPane.getActualItems(ISMouseDrag.dragging)
     local accepted = {}
+    local blocked = false
     for _, item in ipairs(items or {}) do
-        if item and item.getID and self:isCarriedItem(item) then accepted[#accepted + 1] = item end
+        if item and item.getID and self:isCarriedItem(item) then
+            if ParadiseEconomy.ItemData.isPerishable(item) then
+                blocked = true
+            else
+                accepted[#accepted + 1] = item
+            end
+        end
     end
+    if blocked then self:setDropHint("Perishable items cannot be listed.") end
     if #accepted == 0 then return false end
     ISMouseDrag.dragging = nil
     ISMouseDrag.draggingFocus = nil
@@ -3417,8 +3429,9 @@ function ParadiseEconomy.MartPanel:drawInventoryItem(y, item, alt)
         self:drawRect(0, y, ParadiseEconomy.listContentWidth(self), self.itemheight - 1, theme.rowAlt.a, theme.rowAlt.r, theme.rowAlt.g, theme.rowAlt.b)
     end
     local contentW = ParadiseEconomy.listContentWidth(self)
+    local nameColor = item.item and ParadiseEconomy.ItemData.isPerishable(item.item) and theme.danger or theme.text
     self:drawText(ParadiseEconomy.fitText(item.text, math.max(24, contentW - 148), UIFont.Small), 8, y + 4,
-        theme.text.r, theme.text.g, theme.text.b, 1, UIFont.Small)
+        nameColor.r, nameColor.g, nameColor.b, 1, UIFont.Small)
     local category = item.item and item.item.getCategory and item.item:getCategory() or nil
     if category then
         self:drawTextRight(ParadiseEconomy.fitText(tostring(category), 120, UIFont.Small), contentW - 8, y + 4,
@@ -4796,11 +4809,16 @@ end
 function ParadiseEconomy.ListingPanel:update()
     ISCollapsableWindow.update(self)
     if not ParadiseEconomy.canUsePlayerEconomy(getPlayer()) then self:close() end
-    self.postButton:setEnable((tonumber(self.price:getInternalText()) or 0) > 0 and self:getLeaseWarning() == nil)
+    local perishable = self.item and ParadiseEconomy.ItemData.isPerishable(self.item)
+    self.postButton:setEnable((tonumber(self.price:getInternalText()) or 0) > 0 and self:getLeaseWarning() == nil and not perishable)
 end
 
 function ParadiseEconomy.ListingPanel:post()
     if not self.item or not ParadiseEconomy.canUsePlayerEconomy(getPlayer()) then
+        self:close(false)
+        return
+    end
+    if ParadiseEconomy.ItemData.isPerishable(self.item) then
         self:close(false)
         return
     end

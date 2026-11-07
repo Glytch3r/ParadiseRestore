@@ -2213,6 +2213,7 @@ function ParadiseEconomy.postPlayerListing(pl, merchantId, itemId, currency, pri
     if not item then return false, "Select a carried item to post" end
     if not currency or not price then return false, "Invalid listing currency or price" end
     if ParadiseEconomy.isEquipped(pl, item) then return false, "Equipped items cannot be listed" end
+    if ParadiseEconomy.ItemData.isPerishable(item) then return false, "Perishable items cannot be listed" end
     local itemData = ParadiseEconomy.ItemData.toData(item)
     if not itemData then return false, "That item cannot be listed" end
     local zoneRecord = merchant.zoneId and ParadiseEconomy.registerZone(merchant.zoneId,

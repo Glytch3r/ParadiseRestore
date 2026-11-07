@@ -248,3 +248,17 @@ function ParadiseEconomy.ItemData.getSummary(data)
     if #(data.containedItems or {}) > 0 then parts[#parts + 1] = tostring(#data.containedItems) .. " contained" end
     return table.concat(parts, " | ")
 end
+
+function ParadiseEconomy.ItemData.isPerishable(item, depth)
+    if not item or (depth or 0) > 3 then return false end
+    local offAgeMax = ParadiseEconomy.ItemData.call(item, "getOffAgeMax")
+    if tonumber(offAgeMax) and offAgeMax < 1000000000 then return true end
+    local inv = ParadiseEconomy.ItemData.call(item, "getInventory")
+    if inv and inv.getItems then
+        local items = inv:getItems()
+        for int = 0, items:size() - 1 do
+            if ParadiseEconomy.ItemData.isPerishable(items:get(int), (depth or 0) + 1) then return true end
+        end
+    end
+    return false
+end
