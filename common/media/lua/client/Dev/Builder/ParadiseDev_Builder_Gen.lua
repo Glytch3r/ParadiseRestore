@@ -191,6 +191,7 @@ function Gen.panel(doc)
     local moduleVar = Gen.qualify(settings.namespace, settings.module)
     local root = Doc.root(doc)
     if not root then return nil, "document has no root element" end
+    local footprint = Gen.footprint(doc)
     local base = Schema.get(root.type)
     local baseClass = base.class
     local segments = Gen.segments(settings.namespace)
@@ -301,6 +302,37 @@ function Gen.panel(doc)
 
     lines[#lines + 1] = "function " .. classVar .. ":close()"
     lines[#lines + 1] = "    " .. moduleVar .. ".ClosePanel()"
+    lines[#lines + 1] = "end"
+    lines[#lines + 1] = ""
+
+    lines[#lines + 1] = "function " .. moduleVar .. ".ClosePanel()"
+    lines[#lines + 1] = "    if not " .. moduleVar .. ".instance then return end"
+    lines[#lines + 1] = "    " .. moduleVar .. ".instance:setVisible(false)"
+    lines[#lines + 1] = "    " .. moduleVar .. ".instance:removeFromUIManager()"
+    lines[#lines + 1] = "    " .. moduleVar .. ".instance = nil"
+    lines[#lines + 1] = "end"
+    lines[#lines + 1] = ""
+
+    lines[#lines + 1] = "function " .. moduleVar .. ".OpenPanel()"
+    lines[#lines + 1] = "    if not " .. moduleVar .. ".instance then"
+    lines[#lines + 1] = "        " .. moduleVar .. ".instance = " .. classVar .. ":new("
+        .. footprint.x .. ", " .. footprint.y .. ", " .. footprint.width .. ", " .. footprint.height .. ")"
+    lines[#lines + 1] = "        " .. moduleVar .. ".instance:initialise()"
+    lines[#lines + 1] = "        " .. moduleVar .. ".instance:addToUIManager()"
+    lines[#lines + 1] = "    else"
+    lines[#lines + 1] = "        " .. moduleVar .. ".instance:setVisible(true)"
+    lines[#lines + 1] = "        " .. moduleVar .. ".instance:addToUIManager()"
+    lines[#lines + 1] = "    end"
+    lines[#lines + 1] = "    return " .. moduleVar .. ".instance"
+    lines[#lines + 1] = "end"
+    lines[#lines + 1] = ""
+
+    lines[#lines + 1] = "function " .. moduleVar .. ".TogglePanel()"
+    lines[#lines + 1] = "    if " .. moduleVar .. ".instance then"
+    lines[#lines + 1] = "        " .. moduleVar .. ".ClosePanel()"
+    lines[#lines + 1] = "        return nil"
+    lines[#lines + 1] = "    end"
+    lines[#lines + 1] = "    return " .. moduleVar .. ".OpenPanel()"
     lines[#lines + 1] = "end"
     return table.concat(lines, "\n")
 end

@@ -177,6 +177,7 @@ function ParadiseEconomy.styleWindow(window)
     window.backgroundColor = theme.windowBg
     window.borderColor = theme.border
     window.titleBarFont = UIFont.Medium
+    window.titleFontHgt = getTextManager():getFontHeight(UIFont.Medium)
     if ParadiseRestore and ParadiseRestore.Brand and ParadiseRestore.Brand.skinWindow then
         ParadiseRestore.Brand.skinWindow(window)
     end
@@ -7488,13 +7489,65 @@ function ParadiseEconomy.MartAdminView:prerender()
     self:drawText("PRICE", self.priceX, fieldLabelY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
 end
 
+ParadiseEconomy.hudColumnWidth = 28
+ParadiseEconomy.hudFullWidth = 298
+
 function ParadiseEconomy.HUD:new(x, y)
-    local obj = ISPanel.new(self, x, y, 270, 46)
+    local obj = ISPanel.new(self, x, y, ParadiseEconomy.hudFullWidth, 46)
     local theme = ParadiseEconomy.Theme
     obj.backgroundColor = { r = theme.windowBg.r, g = theme.windowBg.g, b = theme.windowBg.b, a = 0.82 }
     obj.borderColor = { r = theme.border.r, g = theme.border.g, b = theme.border.b, a = 0.9 }
     obj.moveWithMouse = false
     return obj
+end
+
+function ParadiseEconomy.HUD:createChildren()
+    ISPanel.createChildren(self)
+    self.mailButton = ISButton:new(1, 1, 26, 21, "", self, ParadiseEconomy.HUD.onMailClick)
+    self.mailButton:initialise()
+    self.mailButton:instantiate()
+    self.mailButton:setImage(getTexture("media/ui/Container_MailBox.png"))
+    local basePrerender = self.mailButton.prerender
+    self.mailButton.prerender = function(button)
+        basePrerender(button)
+        local count = ParadiseMail and ParadiseMail.pendingCount or 0
+        if count <= 0 then return end
+        local t = (getTimestampMs and getTimestampMs() or 0) / 1000
+        local pulse = 0.5 + 0.5 * math.sin(t * 4.5)
+        button:drawRect(0, 0, button.width, 2, 0.7 + 0.3 * pulse, 0.9, 0.3, 0.15)
+        button:drawTextCentre(tostring(count), button.width / 2, button.height - 15, 1, 1, 1, 0.7 + 0.3 * pulse, UIFont.Small)
+    end
+    self:addChild(self.mailButton)
+    self.eyeButton = ISButton:new(1, 24, 26, 21, "", self, ParadiseEconomy.HUD.onEyeClick)
+    self.eyeButton:initialise()
+    self.eyeButton:instantiate()
+    self:addChild(self.eyeButton)
+    self:applyCollapsed(ParadiseEconomy.hudCollapsed)
+end
+
+function ParadiseEconomy.HUD:onMailClick(button)
+    if ParadiseMail and ParadiseMail.PlayerPanel and ParadiseMail.PlayerPanel.TogglePanel then
+        ParadiseMail.PlayerPanel.TogglePanel()
+    end
+end
+
+function ParadiseEconomy.HUD:onEyeClick(button)
+    self:applyCollapsed(not ParadiseEconomy.hudCollapsed)
+    local pl = getPlayer()
+    if pl and ParadiseDev and ParadiseDev.ZoneHUD and ParadiseDev.ZoneHUD.getSettings and ParadiseDev.ZoneHUD.saveSettings then
+        local settings = ParadiseDev.ZoneHUD.getSettings(pl)
+        settings.economyCollapsed = ParadiseEconomy.hudCollapsed
+        ParadiseDev.ZoneHUD.saveSettings(pl, settings)
+    end
+end
+
+function ParadiseEconomy.HUD:applyCollapsed(collapsed)
+    ParadiseEconomy.hudCollapsed = collapsed == true
+    self:setWidth(ParadiseEconomy.hudCollapsed and ParadiseEconomy.hudColumnWidth or ParadiseEconomy.hudFullWidth)
+    if self.eyeButton then
+        self.eyeButton:setImage(getTexture(ParadiseEconomy.hudCollapsed and "media/ui/Paradise/Economy/EyeOn.png"
+            or "media/ui/Paradise/Economy/EyeOff.png"))
+    end
 end
 
 function ParadiseEconomy.HUD:prerender()
@@ -7510,13 +7563,14 @@ function ParadiseEconomy.HUD:prerender()
     if self.x ~= x then self:setX(x) end
     if self.y ~= y then self:setY(y) end
     ISPanel.prerender(self)
+    if ParadiseEconomy.hudCollapsed then return end
     local onhand = ParadiseEconomy.getStatePersonal().onhand
     local theme = ParadiseEconomy.Theme
-    self:drawTextureScaled(ParadiseEconomy.icons.jimoleon, 5, 4, 18, 18, 1)
-    self:drawText("Jimoleons: " .. ParadiseEconomy.getBalance(onhand, "jimoleon"), 28, 5,
+    self:drawTextureScaled(ParadiseEconomy.icons.jimoleon, 33, 4, 18, 18, 1)
+    self:drawText("Jimoleons: " .. ParadiseEconomy.getBalance(onhand, "jimoleon"), 56, 5,
         theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
-    self:drawTextureScaled(ParadiseEconomy.icons.paradisium, 5, 23, 18, 18, 1)
-    self:drawText("Paradisium: " .. ParadiseEconomy.getBalance(onhand, "paradisium"), 28, 24,
+    self:drawTextureScaled(ParadiseEconomy.icons.paradisium, 33, 23, 18, 18, 1)
+    self:drawText("Paradisium: " .. ParadiseEconomy.getBalance(onhand, "paradisium"), 56, 24,
         theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
 end
 
@@ -7526,7 +7580,7 @@ function ParadiseEconomy.createHUD()
     local clock = UIManager.getClock and UIManager.getClock() or nil
     local x, y = ParadiseEconomy.getHUDPosition(
         getCore():getScreenWidth(),
-        270,
+        ParadiseEconomy.hudFullWidth,
         46,
         clock and clock:isVisible() and clock:getX() or nil,
         clock and clock:isVisible() and clock:getY() or nil,
@@ -7538,6 +7592,7 @@ function ParadiseEconomy.createHUD()
     local pl = getPlayer()
     local settings = pl and ParadiseDev and ParadiseDev.ZoneHUD and ParadiseDev.ZoneHUD.getSettings and ParadiseDev.ZoneHUD.getSettings(pl) or nil
     ParadiseEconomy.hud:setVisible(not settings or settings.economyVisible ~= false)
+    ParadiseEconomy.hud:applyCollapsed(settings and settings.economyCollapsed == true)
     ParadiseEconomy.send("requestState")
 end
 Events.OnCreatePlayer.Remove(ParadiseEconomy.createHUD)

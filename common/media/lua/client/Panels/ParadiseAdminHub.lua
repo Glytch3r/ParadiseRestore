@@ -47,6 +47,9 @@ function ParadiseAdminHub.getEntries()
     if ParadiseMail and ParadiseMail.AdminPanel and ParadiseMail.AdminPanel.OpenPanel then
         add("Mail", function() ParadiseMail.AdminPanel.OpenPanel() end)
     end
+    if ParadisePromo and ParadisePromo.AdminPanel and ParadisePromo.AdminPanel.OpenPanel then
+        add("Promo Codes", function() ParadisePromo.AdminPanel.OpenPanel() end)
+    end
     if ParadiseDev and ParadiseDev.Builder and ParadiseDev.Builder.OpenPanel then
         add("UI Builder", function() ParadiseDev.Builder.OpenPanel() end)
     end
@@ -69,6 +72,9 @@ function ParadiseAdminHub.getEntries()
     end
     if ParadisePOI and ParadisePOI.OpenPanel then
         add("POI Manager", function() ParadisePOI.OpenPanel() end)
+    end
+    if ParadisePOIBuilder and ParadisePOIBuilder.OpenPanel then
+        add("POI Builder", function() ParadisePOIBuilder.OpenPanel() end)
     end
     if WaveCasterPanel and WaveCasterPanel.OpenPanel then
         add("WaveCaster", function() WaveCasterPanel.OpenPanel() end)

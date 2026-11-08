@@ -1,4 +1,5 @@
 require "ISUI/ISPanel"
+require "ISUI/ISCollapsableWindow"
 require "ISUI/ISButton"
 require "ISUI/ISLabel"
 require "ISUI/ISTextEntryBox"
@@ -6,7 +7,7 @@ require "ISUI/ISScrollingListBox"
 require "ISUI/ISComboBox"
 
 ParadiseMail = ParadiseMail or {}
-ParadiseMail_Admin_Panel = ISPanel:derive("ParadiseMail_Admin_Panel")
+ParadiseMail_Admin_Panel = ISCollapsableWindow:derive("ParadiseMail_Admin_Panel")
 
 local function fmtTime(t)
     t = tonumber(t)
@@ -52,18 +53,16 @@ local function addList(panel, x, y, w, h, onSelect)
             4, rowY + 4, 1, 1, 1, 1, self.font)
         return rowY + self.itemheight
     end
-    list.onmousedown = function(self, mouseX, mouseY)
-        local row = self:rowAt(mouseX, mouseY)
-        if row < 1 or row > #self.items then self.selected = 0 else self.selected = row end
-        if self.target and self.target.onListSelect then self.target.onListSelect(self.target, self, row) end
+    list.onmousedown = function(target, item)
+        if panel.onListSelect then panel:onListSelect(list, list.selected) end
     end
-    list.target = panel
     panel:addChild(list)
     return list
 end
 
 function ParadiseMail_Admin_Panel:new(x, y, width, height)
-    local o = ISPanel.new(self, x, y, width, height)
+    local o = ISCollapsableWindow.new(self, x, y, width, height)
+    o.title = "Paradise Mail - Admin"
     o.backgroundColor = { r = 0, g = 0, b = 0, a = 0.85 }
     o.borderColor = { r = 0.35, g = 0.35, b = 0.35, a = 1 }
     o.moveWithMouse = true
@@ -71,7 +70,7 @@ function ParadiseMail_Admin_Panel:new(x, y, width, height)
 end
 
 function ParadiseMail_Admin_Panel:initialise()
-    ISPanel.initialise(self)
+    ISCollapsableWindow.initialise(self)
     self.anchorLeft = true
     self.anchorRight = false
     self.anchorTop = true
@@ -82,71 +81,76 @@ function ParadiseMail_Admin_Panel:initialise()
 end
 
 function ParadiseMail_Admin_Panel:createChildren()
-    ISPanel.createChildren(self)
+    ISCollapsableWindow.createChildren(self)
 
-    addLabel(self, "Paradise Mail - Admin", 12, 8, 220)
+    local th = self:titleBarHeight()
 
-    addLabel(self, "Templates", 12, 32, 100)
-    self.tmplList = addList(self, 12, 52, 240, 120)
-    addButton(self, "Load set", 258, 52, 130, 22, "LOAD_TEMPLATE")
-    addButton(self, "Delete template", 258, 78, 130, 22, "DELETE_TEMPLATE")
-    self.tmplName = ISTextEntryBox:new("", 258, 104, 130, 22)
+    addLabel(self, "Templates", 12, th + 32, 100)
+    self.tmplList = addList(self, 12, th + 52, 240, 120)
+    addButton(self, "Load set", 258, th + 52, 130, 22, "LOAD_TEMPLATE")
+    addButton(self, "Delete template", 258, th + 78, 130, 22, "DELETE_TEMPLATE")
+    self.tmplName = ISTextEntryBox:new("", 258, th + 104, 130, 22)
     self.tmplName:initialise()
     self.tmplName:instantiate()
     self:addChild(self.tmplName)
-    addButton(self, "Save template", 258, 130, 130, 22, "SAVE_TEMPLATE")
+    addButton(self, "Save template", 258, th + 130, 130, 22, "SAVE_TEMPLATE")
 
-    addLabel(self, "Working set", 12, 180, 100)
-    self.workList = addList(self, 12, 200, 240, 160)
-    addButton(self, "Qty +", 258, 200, 130, 22, "QTY_UP")
-    addButton(self, "Qty -", 258, 226, 130, 22, "QTY_DOWN")
-    addButton(self, "Remove line", 258, 252, 130, 22, "REMOVE_LINE")
-    addButton(self, "Clear set", 258, 278, 130, 22, "CLEAR_SET")
-    addButton(self, "Capture inventory", 258, 304, 130, 24, "CAPTURE_INV")
+    addLabel(self, "Working set", 12, th + 180, 100)
+    self.workList = addList(self, 12, th + 200, 240, 160)
+    addButton(self, "Qty +", 258, th + 200, 130, 22, "QTY_UP")
+    addButton(self, "Qty -", 258, th + 226, 130, 22, "QTY_DOWN")
+    addButton(self, "Remove line", 258, th + 252, 130, 22, "REMOVE_LINE")
+    addButton(self, "Clear set", 258, th + 278, 130, 22, "CLEAR_SET")
+    addButton(self, "Capture inventory", 258, th + 304, 130, 24, "CAPTURE_INV")
 
-    self.moneyAmt = ISTextEntryBox:new("", 12, 370, 110, 24)
+    self.moneyAmt = ISTextEntryBox:new("", 12, th + 370, 110, 24)
     self.moneyAmt:initialise()
     self.moneyAmt:instantiate()
     self:addChild(self.moneyAmt)
-    self.moneyCur = ISComboBox:new(130, 370, 120, 24, self, function() end)
+    self.moneyCur = ISComboBox:new(130, th + 370, 120, 24, self, function() end)
     self.moneyCur:initialise()
     self:addChild(self.moneyCur)
     self.moneyCur:addOption("Jimoleon")
     self.moneyCur:addOption("Paradisium")
     self.moneyCur:setSelected(1)
-    addButton(self, "Add money", 258, 370, 130, 24, "ADD_MONEY")
-    self.moneyLabel = addLabel(self, "Money: -", 12, 398, 240)
+    addButton(self, "Add money", 258, th + 370, 130, 24, "ADD_MONEY")
+    self.moneyLabel = addLabel(self, "Money: -", 12, th + 398, 240)
 
     local rightX = math.min(420, self.width - 400)
-    addLabel(self, "Recipients", rightX, 32, 100)
-    self.usersCombo = ISComboBox:new(rightX, 52, 200, 24, self, function() end)
+    addLabel(self, "Recipients", rightX, th + 32, 100)
+    self.usersCombo = ISComboBox:new(rightX, th + 52, 200, 24, self, function() end)
     self.usersCombo:initialise()
     self:addChild(self.usersCombo)
-    addButton(self, "Add user", rightX + 206, 52, 100, 22, "ADD_USER")
-    self.userEntry = ISTextEntryBox:new("username", rightX, 80, 140, 24)
+    addButton(self, "Add user", rightX + 206, th + 52, 100, 22, "ADD_USER")
+    self.userEntry = ISTextEntryBox:new("username", rightX, th + 80, 140, 24)
     self.userEntry:initialise()
     self.userEntry:instantiate()
     self:addChild(self.userEntry)
-    addButton(self, "Add", rightX + 146, 80, 60, 22, "ADD_MANUAL")
-    addButton(self, "All online", rightX + 212, 80, 94, 22, "ADD_ONLINE")
-    self.recList = addList(self, rightX, 108, 306, 120)
-    addButton(self, "Remove sel", rightX + 206, 232, 100, 22, "REMOVE_REC")
+    addButton(self, "Add", rightX + 146, th + 80, 60, 22, "ADD_MANUAL")
+    addButton(self, "All online", rightX + 212, th + 80, 94, 22, "ADD_ONLINE")
+    self.recList = addList(self, rightX, th + 108, 306, 120)
+    addButton(self, "Remove sel", rightX + 206, th + 232, 100, 22, "REMOVE_REC")
 
-    addLabel(self, "Subject", rightX, 260, 100)
-    self.subject = ISTextEntryBox:new("Reward", rightX, 280, 306, 24)
+    addLabel(self, "Subject", rightX, th + 260, 100)
+    self.subject = ISTextEntryBox:new("Reward", rightX, th + 280, 306, 24)
     self.subject:initialise()
     self.subject:instantiate()
     self:addChild(self.subject)
-    addButton(self, "Send working set", rightX, 310, 150, 26, "SEND_SET")
-    addButton(self, "Send template", rightX + 158, 310, 148, 26, "SEND_TEMPLATE")
+    addLabel(self, "Message", rightX, th + 340, 100)
+    self.message = ISTextEntryBox:new("", rightX, th + 358, 306, 24)
+    self.message:initialise()
+    self.message:instantiate()
+    self:addChild(self.message)
+    addButton(self, "Send working set", rightX, th + 392, 150, 26, "SEND_SET")
+    addButton(self, "Send template", rightX + 158, th + 392, 148, 26, "SEND_TEMPLATE")
 
-    addLabel(self, "Mailboxes", 12, 430, 100)
-    self.boxList = addList(self, 12, 450, 240, 150)
-    addLabel(self, "Messages", 258, 430, 100)
-    self.msgList = addList(self, 258, 450, 400, 150)
-    addButton(self, "Delete mail", 664, 450, 110, 22, "DELETE_MAIL")
-    addButton(self, "Clear box", 664, 476, 110, 22, "CLEAR_BOX")
-    addButton(self, "Refresh", 664, 502, 110, 22, "REFRESH")
+    addLabel(self, "Mailboxes", 12, th + 430, 100)
+    self.boxList = addList(self, 12, th + 450, 240, 150 - th)
+    addLabel(self, "Messages", 258, th + 430, 100)
+    self.msgList = addList(self, 258, th + 450, 400, 150 - th)
+    addButton(self, "Delete mail", 664, th + 450, 110, 22, "DELETE_MAIL")
+    addButton(self, "Clear box", 664, th + 476, 110, 22, "CLEAR_BOX")
+    addButton(self, "Refresh", 664, th + 502, 110, 22, "REFRESH")
 
     self.statusLabel = addLabel(self, "", 12, self.height - 30, math.max(400, self.width - 110))
     self.statusLabel:setColor(0.6, 0.9, 0.6, 1)
@@ -210,6 +214,7 @@ function ParadiseMail_Admin_Panel:refreshMessages()
         local line = tostring(msg.id) .. " | " .. tostring(msg.title) .. " | from " .. tostring(msg.from)
             .. " | " .. fmtTime(msg.sentAt)
             .. " | " .. tostring(msg.lines) .. " lines, " .. tostring(msg.jimoleon) .. "j " .. tostring(msg.paradisium) .. "p"
+            .. " | " .. tostring(msg.message or "")
         self.msgList:addItem(line, msg)
     end
     if self.msgList.selected > #self.msgList.items then self.msgList.selected = 0 end
@@ -348,7 +353,7 @@ function ParadiseMail_Admin_Panel:doSend(useTemplate)
     if #self.recipients == 0 then self:setStatus("Add recipients first") return end
     local title = ParadiseMail.normalizeTitle(self.subject:getText())
     if not title then self:setStatus("Enter a subject") return end
-    local args = { title = title, recipients = self.recipients }
+    local args = { title = title, recipients = self.recipients, message = ParadiseMail.normalizeMessage(self.message:getText()) }
     if useTemplate then
         local item = self.tmplList.selected > 0 and self.tmplList.items[self.tmplList.selected] or nil
         if not item then self:setStatus("Select a template to send") return end

@@ -9,6 +9,7 @@ ParadiseMail.maxQty = 99
 ParadiseMail.maxRecipients = 300
 ParadiseMail.maxTitleLength = 48
 ParadiseMail.maxTemplateName = 40
+ParadiseMail.maxMessageLength = 300
 
 function ParadiseMail.userKey(user)
     user = tostring(user or ""):match("^%s*(.-)%s*$")
@@ -28,6 +29,13 @@ function ParadiseMail.normalizeTemplateName(name)
     if name == "" then return nil end
     if #name > ParadiseMail.maxTemplateName then return nil end
     return name
+end
+
+function ParadiseMail.normalizeMessage(message)
+    message = tostring(message or ""):gsub("[%c]", " "):match("^%s*(.-)%s*$")
+    if message == "" then return nil end
+    if #message > ParadiseMail.maxMessageLength then message = message:sub(1, ParadiseMail.maxMessageLength) end
+    return message
 end
 
 function ParadiseMail.trimAmount(amount)

@@ -1,21 +1,30 @@
+require "ISUI/ISCollapsableWindow"
+
 ParadiseDev = ParadiseDev or {}
 ParadiseDev.Panels = ParadiseDev.Panels or {}
 
 
 ParadiseDev.Panels.GlobalModData = GlobalModDataDebug:derive("ParadiseDev.Panels.GlobalModData")
+-- GlobalModDataDebug is an ISPanel, so the title bar helpers have to be borrowed from ISCollapsableWindow
+ParadiseDev.Panels.GlobalModData.titleBarHeight = ISCollapsableWindow.titleBarHeight
+ParadiseDev.Panels.GlobalModData.resizeWidgetHeight = ISCollapsableWindow.resizeWidgetHeight
 
 function ParadiseDev.Panels.GlobalModData:new(x, y, width, height, title)
-    local panel = ISPanel:new(x, y, width, height)
-    setmetatable(panel, self)
-    self.__index = self
+    local panel = ISCollapsableWindow.new(self, x, y, width, height)
+    panel.title = title or "ParadiseZ Global ModData"
     panel.variableColor = { r = 0.9, g = 0.55, b = 0.1, a = 1 }
     panel.borderColor = { r = 0.4, g = 0.4, b = 0.4, a = 1 }
     panel.backgroundColor = { r = 0, g = 0, b = 0, a = 0.8 }
     panel.buttonBorderColor = { r = 0.7, g = 0.7, b = 0.7, a = 0.5 }
     panel.zOffsetSmallFont = 25
     panel.moveWithMouse = true
+    panel.resizable = false
     panel.panelTitle = title
     return panel
+end
+
+function ParadiseDev.Panels.GlobalModData:prerender()
+    ISCollapsableWindow.prerender(self)
 end
 
 function ParadiseDev.Panels.GlobalModData:close()
@@ -23,14 +32,11 @@ function ParadiseDev.Panels.GlobalModData:close()
 end
 
 function ParadiseDev.Panels.GlobalModData:createChildren()
-    ISPanel.createChildren(self)
+    ISCollapsableWindow.createChildren(self)
 
     local spacing = 10
     local buttonHeight = getTextManager():getFontHeight(UIFont.Small) + 6
-    local title = self.panelTitle or "ParadiseZ Global ModData"
-    ISDebugUtils.addLabel(self, {}, (self.width - getTextManager():MeasureStringX(UIFont.Medium, title)) / 2, spacing + 1, title, UIFont.Medium, true)
-
-    local top = spacing * 2 + getTextManager():getFontHeight(UIFont.Medium) + 1
+    local top = self:titleBarHeight() + spacing * 2 + 1
     local editorTop = self.height - (buttonHeight * 4 + spacing * 5)
     self.tableNamesList = ISScrollingListBox:new(spacing + 1, top, 200, editorTop - top - spacing)
     self.tableNamesList:initialise()

@@ -119,11 +119,49 @@ function ParadiseDev.chatCmd(cmd)
             ParadiseDev.Cage.requestSet(username, isCaged)
         end
     elseif command == "/die" then
-        if pl:isAlive() then ParadiseZ.die() end
-
-
+        local target = (args ~= "") and args:gsub('^"(.*)"$', '%1') or nil
+        if target and isAdm then
+            sendClientCommand("ParadiseRcon", "run", { cmd = "die", user = target })
+        elseif pl:isAlive() then
+            ParadiseZ.die()
+        end
+    elseif command == "/uncage" then
+        if isAdm then
+            local target = (args ~= "") and args:gsub('^"(.*)"$', '%1') or user
+            sendClientCommand("ParadiseRcon", "run", { cmd = "uncage", user = target })
+        end
     elseif command == "/scare" and isAdm then
-        getSoundManager():PlayWorldSound("ZombieSurprisedPlayer", pl:getSquare(), 0, 5, 5, false)
+        local target = (args ~= "") and args:gsub('^"(.*)"$', '%1') or nil
+        if target then
+            sendClientCommand("ParadiseRcon", "run", { cmd = "scare", user = target })
+        else
+            getSoundManager():PlayWorldSound("ZombieSurprisedPlayer", pl:getSquare(), 0, 5, 5, false)
+        end
+    elseif command == "/help" then
+        ParadiseDev.printHelp()
+    end
+end
+
+function ParadiseDev.printHelp()
+    local pl = getPlayer()
+    if not pl then return end
+    local lines = {
+        "Paradise commands:",
+        "/stuck  /unstuck   teleport out of where you are stuck",
+        "/promo             open the promo code panel",
+        "/mail              open the mail panel",
+        "/die [name]        end a life (self, or a named target if admin)",
+        "/help              show this list",
+    }
+    if ParadiseRestore.isAdm(pl) then
+        lines[#lines + 1] = "/mailadmin         open the admin mail panel"
+        lines[#lines + 1] = "/rebound [name]    send a player back to their rebound point"
+        lines[#lines + 1] = "/cage [name] [true|false]  cage a player"
+        lines[#lines + 1] = "/uncage [name]     release a player from the cage"
+        lines[#lines + 1] = "/scare [name]      play a scare sound at a player"
+    end
+    for i = 1, #lines do
+        pl:addLineChatElement(lines[i])
     end
 end
 
@@ -134,8 +172,8 @@ function ParadiseDev.Chat.isHandledCommand(command)
     keyword = string.lower(keyword)
     return keyword == "/stuck" or keyword == "/unstuck" or keyword == "/promo"
         or keyword == "/mail" or keyword == "/mailadmin"
-        or keyword == "/rebound" or keyword == "/cage" or keyword == "/die"
-        or keyword == "/scare"
+        or keyword == "/rebound" or keyword == "/cage" or keyword == "/uncage" or keyword == "/die"
+        or keyword == "/scare" or keyword == "/help"
 end
 
 function ParadiseDev.Chat.onCommandEntered(self)

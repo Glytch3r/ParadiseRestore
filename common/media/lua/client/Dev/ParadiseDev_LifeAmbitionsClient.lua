@@ -35,8 +35,7 @@ local function wandererWrapper(original)
         -- process-local additive carry-weight reward on login/profile switch.
         original(pl,{completed=false,isActive=false})
         if C.pendingXP[pl] then return end
-        local ok,movement=pcall(require,"Helper/MovementUtil")
-        if ok and movement and movement.setRunning then movement.setRunning(ambt.isActive==true) end
+        if pl.setRunning then pl:setRunning(ambt.isActive==true) end
         if CharacterTrait and CharacterTrait.OUTDOORSMAN and not pl:hasTrait(CharacterTrait.OUTDOORSMAN) then
             sendClientCommand(pl,"LS","ChangeTrait",{"OUTDOORSMAN","add"})
         end

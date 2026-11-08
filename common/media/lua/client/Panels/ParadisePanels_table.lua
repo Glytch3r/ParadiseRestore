@@ -15,6 +15,7 @@ ParadiseMail = ParadiseMail or {}
 ParadiseMail.AdminPanel = ParadiseMail.AdminPanel or {}
 ParadiseMail.PlayerPanel = ParadiseMail.PlayerPanel or {}
 ParadiseNotesAuditPanel = ParadiseNotesAuditPanel or {}
+ParadisePOIBuilder = ParadisePOIBuilder or {}
 SquadManager = SquadManager or {}
 SquadManager.Panel = SquadManager.Panel or {}
 
@@ -529,6 +530,30 @@ ParadisePanels.table = {
         onOpen = function() ParadisePOI.requestSync() end,
     },
     {
+        key = "poiBuilder",
+        isAdmOnly = true,
+        getModule = function() return ParadisePOIBuilder end,
+        getInstance = function() return ParadisePOIBuilder and ParadisePOIBuilder.instance end,
+        setInstance = function(instance) ParadisePOIBuilder.instance = instance end,
+        create = function()
+            local width = math.min(1400, getCore():getScreenWidth() - 40)
+            local height = math.min(850, getCore():getScreenHeight() - 40)
+            local x = math.max(20, (getCore():getScreenWidth() - width) / 2)
+            local y = math.max(20, (getCore():getScreenHeight() - height) / 2)
+            return initialise(ParadisePOIBuilderPanel:new(x, y, width, height))
+        end,
+        onOpen = function(panel)
+            ParadisePOIBuilder.Client.listener = function()
+                if panel and panel.refresh then panel:refresh() end
+            end
+            ParadisePOIBuilder.Client.requestIndex()
+        end,
+        onClose = function(panel)
+            if panel and panel.clearPick then panel:clearPick() end
+            ParadisePOIBuilder.Client.listener = nil
+        end,
+    },
+    {
         key = "luaResetTool",
         isAdmOnly = true,
         getModule = function() return LuaResetTool end,
@@ -650,7 +675,7 @@ ParadisePanels.table = {
         getInstance = function() return ParadisePromo.adminInstance end,
         setInstance = function(instance) ParadisePromo.adminInstance = instance end,
         create = function()
-            local width, height = 700, 460
+            local width, height = 700, 480
             local x = (getCore():getScreenWidth() - width) / 2
             local y = (getCore():getScreenHeight() - height) / 2
             return initialise(ParadisePromo_Admin_Manager:new(x, y, width, height))
@@ -666,7 +691,7 @@ ParadisePanels.table = {
         getInstance = function() return ParadisePromo.playerInstance end,
         setInstance = function(instance) ParadisePromo.playerInstance = instance end,
         create = function()
-            local width, height = 320, 130
+            local width, height = 320, 150
             local x = (getCore():getScreenWidth() - width) / 2
             local y = (getCore():getScreenHeight() - height) / 2
             return initialise(ParadisePromo_Player_Panel:new(x, y, width, height))

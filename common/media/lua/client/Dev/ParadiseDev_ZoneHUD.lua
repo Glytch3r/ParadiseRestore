@@ -280,6 +280,7 @@ function ParadiseDev.ZoneHUD.SettingsPanel:onReset()
     settings.zoneX, settings.zoneY, settings.zoneFontSize, settings.zoneVisible = ParadiseDev.ZoneHUD.defaultX, ParadiseDev.ZoneHUD.defaultY, "Medium", true
     settings.hpX, settings.hpY, settings.hpVisible = settings.zoneX, settings.zoneY + 100, true
     settings.economyVisible = true
+    settings.economyCollapsed = false
     settings.worldZoneVisuals = true
     ParadiseDev.ZoneHUD.saveSettings(self.player, settings)
     if ParadiseEconomy and ParadiseEconomy.hud then ParadiseEconomy.hud:setVisible(true) end

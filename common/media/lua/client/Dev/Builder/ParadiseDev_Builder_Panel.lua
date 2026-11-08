@@ -678,6 +678,8 @@ function Builder.runLayout()
     end
     instance:initialise()
     instance:addToUIManager()
+    local moduleTable = Builder.resolve(settings.namespace .. "." .. settings.module)
+    if moduleTable then moduleTable.instance = instance end
     Builder.setStatus("ran " .. settings.className)
     return true
 end

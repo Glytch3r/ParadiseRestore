@@ -1,10 +1,11 @@
 require "ISUI/ISPanel"
+require "ISUI/ISCollapsableWindow"
 require "ISUI/ISButton"
 require "ISUI/ISLabel"
 require "ISUI/ISScrollingListBox"
 
 ParadiseMail = ParadiseMail or {}
-ParadiseMail_Player_Panel = ISPanel:derive("ParadiseMail_Player_Panel")
+ParadiseMail_Player_Panel = ISCollapsableWindow:derive("ParadiseMail_Player_Panel")
 
 local function fmtTime(t)
     t = tonumber(t)
@@ -13,8 +14,26 @@ local function fmtTime(t)
     return ok and str or ""
 end
 
+local function wrapMessage(text, maxWidth, font)
+    local words = {}
+    for word in tostring(text or ""):gmatch("%S+") do words[#words + 1] = word end
+    local lines, current = {}, ""
+    for _, word in ipairs(words) do
+        local candidate = current == "" and word or (current .. " " .. word)
+        if current ~= "" and getTextManager():MeasureStringX(font, candidate) > maxWidth then
+            lines[#lines + 1] = current
+            current = word
+        else
+            current = candidate
+        end
+    end
+    if current ~= "" then lines[#lines + 1] = current end
+    return lines
+end
+
 function ParadiseMail_Player_Panel:new(x, y, width, height)
-    local o = ISPanel.new(self, x, y, width, height)
+    local o = ISCollapsableWindow.new(self, x, y, width, height)
+    o.title = "Your Mail"
     o.backgroundColor = { r = 0, g = 0, b = 0, a = 0.85 }
     o.borderColor = { r = 0.35, g = 0.35, b = 0.35, a = 1 }
     o.moveWithMouse = true
@@ -22,7 +41,7 @@ function ParadiseMail_Player_Panel:new(x, y, width, height)
 end
 
 function ParadiseMail_Player_Panel:initialise()
-    ISPanel.initialise(self)
+    ISCollapsableWindow.initialise(self)
     self.anchorLeft = true
     self.anchorRight = false
     self.anchorTop = true
@@ -33,13 +52,11 @@ function ParadiseMail_Player_Panel:initialise()
 end
 
 function ParadiseMail_Player_Panel:createChildren()
-    ISPanel.createChildren(self)
+    ISCollapsableWindow.createChildren(self)
 
-    local title = ISLabel:new(12, 8, 20, "Your Mail", 1, 1, 1, 1, UIFont.Medium, true)
-    title:initialise()
-    self:addChild(title)
+    local th = self:titleBarHeight()
 
-    self.mailList = ISScrollingListBox:new(12, 36, self.width - 24, self.height - 120)
+    self.mailList = ISScrollingListBox:new(12, th + 36, self.width - 24, self.height - 170 - th)
     self.mailList:initialise()
     self.mailList:instantiate()
     self.mailList.itemheight = 34
@@ -69,14 +86,11 @@ function ParadiseMail_Player_Panel:createChildren()
         self:drawText(ParadiseZ.fitText(second, self.width - 20, self.font), 6, rowY + 18, 0.7, 0.7, 0.7, 1, self.font)
         return rowY + self.itemheight
     end
-    self.mailList.onmousedown = function(self, mouseX, mouseY)
-        local row = self:rowAt(mouseX, mouseY)
-        if row < 1 or row > #self.items then self.selected = 0 else self.selected = row end
-        if self.targetPanel and self.targetPanel.claimButton then
-            self.targetPanel.claimButton:setEnable(self.selected > 0)
+    self.mailList.onmousedown = function(target, item)
+        if self.claimButton then
+            self.claimButton:setEnable(self.mailList.selected > 0)
         end
     end
-    self.mailList.targetPanel = self
     self:addChild(self.mailList)
 
     local buttonY = self.height - 74
@@ -85,6 +99,9 @@ function ParadiseMail_Player_Panel:createChildren()
     self.claimAllButton = self:addButton("Claim all", 12 + half + 8, buttonY, half, 26, "CLAIM_ALL")
     self.refreshButton = self:addButton("Refresh", 12 + 2 * (half + 8), buttonY, 100, 26, "REFRESH")
     self.exitButton = self:addButton("Exit", self.width - 92, buttonY, 80, 26, "EXIT")
+
+    self.msgY = self.height - 130
+    self.msgH = 44
 
     self.statusLabel = ISLabel:new(12, self.height - 34, 18, "", 0.6, 0.9, 0.6, 1, UIFont.Small, true)
     self.statusLabel:initialise()
@@ -100,6 +117,23 @@ function ParadiseMail_Player_Panel:addButton(label, x, y, w, h, internal)
     button:instantiate()
     self:addChild(button)
     return button
+end
+
+function ParadiseMail_Player_Panel:prerender()
+    ISCollapsableWindow.prerender(self)
+    if not self.mailList then return end
+    self:drawRect(12, self.msgY, self.width - 24, self.msgH, 0.35, 0.1, 0.1, 0.1)
+    self:drawRectBorder(12, self.msgY, self.width - 24, self.msgH, 0.5, 0.35, 0.35, 0.35)
+    local msgItem = self.mailList.selected > 0 and self.mailList.items[self.mailList.selected] or nil
+    local text = msgItem and type(msgItem.item) == "table" and tostring(msgItem.item.message or "") or ""
+    if text == "" then
+        self:drawText("No message", 18, self.msgY + 4, 0.6, 0.6, 0.6, 1, UIFont.Small)
+        return
+    end
+    local lines = wrapMessage(text, self.width - 44, UIFont.Small)
+    for i = 1, math.min(#lines, 3) do
+        self:drawText(lines[i], 18, self.msgY + 4 + (i - 1) * 14, 1, 1, 1, 1, UIFont.Small)
+    end
 end
 
 function ParadiseMail_Player_Panel:refreshFromData()

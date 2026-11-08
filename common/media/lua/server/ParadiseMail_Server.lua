@@ -48,6 +48,7 @@ function ParadiseMail.describeMsg(msg)
         sentAt = msg.sentAt,
         lines = #(msg.items or {}),
         copies = copies,
+        message = msg.message,
         jimoleon = tonumber(money.jimoleon) or 0,
         paradisium = tonumber(money.paradisium) or 0,
     }
@@ -100,18 +101,11 @@ local function deliverItems(pl, msg)
     return true
 end
 
--- queues the message under user and returns "queued"; returns "delivered" for online full delivery
+-- every mail is queued in the mailbox; online players get a notify and claim it from the panel themselves
 local function deliverOrQueue(user, msg)
-    local pl = findOnline(user)
-    if pl then
-        if deliverItems(pl, msg) then
-            creditMoney(pl:getUsername(), msg.money, msg.title, msg.from)
-            sendServerCommand(pl, ParadiseMail.module, "notify", { count = #(ParadiseMail.getBox(pl:getUsername()) or {}) })
-            return "delivered"
-        end
-    end
     local box = ParadiseMail.getBox(user)
     if not box then return nil end
+    local pl = findOnline(user)
     local store = ParadiseMail.getStore()
     local queued = copyDeep(msg)
     queued.id = store.nextMailId
@@ -248,23 +242,23 @@ function ParadiseMail.handleSend(pl, args)
     local base = {
         from = pl:getUsername(),
         title = title,
+        message = ParadiseMail.normalizeMessage(args.message),
         items = copyDeep(set.items or {}),
         money = copyDeep(set.money or {}),
     }
-    local delivered, queued, failed = 0, 0, 0
+    local queued, failed = 0, 0
     for _, recipient in ipairs(args.recipients) do
         local user = ParadiseMail.userKey(recipient) and tostring(recipient):match("^%s*(.-)%s*$") or nil
         if user then
             local result = deliverOrQueue(user, base)
-            if result == "delivered" then delivered = delivered + 1
-            elseif result == "queued" then queued = queued + 1
+            if result == "queued" then queued = queued + 1
             else failed = failed + 1 end
         else
             failed = failed + 1
         end
     end
     ParadiseMail.transmitAll()
-    local message = "Mail sent: " .. tostring(delivered) .. " delivered, " .. tostring(queued) .. " queued"
+    local message = "Mail sent: " .. tostring(queued) .. " queued"
     if failed > 0 then message = message .. ", " .. tostring(failed) .. " invalid" end
     ParadiseMail.replySaved(pl, true, message)
     return true

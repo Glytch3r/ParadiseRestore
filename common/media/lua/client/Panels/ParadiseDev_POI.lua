@@ -43,6 +43,7 @@ Events.OnTick.Add(ParadisePOI.processPendingRefresh)
 
 function Paradise_POI_Manager:new(x, y, width, height)
     local o = ISCollapsableWindow.new(self, x, y, width, height)
+    o.title = "Paradise POI Manager"
     o.backgroundColor = {r=0, g=0, b=0, a=0.8}
     o.borderColor = {r=0.35, g=0.35, b=0.35, a=1}
     o.moveWithMouse = true
@@ -66,10 +67,6 @@ end
 
 function Paradise_POI_Manager:createChildren()
     ISCollapsableWindow.createChildren(self)
-
-    self.titleLabel = ISLabel:new(16, 10, 20, "Paradise POI Manager", 1, 1, 1, 1, UIFont.Medium, true)
-    self.titleLabel:initialise()
-    self:addChild(self.titleLabel)
 
     self.keyLabel = ISLabel:new(16, 35, 20, "POI Label", 1, 1, 1, 1, UIFont.Small, true)
     self.keyLabel:initialise()

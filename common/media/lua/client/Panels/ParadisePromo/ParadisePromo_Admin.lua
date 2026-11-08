@@ -1,7 +1,10 @@
-ParadisePromo_Admin_Manager = ISPanel:derive("ParadisePromo_Admin_Manager")
+require "ISUI/ISCollapsableWindow"
+
+ParadisePromo_Admin_Manager = ISCollapsableWindow:derive("ParadisePromo_Admin_Manager")
 
 function ParadisePromo_Admin_Manager:new(x, y, width, height)
-    local o = ISPanel.new(self, x, y, width, height)
+    local o = ISCollapsableWindow.new(self, x, y, width, height)
+    o.title = "Promo Code Manager"
     o.backgroundColor = {r=0, g=0, b=0, a=0.8}
     o.borderColor = {r=0.35, g=0.35, b=0.35, a=1}
     o.moveWithMouse = true
@@ -18,7 +21,7 @@ function ParadisePromo_Admin_Manager:onDestroy()
 end
 
 function ParadisePromo_Admin_Manager:initialise()
-    ISPanel.initialise(self)
+    ISCollapsableWindow.initialise(self)
     self.anchorLeft = true
     self.anchorRight = false
     self.anchorTop = true
@@ -29,41 +32,39 @@ function ParadisePromo_Admin_Manager:initialise()
 end
 
 function ParadisePromo_Admin_Manager:createChildren()
-    ISPanel.createChildren(self)
+    ISCollapsableWindow.createChildren(self)
 
-    self.titleLabel = ISLabel:new(16, 10, 20, "Promo Code Manager", 1, 1, 1, 1, UIFont.Medium, true)
-    self.titleLabel:initialise()
-    self:addChild(self.titleLabel)
+    local th = self:titleBarHeight()
 
-    self.codeLabel = ISLabel:new(16, 35, 20, "Code", 1, 1, 1, 1, UIFont.Small, true)
+    self.codeLabel = ISLabel:new(16, th + 35, 20, "Code", 1, 1, 1, 1, UIFont.Small, true)
     self.codeLabel:initialise()
     self:addChild(self.codeLabel)
 
-    self.code = ISTextEntryBox:new("", 16, 55, 232, 25)
+    self.code = ISTextEntryBox:new("", 16, th + 55, 232, 25)
     self.code:initialise()
     self.code:instantiate()
     self.code.onTextChange = ParadisePromo_Admin_Manager.onEntryChanged
     self.code.target = self
     self:addChild(self.code)
 
-    self.activeTick = ISTickBox:new(16, 90, 150, 20, "", self, self.onToggleActive)
+    self.activeTick = ISTickBox:new(16, th + 90, 150, 20, "", self, self.onToggleActive)
     self.activeTick:initialise()
     self.activeTick:instantiate()
     self.activeTick:addOption("Active")
     self:addChild(self.activeTick)
 
-    self.randomTick = ISTickBox:new(16, 112, 150, 20, "", self, self.onToggleRandomized)
+    self.randomTick = ISTickBox:new(16, th + 112, 150, 20, "", self, self.onToggleRandomized)
     self.randomTick:initialise()
     self.randomTick:instantiate()
     self.randomTick:addOption("Randomized")
     self.randomTick:setSelected(1, false)
     self:addChild(self.randomTick)
 
-    self.modeLabel = ISLabel:new(16, 138, 20, "Mode", 1, 1, 1, 1, UIFont.Small, true)
+    self.modeLabel = ISLabel:new(16, th + 138, 20, "Mode", 1, 1, 1, 1, UIFont.Small, true)
     self.modeLabel:initialise()
     self:addChild(self.modeLabel)
 
-    self.modeRadio = ISRadioButtons:new(16, 158, 232, 100, self, ParadisePromo_Admin_Manager.onToggleMode)
+    self.modeRadio = ISRadioButtons:new(16, th + 158, 232, 100, self, ParadisePromo_Admin_Manager.onToggleMode)
     self.modeRadio:initialise()
     self.modeRadio:instantiate()
     self.modeRadio:addOption("Once Lifetime")
@@ -84,11 +85,11 @@ function ParadisePromo_Admin_Manager:createChildren()
     self:addChild(self.modeRadio)
 
 
-    self.itemsLabel = ISLabel:new(16, 268, 20, "Items (Base.Apple:5;Base.Pistol:1;)", 1, 1, 1, 1, UIFont.Small, true)
+    self.itemsLabel = ISLabel:new(16, th + 268, 20, "Items (Base.Apple:5;Base.Pistol:1;)", 1, 1, 1, 1, UIFont.Small, true)
     self.itemsLabel:initialise()
     self:addChild(self.itemsLabel)
 
-     self.itemsBox = ISTextEntryBox:new("", 16, 288, 232, 110)
+     self.itemsBox = ISTextEntryBox:new("", 16, th + 288, 232, 110)
     self.itemsBox:initialise()
     self.itemsBox:instantiate()
     self.itemsBox:setMultipleLine(true)
@@ -103,12 +104,12 @@ function ParadisePromo_Admin_Manager:createChildren()
         { text = "Items", x = 570 },
     }
     for _, header in ipairs(self.listHeaders) do
-        local label = ISLabel:new(header.x, 35, 18, header.text, 1, 1, 1, 1, UIFont.Small, true)
+        local label = ISLabel:new(header.x, th + 35, 18, header.text, 1, 1, 1, 1, UIFont.Small, true)
         label:initialise()
         self:addChild(label)
     end
 
-    self.codeList = ISScrollingListBox:new(266, 55, 418, 330)
+    self.codeList = ISScrollingListBox:new(266, th + 55, 418, 330)
     self.codeList:initialise()
     self.codeList:instantiate()
     self.codeList.itemheight = 30
@@ -121,19 +122,19 @@ function ParadisePromo_Admin_Manager:createChildren()
     self.codeList.borderColor = { r = 0.35, g = 1, b = 0.45, a = 0.9 }
     self:addChild(self.codeList)
 
-    self.btnAdd = ISButton:new(16, 415, 232, 25, "Add / Update", self, self.onButtonClick)
+    self.btnAdd = ISButton:new(16, th + 415, 232, 25, "Add / Update", self, self.onButtonClick)
     self.btnAdd.internal = "ADD"
     self.btnAdd:initialise()
     self.btnAdd:instantiate()
     self:addChild(self.btnAdd)
 
-    self.btnDelete = ISButton:new(266, 415, 200, 25, "Delete Selected", self, self.onButtonClick)
+    self.btnDelete = ISButton:new(266, th + 415, 200, 25, "Delete Selected", self, self.onButtonClick)
     self.btnDelete.internal = "DELETE"
     self.btnDelete:initialise()
     self.btnDelete:instantiate()
     self:addChild(self.btnDelete)
 
-    self.btnExit = ISButton:new(484, 415, 200, 25, "Exit", self, self.onButtonClick)
+    self.btnExit = ISButton:new(484, th + 415, 200, 25, "Exit", self, self.onButtonClick)
     self.btnExit.internal = "EXIT"
     self.btnExit:initialise()
     self.btnExit:instantiate()

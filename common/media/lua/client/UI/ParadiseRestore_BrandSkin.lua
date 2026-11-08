@@ -445,6 +445,9 @@ function Brand.skinWindow(win)
 				self:drawRect(0, 0, self:getWidth(), tbh, bg.a, bg.r, bg.g, bg.b)
 				local rule = S.titleRule
 				self:drawRect(8, tbh - 3, self:getWidth() - 16, 1, 0.9, rule.r, rule.g, rule.b)
+				if self.title ~= nil then
+					self:drawTextCentre(self.title, self:getWidth() / 2, 1, 1, 1, 1, 1, self.titleBarFont)
+				end
 			end
 		end
 	end

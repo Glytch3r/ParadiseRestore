@@ -1,10 +1,13 @@
-ParadisePromo_Player_Panel = ISPanel:derive("ParadisePromo_Player_Panel")
+require "ISUI/ISCollapsableWindow"
+
+ParadisePromo_Player_Panel = ISCollapsableWindow:derive("ParadisePromo_Player_Panel")
 ParadisePromo = ParadisePromo or {}
 
 
 
 function ParadisePromo_Player_Panel:new(x, y, width, height)
-    local o = ISPanel.new(self, x, y, width, height)
+    local o = ISCollapsableWindow.new(self, x, y, width, height)
+    o.title = "Redeem Promo Code"
     o.backgroundColor = {r=0, g=0, b=0, a=0.8}
     o.borderColor = {r=0.35, g=0.35, b=0.35, a=1}
     o.moveWithMouse = true
@@ -16,7 +19,7 @@ function ParadisePromo_Player_Panel:close()
 end
 
 function ParadisePromo_Player_Panel:initialise()
-    ISPanel.initialise(self)
+    ISCollapsableWindow.initialise(self)
     self.anchorLeft = true
     self.anchorRight = false
     self.anchorTop = true
@@ -27,19 +30,17 @@ function ParadisePromo_Player_Panel:initialise()
 end
 
 function ParadisePromo_Player_Panel:createChildren()
-    ISPanel.createChildren(self)
+    ISCollapsableWindow.createChildren(self)
 
-    self.titleLabel = ISLabel:new(16, 10, 20, "Redeem Promo Code", 1, 1, 1, 1, UIFont.Medium, true)
-    self.titleLabel:initialise()
-    self:addChild(self.titleLabel)
+    local th = self:titleBarHeight()
 
-    self.code = ISTextEntryBox:new("", 16, 40, self.width - 32, 25)
+    self.code = ISTextEntryBox:new("", 16, th + 22, self.width - 32, 25)
     self.code:initialise()
     self.code:instantiate()
     self.code.onCommandEntered = function() self:onButtonClick(self.btnRedeem) end
     self:addChild(self.code)
 
-    self.statusLabel = ISLabel:new(16, 70, 20, "", 1, 1, 1, 1, UIFont.Small, true)
+    self.statusLabel = ISLabel:new(16, th + 52, 20, "", 1, 1, 1, 1, UIFont.Small, true)
     self.statusLabel:initialise()
     self:addChild(self.statusLabel)
 
