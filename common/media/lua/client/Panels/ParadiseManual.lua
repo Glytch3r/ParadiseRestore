@@ -8,8 +8,53 @@ local SIDE_MARGIN = 12
 local BOTTOM_BAR = 44
 
 local SETS = {
-    player = { dir = "media/textures/ParadiseManual/Player/", count = 8,  label = "Player Guide" },
-    admin  = { dir = "media/textures/ParadiseManual/Admin/",  count = 12, label = "Admin Guide" },
+    player = { dir = "media/textures/ParadiseManual/Player/", count = 12, label = "Player Guide" },
+    admin  = { dir = "media/textures/ParadiseManual/Admin/",  count = 32, label = "Admin Guide" },
+}
+
+ParadiseManual.PAGE_BY_KEY = {
+    economy = { section = "player", num = 2 },
+    economyAccount = { section = "player", num = 3 },
+    paradiseMart = { section = "player", num = 4 },
+    tradeManagement = { section = "player", num = 5 },
+    jimsRules = { section = "player", num = 6 },
+    promoPlayer = { section = "player", num = 7 },
+    themes = { section = "player", num = 8 },
+    mailPlayer = { section = "player", num = 9 },
+    squadManager = { section = "player", num = 10 },
+    paradiseManual = { section = "player", num = 11 },
+    adminHub = { section = "admin", num = 1 },
+    economyAccountBrowser = { section = "admin", num = 2 },
+    economyAdmin = { section = "admin", num = 3 },
+    economyTables = { section = "admin", num = 4 },
+    economyLedger = { section = "admin", num = 5 },
+    safehouseAdmin = { section = "admin", num = 6 },
+    contextMenuManager = { section = "admin", num = 7 },
+    recordsPanel = { section = "admin", num = 8 },
+    jimsRulesAdmin = { section = "admin", num = 9 },
+    trailingLights = { section = "admin", num = 10 },
+    uiInspector = { section = "admin", num = 11 },
+    factionManager = { section = "admin", num = 12 },
+    dataCheck = { section = "admin", num = 13 },
+    dataSniffer = { section = "admin", num = 14 },
+    globalModData = { section = "admin", num = 15 },
+    mediaSpawner = { section = "admin", num = 16 },
+    modActiveCheck = { section = "admin", num = 17 },
+    playtimeCheck = { section = "admin", num = 18 },
+    traitSyncer = { section = "admin", num = 19 },
+    zedController = { section = "admin", num = 20 },
+    zones = { section = "admin", num = 21 },
+    zonesEditor = { section = "admin", num = 22 },
+    zonesTestRemote = { section = "admin", num = 23 },
+    poi = { section = "admin", num = 24 },
+    poiBuilder = { section = "admin", num = 25 },
+    luaResetTool = { section = "admin", num = 26 },
+    waveCaster = { section = "admin", num = 27 },
+    promoAdmin = { section = "admin", num = 28 },
+    themeEditor = { section = "admin", num = 29 },
+    mailAdmin = { section = "admin", num = 30 },
+    playerCleanup = { section = "admin", num = 31 },
+    notesAdmin = { section = "admin", num = 32 },
 }
 
 function ParadiseManual.isAdmin()
@@ -58,6 +103,27 @@ local function setButtonEnabled(btn, on)
     if not btn then return end
     btn.enable = on
     if btn.setEnable then btn:setEnable(on) end
+end
+
+function ParadiseManual.attachHelpButton(panel, key)
+    if not panel or not key or key == "paradiseManual" then return end
+    if not ParadiseManual.PAGE_BY_KEY[key] then return end
+    if panel.paradiseHelpButton or not panel.closeButton or not panel.titleBarHeight then return end
+    local th = panel:titleBarHeight()
+    local btnSize = th - 2
+    local btn = ISButton:new(panel.width - 1 - btnSize * 2 - 2, 1, btnSize, btnSize, "?", panel, function(self, button)
+        if ParadiseManual.OpenPanel then ParadiseManual.OpenPanel(button.paradiseHelpKey) end
+    end)
+    btn.paradiseHelpKey = key
+    btn.anchorRight = true
+    btn.anchorLeft = false
+    btn:initialise()
+    btn:instantiate()
+    btn.borderColor.a = 0
+    btn.backgroundColor.a = 0
+    btn.backgroundColorMouseOver.a = 0.7
+    panel:addChild(btn)
+    panel.paradiseHelpButton = btn
 end
 
 ParadiseManual.Panel = ISCollapsableWindow:derive("ParadiseManual.Panel")
@@ -111,6 +177,22 @@ function ParadiseManual.Panel:showSection(section)
     else
         self:setIndex(1)
     end
+end
+
+function ParadiseManual.Panel:showPanelKey(key)
+    local ref = ParadiseManual.PAGE_BY_KEY[key]
+    self.pages = ParadiseManual.getPages(ParadiseManual.isAdmin())
+    if not ref or (ref.section == "admin" and not ParadiseManual.isAdmin()) then
+        self:setIndex(1)
+        return
+    end
+    for i, page in ipairs(self.pages) do
+        if page.section == ref.section and page.num == ref.num then
+            self:setIndex(i)
+            return
+        end
+    end
+    self:setIndex(1)
 end
 
 function ParadiseManual.Panel:currentPage()

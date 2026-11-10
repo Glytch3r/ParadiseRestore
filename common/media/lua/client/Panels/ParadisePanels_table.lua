@@ -744,8 +744,13 @@ ParadisePanels.table = {
             local y = math.max(20, (getCore():getScreenHeight() - height) / 2)
             return initialise(ParadiseManual.Panel:new(x, y, width, height))
         end,
-        onOpen = function(panel, section)
-            if panel and panel.showSection then panel:showSection(section) end
+        onOpen = function(panel, target)
+            if not panel then return end
+            if target and ParadiseManual.PAGE_BY_KEY[target] then
+                panel:showPanelKey(target)
+            elseif panel.showSection then
+                panel:showSection(target)
+            end
         end,
     },
     {
