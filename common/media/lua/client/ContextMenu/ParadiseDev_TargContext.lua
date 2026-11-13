@@ -165,6 +165,13 @@ function ParadiseDev.TargContext.addPlayerActions(menu, target, localPlayer, inc
         ParadiseDev.TargContext.toggleSuspect, target)
     suspectOption.paradiseManagerKey = "Suspect Role"
     suspectOption.paradiseManagerLabel = "Assign / Remove Suspect Role"
+
+    if ParadiseDev.Telemetry and ParadiseDev.Telemetry.request then
+        local telemetryOption = menu:addOption("Show Telemetry: " .. username, nil,
+            ParadiseDev.Telemetry.request, username)
+        telemetryOption.paradiseManagerKey = "Telemetry"
+        telemetryOption.paradiseManagerLabel = "Show Telemetry"
+    end
 end
 --[[ 
         ISPlayerStatsUI.instance.char:getCharacterTraits():add(trait:getType());

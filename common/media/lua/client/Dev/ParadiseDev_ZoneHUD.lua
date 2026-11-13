@@ -128,11 +128,13 @@ end
 function ParadiseDev.ZoneHUD.draw()
     if not isIngameState() then
         if ParadiseDev.LifeBar and ParadiseDev.LifeBar.hide then ParadiseDev.LifeBar.hide() end
+        if ParadiseDev.Scoreboard and ParadiseDev.Scoreboard.hideHUD then ParadiseDev.Scoreboard.hideHUD() end
         return
     end
     local pl = getPlayer()
     if not pl or not pl:isAlive() then
         if ParadiseDev.LifeBar and ParadiseDev.LifeBar.hide then ParadiseDev.LifeBar.hide() end
+        if ParadiseDev.Scoreboard and ParadiseDev.Scoreboard.hideHUD then ParadiseDev.Scoreboard.hideHUD() end
         return
     end
 
@@ -157,6 +159,7 @@ function ParadiseDev.ZoneHUD.draw()
         if ParadiseDev.LifeBar and ParadiseDev.LifeBar.placeInZoneHUD then
             ParadiseDev.LifeBar.placeInZoneHUD(pl, settings.hpX, settings.hpY, settings.hpVisible)
         end
+        if ParadiseDev.Scoreboard and ParadiseDev.Scoreboard.hideHUD then ParadiseDev.Scoreboard.hideHUD() end
         return
     end
     local headerHeight = getTextManager():getFontHeight(fonts.header)
@@ -192,6 +195,9 @@ function ParadiseDev.ZoneHUD.draw()
     if rebound ~= "" then
         getTextManager():DrawString(fonts.detail, baseX, currentY + 8, rebound, 1, 1, 1, alpha)
         currentY = currentY + getTextManager():getFontHeight(fonts.detail) * 2 + 10
+    end
+    if ParadiseDev.Scoreboard and ParadiseDev.Scoreboard.placeInHUD then
+        ParadiseDev.Scoreboard.placeInHUD(pl, baseX, currentY + 8)
     end
     if ParadiseDev.LifeBar and ParadiseDev.LifeBar.placeInZoneHUD then
         ParadiseDev.LifeBar.placeInZoneHUD(pl, settings.hpX, settings.hpY, settings.hpVisible)
