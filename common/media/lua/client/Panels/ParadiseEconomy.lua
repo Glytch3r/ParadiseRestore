@@ -7489,7 +7489,6 @@ function ParadiseEconomy.MartAdminView:prerender()
     self:drawText("PRICE", self.priceX, fieldLabelY, theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 1, UIFont.Small)
 end
 
-ParadiseEconomy.hudColumnWidth = 28
 ParadiseEconomy.hudFullWidth = 298
 
 function ParadiseEconomy.HUD:new(x, y)
@@ -7543,7 +7542,6 @@ end
 
 function ParadiseEconomy.HUD:applyCollapsed(collapsed)
     ParadiseEconomy.hudCollapsed = collapsed == true
-    self:setWidth(ParadiseEconomy.hudCollapsed and ParadiseEconomy.hudColumnWidth or ParadiseEconomy.hudFullWidth)
     if self.eyeButton then
         self.eyeButton:setImage(getTexture(ParadiseEconomy.hudCollapsed and "media/ui/Paradise/Economy/EyeOn.png"
             or "media/ui/Paradise/Economy/EyeOff.png"))
@@ -7563,14 +7561,14 @@ function ParadiseEconomy.HUD:prerender()
     if self.x ~= x then self:setX(x) end
     if self.y ~= y then self:setY(y) end
     ISPanel.prerender(self)
-    if ParadiseEconomy.hudCollapsed then return end
     local onhand = ParadiseEconomy.getStatePersonal().onhand
     local theme = ParadiseEconomy.Theme
+    local hidden = ParadiseEconomy.hudCollapsed
     self:drawTextureScaled(ParadiseEconomy.icons.jimoleon, 33, 4, 18, 18, 1)
-    self:drawText("Jimoleons: " .. ParadiseEconomy.getBalance(onhand, "jimoleon"), 56, 5,
+    self:drawText("Jimoleons: " .. (hidden and "[HIDDEN]" or ParadiseEconomy.getBalance(onhand, "jimoleon")), 56, 5,
         theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
     self:drawTextureScaled(ParadiseEconomy.icons.paradisium, 33, 23, 18, 18, 1)
-    self:drawText("Paradisium: " .. ParadiseEconomy.getBalance(onhand, "paradisium"), 56, 24,
+    self:drawText("Paradisium: " .. (hidden and "[HIDDEN]" or ParadiseEconomy.getBalance(onhand, "paradisium")), 56, 24,
         theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
 end
 
