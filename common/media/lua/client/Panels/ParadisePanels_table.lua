@@ -275,6 +275,16 @@ ParadisePanels.table = {
         end,
     },
     {
+        key = "clearPanel",
+        isAdmOnly = true,
+        getModule = function() return ParadiseDev and ParadiseDev.Context end,
+        getInstance = function() return ParadiseDev and ParadiseDev.Context and ParadiseDev.Context.clearPanel end,
+        setInstance = function(instance) ParadiseDev.Context.clearPanel = instance end,
+        create = function(pl)
+            return initialise(ParadiseDev.Context.ClearPanel:new(pl or getPlayer()))
+        end,
+    },
+    {
         key = "uiInspector",
         isAdmOnly = true,
         getModule = function() return ParadiseDev and ParadiseDev.UI end,
@@ -362,6 +372,24 @@ ParadisePanels.table = {
         end,
     },
     {
+        key = "scriptDB",
+        isAdmOnly = true,
+        getModule = function() return ParadiseDev and ParadiseDev.ScriptDB end,
+        getInstance = function() return ParadiseDev and ParadiseDev.ScriptDB and ParadiseDev.ScriptDB.window end,
+        setInstance = function(instance) ParadiseDev.ScriptDB.window = instance end,
+        create = function()
+            local width = math.min(1250, getCore():getScreenWidth() - 40)
+            local height = math.min(720, getCore():getScreenHeight() - 40)
+            return initialise(ParadiseDev.ScriptDB.Panel:new(
+                math.max(20, math.floor((getCore():getScreenWidth() - width) / 2)),
+                math.max(20, math.floor((getCore():getScreenHeight() - height) / 2)),
+                width,
+                height
+            ))
+        end,
+        onOpen = function(panel) panel:refresh() end,
+    },
+    {
         key = "globalModData",
         isAdmOnly = true,
         getModule = function() return ParadiseDev and ParadiseDev.Panels and ParadiseDev.Panels.GlobalModData end,
@@ -416,6 +444,17 @@ ParadisePanels.table = {
             return initialise(ParadiseDev.TraitSyncer.Panel:new(220, 180, 700, 420))
         end,
         onOpen = function() ParadiseDev.TraitSyncer.requestState() end,
+    },
+    {
+        key = "immortality",
+        isAdmOnly = true,
+        getModule = function() return ParadiseRestore and ParadiseRestore.Immortality end,
+        getInstance = function() return ParadiseRestore and ParadiseRestore.Immortality and ParadiseRestore.Immortality.window end,
+        setInstance = function(instance) ParadiseRestore.Immortality.window = instance end,
+        create = function()
+            return initialise(ParadiseRestore.Immortality.Panel:new(220, 180, 640, 420))
+        end,
+        onOpen = function() ParadiseRestore.Immortality.requestState() end,
     },
     {
         key = "zedController",
@@ -825,6 +864,21 @@ ParadisePanels.table = {
             ))
         end,
         onOpen = function(panel) ParadiseNotesAuditPanel.onOpen(panel) end,
+    },
+    {
+        key = "scoreboard",
+        isAdmOnly = true,
+        getModule = function() return ParadiseDev and ParadiseDev.Scoreboard end,
+        getInstance = function() return ParadiseDev and ParadiseDev.Scoreboard and ParadiseDev.Scoreboard.instance end,
+        setInstance = function(instance) ParadiseDev.Scoreboard.instance = instance end,
+        create = function()
+            local width, height = 345, 360
+            return initialise(ParadiseDev.Scoreboard.UI:new(
+                math.max(20, (getCore():getScreenWidth() - width) / 2),
+                math.max(20, (getCore():getScreenHeight() - height) / 2),
+                width, height, getPlayer()))
+        end,
+        onOpen = function() scoreboardUpdate() end,
     },
     {
         key = "squadManager",

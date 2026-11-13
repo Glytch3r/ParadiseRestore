@@ -25,7 +25,7 @@ function ParadiseAdminHub.getEntries()
             add("Economy Admin", function() ParadiseEconomy.AdminPanel.OpenPanel() end)
         end
         if ParadiseEconomy.TablesPanel and ParadiseEconomy.TablesPanel.OpenPanel then
-            add("Data Tables", function() ParadiseEconomy.TablesPanel.OpenPanel() end)
+            add("Economy Data", function() ParadiseEconomy.TablesPanel.OpenPanel() end)
         end
         if ParadiseEconomy.MartPanel and ParadiseEconomy.MartPanel.OpenPanel then
             add("Tradeshop", function() ParadiseEconomy.MartPanel.OpenPanel() end)
@@ -40,6 +40,13 @@ function ParadiseAdminHub.getEntries()
     end
     if ParadiseDev and ParadiseDev.PlayerCleanup and ParadiseDev.PlayerCleanup.OpenPanel then
         add("Player Cleanup", function() ParadiseDev.PlayerCleanup.OpenPanel() end)
+    end
+
+    if ParadiseRestore and ParadiseRestore.Immortality and ParadiseRestore.Immortality.OpenPanel then
+        add("Immortality", function() ParadiseRestore.Immortality.OpenPanel() end)
+    end
+    if ParadiseDev and ParadiseDev.Context and ParadiseDev.Context.OpenPanel then
+        add("Clear Panel", function() ParadiseDev.Context.OpenPanel() end)
     end
     if ParadiseNotesAuditPanel and ParadiseNotesAuditPanel.OpenPanel then
         add("Notes Admin", function() ParadiseNotesAuditPanel.OpenPanel() end)
@@ -68,7 +75,7 @@ function ParadiseAdminHub.getEntries()
         add("Factions", function() FactionManager.OpenPanel() end)
     end
     if ParadiseDev and ParadiseDev.Zones and ParadiseDev.Zones.OpenPanel then
-        add("Zones", function() ParadiseDev.Zones.OpenPanel() end)
+        add("Zone Editor", function() ParadiseDev.Zones.OpenPanel() end)
     end
     if ParadisePOI and ParadisePOI.OpenPanel then
         add("POI Manager", function() ParadisePOI.OpenPanel() end)
@@ -81,6 +88,9 @@ function ParadiseAdminHub.getEntries()
     end
     if ParadiseDev and ParadiseDev.ZedController and ParadiseDev.ZedController.OpenPanel then
         add("Zed Control", function() ParadiseDev.ZedController.OpenPanel() end)
+    end
+    if ParadiseZTrailingLights and ParadiseZTrailingLights.OpenPanel then
+        add("Trailing Lights", function() ParadiseZTrailingLights.OpenPanel() end)
     end
     if ParadiseDev and ParadiseDev.TraitSyncer and ParadiseDev.TraitSyncer.OpenPanel then
         add("Trait Syncer", function() ParadiseDev.TraitSyncer.OpenPanel() end)
@@ -96,6 +106,12 @@ function ParadiseAdminHub.getEntries()
     end
     if ParadiseDev and ParadiseDev.Sniffer and ParadiseDev.Sniffer.startPick then
         add("Sniffer", function() ParadiseDev.Sniffer.startPick() end)
+    end
+    if ParadiseDev and ParadiseDev.ScriptDB and ParadiseDev.ScriptDB.OpenPanel then
+        add("Script DB", function() ParadiseDev.ScriptDB.OpenPanel() end)
+    end
+    if ParadiseDev and ParadiseDev.Scoreboard and ParadiseDev.Scoreboard.OpenPanel then
+        add("Scoreboard", function() ParadiseDev.Scoreboard.OpenPanel() end)
     end
     if ParadiseProductionDiagnostics and ParadiseProductionDiagnostics.isEnabled and ParadiseProductionDiagnostics.isEnabled() then
         if ParadiseDev and ParadiseDev.Panels and ParadiseDev.Panels.ModActiveCheck and ParadiseDev.Panels.ModActiveCheck.OpenPanel then
