@@ -3,7 +3,8 @@ ParadiseAdminHub.hook = ParadiseAdminHub.hook or {}
 
 local SIDEBAR_SPACING = 15
 local TOOLTIP_TEXT = "Paradise Admin Hub"
-local ICON_PATH = "media/ui/Paradise/Logo.png"
+local ICON_PATH = "media/ui/Paradise/StaffSidebarIcon.png"
+local ICON_PATH_ON = "media/ui/Paradise/StaffSidebarIconOn.png"
 
 local function overlapsSidebarColumn(child, buttonWidth)
     local childX = child:getX()
@@ -40,6 +41,12 @@ local function updateHubButtonPosition(sidebar)
     end
     if not visible then return end
 
+    local on = ParadiseAdminHub.instance ~= nil
+    if button.paradiseHubOn ~= on then
+        button.paradiseHubOn = on
+        button:setImage(on and button.paradiseHubIconOn or button.paradiseHubIcon)
+    end
+
     local buttonY = getLastButtonBottom(sidebar, button:getWidth(), button) + SIDEBAR_SPACING
     if button:getY() ~= buttonY then
         button:setY(buttonY)
@@ -67,6 +74,7 @@ local function addHubButton(sidebar)
     local buttonHeight = clientButton:getHeight()
     local button = ISButton:new(0, clientButton:getY(), buttonWidth, buttonHeight, "", sidebar, onHubButtonClick)
     button.paradiseHubIcon = getTexture(ICON_PATH)
+    button.paradiseHubIconOn = getTexture(ICON_PATH_ON)
     button:setImage(button.paradiseHubIcon)
     button:forceImageSize(buttonHeight, buttonHeight)
     button.internal = "PARADISE_ADMIN_HUB"
