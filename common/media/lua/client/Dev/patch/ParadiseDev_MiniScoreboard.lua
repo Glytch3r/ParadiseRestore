@@ -25,3 +25,19 @@ function ISMiniScoreboardUI:close()
     end
     ParadiseDev.miniscoreboard.closeHook(self)
 end
+
+ParadiseDev.miniscoreboard.drawPlayersHook = ParadiseDev.miniscoreboard.drawPlayersHook or ISMiniScoreboardUI.drawPlayers
+function ISMiniScoreboardUI:drawPlayers(y, item, alt)
+    local username = item and item.item and item.item.username or nil
+    local pl = username and ParadiseRestore.getTarg(username) or nil
+    if pl and pl:getAccessLevel() and string.lower(tostring(pl:getAccessLevel())) == "admin" then
+        local a = 0.9
+        self:drawRectBorder(0, y, self:getWidth(), self.itemheight - 1, a, self.borderColor.r, self.borderColor.g, self.borderColor.b)
+        if self.selected == item.index then
+            self:drawRect(0, y, self:getWidth(), self.itemheight - 1, 0.3, 0.7, 0.35, 0.15)
+        end
+        self:drawText(item.text, 10, y + 2, 1, 0, 0, a, self.font)
+        return y + self.itemheight
+    end
+    return ParadiseDev.miniscoreboard.drawPlayersHook(self, y, item, alt)
+end
