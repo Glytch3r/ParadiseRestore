@@ -85,5 +85,5 @@ function ParadisePromo_Player_Panel:onRedeemResult(success, message)
 end
 
 function ParadisePromo_Player_Panel:render()
-    ISPanel.render(self)
+    ISCollapsableWindow.render(self)
 end

@@ -273,5 +273,5 @@ function ParadisePromo_Admin_Manager:onButtonClick(button)
 end
 
 function ParadisePromo_Admin_Manager:render()
-    ISPanel.render(self)
+    ISCollapsableWindow.render(self)
 end
