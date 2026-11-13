@@ -210,8 +210,8 @@ function R.onClientCommand(module, command, player, args)
     log("ParadiseRcon: admin " .. tostring(player and player:getUsername()) .. " ran " .. tostring(args.cmd) .. " -> " .. reply.status .. ": " .. reply.result)
 end
 
-Events.OnServerStart.Remove(R.onServerStart)
-Events.OnServerStart.Add(R.onServerStart)
+Events.OnServerStarted.Remove(R.onServerStart)
+Events.OnServerStarted.Add(R.onServerStart)
 Events.OnClientCommand.Remove(R.onClientCommand)
 Events.OnClientCommand.Add(R.onClientCommand)
 Events.OnTick.Remove(R.onTick)
