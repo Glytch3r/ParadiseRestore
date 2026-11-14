@@ -43,7 +43,7 @@ ParadiseManual.PAGE_BY_KEY = {
     mediaSpawner = { section = "admin", num = 16 },
     modActiveCheck = { section = "admin", num = 17 },
     playtimeCheck = { section = "admin", num = 18 },
-    traitSyncer = { section = "admin", num = 19 },
+    playerDataSyncer = { section = "admin", num = 19 },
     zedController = { section = "admin", num = 20 },
     zones = { section = "admin", num = 21 },
     zonesEditor = { section = "admin", num = 22 },
@@ -61,6 +61,8 @@ ParadiseManual.PAGE_BY_KEY = {
 }
 
 local TITLE_OVERRIDES = {
+    economy = "Finance",
+    economyAccountBrowser = "Economy Accounts Browser",
     jimsRules = "Jim's Rules",
     jimsRulesAdmin = "Jim's Rules (Admin)",
     poi = "POI",

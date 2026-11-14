@@ -16,10 +16,10 @@ function ParadiseAdminHub.getEntries()
 
     if ParadiseEconomy and ParadiseEconomy.isEnabled and ParadiseEconomy.isEnabled() then
         if ParadiseEconomy.OpenPanel then
-            add("Economy", function() ParadiseEconomy.OpenPanel() end)
+            add("Finance", function() ParadiseEconomy.OpenPanel() end)
         end
         if ParadiseEconomy.AccountBrowser and ParadiseEconomy.AccountBrowser.OpenPanel then
-            add("Accounts", function() ParadiseEconomy.AccountBrowser.OpenPanel() end)
+            add("Economy Accounts Browser", function() ParadiseEconomy.AccountBrowser.OpenPanel() end)
         end
         if ParadiseEconomy.AdminPanel and ParadiseEconomy.AdminPanel.OpenPanel then
             add("Economy Admin", function() ParadiseEconomy.AdminPanel.OpenPanel() end)
@@ -42,11 +42,11 @@ function ParadiseAdminHub.getEntries()
         add("Player Cleanup", function() ParadiseDev.PlayerCleanup.OpenPanel() end)
     end
 
-    if ParadiseRestore and ParadiseRestore.Immortality and ParadiseRestore.Immortality.OpenPanel then
-        add("Immortality", function() ParadiseRestore.Immortality.OpenPanel() end)
-    end
     if ParadiseDev and ParadiseDev.Context and ParadiseDev.Context.OpenPanel then
         add("Clear Panel", function() ParadiseDev.Context.OpenPanel() end)
+    end
+    if ParadiseDev and ParadiseDev.ClearAndSave and ParadiseDev.ClearAndSave.openDelayPrompt then
+        add("Clear and Save", function() ParadiseDev.ClearAndSave.openDelayPrompt() end)
     end
     if ParadiseNotesAuditPanel and ParadiseNotesAuditPanel.OpenPanel then
         add("Notes Admin", function() ParadiseNotesAuditPanel.OpenPanel() end)
@@ -92,8 +92,8 @@ function ParadiseAdminHub.getEntries()
     if ParadiseZTrailingLights and ParadiseZTrailingLights.OpenPanel then
         add("Trailing Lights", function() ParadiseZTrailingLights.OpenPanel() end)
     end
-    if ParadiseDev and ParadiseDev.TraitSyncer and ParadiseDev.TraitSyncer.OpenPanel then
-        add("Trait Syncer", function() ParadiseDev.TraitSyncer.OpenPanel() end)
+    if ParadiseDev and ParadiseDev.PlayerDataSyncer and ParadiseDev.PlayerDataSyncer.OpenPanel then
+        add("Player Data Syncer", function() ParadiseDev.PlayerDataSyncer.OpenPanel() end)
     end
     if ParadiseDev and ParadiseDev.Panels and ParadiseDev.Panels.MediaSpawner and ParadiseDev.Panels.MediaSpawner.OpenPanel then
         add("Media Spawner", function() ParadiseDev.Panels.MediaSpawner.OpenPanel() end)

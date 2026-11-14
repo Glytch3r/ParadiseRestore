@@ -290,7 +290,7 @@ end
 
 function ParadiseRestore.ContextMenuManager.cloneSnapshot(sourceOption, targetMenu, binding)
     -- A live profile action cannot be frozen into a loading/old-state favorite.
-    local syncer=ParadiseDev and ParadiseDev.TraitSyncer
+    local syncer=ParadiseDev and ParadiseDev.PlayerDataSyncer
     if sourceOption.paradisePvETarget and syncer and syncer.bindPvEMenu then
         local option=syncer.bindPvEMenu(targetMenu,sourceOption.paradisePvETarget)
         option.paradisePvERow.valid=function()

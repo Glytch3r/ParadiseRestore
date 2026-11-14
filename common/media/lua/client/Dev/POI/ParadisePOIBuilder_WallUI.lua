@@ -312,19 +312,22 @@ function U.selectTile(panel, sprName)
     panel:layout()
 end
 
-function U.syncLayout(panel)
-    local grid = panel.tilePicker
-    if not grid then return end
-    local sb = grid.vscroll
+function U.syncVScroll(elem)
+    local sb = elem and elem.vscroll
     if not sb then return end
-    sb.x = grid.width - 16
+    sb.x = elem.width - 16
     sb.y = 0
     sb.width = 17
-    sb.height = grid.height
+    sb.height = elem.height
     if sb.javaObject then
         sb.javaObject:setX(sb.x)
         sb.javaObject:setY(sb.y)
         sb.javaObject:setWidth(sb.width)
         sb.javaObject:setHeight(sb.height)
     end
+end
+
+function U.syncLayout(panel)
+    U.syncVScroll(panel.tilePicker)
+    U.syncVScroll(panel.sheetList)
 end

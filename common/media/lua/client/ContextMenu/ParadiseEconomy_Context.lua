@@ -15,11 +15,11 @@ end
 function ParadiseEconomy.addAdminPanelMenu(panelsMenu, context)
     if not ParadiseEconomy.isEnabled() then return end
     if not panelsMenu or not context or not ParadiseEconomy.ensureContextPanels() then return end
-    local root = panelsMenu:addOption("Economy")
+    local root = panelsMenu:addOption("Finance")
     local menu = ISContextMenu:getNew(context)
     panelsMenu:addSubMenu(root, menu)
     menu:addOption("Account and Transactions", nil, ParadiseEconomy.OpenPanel)
-    menu:addOption("Account Browser", nil, ParadiseEconomy.AccountBrowser.OpenPanel)
+    menu:addOption("Economy Accounts Browser", nil, ParadiseEconomy.AccountBrowser.OpenPanel)
     menu:addOption("Admin Accounts", nil, ParadiseEconomy.AdminPanel.OpenPanel)
     if ParadiseEconomy.TablesPanel and ParadiseEconomy.TablesPanel.OpenPanel then
         menu:addOption("Data Tables", nil, ParadiseEconomy.TablesPanel.OpenPanel)

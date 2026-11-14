@@ -11,6 +11,13 @@ function ParadiseDev.ClearAndSave.openDelayPrompt()
     if ParadiseDev.ClearAndSave.delayModal then return end
     local modal = ISModalDialog:new(0, 0, 300, 150, "Seconds before players force leave", false, ParadiseDev.ClearAndSave, ParadiseDev.ClearAndSave.onDelayEntered, nil)
     modal:initialise()
+    local btnWid = modal.ok:getWidth()
+    modal.ok:setX(modal:getWidth() / 2 - btnWid - 5)
+    local cancel = ISButton:new(modal:getWidth() / 2 + 5, modal.ok:getY(), btnWid, modal.ok:getHeight(), getText("UI_Cancel"), modal, ISModalDialog.onClick)
+    cancel.internal = "CANCEL"
+    cancel:initialise()
+    cancel:instantiate()
+    modal:addChild(cancel)
     modal.delayEntry = ISTextEntryBox:new("60", 75, 58, 180, 24)
     modal.delayEntry:initialise()
     modal.delayEntry:instantiate()

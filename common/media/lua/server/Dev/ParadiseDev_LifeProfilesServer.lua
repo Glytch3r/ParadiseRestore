@@ -185,7 +185,7 @@ end
 S.pveBodies=setmetatable({}, {__mode="k"})
 function S.ensurePvEMigration(entry)
     if entry.pveMigrated then return true end
-    local syncer=ParadiseDev.TraitSyncer
+    local syncer=ParadiseDev.PlayerDataSyncer
     local legacy,ambiguous
     if syncer and syncer.getStoredRecord then
         local record,_,conflict=syncer.getStoredRecord(entry.username)

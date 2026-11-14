@@ -95,7 +95,7 @@ function ParadiseDev.TargContext.spectate(_, username)
 end
 
 function ParadiseDev.TargContext.setPvE(_, username, enabled)
-    local syncer = ParadiseDev.TraitSyncer
+    local syncer = ParadiseDev.PlayerDataSyncer
     if not username or type(enabled) ~= "boolean" or not syncer or not syncer.requestSet then return end
     syncer.requestSet(username, "ParadiseDev:PvE", enabled)
 end
@@ -152,7 +152,7 @@ function ParadiseDev.TargContext.addPlayerActions(menu, target, localPlayer, inc
     end
 
     if includePvE ~= false then
-        local syncer = ParadiseDev.TraitSyncer
+        local syncer = ParadiseDev.PlayerDataSyncer
         local pveOption
         if syncer and syncer.bindPvEMenu then pveOption=syncer.bindPvEMenu(menu,target)
         else pveOption=menu:addOption("PvE status unavailable: "..username);pveOption.notAvailable=true end

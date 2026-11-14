@@ -1,6 +1,6 @@
 ParadiseDev = ParadiseDev or {}
-ParadiseDev.TraitSyncer = ParadiseDev.TraitSyncer or {}
-local Syncer = ParadiseDev.TraitSyncer
+ParadiseDev.PlayerDataSyncer = ParadiseDev.PlayerDataSyncer or {}
+local Syncer = ParadiseDev.PlayerDataSyncer
 
 local function tooltip(option,message)
     if not ISToolTip or not ISToolTip.new then return end
@@ -116,7 +116,7 @@ function Syncer.requestSet(username, traitId, enabled, context)
         return
     end
     if sendClientCommand then
-        sendClientCommand("ParadiseDevTraitSyncer", "set", {
+        sendClientCommand("ParadiseDevPlayerDataSyncer", "set", {
             username = tostring(username), trait = traitId, enabled = enabled == true, context=context,
         })
     end
@@ -148,7 +148,7 @@ end
 
 function Syncer.addTargetMenu(menu, target)
     if not menu or not target or not target.getUsername then return end
-    local root = menu:addOption("Trait Syncer")
+    local root = menu:addOption("Player Data Syncer")
     local submenu = ISContextMenu:getNew(menu)
     menu:addSubMenu(root, submenu)
     for _, traitId in ipairs(Syncer.Traits) do
@@ -161,11 +161,11 @@ function Syncer.addTargetMenu(menu, target)
     end
 end
 
-Syncer.Panel = ISCollapsableWindow:derive("ParadiseDev.TraitSyncer.Panel")
+Syncer.Panel = ISCollapsableWindow:derive("ParadiseDev.PlayerDataSyncer.Panel")
 function Syncer.Panel:createChildren()
     ISCollapsableWindow.createChildren(self)
     local top = self:titleBarHeight() + 10
-    self.info = ISLabel:new(12, top, 18, "Trait assignments", 0.85, 0.9, 1, 1, UIFont.Small, true)
+    self.info = ISLabel:new(12, top, 18, "Player traits and immortality", 0.85, 0.9, 1, 1, UIFont.Small, true)
     self.info:initialise(); self.info:instantiate(); self:addChild(self.info)
     self.usernameEntry = ISTextEntryBox:new("", 84, top + 24, self.width - 222, 24)
     self.usernameEntry:initialise(); self.usernameEntry:instantiate(); self:addChild(self.usernameEntry)
@@ -175,14 +175,22 @@ function Syncer.Panel:createChildren()
     self.list:initialise(); self.list:instantiate(); self.list.itemheight = 22; self.list.font = UIFont.Small; self.list.drawBorder = true; self:addChild(self.list)
     self.refreshButton = ISButton:new(self.width - 122, self.height - 42, 110, 26, "Refresh", self, Syncer.Panel.onClick)
     self.refreshButton.internal = "REFRESH"; self.refreshButton:initialise(); self.refreshButton:instantiate(); self:addChild(self.refreshButton)
-    self.trueButton = ISButton:new(12, self.height - 42, 110, 26, "Set TRUE", self, Syncer.Panel.onClick)
+    self.selfButton = ISButton:new(12, self.height - 42, 150, 26, "Self: mortal", self, Syncer.Panel.onClick)
+    self.selfButton.internal = "SELF"; self.selfButton:initialise(); self.selfButton:instantiate(); self:addChild(self.selfButton)
+    self.trueButton = ISButton:new(170, self.height - 42, 110, 26, "Set TRUE", self, Syncer.Panel.onClick)
     self.trueButton.internal = "TRUE"; self.trueButton:initialise(); self.trueButton:instantiate(); self:addChild(self.trueButton)
-    self.falseButton = ISButton:new(128, self.height - 42, 110, 26, "Set FALSE", self, Syncer.Panel.onClick)
+    self.falseButton = ISButton:new(288, self.height - 42, 110, 26, "Set FALSE", self, Syncer.Panel.onClick)
     self.falseButton.internal = "FALSE"; self.falseButton:initialise(); self.falseButton:instantiate(); self:addChild(self.falseButton)
     Syncer.refreshPanel()
 end
 function Syncer.Panel:onClick(button)
     if button.internal == "REFRESH" then Syncer.requestState(); return end
+    if button.internal == "SELF" then
+        if ParadiseRestore.Immortality and ParadiseRestore.Immortality.requestSelfToggle then
+            ParadiseRestore.Immortality.requestSelfToggle()
+        end
+        return
+    end
     local username = self.usernameEntry and self.usernameEntry:getText() or ""
     if button.internal == "ADD" and username ~= "" then
         Syncer.requestSet(username, Syncer.Traits[1], true); self.usernameEntry:setText("")
@@ -191,15 +199,22 @@ function Syncer.Panel:onClick(button)
     if button.internal == "TRUE" or button.internal == "FALSE" then
         local item = self.list.items[self.list.selected]
         local entry = item and item.item or nil
-        if entry then Syncer.requestSet(entry.username, entry.trait, button.internal == "TRUE",entry.context) end
+        if not entry then return end
+        if entry.trait == "Immortality" then
+            if ParadiseRestore.Immortality and ParadiseRestore.Immortality.requestKeySet then
+                ParadiseRestore.Immortality.requestKeySet(entry.key, entry.username, button.internal == "TRUE")
+            end
+            return
+        end
+        Syncer.requestSet(entry.username, entry.trait, button.internal == "TRUE",entry.context)
     end
 end
 function Syncer.Panel:new(x, y, width, height)
     local panel = ISCollapsableWindow:new(x, y, width, height); setmetatable(panel, self); self.__index = self
-    panel.title = "ParadiseZ Trait Syncer"; panel.resizable = true; panel.minimumWidth = 600; panel.minimumHeight = 320; return panel
+    panel.title = "ParadiseZ Player Data Syncer"; panel.resizable = true; panel.minimumWidth = 640; panel.minimumHeight = 320; return panel
 end
 function Syncer.Panel:close()
-    ParadiseDev.TraitSyncer.ClosePanel()
+    ParadiseDev.PlayerDataSyncer.ClosePanel()
 end
 function Syncer.ClosePanel()
     local panel=Syncer.window
@@ -248,9 +263,11 @@ function Syncer.refreshPanel()
                     local cageEntry = cages[string.lower(tostring(entry.username or ""))]
                     enabled = cageEntry and cageEntry.isCaged == true or false
                 end
-                Syncer.window.list:addItem(tostring(entry.username) .. " | " .. traitId .. " | " .. (enabled and "TRUE" or "FALSE"), {
-                    username = entry.username, trait = traitId, enabled = enabled,context=entry.context,
-                })
+                if enabled then
+                    Syncer.window.list:addItem(tostring(entry.username) .. " | " .. traitId .. " | TRUE", {
+                        username = entry.username, trait = traitId, enabled = enabled,context=entry.context,
+                    })
+                end
             end
         end
     end
@@ -261,6 +278,17 @@ function Syncer.refreshPanel()
             Syncer.window.list:addItem(tostring(entry.username).." | Profile "..tostring(entry.slot).." "..tostring(entry.name).." | PvE | "..status,
                 {username=entry.username,trait="ParadiseDev:PvE",context=context,enabled=context.pve})
         end
+    end
+    local immortality = ParadiseRestore and ParadiseRestore.Immortality
+    for _,entry in ipairs(immortality and immortality.entries or {}) do
+        if entry.isImmortal then
+            local status = entry.online and not entry.isActive and "IMMORTAL (outside Special zone)" or "IMMORTAL"
+            Syncer.window.list:addItem(tostring(entry.username or entry.key or "").." | Immortality | "..status,
+                {username=entry.username,trait="Immortality",key=entry.key,enabled=true})
+        end
+    end
+    if Syncer.window.selfButton and immortality and immortality.getSelfState then
+        Syncer.window.selfButton.title = immortality.getSelfState() and "Self: IMMORTAL" or "Self: mortal"
     end
     -- A refreshed roster must not move an administrator's selection onto a
     -- different account or a new profile reusing the same numbered slot.
@@ -295,6 +323,9 @@ end
 function Syncer.requestState()
     Syncer.requestMenuState(true)
     if ParadiseDev.Cage and ParadiseDev.Cage.requestState then ParadiseDev.Cage.requestState() end
+    if ParadiseRestore and ParadiseRestore.Immortality and ParadiseRestore.Immortality.requestState then
+        ParadiseRestore.Immortality.requestState()
+    end
 end
 function Syncer.requestMenuState(force)
     if not administrator() or not sendClientCommand then return false end
@@ -307,7 +338,7 @@ function Syncer.requestMenuState(force)
     for _,row in ipairs(Syncer.menuRows) do if samePlayer(row.player) then targets[string.lower(user(row.player))]=row.player end end
     for key,request in pairs(Syncer.requests) do if now-request.at>Syncer.CACHE_MS then Syncer.requests[key]=nil end end
     Syncer.requests[id]={at=now,targets=targets,owner=owner()}
-    sendClientCommand("ParadiseDevTraitSyncer","list",{requestId=id})
+    sendClientCommand("ParadiseDevPlayerDataSyncer","list",{requestId=id})
     return true
 end
 function Syncer.getTargetPvEState(target)
@@ -366,7 +397,7 @@ function Syncer.updateMenus(force)
             elseif context and not context.ready then
                 option.name="PvE needs profile review: "..name
                 option.notAvailable=false;option.onSelect=Syncer.reviewMenu;row.context=nil
-                tooltip(option,(context.reason or "This profile's older PvE records disagree.").." Open Trait Syncer, select the profile, and choose Set TRUE or Set FALSE.")
+                tooltip(option,(context.reason or "This profile's older PvE records disagree.").." Open Player Data Syncer, select the profile, and choose Set TRUE or Set FALSE.")
             elseif not samePlayer(row.player) or (row.player.isDead and row.player:isDead()) then
                 option.name="PvE target unavailable: "..name
                 option.notAvailable=true;option.onSelect=nil;row.context=nil
@@ -400,14 +431,14 @@ function Syncer.requestOwner(player)
     if request and request.player==player and now>=request.at and now-request.at<1000 then return end
     local id=nonce("owner")
     Syncer.ownerRequest={player=player,id=id,at=now};Syncer.ownerPvE=nil
-    sendClientCommand("ParadiseDevTraitSyncer","owner",{requestId=id})
+    sendClientCommand("ParadiseDevPlayerDataSyncer","owner",{requestId=id})
 end
 function Syncer.onServerCommand(module, command, args)
     if module=="ParadiseDevCage" and command=="state" then
         Syncer.cageEntries=type(args)=="table" and type(args.entries)=="table" and args.entries or {}
         Syncer.refreshPanel();return
     end
-    if module~="ParadiseDevTraitSyncer" or type(args)~="table" then return end
+    if module~="ParadiseDevPlayerDataSyncer" or type(args)~="table" then return end
     if command=="state" and type(args.entries)=="table" then
         if type(args.requestId)~="string" then return end
         local request=Syncer.requests[args.requestId]

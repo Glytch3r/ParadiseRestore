@@ -2,8 +2,8 @@
 -- native replication must remain on the authoritative server.
 if isClient and isClient() then return end
 ParadiseDev = ParadiseDev or {}
-ParadiseDev.TraitSyncer = ParadiseDev.TraitSyncer or {}
-local Syncer = ParadiseDev.TraitSyncer
+ParadiseDev.PlayerDataSyncer = ParadiseDev.PlayerDataSyncer or {}
+local Syncer = ParadiseDev.PlayerDataSyncer
 Syncer.stateRevision = Syncer.stateRevision or 0
 Syncer.pveSent = setmetatable({}, {__mode="k"})
 Syncer.StoreName = "ParadiseDev_TraitSyncer"
@@ -84,7 +84,7 @@ function Syncer.getStateEntries()
 end
 function Syncer.sendState(player,requestId)
     local service=life()
-    sendServerCommand(player, "ParadiseDevTraitSyncer", "state", {
+    sendServerCommand(player, "ParadiseDevPlayerDataSyncer", "state", {
         entries=Syncer.getStateEntries(), profiles=service and service.getAdminPvEProfiles and service.getAdminPvEProfiles() or {},
         revision=Syncer.stateRevision,requestId=requestId,
     })
@@ -96,7 +96,7 @@ function Syncer.sendAdminStates(requester)
     if players then for i=0,players:size()-1 do
         local player=players:get(i)
         if ParadiseRestore.isAdm(player) then
-            sendServerCommand(player,"ParadiseDevTraitSyncer","invalidate",{revision=Syncer.stateRevision})
+            sendServerCommand(player,"ParadiseDevPlayerDataSyncer","invalidate",{revision=Syncer.stateRevision})
         end
     end end
 end
@@ -106,7 +106,7 @@ function Syncer.sendOwner(player,requestId)
     if not context.ready then return end
     local token=requestId or Syncer.ownerRequests[player]
     if not token then return end
-    sendServerCommand(player,"ParadiseDevTraitSyncer","pve",{context=context,requestId=token,revision=Syncer.stateRevision})
+    sendServerCommand(player,"ParadiseDevPlayerDataSyncer","pve",{context=context,requestId=token,revision=Syncer.stateRevision})
 end
 
 function Syncer.getStoredRecord(username)
@@ -156,7 +156,7 @@ function Syncer.applyOnline(username, traitId, enabled, exactTarget)
     return true
 end
 function Syncer.onClientCommand(module, command, player, args)
-    if module ~= "ParadiseDevTraitSyncer" then return end
+    if module ~= "ParadiseDevPlayerDataSyncer" then return end
     if command=="owner" then
         -- The transport supplies player. Never accept an account or body from
         -- this request; its bounded nonce only correlates the owner's reply.
@@ -186,7 +186,7 @@ function Syncer.onClientCommand(module, command, player, args)
         local ok,target
         if service and service.setTargetPvE then ok,target=service.setTargetPvE(args.username,args.context,args.enabled) end
         if not ok then
-            sendServerCommand(player,"ParadiseDevTraitSyncer","error",{message=tostring(target or "Profile policy is unavailable")})
+            sendServerCommand(player,"ParadiseDevPlayerDataSyncer","error",{message=tostring(target or "Profile policy is unavailable")})
             return
         end
         local applied=true
@@ -196,9 +196,9 @@ function Syncer.onClientCommand(module, command, player, args)
         end
         Syncer.stateRevision=Syncer.stateRevision+1
         if applied then
-            sendServerCommand(player,"ParadiseDevTraitSyncer","result",{message="PvE "..(args.enabled and "enabled" or "disabled").." for "..args.username.."'s selected profile/character."})
+            sendServerCommand(player,"ParadiseDevPlayerDataSyncer","result",{message="PvE "..(args.enabled and "enabled" or "disabled").." for "..args.username.."'s selected profile/character."})
         else
-            sendServerCommand(player,"ParadiseDevTraitSyncer","error",{message="The PvE choice was saved, but the active character could not be updated yet. The server will retry automatically."})
+            sendServerCommand(player,"ParadiseDevPlayerDataSyncer","error",{message="The PvE choice was saved, but the active character could not be updated yet. The server will retry automatically."})
         end
         Syncer.sendAdminStates(player)
         return
@@ -221,11 +221,11 @@ function Syncer.onClientCommand(module, command, player, args)
     local username = target and tostring(target:getUsername()) or args.username
     local record, recordKey, ambiguous = Syncer.getStoredRecord(username)
     if ambiguous then
-        sendServerCommand(player, "ParadiseDevTraitSyncer", "error", {message="Conflicting stored usernames; review trait assignments."})
+        sendServerCommand(player, "ParadiseDevPlayerDataSyncer", "error", {message="Conflicting stored usernames; review trait assignments."})
         return
     end
     if not Syncer.applyOnline(username, args.trait, args.enabled) then
-        sendServerCommand(player, "ParadiseDevTraitSyncer", "error", {message="Trait change was not applied; refresh and retry."})
+        sendServerCommand(player, "ParadiseDevPlayerDataSyncer", "error", {message="Trait change was not applied; refresh and retry."})
         return
     end
     record = record or {}

@@ -1,14 +1,9 @@
-require "ISUI/ISCollapsableWindow"
-require "ISUI/ISButton"
-require "ISUI/ISPanel"
-
 ParadiseRestore = ParadiseRestore or {}
 ParadiseRestore.Immortality = ParadiseRestore.Immortality or {}
 
 local Immortality = ParadiseRestore.Immortality
 
 Immortality.entries = Immortality.entries or {}
-Immortality.window = Immortality.window or nil
 Immortality.selfState = Immortality.selfState or false
 
 function Immortality.getSelfState()
@@ -104,134 +99,9 @@ function Immortality.requestSelfToggle()
 end
 
 function Immortality.refreshPanel()
-    local panel = Immortality.window
-    if not panel or not panel.list then return end
-    local list = panel.list
-    local selected = list.items[list.selected]
-    selected = selected and selected.item
-    list:clear()
-    for _, entry in ipairs(Immortality.entries or {}) do
-        local state = "mortal"
-        if entry.isImmortal then
-            if entry.online and not entry.isActive then
-                state = "outside Special zone"
-            else
-                state = "IMMORTAL"
-            end
-        end
-        local label = tostring(entry.username or entry.key or "")
-            .. (entry.online and " | online" or " | offline")
-            .. " | " .. state
-        list:addItem(label, entry)
+    if ParadiseDev and ParadiseDev.PlayerDataSyncer and ParadiseDev.PlayerDataSyncer.refreshPanel then
+        ParadiseDev.PlayerDataSyncer.refreshPanel()
     end
-    list.selected = 0
-    if selected then
-        for index, item in ipairs(list.items) do
-            local current = item.item
-            if current and current.key == selected.key then
-                list.selected = index
-                break
-            end
-        end
-    end
-    if panel.selfButton then
-        panel.selfButton.title = Immortality.getSelfState() and "Self: IMMORTAL" or "Self: mortal"
-    end
-end
-
-Immortality.Panel = ISCollapsableWindow:derive("ParadiseRestore.Immortality.Panel")
-
-function Immortality.Panel:createChildren()
-    ISCollapsableWindow.createChildren(self)
-    local top = self:titleBarHeight() + 10
-    self.info = ISLabel:new(12, top, 18, "Zombies ignore these players. Admins: anywhere. Others: Special zone only.", 0.85, 0.9, 1, 1, UIFont.Small, true)
-    self.info:initialise(); self.info:instantiate(); self:addChild(self.info)
-    self.usernameEntry = ISTextEntryBox:new("", 84, top + 24, self.width - 222, 24)
-    self.usernameEntry:initialise(); self.usernameEntry:instantiate(); self:addChild(self.usernameEntry)
-    self.addButton = ISButton:new(self.width - 128, top + 24, 116, 24, "Add", self, Immortality.Panel.onClick)
-    self.addButton.internal = "ADD"; self.addButton:initialise(); self.addButton:instantiate(); self:addChild(self.addButton)
-    self.list = ISScrollingListBox:new(12, top + 54, self.width - 24, self.height - top - 108)
-    self.list:initialise(); self.list:instantiate(); self.list.itemheight = 22; self.list.font = UIFont.Small; self.list.drawBorder = true; self:addChild(self.list)
-    self.selfButton = ISButton:new(12, self.height - 42, 150, 26, "Self: mortal", self, Immortality.Panel.onClick)
-    self.selfButton.internal = "SELF"; self.selfButton:initialise(); self.selfButton:instantiate(); self:addChild(self.selfButton)
-    self.trueButton = ISButton:new(170, self.height - 42, 110, 26, "Immortal", self, Immortality.Panel.onClick)
-    self.trueButton.internal = "TRUE"; self.trueButton:initialise(); self.trueButton:instantiate(); self:addChild(self.trueButton)
-    self.falseButton = ISButton:new(288, self.height - 42, 110, 26, "Mortal", self, Immortality.Panel.onClick)
-    self.falseButton.internal = "FALSE"; self.falseButton:initialise(); self.falseButton:instantiate(); self:addChild(self.falseButton)
-    self.refreshButton = ISButton:new(self.width - 122, self.height - 42, 110, 26, "Refresh", self, Immortality.Panel.onClick)
-    self.refreshButton.internal = "REFRESH"; self.refreshButton:initialise(); self.refreshButton:instantiate(); self:addChild(self.refreshButton)
-    Immortality.refreshPanel()
-end
-
-function Immortality.Panel:onClick(button)
-    if button.internal == "REFRESH" then
-        Immortality.requestState()
-        return
-    end
-    if button.internal == "SELF" then
-        Immortality.requestSelfToggle()
-        return
-    end
-    if button.internal == "ADD" then
-        local user = self.usernameEntry and self.usernameEntry:getText() or ""
-        if user ~= "" then
-            Immortality.requestSet(user, true)
-            self.usernameEntry:setText("")
-        end
-        return
-    end
-    if button.internal == "TRUE" or button.internal == "FALSE" then
-        local item = self.list.items[self.list.selected]
-        local entry = item and item.item or nil
-        if not entry then return end
-        Immortality.requestKeySet(entry.key, entry.username, button.internal == "TRUE")
-    end
-end
-
-function Immortality.Panel:new(x, y, width, height)
-    local panel = ISCollapsableWindow:new(x, y, width, height)
-    setmetatable(panel, self)
-    self.__index = self
-    panel.title = "ParadiseRestore Immortality"
-    panel.resizable = true
-    panel.minimumWidth = 560
-    panel.minimumHeight = 320
-    return panel
-end
-
-function Immortality.Panel:close()
-    Immortality.ClosePanel()
-end
-
-function Immortality.ClosePanel()
-    local panel = Immortality.window
-    Immortality.window = nil
-    if panel then
-        panel:setVisible(false)
-        panel:removeFromUIManager()
-    end
-end
-
-function Immortality.OpenPanel()
-    if not Immortality.window then
-        local width, height = 640, 420
-        local core = getCore()
-        local panel = Immortality.Panel:new((core:getScreenWidth() - width) / 2, (core:getScreenHeight() - height) / 2, width, height)
-        Immortality.window = panel
-        panel:initialise()
-        panel:addToUIManager()
-    end
-    Immortality.window:setVisible(true)
-    Immortality.requestState()
-    return Immortality.window
-end
-
-function Immortality.TogglePanel()
-    if Immortality.window then
-        Immortality.ClosePanel()
-        return nil
-    end
-    return Immortality.OpenPanel()
 end
 
 Events.OnServerCommand.Remove(Immortality.onServerCommand)

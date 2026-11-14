@@ -64,6 +64,7 @@ function ParadiseDev.ZoneHUD.getSettings(pl)
     if settings.zoneVisible == nil then settings.zoneVisible = settings.visible ~= false end
     if settings.hpVisible == nil then settings.hpVisible = true end
     if settings.economyVisible == nil then settings.economyVisible = true end
+    if settings.economyHudSize == nil then settings.economyHudSize = "Clock" end
     if settings.worldZoneVisuals == nil then settings.worldZoneVisuals = true end
     modData.HUDSettings = settings
     modData.ParadiseZHUDSettings = settings
@@ -207,7 +208,7 @@ end
 ParadiseDev.ZoneHUD.SettingsPanel = ISPanel:derive("ParadiseDev.ZoneHUD.SettingsPanel")
 
 function ParadiseDev.ZoneHUD.SettingsPanel:new(pl)
-    local width, height = 360, 390
+    local width, height = 360, 420
     local panel = ISPanel:new((getCore():getScreenWidth() - width) / 2, (getCore():getScreenHeight() - height) / 2, width, height)
     setmetatable(panel, self)
     self.__index = self
@@ -275,6 +276,12 @@ function ParadiseDev.ZoneHUD.SettingsPanel:onEconomyVisibleChanged(option, enabl
     if ParadiseEconomy and ParadiseEconomy.hud then ParadiseEconomy.hud:setVisible(enabled) end
 end
 
+function ParadiseDev.ZoneHUD.SettingsPanel:onEconomyHudSizeChanged(combo)
+    local settings = ParadiseDev.ZoneHUD.getSettings(self.player)
+    settings.economyHudSize = combo:getSelectedData()
+    ParadiseDev.ZoneHUD.saveSettings(self.player, settings)
+end
+
 function ParadiseDev.ZoneHUD.SettingsPanel:onWorldZoneVisualsChanged(option, enabled)
     if ParadiseDev.Zones and ParadiseDev.Zones.Visualization and ParadiseDev.Zones.Visualization.setPlayerEnabled then
         ParadiseDev.Zones.Visualization.setPlayerEnabled(self.player, enabled)
@@ -287,6 +294,7 @@ function ParadiseDev.ZoneHUD.SettingsPanel:onReset()
     settings.hpX, settings.hpY, settings.hpVisible = settings.zoneX, settings.zoneY + 100, true
     settings.economyVisible = true
     settings.economyCollapsed = false
+    settings.economyHudSize = "Clock"
     settings.worldZoneVisuals = true
     ParadiseDev.ZoneHUD.saveSettings(self.player, settings)
     if ParadiseEconomy and ParadiseEconomy.hud then ParadiseEconomy.hud:setVisible(true) end
@@ -306,6 +314,7 @@ function ParadiseDev.ZoneHUD.SettingsPanel:onReset()
     self.zoneVisible.selected[1] = true
     self.hpVisible.selected[1] = true
     if self.economyVisible then self.economyVisible.selected[1] = true end
+    if self.economyHudSize then self.economyHudSize:setSelectedData("Clock") end
     if self.worldZoneVisuals then self.worldZoneVisuals.selected[1] = true end
 end
 
@@ -397,20 +406,34 @@ function ParadiseDev.ZoneHUD.SettingsPanel:createChildren()
         self.economyVisible:addOption("Show Money On Screen")
         self.economyVisible.selected[1] = settings.economyVisible
         self:addChild(self.economyVisible)
+        self.economyHudSizeLabel = ISLabel:new(12, 318, 20, "Money HUD size", 1, 1, 1, 1, UIFont.Small, true)
+        self.economyHudSizeLabel:initialise()
+        self.economyHudSizeLabel:instantiate()
+        self:addChild(self.economyHudSizeLabel)
+        self.economyHudSize = ISComboBox:new(125, 315, 150, 24, self, ParadiseDev.ZoneHUD.SettingsPanel.onEconomyHudSizeChanged)
+        self.economyHudSize:initialise()
+        self.economyHudSize:instantiate()
+        self.economyHudSize:addOptionWithData("Match Clock", "Clock")
+        self.economyHudSize:addOptionWithData("Small", "Small")
+        self.economyHudSize:addOptionWithData("Medium", "Medium")
+        self.economyHudSize:addOptionWithData("Large", "Large")
+        self.economyHudSize:addOptionWithData("Extra Large", "Extra Large")
+        self.economyHudSize:setSelectedData(settings.economyHudSize)
+        self:addChild(self.economyHudSize)
     end
     if ParadiseRestore.isAdm(self.player) then
-        self.worldZoneVisuals = ISTickBox:new(12, 315, self.width - 24, 22, "", self, ParadiseDev.ZoneHUD.SettingsPanel.onWorldZoneVisualsChanged)
+        self.worldZoneVisuals = ISTickBox:new(12, 345, self.width - 24, 22, "", self, ParadiseDev.ZoneHUD.SettingsPanel.onWorldZoneVisualsChanged)
         self.worldZoneVisuals:initialise()
         self.worldZoneVisuals:instantiate()
         self.worldZoneVisuals:addOption("Show World Zone Visuals")
         self.worldZoneVisuals.selected[1] = ParadiseDev.Zones.Visualization.isEnabledForPlayer(self.player)
         self:addChild(self.worldZoneVisuals)
     end
-    self.resetButton = ISButton:new(12, 350, 120, 26, "Reset", self, ParadiseDev.ZoneHUD.SettingsPanel.onReset)
+    self.resetButton = ISButton:new(12, 380, 120, 26, "Reset", self, ParadiseDev.ZoneHUD.SettingsPanel.onReset)
     self.resetButton:initialise()
     self.resetButton:instantiate()
     self:addChild(self.resetButton)
-    self.closeButton = ISButton:new(self.width - 132, 350, 120, 26, "Close", self, ParadiseDev.ZoneHUD.SettingsPanel.onClose)
+    self.closeButton = ISButton:new(self.width - 132, 380, 120, 26, "Close", self, ParadiseDev.ZoneHUD.SettingsPanel.onClose)
     self.closeButton:initialise()
     self.closeButton:instantiate()
     self:addChild(self.closeButton)

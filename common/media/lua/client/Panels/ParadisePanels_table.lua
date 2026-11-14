@@ -435,26 +435,15 @@ ParadisePanels.table = {
         end,
     },
     {
-        key = "traitSyncer",
+        key = "playerDataSyncer",
         isAdmOnly = true,
-        getModule = function() return ParadiseDev and ParadiseDev.TraitSyncer end,
-        getInstance = function() return ParadiseDev and ParadiseDev.TraitSyncer and ParadiseDev.TraitSyncer.window end,
-        setInstance = function(instance) ParadiseDev.TraitSyncer.window = instance end,
+        getModule = function() return ParadiseDev and ParadiseDev.PlayerDataSyncer end,
+        getInstance = function() return ParadiseDev and ParadiseDev.PlayerDataSyncer and ParadiseDev.PlayerDataSyncer.window end,
+        setInstance = function(instance) ParadiseDev.PlayerDataSyncer.window = instance end,
         create = function()
-            return initialise(ParadiseDev.TraitSyncer.Panel:new(220, 180, 700, 420))
+            return initialise(ParadiseDev.PlayerDataSyncer.Panel:new(220, 180, 700, 420))
         end,
-        onOpen = function() ParadiseDev.TraitSyncer.requestState() end,
-    },
-    {
-        key = "immortality",
-        isAdmOnly = true,
-        getModule = function() return ParadiseRestore and ParadiseRestore.Immortality end,
-        getInstance = function() return ParadiseRestore and ParadiseRestore.Immortality and ParadiseRestore.Immortality.window end,
-        setInstance = function(instance) ParadiseRestore.Immortality.window = instance end,
-        create = function()
-            return initialise(ParadiseRestore.Immortality.Panel:new(220, 180, 640, 420))
-        end,
-        onOpen = function() ParadiseRestore.Immortality.requestState() end,
+        onOpen = function() ParadiseDev.PlayerDataSyncer.requestState() end,
     },
     {
         key = "zedController",

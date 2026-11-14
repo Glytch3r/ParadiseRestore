@@ -172,10 +172,14 @@ if ParadiseRestore and ParadiseRestore.Brand and ParadiseRestore.Brand.addWatche
     ParadiseRestore.Brand.addWatcher(ParadiseEconomy.applyTheme)
 end
 
+local function tint(c)
+    return { r = c.r, g = c.g, b = c.b, a = c.a }
+end
+
 function ParadiseEconomy.styleWindow(window)
     local theme = ParadiseEconomy.Theme
-    window.backgroundColor = theme.windowBg
-    window.borderColor = theme.border
+    window.backgroundColor = tint(theme.windowBg)
+    window.borderColor = tint(theme.border)
     window.titleBarFont = UIFont.Medium
     window.titleFontHgt = getTextManager():getFontHeight(UIFont.Medium)
     if ParadiseRestore and ParadiseRestore.Brand and ParadiseRestore.Brand.skinWindow then
@@ -186,33 +190,33 @@ end
 function ParadiseEconomy.styleButton(button)
     local theme = ParadiseEconomy.Theme
     button.paradiseSkinSkip = true
-    button.backgroundColor = theme.buttonBg
-    button.backgroundColorMouseOver = theme.buttonHover
-    button.borderColor = theme.border
-    button.textColor = theme.text
+    button.backgroundColor = tint(theme.buttonBg)
+    button.backgroundColorMouseOver = tint(theme.buttonHover)
+    button.borderColor = tint(theme.border)
+    button.textColor = tint(theme.text)
     button.font = UIFont.Small
     button.displayBackground = true
 end
 
 function ParadiseEconomy.styleEntry(entry)
     local theme = ParadiseEconomy.Theme
-    entry.backgroundColor = theme.entryBg
-    entry.borderColor = theme.borderSoft
+    entry.backgroundColor = tint(theme.entryBg)
+    entry.borderColor = tint(theme.borderSoft)
 end
 
 function ParadiseEconomy.styleCombo(combo)
     local theme = ParadiseEconomy.Theme
-    combo.backgroundColor = theme.entryBg
-    combo.backgroundColorMouseOver = theme.buttonHover
-    combo.borderColor = theme.border
-    combo.textColor = theme.text
+    combo.backgroundColor = tint(theme.entryBg)
+    combo.backgroundColorMouseOver = tint(theme.buttonHover)
+    combo.borderColor = tint(theme.border)
+    combo.textColor = tint(theme.text)
 end
 
 function ParadiseEconomy.styleList(list)
     local theme = ParadiseEconomy.Theme
-    list.backgroundColor = theme.listBg
-    list.borderColor = theme.borderSoft
-    list.listHeaderColor = theme.headerBg
+    list.backgroundColor = tint(theme.listBg)
+    list.borderColor = tint(theme.borderSoft)
+    list.listHeaderColor = tint(theme.headerBg)
 end
 
 function ParadiseEconomy.styleTree(panel, seen)
@@ -230,8 +234,8 @@ function ParadiseEconomy.styleTree(panel, seen)
             ParadiseEconomy.styleList(child)
         elseif child.backgroundColor and child.borderColor and child.background then
             local theme = ParadiseEconomy.Theme
-            child.backgroundColor = theme.panelBg
-            child.borderColor = theme.borderSoft
+            child.backgroundColor = tint(theme.panelBg)
+            child.borderColor = tint(theme.borderSoft)
         end
         ParadiseEconomy.styleTree(child, seen)
     end
@@ -335,7 +339,7 @@ function ParadiseEconomy.styleTabButton(button, active)
     button.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
     button.backgroundColorMouseOver = { r = theme.accent.r, g = theme.accent.g, b = theme.accent.b, a = 0.10 }
     button.borderColor = { r = 0, g = 0, b = 0, a = 0 }
-    button.textColor = active and theme.text or theme.textMuted
+    button.textColor = tint(active and theme.text or theme.textMuted)
     button.font = UIFont.Small
 end
 
@@ -865,7 +869,7 @@ end
 
 function ParadiseEconomy.AccountBrowser:new(x, y, w, h)
     local obj = ISCollapsableWindow.new(self, x, y, w, h)
-    obj.title = "Account Browser"
+    obj.title = "Economy Accounts Browser"
     obj.resizable = true
     obj.minimumWidth = 560
     obj.minimumHeight = 380
@@ -908,10 +912,10 @@ function ParadiseEconomy.AccountBrowser:createChildren()
     self.accounts.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
     self.accounts.borderColor = { r = 0, g = 0, b = 0, a = 0 }
     local theme = ParadiseEconomy.Theme
-    self.openButton.backgroundColor = theme.accentDim
-    self.openButton.backgroundColorMouseOver = theme.accent
-    self.openButton.borderColor = theme.accent
-    self.openButton.textColor = theme.text
+    self.openButton.backgroundColor = tint(theme.accentDim)
+    self.openButton.backgroundColorMouseOver = tint(theme.accent)
+    self.openButton.borderColor = tint(theme.accent)
+    self.openButton.textColor = tint(theme.text)
     self:layout()
     self:refresh()
 end
@@ -1378,7 +1382,7 @@ ParadiseEconomy.Panel.operations = {
 
 function ParadiseEconomy.Panel:new(x, y, w, h)
     local obj = ISCollapsableWindow.new(self, x, y, w, h)
-    obj.title = "Personal Economy"
+    obj.title = "Finance"
     obj.resizable = true
     obj.minimumWidth = 840
     obj.minimumHeight = 600
@@ -1465,20 +1469,20 @@ end
 
 function ParadiseEconomy.Panel:applyCustomStyle()
     local theme = ParadiseEconomy.Theme
-    self.actionButton.backgroundColor = theme.gold
+    self.actionButton.backgroundColor = tint(theme.gold)
     self.actionButton.backgroundColorMouseOver = { r = 1.0, g = 0.88, b = 0.48, a = 1.0 }
     self.actionButton.textColor = { r = 0.06, g = 0.07, b = 0.09, a = 1.0 }
-    self.transferButton.backgroundColor = theme.accentDim
-    self.transferButton.backgroundColorMouseOver = theme.accent
-    self.transferButton.textColor = theme.text
-    self.walletButton.backgroundColor = theme.buttonBg
-    self.martButton.backgroundColor = theme.accentDim
-    self.martButton.backgroundColorMouseOver = theme.accent
+    self.transferButton.backgroundColor = tint(theme.accentDim)
+    self.transferButton.backgroundColorMouseOver = tint(theme.accent)
+    self.transferButton.textColor = tint(theme.text)
+    self.walletButton.backgroundColor = tint(theme.buttonBg)
+    self.martButton.backgroundColor = tint(theme.accentDim)
+    self.martButton.backgroundColorMouseOver = tint(theme.accent)
     self.ledgerButton.displayBackground = false
     self.ledgerButton.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
     self.ledgerButton.backgroundColorMouseOver = { r = 0, g = 0, b = 0, a = 0 }
     self.ledgerButton.borderColor = { r = 0, g = 0, b = 0, a = 0 }
-    self.ledgerButton.textColor = theme.accent
+    self.ledgerButton.textColor = tint(theme.accent)
     self.transactions.backgroundColor = { r = 0.045, g = 0.060, b = 0.078, a = 0.35 }
     self.transactions.borderColor = { r = 0, g = 0, b = 0, a = 0 }
 end
@@ -3257,8 +3261,8 @@ end
 function ParadiseEconomy.MartPanel:setMartDirectionState()
     local theme = ParadiseEconomy.Theme
     local buy = self.martDirection == "buy"
-    self.buyButton.backgroundColor = buy and theme.accentDim or theme.buttonBg
-    self.sellButton.backgroundColor = not buy and theme.accentDim or theme.buttonBg
+    self.buyButton.backgroundColor = tint(buy and theme.accentDim or theme.buttonBg)
+    self.sellButton.backgroundColor = tint(not buy and theme.accentDim or theme.buttonBg)
     self.martTradeButton:setTitle(buy and "Buy Selected" or "Sell Selected")
 end
 
@@ -3795,10 +3799,10 @@ function ParadiseEconomy.TradeManagementPanel:createChildren()
     ParadiseEconomy.styleWindow(self)
     ParadiseEconomy.styleTree(self)
     local adminButtonColor = ParadiseEconomy.Theme.gold
-    self.merchantOwnerButton.borderColor = adminButtonColor
-    self.merchantOwnerButton.textColor = adminButtonColor
-    self.postOwnerButton.borderColor = adminButtonColor
-    self.postOwnerButton.textColor = adminButtonColor
+    self.merchantOwnerButton.borderColor = tint(adminButtonColor)
+    self.merchantOwnerButton.textColor = tint(adminButtonColor)
+    self.postOwnerButton.borderColor = tint(adminButtonColor)
+    self.postOwnerButton.textColor = tint(adminButtonColor)
     self:refreshState()
     self:applyTab()
     self:layout()
@@ -4705,7 +4709,7 @@ function ParadiseEconomy.ListingPanel:createChildren()
     ParadiseEconomy.styleWindow(self)
     ParadiseEconomy.styleTree(self)
     local theme = ParadiseEconomy.Theme
-    self.postButton.backgroundColor = theme.gold
+    self.postButton.backgroundColor = tint(theme.gold)
     self.postButton.backgroundColorMouseOver = { r = 1.0, g = 0.86, b = 0.45, a = 1.0 }
     self.postButton.textColor = { r = 0.05, g = 0.06, b = 0.07, a = 1.0 }
 end
@@ -5224,20 +5228,20 @@ function ParadiseEconomy.AdminPanel:createChildren()
     self.accounts.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
     self.accounts.borderColor = { r = 0, g = 0, b = 0, a = 0 }
     local theme = ParadiseEconomy.Theme
-    self.createButton.borderColor = theme.gold
-    self.rerouteButton.borderColor = theme.gold
-    self.taxRouteButton.borderColor = theme.gold
-    self.accountTitleButton.borderColor = theme.gold
-    self.applyButton.backgroundColor = theme.gold
+    self.createButton.borderColor = tint(theme.gold)
+    self.rerouteButton.borderColor = tint(theme.gold)
+    self.taxRouteButton.borderColor = tint(theme.gold)
+    self.accountTitleButton.borderColor = tint(theme.gold)
+    self.applyButton.backgroundColor = tint(theme.gold)
     self.applyButton.backgroundColorMouseOver = { r = 0.99, g = 0.86, b = 0.45, a = 1 }
     self.applyButton.textColor = { r = 0.06, g = 0.07, b = 0.08, a = 1 }
-    self.applyButton.borderColor = theme.gold
-    self.createConfirmButton.borderColor = theme.accent
-    self.createConfirmButton.textColor = theme.text
-    self.purgeButton.borderColor = theme.danger
-    self.purgeButton.textColor = theme.danger
-    self.deleteButton.borderColor = theme.danger
-    self.deleteButton.textColor = theme.danger
+    self.applyButton.borderColor = tint(theme.gold)
+    self.createConfirmButton.borderColor = tint(theme.accent)
+    self.createConfirmButton.textColor = tint(theme.text)
+    self.purgeButton.borderColor = tint(theme.danger)
+    self.purgeButton.textColor = tint(theme.danger)
+    self.deleteButton.borderColor = tint(theme.danger)
+    self.deleteButton.textColor = tint(theme.danger)
     self.filterAllButton.displayBackground = false
     self.filterAllButton.backgroundColor = { r = 0, g = 0, b = 0, a = 0 }
     self.filterAllButton.backgroundColorMouseOver = { r = 0, g = 0, b = 0, a = 0 }
@@ -6508,8 +6512,8 @@ function ParadiseEconomy.MartAdminView:new(x, y, w, h, mart)
     obj.selectedListingId = nil
     obj.lastWidth = 0
     obj.lastHeight = 0
-    obj.backgroundColor = ParadiseEconomy.Theme.panelBg
-    obj.borderColor = ParadiseEconomy.Theme.borderSoft
+    obj.backgroundColor = tint(ParadiseEconomy.Theme.panelBg)
+    obj.borderColor = tint(ParadiseEconomy.Theme.borderSoft)
     return obj
 end
 
@@ -6720,14 +6724,14 @@ function ParadiseEconomy.MartAdminView:createChildren()
 
     ParadiseEconomy.styleTree(self)
     local theme = ParadiseEconomy.Theme
-    self.saveDetailsButton.backgroundColor = theme.gold
+    self.saveDetailsButton.backgroundColor = tint(theme.gold)
     self.saveDetailsButton.backgroundColorMouseOver = { r = 0.99, g = 0.86, b = 0.45, a = 1 }
     self.saveDetailsButton.textColor = { r = 0.06, g = 0.07, b = 0.08, a = 1 }
-    self.saveDetailsButton.borderColor = theme.gold
-    self.saveButton.backgroundColor = theme.gold
+    self.saveDetailsButton.borderColor = tint(theme.gold)
+    self.saveButton.backgroundColor = tint(theme.gold)
     self.saveButton.backgroundColorMouseOver = { r = 0.99, g = 0.86, b = 0.45, a = 1 }
     self.saveButton.textColor = { r = 0.06, g = 0.07, b = 0.08, a = 1 }
-    self.saveButton.borderColor = theme.gold
+    self.saveButton.borderColor = tint(theme.gold)
     self:refreshItems()
     self:refreshMarket()
     self:layout()
@@ -7490,6 +7494,27 @@ function ParadiseEconomy.MartAdminView:prerender()
 end
 
 ParadiseEconomy.hudFullWidth = 298
+ParadiseEconomy.hudSizes = { Small = 46, Medium = 64, Large = 92, ["Extra Large"] = 128 }
+
+function ParadiseEconomy.getHudScale()
+    local pl = getPlayer()
+    local settings = pl and ParadiseDev and ParadiseDev.ZoneHUD and ParadiseDev.ZoneHUD.getSettings and ParadiseDev.ZoneHUD.getSettings(pl) or nil
+    local size = settings and settings.economyHudSize or "Clock"
+    local height = ParadiseEconomy.hudSizes[size]
+    if not height then
+        local clock = UIManager.getClock and UIManager.getClock() or nil
+        height = clock and clock:getHeight() or 0
+    end
+    return math.max(1, height / 46)
+end
+
+function ParadiseEconomy.getHudFont(s)
+    local maxH = 19 * s
+    local tm = getTextManager()
+    if tm:getFontHeight(UIFont.Large) <= maxH then return UIFont.Large end
+    if tm:getFontHeight(UIFont.Medium) <= maxH then return UIFont.Medium end
+    return UIFont.Small
+end
 
 function ParadiseEconomy.HUD:new(x, y)
     local obj = ISPanel.new(self, x, y, ParadiseEconomy.hudFullWidth, 46)
@@ -7512,8 +7537,10 @@ function ParadiseEconomy.HUD:createChildren()
         local count = ParadiseMail and ParadiseMail.pendingCount or 0
         if count <= 0 then return end
         local t = (getTimestampMs and getTimestampMs() or 0) / 1000
-        local pulse = 0.5 + 0.5 * math.sin(t * 4.5)
-        button:drawRect(0, 0, button.width, 2, 0.7 + 0.3 * pulse, 0.9, 0.3, 0.15)
+        local pulse = 0.5 + 0.5 * math.sin(t * 1.5)
+        local col = ParadiseEconomy.Theme.gold
+        button:drawRectBorder(0, 0, button.width, button.height, 0.9, col.r, col.g, col.b)
+        button:drawRectBorder(1, 1, button.width - 2, button.height - 2, 0.2 + 0.6 * pulse, col.r, col.g, col.b)
         button:drawTextCentre(tostring(count), button.width / 2, button.height - 15, 1, 1, 1, 0.7 + 0.3 * pulse, UIFont.Small)
     end
     self:addChild(self.mailButton)
@@ -7521,6 +7548,7 @@ function ParadiseEconomy.HUD:createChildren()
     self.eyeButton:initialise()
     self.eyeButton:instantiate()
     self:addChild(self.eyeButton)
+    self:applyScale(ParadiseEconomy.getHudScale())
     self:applyCollapsed(ParadiseEconomy.hudCollapsed)
 end
 
@@ -7548,7 +7576,28 @@ function ParadiseEconomy.HUD:applyCollapsed(collapsed)
     end
 end
 
+function ParadiseEconomy.HUD:applyScale(s)
+    self.hudScale = s
+    self:setWidth(math.floor(ParadiseEconomy.hudFullWidth * s))
+    self:setHeight(math.floor(46 * s))
+    if self.mailButton then
+        self.mailButton:setWidth(math.floor(26 * s))
+        self.mailButton:setHeight(math.floor(21 * s))
+        self.mailButton.forcedWidthImage = math.floor(21 * s)
+        self.mailButton.forcedHeightImage = math.floor(21 * s)
+    end
+    if self.eyeButton then
+        self.eyeButton:setY(math.floor(24 * s))
+        self.eyeButton:setWidth(math.floor(26 * s))
+        self.eyeButton:setHeight(math.floor(21 * s))
+        self.eyeButton.forcedWidthImage = math.floor(16 * s)
+        self.eyeButton.forcedHeightImage = math.floor(16 * s)
+    end
+end
+
 function ParadiseEconomy.HUD:prerender()
+    local s = ParadiseEconomy.getHudScale()
+    if s ~= self.hudScale then self:applyScale(s) end
     local clock = UIManager.getClock and UIManager.getClock() or nil
     local x, y = ParadiseEconomy.getHUDPosition(
         getCore():getScreenWidth(),
@@ -7564,12 +7613,13 @@ function ParadiseEconomy.HUD:prerender()
     local onhand = ParadiseEconomy.getStatePersonal().onhand
     local theme = ParadiseEconomy.Theme
     local hidden = ParadiseEconomy.hudCollapsed
-    self:drawTextureScaled(ParadiseEconomy.icons.jimoleon, 33, 4, 18, 18, 1)
-    self:drawText("Jimoleons: " .. (hidden and "[HIDDEN]" or ParadiseEconomy.getBalance(onhand, "jimoleon")), 56, 5,
-        theme.gold.r, theme.gold.g, theme.gold.b, 1, UIFont.Small)
-    self:drawTextureScaled(ParadiseEconomy.icons.paradisium, 33, 23, 18, 18, 1)
-    self:drawText("Paradisium: " .. (hidden and "[HIDDEN]" or ParadiseEconomy.getBalance(onhand, "paradisium")), 56, 24,
-        theme.accent.r, theme.accent.g, theme.accent.b, 1, UIFont.Small)
+    local font = ParadiseEconomy.getHudFont(s)
+    self:drawTextureScaled(ParadiseEconomy.icons.jimoleon, 33 * s, 4 * s, 18 * s, 18 * s, 1)
+    self:drawText("Jimoleons: " .. (hidden and "[HIDDEN]" or ParadiseEconomy.getBalance(onhand, "jimoleon")), 56 * s, 5 * s,
+        theme.gold.r, theme.gold.g, theme.gold.b, 1, font)
+    self:drawTextureScaled(ParadiseEconomy.icons.paradisium, 33 * s, 23 * s, 18 * s, 18 * s, 1)
+    self:drawText("Paradisium: " .. (hidden and "[HIDDEN]" or ParadiseEconomy.getBalance(onhand, "paradisium")), 56 * s, 24 * s,
+        theme.accent.r, theme.accent.g, theme.accent.b, 1, font)
 end
 
 function ParadiseEconomy.createHUD()
@@ -7650,8 +7700,8 @@ function ParadiseEconomy.LedgerPanel:createChildren()
     self.nextButton:initialise()
     self:addChild(self.nextButton)
     ParadiseEconomy.styleTree(self)
-    self.purgeButton.borderColor = ParadiseEconomy.Theme.danger
-    self.purgeButton.textColor = ParadiseEconomy.Theme.danger
+    self.purgeButton.borderColor = tint(ParadiseEconomy.Theme.danger)
+    self.purgeButton.textColor = tint(ParadiseEconomy.Theme.danger)
     self:layout()
 end
 

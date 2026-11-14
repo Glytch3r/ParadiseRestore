@@ -354,7 +354,7 @@ if ParadiseDev.Context.clearPanelState.highlightEnabled == nil then
 end
 
 function ParadiseDev.Context.ClearPanel:new(pl)
-    local width, height = 360, 595
+    local width, height = 660, 595
     local panel =
         ISCollapsableWindow:new(
         (getCore():getScreenWidth() - width) / 2,
@@ -429,6 +429,23 @@ function ParadiseDev.Context.ClearPanel:createChildren()
     close:initialise()
     close:instantiate()
     self:addChild(close)
+    local actionTitle = ISLabel:new(336, 42, 20, "Quick actions:", 1, 1, 1, 1, UIFont.Medium, true)
+    actionTitle:initialise()
+    actionTitle:instantiate()
+    self:addChild(actionTitle)
+    for index, entry in ipairs(ParadiseDev.Context.clearActions) do
+        local btn = ISButton:new(336, 72 + (index - 1) * 30, 300, 26, entry.label, self, ParadiseDev.Context.ClearPanel.onAction)
+        btn:initialise()
+        btn:instantiate()
+        btn.act = entry.act
+        self:addChild(btn)
+    end
+end
+
+function ParadiseDev.Context.ClearPanel:onAction(button)
+    if button.act then
+        button.act(self.player or getPlayer())
+    end
 end
 
 function ParadiseDev.Context.ClearPanel:onToggle(index, selected)
@@ -520,6 +537,20 @@ ParadiseDev.Context.clearOptions = {
     {label = "Container Items", name = "containerItems"}
 }
 
+ParadiseDev.Context.clearActions = {
+    {label = "Clear Vehicle", act = function(pl) ParadiseZ.DespawnCar(pl) end},
+    {label = "Clean Character", act = function(pl) ParadiseZ.washChar(pl) end},
+    {label = "Clear Map Record", act = function(pl) ParadiseZ.ClearMap(pl) end},
+    {label = "Clear WorldMapVisited", act = function(pl) ParadiseDev.Context.resetMapVisited(pl) end},
+    {label = "Clear Weather", act = function(pl) ParadiseZ.clearWeather(pl) end},
+    {label = "Clear Fog", act = function(pl) ParadiseZ.clearFog(pl) end},
+    {label = "Clear Worn Items", act = function(pl) ParadiseZ.ClearWornItems(pl) end},
+    {label = "Clear Player Inventory", act = function(pl) ParadiseDev.Context.clearPlayerInventory(pl) end},
+    {label = "Clear Traits", act = function(pl) ParadiseZ.ClearTraits(pl) end},
+    {label = "Clear Perks", act = function(pl) ParadiseZ.ClearPerks(pl) end},
+    {label = "Clear Learned", act = function(pl) ParadiseZ.ClearLearned(pl) end},
+}
+
 function ParadiseDev.Context.context(plNum, context, worldobjects)
     local pl = getSpecificPlayer(plNum)
     if not pl or not pl:isAlive() or not ParadiseRestore.isAdm(pl) then
@@ -586,11 +617,11 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
             "media/ui/Paradise/ZoneContextIcon.png"
         )
     end
-    if ParadiseDev.TraitSyncer and ParadiseDev.TraitSyncer.OpenPanel then
+    if ParadiseDev.PlayerDataSyncer and ParadiseDev.PlayerDataSyncer.OpenPanel then
         ParadiseDev.Context.addOption(
             panelsMenu,
-            "ParadiseZ Trait Syncer",
-            ParadiseDev.TraitSyncer.OpenPanel,
+            "ParadiseZ Player Data Syncer",
+            ParadiseDev.PlayerDataSyncer.OpenPanel,
             "media/ui/Paradise/ContextIcon.png"
         )
     end

@@ -18,7 +18,7 @@ N.carryBodies=N.carryBodies or setmetatable({}, {__mode="k"})
 N.OUTFIT_MARKER="ParadiseLifeProfileStartingOutfit"
 N.outfitBodies=N.outfitBodies or setmetatable({}, {__mode="k"})
 -- Native ResourceLocation IDs are lowercase; saved assignment keys retain
--- their existing spelling in TraitSyncer's account store.
+-- their existing spelling in PlayerDataSyncer's account store.
 local managed = { ["paradisedev:caged"]="ParadiseDev:Caged", ["paradisedev:therangestaff"]="ParadiseDev:TheRangeStaff",
     ["paradisedev:injuredpvp"]="ParadiseDev:InjuredPvP" }
 
@@ -382,7 +382,7 @@ local function managedStates(pl)
     local current={}
     for _,id in ipairs(traitIds(pl)) do current[id]=true end
     local user=tostring(pl:getUsername())
-    local syncer=ParadiseDev.TraitSyncer
+    local syncer=ParadiseDev.PlayerDataSyncer
     local record,_,ambiguous
     if syncer and syncer.getStoredRecord then record,_,ambiguous=syncer.getStoredRecord(user) end
     if ambiguous then error("Conflicting authoritative trait assignments") end
@@ -574,7 +574,7 @@ function N.apply(pl,snapshot)
         end
         -- Injury belongs to the dead body. Clear its existing administrator
         -- record too, so later status lists cannot replay a stale injury.
-        local syncer=ParadiseDev.TraitSyncer
+        local syncer=ParadiseDev.PlayerDataSyncer
         if syncer and syncer.getStoredRecord then
             local record=syncer.getStoredRecord(tostring(pl:getUsername()))
             if record and record["ParadiseDev:InjuredPvP"]~=false then
