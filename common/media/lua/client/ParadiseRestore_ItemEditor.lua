@@ -35,9 +35,9 @@ function ItemEditor.collectAttribute(data, elem)
     local attr = elem.attribute
     local kind = elem.attributeType:getValueType()
     if AttributeValueType.IsNumeric(kind) then
-        data.attributes[#data.attributes + 1] = { id = elem.attributeType:id(), k = "n", v = attr:getValueFloat() }
+        data.attributes[#data.attributes + 1] = { id = elem.attributeType:id(), k = "n", v = attr:getFloatValue() }
     elseif kind == AttributeValueType.String then
-        data.attributes[#data.attributes + 1] = { id = elem.attributeType:id(), k = "s", v = attr:getValueString() }
+        data.attributes[#data.attributes + 1] = { id = elem.attributeType:id(), k = "s", v = attr:getValue() }
     elseif kind == AttributeValueType.Boolean then
         data.attributes[#data.attributes + 1] = { id = elem.attributeType:id(), k = "b", v = attr:getValue() }
     end
@@ -88,7 +88,56 @@ function ItemEditor.send(data)
     sendClientCommand(pl, ItemEditor.module, ItemEditor.command, data)
 end
 
+function ItemEditor.shimAttr(key, attr)
+    return setmetatable({
+        getValueFloat = function() return attr:getFloatValue() end,
+        getValueString = function() return attr:getValue() end,
+        setValueFloat = function(_, val) return attr:setValue(val) end,
+        getIsReadOnly = function() return attr:isReadOnly() end,
+        hasBounds = function() return key.hasBounds and key:hasBounds() or false end,
+        getMin = function() return key:getMin() end,
+        getMax = function() return key:getMax() end,
+    }, { __index = function(_, name)
+        local func = attr[name]
+        if type(func) == "function" then
+            return function(_, ...) return func(attr, ...) end
+        end
+        return func
+    end })
+end
+
+function ItemEditor.shimAttrType(key)
+    return setmetatable({
+        getTooltipName = function() return key:getNameUI() end,
+    }, { __index = function(_, name)
+        local func = key[name]
+        if type(func) == "function" then
+            return function(_, ...) return func(key, ...) end
+        end
+        return func
+    end })
+end
+
+function ItemEditor.patchVanilla()
+    local sand = SandboxVars and SandboxVars.ParadiseZ
+    if sand and sand.ApplyItemEditorPatch == false then return end
+    local class = ISItemEditPanel
+    if type(class) ~= "table" or type(class.registerAttributeNumber) ~= "function" then return end
+    if ItemEditor.registerAttributeNumber == class.registerAttributeNumber then return end
+    local names = { "registerAttributeNumber", "registerAttributeString", "registerAttributeBool" }
+    for i = 1, #names do
+        local name = names[i]
+        local orig = class[name]
+        ItemEditor["orig_" .. name] = orig
+        ItemEditor[name] = function(self, key, attr)
+            return orig(self, ItemEditor.shimAttrType(key), ItemEditor.shimAttr(key, attr))
+        end
+        class[name] = ItemEditor[name]
+    end
+end
+
 function ItemEditor.install()
+    ItemEditor.patchVanilla()
     local class = ISItemEditPanel
     if type(class) ~= "table" or type(class.saveAll) ~= "function" then return end
     if ItemEditor.saveAll == class.saveAll then return end

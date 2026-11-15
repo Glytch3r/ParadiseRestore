@@ -1018,3 +1018,9 @@ option SquadManager.TargetTagDuration
 	type = integer, min = 1, max = 120, default = 8,
 	page = SquadManager, translation = SquadManager_TargetTagDuration,
 }
+
+option ParadiseZ.ApplyItemEditorPatch
+{
+	type = boolean, default = true,
+	page = ParadiseZ, translation = ParadiseZ_ApplyItemEditorPatch,
+}

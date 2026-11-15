@@ -223,7 +223,7 @@ function ItemEditorServer.applyAttributes(item, attrs)
                             pcall(attr.setValue, attr, data.v == true)
                         else
                             local val = tonumber(data.v)
-                            if val then pcall(attr.setValueFloat, attr, val) end
+                            if val then pcall(attr.setValue, attr, val) end
                         end
                         break
                     end
