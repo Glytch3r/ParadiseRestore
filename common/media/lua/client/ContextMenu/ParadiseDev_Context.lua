@@ -30,6 +30,23 @@ function ParadiseDev.Context.addOption(menu, label, callback, icon, pl)
     return option
 end
 
+function ParadiseDev.Context.findDiscoSquare(worldobjects)
+    if not worldobjects or not DiscoballRemover or not DiscoballRemover.hasDisco then
+        return nil
+    end
+    local sq
+    for i = 0, worldobjects:size() - 1 do
+        local obj = worldobjects:get(i)
+        if obj and obj.getSquare then
+            sq = obj:getSquare()
+            if sq then break end
+        end
+    end
+    if not sq then return nil end
+    if DiscoballRemover.hasDisco(sq) then return sq end
+    return nil
+end
+
 function ParadiseDev.Context.seeDrunkHandler()
     if not ParadiseZ.seeDrunk then
         return
@@ -293,7 +310,11 @@ function ParadiseDev.Context.clearUniversal(pl, radius, selected)
                             ParadiseDev.Context.clearContainer(obj:getContainer())
                         end
                         if remove then
-                            sq:transmitRemoveItemFromSquare(obj)
+                            if DiscoballRemover and (DiscoballRemover.isBall(obj) or DiscoballRemover.isHelper(obj)) then
+                                DiscoballRemover.removeObject(sq, obj)
+                            else
+                                sq:transmitRemoveItemFromSquare(obj)
+                            end
                         end
                     end
                 end
@@ -549,6 +570,7 @@ ParadiseDev.Context.clearActions = {
     {label = "Clear Traits", act = function(pl) ParadiseZ.ClearTraits(pl) end},
     {label = "Clear Perks", act = function(pl) ParadiseZ.ClearPerks(pl) end},
     {label = "Clear Learned", act = function(pl) ParadiseZ.ClearLearned(pl) end},
+    {label = "Remove Disco Ball (cursor)", act = function(pl) DiscoballRemover.start(pl) end},
 }
 
 function ParadiseDev.Context.context(plNum, context, worldobjects)
@@ -561,6 +583,19 @@ function ParadiseDev.Context.context(plNum, context, worldobjects)
     main.iconTexture = getTexture("media/ui/Paradise/ContextIcon.png")
     local menu = ISContextMenu:getNew(context)
     context:addSubMenu(main, menu)
+
+    local discoSq = ParadiseDev.Context.findDiscoSquare(worldobjects)
+    if discoSq then
+        local dx, dy, dz = discoSq:getX(), discoSq:getY(), discoSq:getZ()
+        local discoOpt = context:addOptionOnTop(
+            "Remove Disco Ball",
+            function() DiscoballRemover.clean(dx, dy, dz) end,
+            ParadiseDev.Context.runOption,
+            context,
+            pl
+        )
+        if discoOpt then discoOpt.iconTexture = getTexture("media/ui/Paradise/ContextIcon.png") end
+    end
 
     if ParadiseDev.Zones and ParadiseDev.Zones.Visualization then
         local zoneVisuals = menu:addOption(
