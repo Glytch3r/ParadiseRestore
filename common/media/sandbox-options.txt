@@ -8,7 +8,7 @@ option ParadiseZ.mp5SkinChanger
 
 option ParadiseZ.Themes
 {
-	type = string, default = pegasus:Pegasus:heaven:@pegasus;cerberus:Cerberus:hell:@cerberus;kraken:Kraken:between:@kraken;minotaur:Minotaur:between:@minotaur;mananangal:Mananangal:hell:@mananangal;styx:Styx:between:@styx,
+	type = string, default = pegasus:Pegasus:heaven:@pegasus;cerberus:Cerberus:hell:@cerberus;kraken:Kraken:between:@kraken;minotaur:Minotaur:between:@minotaur;mananangal:Mananangal:hell:@mananangal;styx:Styx:between:@styx;valkyrie:Valkyrie:heaven:@valkyrie;fenrir:Fenrir:hell:@fenrir;anansi:Anansi:between:@anansi;basilisk:Basilisk:hell:@basilisk;tengu:Tengu:between:@tengu,
 	page = ParadiseZ, translation = ParadiseZ_Themes,
 }
 
